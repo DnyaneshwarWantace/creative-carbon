@@ -48,4 +48,6 @@ corepack yarn mercato entities install --tenant <tenantId>
 corepack yarn mercato dermat_products seed --tenant <tenantId> --org <organizationId>
 ```
 
+Product fields are also managed by the client from the product form ("Customize fields" panel: hide/show, reuse a field from another type, create Text / Number / list fields — list options go to Dropdown Options). Re-running `entities install` resets the fields declared in `dermat_products/ce.ts` to their coded types, which undoes any "add to another type" the client did for those keys — run it only when you add or change a field in `ce.ts`, and re-apply client changes afterwards. Client-created fields are not touched.
+
 After enabling or disabling a core module, rebuild core (`cd packages/core && corepack yarn build`) so its compiled entity ids match.

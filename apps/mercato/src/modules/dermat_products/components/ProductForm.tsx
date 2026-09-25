@@ -10,7 +10,6 @@ import { Button } from '@open-mercato/ui/primitives/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@open-mercato/ui/primitives/card'
 import { Input } from '@open-mercato/ui/primitives/input'
 import { Label } from '@open-mercato/ui/primitives/label'
-import { Checkbox } from '@open-mercato/ui/primitives/checkbox'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@open-mercato/ui/primitives/select'
 import { apiCall, withScopedApiRequestHeaders } from '@open-mercato/ui/backend/utils/apiCall'
 import { createCrud, deleteCrud, updateCrud } from '@open-mercato/ui/backend/utils/crud'
@@ -20,6 +19,8 @@ import { flash } from '@open-mercato/ui/backend/FlashMessages'
 import { ErrorMessage, LoadingMessage } from '@open-mercato/ui/backend/detail'
 import { PRODUCT_KINDS, type ProductKind } from '../lib/kinds'
 import { KIND_CONFIG, unitsForKind, type KindConfig } from '../lib/kindConfig'
+import { fieldsForKind, isNumericField, loadProductFieldDefs, type ProductFieldDef } from '../lib/fieldDefs'
+import { FieldsPanel, type PanelField } from './FieldsPanel'
 
 type Row = Record<string, unknown>
 type ListResponse<T> = { items?: T[] }
@@ -46,6 +47,8 @@ type Loaded = {
   units: TaxOption[]
   productTypes: TaxOption[]
   hiddenFields: string[]
+  defs: ProductFieldDef[]
+  listOptions: Record<string, TaxOption[]>
   profileId: string | null
   updatedAt: string | null
 }
@@ -89,9 +92,29 @@ function numberOrNull(value: string): number | null {
   return Number.isFinite(parsed) ? parsed : null
 }
 
+async function loadListOptions(defs: ProductFieldDef[]): Promise<Record<string, TaxOption[]>> {
+  const result: Record<string, TaxOption[]> = {}
+  await Promise.all(
+    defs.map(async (def) => {
+      if (def.dictionaryId) {
+        const call = await apiCall<{ items?: Array<{ value: string; label?: string | null }> }>(
+          `/api/dictionaries/${def.dictionaryId}/entries?limit=500`,
+          undefined,
+          { fallback: { items: [] } },
+        )
+        result[def.key] = (call.result?.items ?? []).map((entry) => ({ value: entry.value, label: entry.label || entry.value }))
+      } else if (def.options.length) {
+        result[def.key] = def.options.map((value) => ({ value, label: value }))
+      }
+    }),
+  )
+  return result
+}
+
 async function load(config: KindConfig, productId?: string): Promise<Loaded> {
   const kindLabel = PRODUCT_KINDS.find((entry) => entry.code === config.kind)?.label ?? ''
-  const [tree, taxes, unitCall, typeCall, settingsCall, productCall, profileCall] = await Promise.all([
+  const [defs, tree, taxes, unitCall, typeCall, settingsCall, productCall, profileCall] = await Promise.all([
+    loadProductFieldDefs(),
     apiCall<ListResponse<{ id: string; name: string }>>('/api/catalog/categories?view=tree', undefined, { fallback: { items: [] } }),
     apiCall<ListResponse<Row>>('/api/sales/tax-rates?pageSize=100', undefined, { fallback: { items: [] } }),
     apiCall<{ entries?: Array<{ value: string; label: string }> }>('/api/catalog/dictionaries/unit', undefined, {
@@ -116,8 +139,10 @@ async function load(config: KindConfig, productId?: string): Promise<Loaded> {
   const product = productCall?.result?.items?.[0]
   if (productId && (!productCall?.ok || !product)) throw new Error('not-found')
   const profile = profileCall?.result?.items?.[0]
+  const kindDefs = fieldsForKind(defs, config.kind, config.fields.map((field) => field.key))
   const details: Record<string, string> = {}
-  for (const field of config.fields) details[field.key] = text(read(product, `cf_${field.key}`))
+  for (const def of kindDefs) details[def.key] = text(read(product, `cf_${def.key}`))
+  const listOptions = await loadListOptions(kindDefs)
   return {
     state: {
       title: text(read(product, 'title')),
@@ -136,6 +161,8 @@ async function load(config: KindConfig, productId?: string): Promise<Loaded> {
     taxRates,
     productTypes: (typeCall.result?.entries ?? []).map((entry) => ({ value: entry.value, label: entry.label })),
     hiddenFields: settingsCall.result?.hiddenFields?.[config.kind] ?? [],
+    defs,
+    listOptions,
     units: unitsForKind(config, (unitCall.result?.entries ?? []).map((entry) => ({ value: entry.value, label: entry.label }))),
     profileId: profile ? text(read(profile, 'id')) : null,
     updatedAt: text(read(product, 'updated_at', 'updatedAt')) || null,
@@ -165,17 +192,27 @@ export function ProductForm({ kind, productId }: { kind: ProductKind; productId?
   const [state, setState] = React.useState<FormState | null>(null)
   const [loadError, setLoadError] = React.useState<string | null>(null)
   const [saving, setSaving] = React.useState(false)
-  const [customizing, setCustomizing] = React.useState(false)
+  const [panelOpen, setPanelOpen] = React.useState(false)
   const [hidden, setHidden] = React.useState<Set<string>>(new Set())
+  const [defs, setDefs] = React.useState<ProductFieldDef[]>([])
+  const [listOptions, setListOptions] = React.useState<Record<string, TaxOption[]>>({})
 
   React.useEffect(() => {
-    if (loaded) setHidden(new Set(loaded.hiddenFields))
+    if (!loaded) return
+    setHidden(new Set(loaded.hiddenFields))
+    setDefs(loaded.defs)
+    setListOptions(loaded.listOptions)
   }, [loaded])
 
-  const hideableFields = React.useMemo(
+  const kindDefs = React.useMemo(
+    () => fieldsForKind(defs, kind, config.fields.map((field) => field.key)),
+    [defs, kind, config],
+  )
+
+  const panelFields = React.useMemo<PanelField[]>(
     () => [
-      ...(config.codeRequired ? [] : [{ key: 'item_code', label: config.codeLabel }]),
-      ...config.fields.map((field) => ({ key: field.key, label: field.label })),
+      { key: 'item_code', label: config.codeLabel, locked: config.codeRequired },
+      ...kindDefs.map((def) => ({ key: def.key, label: def.label })),
       { key: 'product_type', label: t('dermat_products.form.productType', 'Product Type') },
       { key: 'batch_method', label: t('dermat_products.form.batchMethod', 'Batch Consumption Method') },
       { key: 'min_stock', label: t('dermat_products.form.minStockPlain', 'Minimum Stock') },
@@ -184,31 +221,15 @@ export function ProductForm({ kind, productId }: { kind: ProductKind; productId?
       { key: 'selling_price', label: t('dermat_products.form.sellingPrice', 'Selling Price (₹)') },
       { key: 'cost_price', label: t('dermat_products.form.costPrice', 'Cost Price (₹)') },
     ],
-    [config, t],
+    [config, kindDefs, t],
   )
 
   const isVisible = (key: string) => !hidden.has(key) || (key === 'item_code' && config.codeRequired)
 
-  const toggleHidden = (key: string, hide: boolean) =>
-    setHidden((prev) => {
-      const next = new Set(prev)
-      if (hide) next.add(key)
-      else next.delete(key)
-      return next
-    })
-
-  const saveHiddenFields = async () => {
-    try {
-      await runMutation({
-        context: { kind, setting: 'hiddenFields' },
-        mutationPayload: { kind, hiddenFields: Array.from(hidden) },
-        operation: () => updateCrud('dermat_products/field-settings', { kind, hiddenFields: Array.from(hidden) }),
-      })
-      flash(t('dermat_products.flash.fieldsSaved', 'Field settings saved'), 'success')
-      setCustomizing(false)
-    } catch {
-      flash(t('dermat_products.flash.fieldsFailed', 'Could not save field settings.'), 'error')
-    }
+  const reloadDefinitions = async () => {
+    const nextDefs = await loadProductFieldDefs()
+    setDefs(nextDefs)
+    setListOptions(await loadListOptions(fieldsForKind(nextDefs, kind, config.fields.map((field) => field.key))))
   }
   const [nameError, setNameError] = React.useState<string | null>(null)
   const [codeError, setCodeError] = React.useState<string | null>(null)
@@ -255,9 +276,9 @@ export function ProductForm({ kind, productId }: { kind: ProductKind; productId?
       cf_selling_price: numberOrNull(state.sellingPrice),
       cf_cost_price: numberOrNull(state.costPrice),
     }
-    for (const field of config.fields) {
-      const value = state.details[field.key] ?? ''
-      custom[`cf_${field.key}`] = field.numeric ? numberOrNull(value) : value.trim() || null
+    for (const def of kindDefs) {
+      const value = state.details[def.key] ?? ''
+      custom[`cf_${def.key}`] = isNumericField(def) ? numberOrNull(value) : value.trim() || null
     }
     const productPayload = {
       title,
@@ -376,7 +397,7 @@ export function ProductForm({ kind, productId }: { kind: ProductKind; productId?
               <p className="ml-11 text-xs text-muted-foreground">{config.hint}</p>
             </div>
             <div className="flex items-center gap-2">
-              <Button type="button" variant="ghost" onClick={() => setCustomizing((open) => !open)}>
+              <Button type="button" variant="ghost" onClick={() => setPanelOpen(true)}>
                 <Settings2 className="mr-2 h-4 w-4" />
                 {t('dermat_products.form.customize', 'Customize fields')}
               </Button>
@@ -467,7 +488,7 @@ export function ProductForm({ kind, productId }: { kind: ProductKind; productId?
                 </CardContent>
               </Card>
 
-              {config.fields.some((field) => isVisible(field.key)) ? (
+              {kindDefs.some((def) => isVisible(def.key)) ? (
                 <Card>
                   <CardHeader className="border-b bg-muted/20 pb-3">
                     <CardTitle className="flex items-center gap-2 text-sm font-bold">
@@ -476,20 +497,40 @@ export function ProductForm({ kind, productId }: { kind: ProductKind; productId?
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="grid grid-cols-1 gap-4 pt-4 sm:grid-cols-2">
-                    {config.fields
-                      .filter((field) => isVisible(field.key))
-                      .map((field) => (
-                        <div key={field.key} className={field.wide ? 'sm:col-span-2' : undefined}>
-                          <Field label={field.label}>
-                            <Input
-                              value={state.details[field.key] ?? ''}
-                              onChange={(event) => updateDetail(field.key, event.target.value)}
-                              placeholder={field.placeholder}
-                              inputMode={field.numeric ? 'decimal' : undefined}
-                            />
-                          </Field>
-                        </div>
-                      ))}
+                    {kindDefs
+                      .filter((def) => isVisible(def.key))
+                      .map((def) => {
+                        const hint = config.fields.find((field) => field.key === def.key)
+                        const options = listOptions[def.key]
+                        const value = state.details[def.key] ?? ''
+                        return (
+                          <div key={def.key} className={hint?.wide ? 'sm:col-span-2' : undefined}>
+                            <Field label={def.label}>
+                              {options ? (
+                                <Select value={value} onValueChange={(next) => updateDetail(def.key, next)}>
+                                  <SelectTrigger>
+                                    <SelectValue placeholder={t('dermat_products.form.select', 'Select')} />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {options.map((option) => (
+                                      <SelectItem key={option.value} value={option.value}>
+                                        {option.label}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              ) : (
+                                <Input
+                                  value={value}
+                                  onChange={(event) => updateDetail(def.key, event.target.value)}
+                                  placeholder={hint?.placeholder}
+                                  inputMode={isNumericField(def) ? 'decimal' : undefined}
+                                />
+                              )}
+                            </Field>
+                          </div>
+                        )
+                      })}
                   </CardContent>
                 </Card>
               ) : null}
@@ -617,41 +658,19 @@ export function ProductForm({ kind, productId }: { kind: ProductKind; productId?
                 </Card>
               ) : null}
 
-              {customizing ? (
-                <Card>
-                  <CardHeader className="border-b bg-muted/20 pb-3">
-                    <CardTitle className="flex items-center gap-2 text-sm font-bold">
-                      <Settings2 className="h-4 w-4 text-primary" />
-                      {t('dermat_products.form.customizeTitle', 'Fields shown for {kind}', { kind: config.title })}
-                    </CardTitle>
-                    <CardDescription className="text-xs">
-                      {t('dermat_products.form.customizeHint', 'Untick a field you never fill. It is hidden for everyone and can be shown again here.')}
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-2 pt-4">
-                    {hideableFields.map((field) => (
-                      <label key={field.key} className="flex items-center gap-2 text-sm">
-                        <Checkbox
-                          checked={!hidden.has(field.key)}
-                          onCheckedChange={(checked) => toggleHidden(field.key, checked !== true)}
-                        />
-                        {field.label}
-                      </label>
-                    ))}
-                    <div className="flex justify-end gap-2 pt-2">
-                      <Button type="button" variant="outline" size="sm" onClick={() => setCustomizing(false)}>
-                        {t('common.cancel', 'Cancel')}
-                      </Button>
-                      <Button type="button" size="sm" onClick={saveHiddenFields}>
-                        {t('dermat_products.form.saveFields', 'Save fields')}
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              ) : null}
             </div>
           </div>
         </form>
+        <FieldsPanel
+          open={panelOpen}
+          onOpenChange={setPanelOpen}
+          kind={kind}
+          fields={panelFields}
+          defs={defs}
+          hidden={hidden}
+          onHiddenSaved={setHidden}
+          onDefinitionsChanged={reloadDefinitions}
+        />
       </PageBody>
     </Page>
   )
