@@ -24,6 +24,12 @@ function slugify(value: string): string {
     .replace(/^-+|-+$/g, '')
 }
 
+const GENERIC_UNIT_CODES = new Set([
+  'box', 'cl', 'cm', 'cm2', 'day', 'dozen', 'ft', 'ft2', 'gb', 'hour', 'in', 'km', 'kwh', 'lb', 'license',
+  'm', 'm2', 'm3', 'mb', 'mg', 'min', 'month', 'oz', 'pair', 'pkg', 'qtl', 'roll', 'seat', 'sec', 'set',
+  'tb', 'ton', 'unit', 'week', 'year',
+])
+
 export async function seedDermatUnits(em: EntityManager, scope: DermatSeedScope) {
   let dictionary = await em.findOne(Dictionary, { ...scope, key: 'unit', deletedAt: null })
   if (!dictionary) {
@@ -46,7 +52,7 @@ export async function seedDermatUnits(em: EntityManager, scope: DermatSeedScope)
   for (const entry of existing) {
     const unit = wanted.get(entry.normalizedValue)
     if (!unit) {
-      em.remove(entry)
+      if (GENERIC_UNIT_CODES.has(entry.normalizedValue)) em.remove(entry)
       continue
     }
     entry.label = `${unit.label} (${unit.uqc})`

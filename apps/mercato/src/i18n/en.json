@@ -286,6 +286,7 @@
   "dermat_customers.create.title": "Create Customer",
   "dermat_customers.nav.customer": "Customer",
   "dermat_products.nav.categories": "Product Categories",
+  "dermat_products.nav.dropdowns": "Dropdown Options",
   "dermat_products.nav.edit": "Edit",
   "dermat_products.nav.new": "New",
   "dermat_products.nav.newProduct": "New product",

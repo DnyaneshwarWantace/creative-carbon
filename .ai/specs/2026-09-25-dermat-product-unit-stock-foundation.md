@@ -106,6 +106,17 @@ Auto-created printed PM for an FG (step 4, BOM), GRN/QC (step 3), BOM (step 4), 
 - Packing master code list (prefix per PM type) — confirm CP-/BR-/BS-/PS-/DR- and the rest.
 - Whether FG MRP and pack size stay per product or per order line.
 
+## Revision 2026-09-25 (client feedback)
+
+The client rejected the Procuzy-style unit table and long forms. Current design:
+
+- One unit per product, chosen from the `unit` dropdown list (kg, g, l, ml, nos, pc). No conversion table, no purchase unit, no FIFO/FEFO or batch settings on the form (defaults: FIFO, batch tracking on).
+- Dropdown lists are managed in Masters → Dropdown Options (core dictionaries).
+- Fields per type follow the client's Excel sheets only: RM = Name, Code, INCI, Make/Brand, Supplier, Benefit, Alternative; PM = Name, Code, Capacity, Cap colour, Body colour, Supplier, Make/Brand; Bulk = Name, Code, R&D No.; FG = Name, Code, Brand, Pack size, MRP; R&D = Name, Code, R&D No., Brand. Every type also has Unit, Minimum stock, GST and HSN.
+- One Products page with a tab per type; "Add" opens that type's form with the type preset. Layout takes its style from the earlier Dermat create page (type strip, numbered cards).
+- The "Fields per kind" and "Unit set / templates" tables above are superseded by this revision.
+
 ## Changelog
 
 - 2026-09-25: Spec created after cleanup of the previous Dermat modules.
+- 2026-09-25: Simplified per client feedback (see Revision section).

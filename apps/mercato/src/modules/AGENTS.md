@@ -1,0 +1,51 @@
+# Dermat India ERP — Rules for Agents
+
+This app is **Dermat India's ERP** (cosmetics contract manufacturer) built on Open Mercato. Read this before touching any module. It overrides generic Open Mercato habits.
+
+## Always
+
+- Build every Dermat screen, API and seed inside a `dermat_*` module in this folder. Open Mercato core (`packages/core`, `packages/ui`) is the framework, not the product.
+- Reuse core **data and APIs** (catalog products, units, `wms` stock, sales documents, customers) instead of inventing new tables. Build the **screens** yourself in the Dermat module.
+- Trace every field to a client source: their Excel sheets, their paper order form, the Procuzy screenshots in `Downloads/Wantace-projects/dermat-reference-images/`, or the meeting transcripts. Write the source in the spec. No invented fields.
+- Keep forms short and per item type: an RM user sees RM fields only. Prefer plain text boxes; use a dropdown only when the value must come from a list. Name things the way Dermat staff do (Stock, Batches, Stores, Raw Materials — never "WMS", "zone", "variant").
+- Read the current rebuild spec first: `.ai/specs/2026-09-25-dermat-product-unit-stock-foundation.md`.
+
+## Never
+
+- Never edit, extend or "customise" an Open Mercato core screen for Dermat (for example `packages/core/src/modules/catalog/backend/catalog/products/create/page.tsx`). The previous build did this and it had to be deleted. Replace the route instead (see below).
+- Never assume a core screen you find in `packages/core` is what the client uses. Check the route table below.
+- Never add a second product, stock or unit table. There is exactly one product master (catalog products) and one stock system (`wms`).
+- Never leave a core page reachable just by hiding it from the sidebar. Replace it or remove the route (`null`) in `apps/mercato/src/modules.ts`.
+- Never bring back the deleted modules (`dermat_rm_master`, `dermat_pm_master`, `dermat_bom`, `dermat_purchase_orders`, `dermat_qc`, `dermat_sampling`, `dermat_production`, `dermat_sales_flow`, `dermat_workflow`, core `manufacturing`, core `purchasing`). The last state before the cleanup is on branch `snapshot/pre-cleanup-2026-09-25` for reference only.
+
+## Route table: what the client actually sees
+
+| Area | Client-facing screen | Module | Core screen status |
+|---|---|---|---|
+| Products (RM, PM, Bulk, FG, R&D) | `/backend/products` (tabs), `/backend/products/new/<type>`, `/backend/products/<id>` | `dermat_products` | `/backend/catalog/products*` removed; `/backend/catalog/products/[id]` loads the Dermat edit page |
+| Product categories | `/backend/catalog/categories` (from "Manage categories" on Products) | core catalog | kept, not in sidebar |
+| Customers | `/backend/customers/companies` (relabelled "Customer", Sales group) | core customers + `dermat_customers` fields | people, deals, pipelines removed |
+| Stock | Store → Stock, Batches, Stock Ledger; Planning → Reservations; Masters → Stores | core `wms` (relabelled) | warehouses, zones, WMS config removed |
+| Departments, Vendors | Masters / Purchase | `dermat_departments`, `dermat_vendors` | — |
+| Orders, BOM, Planning, Purchase, QC, Production | not rebuilt yet | — | build as new `dermat_*` modules following the rebuild steps in the spec |
+
+Every route override lives in `apps/mercato/src/modules.ts` under the `dermat_customers` entry. Add new ones there.
+
+## Data model decisions (do not re-decide)
+
+- **Product** = `catalog_products` row. Type = top-level category (Raw Material, Packing Material, Bulk, Finished Goods, R&D), stored in `custom_fieldset_code` (`raw_material`, `packing_material`, `bulk`, `finished_goods`, `rnd`). Type-specific fields are custom fields with that fieldset (`dermat_products/ce.ts`).
+- **Codes**: `sku` is auto-generated. The client's own code (AP-070, EP-181, FC-005, CP-001…) is custom field `item_code` and is never generated.
+- **Units**: one unit per product (`default_unit`), picked from the `unit` dropdown list. No unit-conversion table — the client rejected it as too complex. Each type offers only its units (RM/Bulk/R&D: kg, g, l, ml; PM/FG: nos, pc) — see `dermat_products/lib/kindConfig.ts`.
+- **Dropdowns**: every dropdown list lives in Masters → Dropdown Options (core dictionaries) so the client edits them without a developer. Add new lists there, never hardcode option arrays in a form.
+- **Stock**: `wms` — one warehouse "Dermat India", stores `RM-STORE`, `PM-STORE`, `PRODUCTION`, `FG-STORE`. Min floor qty = inventory profile `reorder_point`. Pending QC = lot status `quarantine`.
+- **Tax**: GST rates `gst-0/5/12/18/28` (18% default).
+
+## Seeding an existing tenant
+
+```bash
+cd apps/mercato
+corepack yarn mercato entities install --tenant <tenantId>
+corepack yarn mercato dermat_products seed --tenant <tenantId> --org <organizationId>
+```
+
+After enabling or disabling a core module, rebuild core (`cd packages/core && corepack yarn build`) so its compiled entity ids match.
