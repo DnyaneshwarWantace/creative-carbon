@@ -133,7 +133,7 @@ function BomChip({ bom, productId }: { bom: BomRef | undefined; productId: strin
   )
 }
 
-export function OrderForm({ orderId, copyFrom }: { orderId?: string; copyFrom?: string }) {
+export function OrderForm({ orderId, copyFrom, customerId }: { orderId?: string; copyFrom?: string; customerId?: string }) {
   const t = useT()
   const router = useRouter()
   const { runMutation } = useGuardedMutation({ contextId: `dermat-order-${orderId ?? 'new'}` })
@@ -198,6 +198,24 @@ export function OrderForm({ orderId, copyFrom }: { orderId?: string; copyFrom?: 
       cancelled = true
     }
   }, [orderId, copyFrom, t])
+
+  React.useEffect(() => {
+    if (!customerId || orderId || copyFrom) return
+    let cancelled = false
+    loadCustomer(customerId).then((value) => {
+      if (cancelled || !value) return
+      setCustomer(value)
+      setHeader((prev) => ({
+        ...prev,
+        salesManager: prev.salesManager || value.salesManager || '',
+        paymentTerms: value.paymentTerms || prev.paymentTerms,
+        paymentRemarks: value.paymentRemarks || prev.paymentRemarks,
+      }))
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [customerId, orderId, copyFrom])
 
   React.useEffect(() => {
     if (!customer || orderId) {

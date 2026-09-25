@@ -22,13 +22,13 @@ This app is **Dermat India's ERP** (cosmetics contract manufacturer) built on Op
 
 | Area | Client-facing screen | Module | Core screen status |
 |---|---|---|---|
-| Products (RM, PM, Bulk, FG, R&D) | `/backend/products` (tabs), `/backend/products/new/<type>`, `/backend/products/<id>` | `dermat_products` | `/backend/catalog/products*` removed; `/backend/catalog/products/[id]` loads the Dermat edit page |
+| Products (RM, PM, Bulk, FG, R&D) | `/backend/products` (tabs), `/backend/products/new/<type>`, `/backend/products/<id>` (detail: stock by store/batch, movements, BOM, where used, orders, customers), `/backend/products/<id>/edit` | `dermat_products` | `/backend/catalog/products*` removed; `/backend/catalog/products/[id]` loads the Dermat detail page |
 | Product categories | `/backend/catalog/categories` (from "Manage categories" on Products) | core catalog | kept, not in sidebar |
-| Customers | `/backend/customers/companies` (relabelled "Customer", Sales group) | core customers + `dermat_customers` fields | people, deals, pipelines removed |
+| Customers | `/backend/customers/companies` (relabelled "Customer", Sales group); `/backend/customers/companies/<id>` replaced by the Dermat customer page (orders with stages, products, details edit sheet) | core customers + `dermat_customers` (fields, `components/CustomerDetail.tsx`) | people, deals, pipelines removed |
 | Stock | Store → Stock, Batches, Stock Ledger; Planning → Reservations; Masters → Stores | core `wms` (relabelled) | warehouses, zones, WMS config removed |
 | Departments, Vendors | Masters / Purchase | `dermat_departments`, `dermat_vendors` | — |
 | BOM (bulk formulas in RM %, FG pack BOMs per piece) | R&D → BOM `/backend/boms`, `/backend/boms/new?productId=`, `/backend/boms/<id>`; "BOM" button on Bulk/R&D/FG product pages | `dermat_boms` (spec `.ai/specs/2026-09-25-dermat-boms.md`) | — (old `dermat_boms`/`dermat_bom_lines` tables are dead demo data) |
-| Orders (one-page order + 11 stages, stage work pages per department) | Sales → Orders `/backend/orders`, `/backend/orders/new` (`?copyFrom=` repeat), `/backend/orders/<id>`; department groups → `/backend/work/<stage>` | `dermat_orders` (spec `.ai/specs/2026-09-25-dermat-orders.md`) | core sales documents not used |
+| Orders (one-page order + 11 stages, stage work pages per department) | Sales → Orders `/backend/orders`, `/backend/orders/new` (`?copyFrom=` repeat, `?customerId=`), `/backend/orders/<id>`, `/backend/orders/<id>/stages/<stage>` (stage detail page); department groups → `/backend/work/<stage>` | `dermat_orders` (spec `.ai/specs/2026-09-25-dermat-orders.md`) | core sales documents not used |
 | Planning reservations, Purchase / GRN, inward QC, production batches | not rebuilt yet — plug into the order stages (planning, manufacturing…) | — | build as new `dermat_*` modules |
 
 Every route override lives in `apps/mercato/src/modules.ts` under the `dermat_customers` entry. Add new ones there.

@@ -288,6 +288,7 @@
   "dermat_boms.nav.new": "New BOM",
   "dermat_customers.create.title": "Create Customer",
   "dermat_customers.nav.customer": "Customer",
+  "dermat_customers.nav.details": "Details",
   "dermat_orders.nav.edit": "Edit order",
   "dermat_orders.nav.new": "New order",
   "dermat_orders.nav.order": "Order",

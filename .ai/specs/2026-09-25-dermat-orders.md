@@ -72,3 +72,4 @@ Morning email digest, department work queues, order-specific BOM copy, planning 
 
 The 10 demo customers created before 2026-09-23 were encrypted with an older key; their names cannot be decrypted. Order screens fall back to the readable Legal / Trade Name. Re-saving their names (or re-creating them) fixes the Customer page.
 - 2026-09-25: Merge point moved to Manufacturing (Planning belongs to the formula arm, per the blueprint). Test 40/40.
+- 2026-09-26: Order stage detail page (`/backend/orders/<id>/stages/<stage>`) sharing the stage form with the side panel; customer detail page replaces the core company page; product detail page per type; BOM page shows where used and orders.

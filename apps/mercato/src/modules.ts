@@ -157,6 +157,20 @@ export const enabledModules: ModuleEntry[] = [
               ],
             },
           },
+          '/backend/customers/companies/[id]': {
+            load: () => import('./modules/dermat_customers/components/CustomerDetail').then((mod) => mod.default),
+            metadata: {
+              pageTitle: 'Customer',
+              pageTitleKey: 'dermat_customers.nav.customer',
+              pageGroup: 'Sales',
+              pageGroupKey: 'dermat-01-sales.nav.group',
+              navHidden: true,
+              breadcrumb: [
+                { label: 'Customer', labelKey: 'dermat_customers.nav.customer', href: '/backend/customers/companies' },
+                { label: 'Details', labelKey: 'dermat_customers.nav.details' },
+              ],
+            },
+          },
           '/backend/sales/quotes': null,
           '/backend/config/system-status': null,
           '/backend/config/cache': null,

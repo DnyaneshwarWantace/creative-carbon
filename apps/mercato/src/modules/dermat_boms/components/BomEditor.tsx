@@ -47,6 +47,7 @@ import {
 } from '../lib/bomKinds'
 import { MaterialPicker, formatQty } from './MaterialPicker'
 import { BomTree } from './BomTree'
+import { BomLinks } from './BomLinks'
 import { FillPlan } from './FillPlan'
 import { openPrintSheet } from './printSheet'
 import type { BomView, ComponentOption } from './types'
@@ -1053,6 +1054,7 @@ export function BomEditor({ bomId, productId }: { bomId?: string; productId?: st
               </Card>
             </>
           )}
+          {state.bom ? <BomLinks productId={state.product.id} productKind={state.product.kind} /> : null}
         </div>
       </PageBody>
     </Page>
