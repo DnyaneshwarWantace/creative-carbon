@@ -85,7 +85,6 @@ const dermatSidebarGroupOrder = [
   'dermat-08-qc.nav.group',
   'dermat-09-qa.nav.group',
   'dermat-10-dispatch.nav.group',
-  'catalog.nav.group',
   'dermat-11-masters.nav.group',
 ]
 
@@ -103,8 +102,10 @@ export const enabledModules: ModuleEntry[] = [
   { id: 'catalog', from: '@open-mercato/core' },
   { id: 'sales', from: '@open-mercato/core' },
   // payment_gateways: disabled for Dermat (no online card payments).
-  // wms: disabled for now per request — re-add the entry above to bring
-  // Inventory/Warehouses/Zones/Locations/Lots/Movements/Reservations back.
+  // Stock for every Dermat item kind: lots, balances, reservations, movement ledger.
+  { id: 'wms', from: '@open-mercato/core' },
+  // Required by wms (integration toggles); its admin pages are removed below.
+  { id: 'feature_toggles', from: '@open-mercato/core' },
   { id: 'api_keys', from: '@open-mercato/core' },
   { id: 'dictionaries', from: '@open-mercato/core' },
   { id: 'search', from: '@open-mercato/search' },
@@ -181,9 +182,44 @@ export const enabledModules: ModuleEntry[] = [
           '/backend/exchange-rates/create': null,
           '/backend/exchange-rates/[id]': null,
           '/backend/config/currency-fetching': null,
-          '/backend/catalog/categories': null,
-          '/backend/catalog/categories/create': null,
-          '/backend/catalog/products/create': { metadata: { navHidden: true } },
+          '/backend/wms/inventory': {
+            metadata: { pageTitle: 'Stock', pageTitleKey: 'dermat_store.nav.stock', pageGroup: 'Store', pageGroupKey: 'dermat-06-store.nav.group', pageOrder: 10 },
+          },
+          '/backend/wms/lots': {
+            metadata: { pageTitle: 'Batches', pageTitleKey: 'dermat_store.nav.batches', pageGroup: 'Store', pageGroupKey: 'dermat-06-store.nav.group', pageOrder: 20 },
+          },
+          '/backend/wms/movements': {
+            metadata: { pageTitle: 'Stock Ledger', pageTitleKey: 'dermat_store.nav.ledger', pageGroup: 'Store', pageGroupKey: 'dermat-06-store.nav.group', pageOrder: 30 },
+          },
+          '/backend/wms/reservations': {
+            metadata: { pageTitle: 'Reservations', pageTitleKey: 'dermat_store.nav.reservations', pageGroup: 'Planning', pageGroupKey: 'dermat-04-planning.nav.group', pageOrder: 30 },
+          },
+          '/backend/wms/locations': {
+            metadata: { pageTitle: 'Stores', pageTitleKey: 'dermat_store.nav.stores', pageGroup: 'Masters', pageGroupKey: 'dermat-11-masters.nav.group', pageOrder: 40 },
+          },
+          '/backend/wms/warehouses': null,
+          '/backend/wms/zones': null,
+          '/backend/config/wms': null,
+          '/backend/catalog/categories': {
+            metadata: {
+              pageTitle: 'Product Categories',
+              pageTitleKey: 'dermat_products.nav.categories',
+              navHidden: true,
+              breadcrumb: [
+                { label: 'Products', labelKey: 'dermat_products.nav.products', href: '/backend/products' },
+                { label: 'Categories', labelKey: 'dermat_products.nav.categories' },
+              ],
+            },
+          },
+          '/backend/catalog/categories/create': { metadata: { navHidden: true } },
+          '/backend/catalog/products': null,
+          '/backend/catalog/products/create': null,
+          '/backend/catalog/products/[id]': {
+            load: () => import('./modules/dermat_products/backend/products/[id]/page').then((mod) => mod.default),
+            metadata: { navHidden: true },
+          },
+          '/backend/catalog/products/[productId]/variants/create': null,
+          '/backend/catalog/products/[productId]/variants/[variantId]': null,
           '/backend/entities/user': { metadata: { navHidden: true } },
           '/backend/config/settings': { metadata: { navHidden: true } },
           '/backend/config/dictionaries': { metadata: { navHidden: true } },
@@ -192,6 +228,7 @@ export const enabledModules: ModuleEntry[] = [
       },
     },
   },
+  { id: 'dermat_products', from: '@app' },
   { id: 'dermat_vendors', from: '@app' },
   { id: 'ratelimit_probe', from: '@app' },
 ]

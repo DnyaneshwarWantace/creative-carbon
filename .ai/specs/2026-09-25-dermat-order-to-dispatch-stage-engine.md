@@ -1,3 +1,5 @@
+> **Superseded (2026-09-25):** the `dermat_workflow` module this spec describes was deleted in the cleanup on branch `dermat-rebuild`. The stage-engine design will be re-specified in rebuild step 5. Product/unit/stock parts are replaced by `2026-09-25-dermat-product-unit-stock-foundation.md`.
+
 # Dermat India — Order-to-Dispatch Stage Engine
 
 Status: Draft · Owner: Wantace · Date: 2026-09-25
