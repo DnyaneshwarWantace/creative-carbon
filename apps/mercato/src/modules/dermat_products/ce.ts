@@ -29,6 +29,7 @@ const systemEntities: CustomEntitySpec[] = [
       cf.currency('mrp', { label: 'MRP', fieldset: 'finished_goods' }),
 
       cf.text('rd_number', { label: 'R&D No.', fieldsets: ['bulk', 'rnd'] }),
+      cf.float('specific_gravity', { label: 'Specific Gravity (g/ml)', fieldsets: ['bulk', 'rnd', 'raw_material'] }),
     ],
   },
 ]

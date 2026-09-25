@@ -49,6 +49,7 @@ export const KIND_CONFIG: Record<ProductKind, KindConfig> = {
       { key: 'supplier', label: 'Supplier', placeholder: 'e.g. Kumar Organics' },
       { key: 'benefit', label: 'Benefit', placeholder: 'e.g. Brightening' },
       { key: 'alternative', label: 'Alternative', placeholder: 'Alternative material, if any' },
+      { key: 'specific_gravity', label: 'Specific Gravity (g/ml)', placeholder: 'Only for liquids kept in l / ml, e.g. 1.26', numeric: true },
     ],
     columns: [
       { key: 'inci_name', label: 'INCI Name' },
@@ -99,7 +100,10 @@ export const KIND_CONFIG: Record<ProductKind, KindConfig> = {
     defaultUnit: 'kg',
     units: ['kg', 'g', 'l', 'ml'],
     detailsTitle: 'Bulk Details',
-    fields: [{ key: 'rd_number', label: 'R&D No.', placeholder: 'e.g. RD-003' }],
+    fields: [
+      { key: 'rd_number', label: 'R&D No.', placeholder: 'e.g. RD-003' },
+      { key: 'specific_gravity', label: 'Specific Gravity (g/ml)', placeholder: 'e.g. 1.02 — used to turn ml into kg', numeric: true },
+    ],
     columns: [{ key: 'rd_number', label: 'R&D No.' }],
   },
   finished_goods: {
@@ -144,6 +148,7 @@ export const KIND_CONFIG: Record<ProductKind, KindConfig> = {
     fields: [
       { key: 'rd_number', label: 'R&D No.', placeholder: 'e.g. RD-003' },
       { key: 'brand_name', label: 'Brand Name', placeholder: 'e.g. Orange Skin' },
+      { key: 'specific_gravity', label: 'Specific Gravity (g/ml)', placeholder: 'e.g. 1.02 — used to turn ml into kg', numeric: true },
     ],
     columns: [
       { key: 'rd_number', label: 'R&D No.' },

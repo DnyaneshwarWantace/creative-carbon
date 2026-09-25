@@ -1,12 +1,19 @@
 import { z } from 'zod'
+import { FILL_UNITS } from '../lib/bomKinds'
 
 const decimal = z.coerce.number().finite()
 
-export const bomItemInputSchema = z.object({
-  componentProductId: z.string().uuid(),
-  value: decimal.positive().max(1_000_000),
-  remark: z.string().trim().max(500).optional().nullable(),
-})
+export const bomItemInputSchema = z
+  .object({
+    componentProductId: z.string().uuid(),
+    value: decimal.positive().max(1_000_000).optional(),
+    fillQty: decimal.positive().max(1_000_000).optional().nullable(),
+    fillUnit: z.enum(FILL_UNITS).optional().nullable(),
+    remark: z.string().trim().max(500).optional().nullable(),
+  })
+  .refine((item) => item.value != null || (item.fillQty != null && item.fillUnit != null), {
+    message: 'Enter a quantity or a fill size',
+  })
 
 export const bomCreateSchema = z.object({
   productId: z.string().uuid(),

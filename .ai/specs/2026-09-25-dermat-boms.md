@@ -16,11 +16,20 @@ The BOM is edited as one document (header + all lines, saved together), Draft �
 - Procuzy BOM screenshot: header "Quantity: 100 KGS"; columns Code, Material, RM %, Qty, On hand, Availability.
 - Old Dermat BOM screen (branch `snapshot/pre-cleanup-2026-09-25`): layout inspiration only — header strip with code/version/status, summary tiles, inline entry table, tree view, print sheet. Wastage, Qty/Unit + RM % double entry, UOM picker per line and the Demand tab are dropped.
 
+## Quantity rules (from the meetings)
+
+- Formula is % w/w of a batch in kg ("100 kg batch: 70 kg this, 10 kg this, 1 kg this" — Dermat India 3, 12:10). Line qty = RM % × batch ÷ 100, converted into the material's own unit (kg↔g, l↔ml; kg↔l uses the material's specific gravity).
+- Orders come in pieces but the BOM is in kg ("Our BOM is put in kg. If we put the quantity in numbers, how will it reflect?" — Standard recording, 41:03). A pack BOM bulk line stores the **fill size per piece** (30 ml, 25 g); kg per piece = fill × specific gravity for ml/l (bulk field `specific_gravity`, default 1.00). Pre-filled from the FG `pack_size` text.
+- One recipe scales to any pack size (42:46), and one bulk batch is split across pack sizes (43:02–43:53): the **Fill plan** on the bulk formula shows kg needed per pack size, used vs batch, left over, and max pieces from what is left.
+- Procuzy makes every BOM as a 100 Kgs formula on the Bulk product with the pack size only in the name; pieces→kg was done by hand in Excel.
+
 ## Data model
 
 `dermat_bom_headers`: id, organization_id, tenant_id, code (auto `BOM-00001`, per org), product_id (catalog product, FK by id), product_kind snapshot, version int, status (`draft` | `approved` | `superseded`), batch_size numeric, batch_unit text, notes, created_by_name, approved_by_name, approved_at, created_at, updated_at, deleted_at.
 
-`dermat_bom_items`: id, organization_id, tenant_id, bom_id, position, component_product_id, component_kind snapshot, percent numeric (formula lines), qty_per_unit numeric (pack lines), unit snapshot, remark, created_at, updated_at.
+`dermat_bom_items`: id, organization_id, tenant_id, bom_id, position, component_product_id, component_kind snapshot, percent numeric (formula lines), qty_per_unit numeric (pack lines, in the component's unit), fill_qty + fill_unit (pack bulk lines: fill size per piece), unit snapshot, remark, created_at, updated_at.
+
+Product field `specific_gravity` (g/ml) on Bulk, R&D and Raw Material.
 
 Old tables `dermat_boms` / `dermat_bom_lines` hold demo data from the deleted module and are not used.
 
@@ -32,7 +41,8 @@ Old tables `dermat_boms` / `dermat_bom_lines` hold demo data from the deleted mo
 - `DELETE boms?id=` — Drafts only.
 - `POST boms/approve` `{ id }` (feature `dermat_boms.approve`) and `POST boms/new-version` `{ id }` (feature `dermat_boms.manage`).
 - `GET tree?bomId=&quantity=` — multi-level explosion (FG → Bulk → RM) using each Bulk's current BOM (approved, else draft), with a flat list of total needs, on hand and shortage. Loops are flagged and not expanded.
-- `GET components?kinds=&search=` — material search by name or partial code, with on-hand.
+- `GET components?kinds=&search=` — material search by name or partial code, with on-hand, specific gravity and pack size.
+- `GET usage?productId=` — Finished Goods whose pack BOM uses this bulk, with fill size and kg per piece (fill plan).
 - Mutation guard `dermat_boms.product-in-use` (`data/guards.ts`): deleting a catalog product that owns or is used in a draft/approved BOM returns 409 with the BOM names.
 
 Features: `dermat_boms.view`, `dermat_boms.manage`, `dermat_boms.approve`.
@@ -51,7 +61,7 @@ Order-specific BOM copy and edits, planning explosion (FG → Bulk → RM), rese
 
 ## Status
 
-Implemented 2026-09-25. Verified through the API (31/31, incl. tree 1000 pcs → 30 kg bulk → RM by %, totals, shortage, scaling, and delete protection): search by partial code and name, create, one-draft rule, % totals and batch quantities, approve blocked below 100 %, stale edit refused (409), duplicate / self / wrong-type lines refused, approved locked, new version + supersede, pack BOM per piece, list filters, delete draft. UI not yet clicked through in a browser.
+Implemented 2026-09-25. Maths unit checks 20/20 (ml×SG→kg, g, l, formula into g/ml/l, pack-size parsing). Verified through the API (33/33, incl. 30 ml × SG 1.02 → 0.0306 kg/pc, 1000 pcs → 30.6 kg → RM 21.42 / 1.53 kg, RM kept in g, fill-plan source, incl. tree 1000 pcs → 30 kg bulk → RM by %, totals, shortage, scaling, and delete protection): search by partial code and name, create, one-draft rule, % totals and batch quantities, approve blocked below 100 %, stale edit refused (409), duplicate / self / wrong-type lines refused, approved locked, new version + supersede, pack BOM per piece, list filters, delete draft. UI not yet clicked through in a browser.
 
 Not done yet: order-specific BOM copies (with the order page).
 
@@ -60,3 +70,4 @@ Not done yet: order-specific BOM copies (with the order page).
 - 2026-09-25: Spec created.
 - 2026-09-25: Implemented API, screens, product-page link.
 - 2026-09-25: Tree & needs view, print/PDF sheet, product-in-use delete guard; custom routes moved to runRouteMutationGuards.
+- 2026-09-25: Fill size + specific gravity for pieces → kg, unit-aware formula quantities, fill plan, costing roll-up in the explosion engine (API only), print sheet in the old sectioned style.

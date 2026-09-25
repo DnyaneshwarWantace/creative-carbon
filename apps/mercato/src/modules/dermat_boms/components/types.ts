@@ -8,6 +8,7 @@ export type ComponentOption = {
   kind: string
   unit: string | null
   onHand: number
+  specificGravity?: number | null
 }
 
 export type BomItemView = {
@@ -24,6 +25,9 @@ export type BomItemView = {
   onHand: number
   available: number
   remark: string | null
+  fillQty: number | null
+  fillUnit: string | null
+  specificGravity: number | null
 }
 
 export type BomView = {
@@ -31,7 +35,16 @@ export type BomView = {
   code: string
   kind: BomKind
   productId: string
-  product: { id: string; title: string; kind: string | null; unit: string | null; sku: string | null; code: string | null } | null
+  product: {
+    id: string
+    title: string
+    kind: string | null
+    unit: string | null
+    sku: string | null
+    code: string | null
+    packSize: string | null
+    specificGravity: number | null
+  } | null
   version: number
   status: 'draft' | 'approved' | 'superseded'
   batchSize: number

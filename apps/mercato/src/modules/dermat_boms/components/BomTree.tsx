@@ -24,6 +24,7 @@ type TreeNode = {
   bom: { id: string; code: string; version: number; status: string } | null
   children: TreeNode[]
   cycle?: boolean
+  fill: { qty: number; unit: string; specificGravity: number | null } | null
 }
 
 type Requirement = {
@@ -45,8 +46,12 @@ function KindChip({ kind }: { kind: string | null }) {
   return <span className="rounded border bg-muted/40 px-1.5 py-0.5 text-xs font-semibold">{KIND_LABEL[kind ?? ''] ?? kind ?? '—'}</span>
 }
 
-function perParentLabel(parentKind: string | null, value: number | null, unit: string | null): string {
+function perParentLabel(parentKind: string | null, value: number | null, unit: string | null, fill: TreeNode['fill']): string {
   if (value == null) return ''
+  if (fill) {
+    const sg = fill.unit === 'ml' || fill.unit === 'l' ? ` · SG ${formatQty(fill.specificGravity && fill.specificGravity > 0 ? fill.specificGravity : 1, 3)}` : ''
+    return `${formatQty(fill.qty, 3)} ${fill.unit} = ${formatQty(value, 5)} ${unit ?? ''} / pc${sg}`
+  }
   if (parentKind === 'finished_goods') return `${formatQty(value, 5)} ${unit ?? ''} / pc`
   return `${formatQty(value, 4)} %`
 }
@@ -103,7 +108,7 @@ function NodeRow({ node, depth, parentKind, collapsed, toggle }: {
             ) : null}
           </div>
         </td>
-        <td className="py-2 pr-3 text-right font-mono text-xs text-muted-foreground">{perParentLabel(parentKind, node.perParent, node.unit)}</td>
+        <td className="py-2 pr-3 text-right font-mono text-xs text-muted-foreground">{perParentLabel(parentKind, node.perParent, node.unit, node.fill)}</td>
         <td className="py-2 pr-3 text-right font-mono">
           {formatQty(node.quantity)} <span className="text-xs text-muted-foreground">{node.unit ?? ''}</span>
         </td>
@@ -188,7 +193,7 @@ export function BomTree({ bomId, defaultQuantity, unit, dirty }: { bomId: string
                 <thead className="text-xs uppercase tracking-wide text-muted-foreground">
                   <tr>
                     <th className="pb-2 text-left">{t('dermat_boms.tree.material', 'Material')}</th>
-                    <th className="w-36 pb-2 pr-3 text-right">{t('dermat_boms.tree.per', 'In parent')}</th>
+                    <th className="w-56 pb-2 pr-3 text-right">{t('dermat_boms.tree.per', 'In parent')}</th>
                     <th className="w-36 pb-2 pr-3 text-right">{t('dermat_boms.tree.need', 'Needed')}</th>
                     <th className="w-32 pb-2 text-right">{t('dermat_boms.tree.onHand', 'On hand')}</th>
                   </tr>

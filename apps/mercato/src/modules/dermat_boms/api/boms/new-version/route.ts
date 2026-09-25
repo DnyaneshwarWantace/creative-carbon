@@ -65,6 +65,8 @@ async function POST(req: Request) {
               componentKind: item.componentKind,
               percent: item.percent ?? null,
               qtyPerUnit: item.qtyPerUnit ?? null,
+              fillQty: item.fillQty ?? null,
+              fillUnit: item.fillUnit ?? null,
               unit: item.unit,
               remark: item.remark ?? null,
             }),

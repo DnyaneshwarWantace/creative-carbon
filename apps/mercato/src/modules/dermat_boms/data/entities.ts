@@ -66,7 +66,7 @@ export class BomHeader {
 @Index({ name: 'dermat_bom_items_bom_idx', properties: ['bomId'] })
 @Index({ name: 'dermat_bom_items_component_idx', properties: ['componentProductId'] })
 export class BomItem {
-  [OptionalProps]?: 'percent' | 'qtyPerUnit' | 'remark' | 'createdAt' | 'updatedAt'
+  [OptionalProps]?: 'percent' | 'qtyPerUnit' | 'fillQty' | 'fillUnit' | 'remark' | 'createdAt' | 'updatedAt'
 
   @PrimaryKey({ type: 'uuid', defaultRaw: 'gen_random_uuid()' })
   id!: string
@@ -94,6 +94,12 @@ export class BomItem {
 
   @Property({ name: 'qty_per_unit', type: 'numeric', precision: 14, scale: 5, nullable: true })
   qtyPerUnit?: string | null
+
+  @Property({ name: 'fill_qty', type: 'numeric', precision: 12, scale: 3, nullable: true })
+  fillQty?: string | null
+
+  @Property({ name: 'fill_unit', type: 'text', nullable: true })
+  fillUnit?: string | null
 
   @Property({ type: 'text' })
   unit!: string

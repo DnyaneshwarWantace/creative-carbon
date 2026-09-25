@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { z } from 'zod'
 import type { OpenApiRouteDoc } from '@open-mercato/shared/lib/openapi'
 import { PRODUCT_KINDS, type ProductKind } from '../../../dermat_products/lib/kinds'
-import { loadStock, resolveBomContext } from '../../lib/server'
+import { loadProducts, loadStock, resolveBomContext } from '../../lib/server'
 
 export const metadata = {
   GET: { requireAuth: true, requireFeatures: ['dermat_boms.view'] },
@@ -27,6 +27,8 @@ const itemSchema = z.object({
   kind: z.string(),
   unit: z.string().nullable(),
   onHand: z.number(),
+  specificGravity: z.number().nullable(),
+  packSize: z.string().nullable(),
 })
 
 async function GET(req: Request) {
@@ -62,12 +64,15 @@ async function GET(req: Request) {
       limit ?`,
     [...params, ...rankParams, limit],
   )
-  const stock = await loadStock(
-    ctx,
-    rows.map((row) => row.id),
-  )
+  const ids = rows.map((row) => row.id)
+  const [stock, details] = await Promise.all([loadStock(ctx, ids), loadProducts(ctx, ids)])
   return NextResponse.json({
-    items: rows.map((row) => ({ ...row, onHand: stock.get(row.id)?.onHand ?? 0 })),
+    items: rows.map((row) => ({
+      ...row,
+      onHand: stock.get(row.id)?.onHand ?? 0,
+      specificGravity: details.get(row.id)?.specificGravity ?? null,
+      packSize: details.get(row.id)?.packSize ?? null,
+    })),
   })
 }
 

@@ -21,6 +21,9 @@ export type ProductSummary = {
   unit: string | null
   sku: string | null
   code: string | null
+  cost: number | null
+  specificGravity: number | null
+  packSize: string | null
 }
 
 export type StockSummary = { onHand: number; reserved: number; available: number }
@@ -44,13 +47,34 @@ export async function loadProducts(ctx: BomRequestContext, ids: string[]): Promi
   const result = new Map<string, ProductSummary>()
   if (!unique.length) return result
   const rows = await ctx.em.getConnection().execute<
-    Array<{ id: string; title: string; custom_fieldset_code: string | null; default_unit: string | null; sku: string | null; item_code: string | null }>
+    Array<{
+      id: string
+      title: string
+      custom_fieldset_code: string | null
+      default_unit: string | null
+      sku: string | null
+      item_code: string | null
+      cost_price: string | null
+      specific_gravity: string | null
+      pack_size: string | null
+    }>
   >(
     `select p.id, p.title, p.custom_fieldset_code, p.default_unit, p.sku,
             (select v.value_text from custom_field_values v
               where v.entity_id = 'catalog:catalog_product' and v.record_id = p.id::text and v.field_key = 'item_code'
                 and v.deleted_at is null and coalesce(v.value_text, '') <> ''
-              order by v.created_at desc limit 1) as item_code
+              order by v.created_at desc limit 1) as item_code,
+            (select coalesce(v.value_float::numeric, v.value_int::numeric, nullif(regexp_replace(coalesce(v.value_text, ''), '[^0-9.]', '', 'g'), '')::numeric)
+               from custom_field_values v
+              where v.entity_id = 'catalog:catalog_product' and v.record_id = p.id::text and v.field_key = 'cost_price' and v.deleted_at is null
+              order by v.created_at desc limit 1) as cost_price,
+            (select coalesce(v.value_float::numeric, v.value_int::numeric, nullif(regexp_replace(coalesce(v.value_text, ''), '[^0-9.]', '', 'g'), '')::numeric)
+               from custom_field_values v
+              where v.entity_id = 'catalog:catalog_product' and v.record_id = p.id::text and v.field_key = 'specific_gravity' and v.deleted_at is null
+              order by v.created_at desc limit 1) as specific_gravity,
+            (select v.value_text from custom_field_values v
+              where v.entity_id = 'catalog:catalog_product' and v.record_id = p.id::text and v.field_key = 'pack_size' and v.deleted_at is null
+              order by v.created_at desc limit 1) as pack_size
        from catalog_products p
       where p.id = any(?::uuid[]) and p.tenant_id = ? and p.organization_id = ? and p.deleted_at is null`,
     [`{${unique.join(',')}}`, ctx.tenantId, ctx.organizationId],
@@ -63,6 +87,9 @@ export async function loadProducts(ctx: BomRequestContext, ids: string[]): Promi
       unit: row.default_unit,
       sku: row.sku,
       code: row.item_code,
+      cost: row.cost_price == null ? null : Number(row.cost_price),
+      specificGravity: row.specific_gravity == null ? null : Number(row.specific_gravity),
+      packSize: row.pack_size,
     })
   }
   return result

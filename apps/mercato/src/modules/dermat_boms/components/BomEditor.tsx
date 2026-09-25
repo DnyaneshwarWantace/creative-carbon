@@ -24,6 +24,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@open
 import { Input } from '@open-mercato/ui/primitives/input'
 import { Label } from '@open-mercato/ui/primitives/label'
 import { Textarea } from '@open-mercato/ui/primitives/textarea'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@open-mercato/ui/primitives/select'
 import { StatusBadge, type StatusBadgeVariant } from '@open-mercato/ui/primitives/status-badge'
 import { apiCall, withScopedApiRequestHeaders } from '@open-mercato/ui/backend/utils/apiCall'
 import { buildOptimisticLockHeader } from '@open-mercato/ui/backend/utils/optimisticLock'
@@ -32,9 +33,21 @@ import { flash } from '@open-mercato/ui/backend/FlashMessages'
 import { ErrorMessage, LoadingMessage } from '@open-mercato/ui/backend/detail'
 import { KIND_CONFIG } from '../../dermat_products/lib/kindConfig'
 import type { ProductKind } from '../../dermat_products/lib/kinds'
-import { BOM_KINDS, PERCENT_TOLERANCE, PERCENT_TOTAL, batchQuantity, bomKindForProduct, type BomKind } from '../lib/bomKinds'
+import {
+  BOM_KINDS,
+  FILL_UNITS,
+  PERCENT_TOLERANCE,
+  PERCENT_TOTAL,
+  batchQuantity,
+  bomKindForProduct,
+  fillToBulkQuantity,
+  parsePackSize,
+  type BomKind,
+  type FillUnit,
+} from '../lib/bomKinds'
 import { MaterialPicker, formatQty } from './MaterialPicker'
 import { BomTree } from './BomTree'
+import { FillPlan } from './FillPlan'
 import { openPrintSheet } from './printSheet'
 import type { BomView, ComponentOption } from './types'
 
@@ -48,9 +61,13 @@ type Row = {
   value: string
   onHand: number
   remark: string
+  usesFill: boolean
+  fillQty: string
+  fillUnit: FillUnit
+  specificGravity: number | null
 }
 
-type ProductInfo = { id: string; title: string; kind: string | null; unit: string | null; code: string | null }
+type ProductInfo = { id: string; title: string; kind: string | null; unit: string | null; code: string | null; packSize: string | null }
 
 type EditorState = {
   bom: BomView | null
@@ -71,7 +88,9 @@ export const STATUS_VARIANT: Record<string, StatusBadgeVariant> = {
 
 const KIND_ICON: Record<BomKind, typeof FlaskConical> = { formula: FlaskConical, pack: Package }
 
-function rowFromOption(option: ComponentOption): Row {
+function rowFromOption(option: ComponentOption, kind: BomKind, packSize: string | null): Row {
+  const usesFill = kind === 'pack' && option.kind === 'bulk'
+  const fill = usesFill ? parsePackSize(packSize) : null
   return {
     key: `${option.id}-${Date.now()}`,
     componentProductId: option.id,
@@ -82,7 +101,15 @@ function rowFromOption(option: ComponentOption): Row {
     value: '',
     onHand: option.onHand,
     remark: '',
+    usesFill,
+    fillQty: fill ? String(fill.qty) : '',
+    fillUnit: fill?.unit ?? 'ml',
+    specificGravity: option.specificGravity ?? null,
   }
+}
+
+function toFillUnit(value: string | null | undefined): FillUnit {
+  return (FILL_UNITS as readonly string[]).includes(value ?? '') ? (value as FillUnit) : 'kg'
 }
 
 function stateFromBom(bom: BomView): EditorState {
@@ -94,6 +121,7 @@ function stateFromBom(bom: BomView): EditorState {
       kind: bom.product?.kind ?? null,
       unit: bom.product?.unit ?? null,
       code: bom.product?.code ?? null,
+      packSize: bom.product?.packSize ?? null,
     },
     kind: bom.kind,
     batchSize: String(bom.batchSize),
@@ -108,6 +136,10 @@ function stateFromBom(bom: BomView): EditorState {
       value: String(item.value),
       onHand: item.onHand,
       remark: item.remark ?? '',
+      usesFill: bom.kind === 'pack' && item.componentKind === 'bulk',
+      fillQty: item.fillQty != null ? String(item.fillQty) : String(item.value),
+      fillUnit: item.fillQty != null ? toFillUnit(item.fillUnit) : toFillUnit(item.unit),
+      specificGravity: item.specificGravity,
     })),
   }
 }
@@ -115,6 +147,12 @@ function stateFromBom(bom: BomView): EditorState {
 function numberOf(value: string): number {
   const parsed = Number(value)
   return Number.isFinite(parsed) ? parsed : 0
+}
+
+function rowValue(row: Row): number {
+  if (!row.usesFill) return numberOf(row.value)
+  const fill = numberOf(row.fillQty)
+  return fill > 0 ? fillToBulkQuantity(fill, row.fillUnit, row.unit, row.specificGravity) : 0
 }
 
 function kindShort(kind: string): string {
@@ -152,6 +190,7 @@ async function readProduct(productId: string): Promise<ProductInfo | null> {
     kind: (item.custom_fieldset_code as string | null) ?? null,
     unit: (item.default_unit as string | null) ?? null,
     code: code || null,
+    packSize: ((item.cf_pack_size ?? custom.pack_size ?? null) as string | null) || null,
   }
 }
 
@@ -248,7 +287,8 @@ export function BomEditor({ bomId, productId }: { bomId?: string; productId?: st
     })
 
   const addRow = (option: ComponentOption) => {
-    const row = rowFromOption(option)
+    if (!state) return
+    const row = rowFromOption(option, state.kind, state.product.packSize)
     focusKey.current = row.key
     setState((prev) => (prev ? { ...prev, rows: [...prev.rows, row] } : prev))
     setDirty(true)
@@ -260,7 +300,7 @@ export function BomEditor({ bomId, productId }: { bomId?: string; productId?: st
     if (!state) return { ok: false }
     const errors: Record<string, string> = {}
     state.rows.forEach((row, index) => {
-      const value = numberOf(row.value)
+      const value = rowValue(row)
       if (!(value > 0)) errors[String(index + 1)] = t('dermat_boms.errors.value', 'Enter a quantity above 0')
       else if (state.kind === 'formula' && value > PERCENT_TOTAL)
         errors[String(index + 1)] = t('dermat_boms.errors.percent', 'RM % cannot be more than 100')
@@ -277,11 +317,16 @@ export function BomEditor({ bomId, productId }: { bomId?: string; productId?: st
     const body = {
       batchSize: numberOf(state.batchSize),
       notes: state.notes.trim() || null,
-      items: state.rows.map((row) => ({
-        componentProductId: row.componentProductId,
-        value: numberOf(row.value),
-        remark: row.remark.trim() || null,
-      })),
+      items: state.rows.map((row) =>
+        row.usesFill
+          ? {
+              componentProductId: row.componentProductId,
+              fillQty: numberOf(row.fillQty),
+              fillUnit: row.fillUnit,
+              remark: row.remark.trim() || null,
+            }
+          : { componentProductId: row.componentProductId, value: numberOf(row.value), remark: row.remark.trim() || null },
+      ),
     }
     const payload = state.bom ? { ...body, id: state.bom.id } : { ...body, productId: state.product.id }
     const call = await runMutation({
@@ -418,6 +463,7 @@ export function BomEditor({ bomId, productId }: { bomId?: string; productId?: st
   const handlePrint = () => {
     if (!state) return
     const size = numberOf(state.batchSize)
+    const printUnit = state.bom?.batchUnit ?? BOM_KINDS[state.kind].defaultBatchUnit ?? state.product.unit ?? 'kg'
     const opened = openPrintSheet({
       kind: state.kind,
       productName: state.product.title,
@@ -426,43 +472,57 @@ export function BomEditor({ bomId, productId }: { bomId?: string; productId?: st
       version: state.bom?.version ?? 1,
       status: state.bom?.status ?? 'draft',
       batchSize: size,
-      batchUnit: state.bom?.batchUnit ?? BOM_KINDS[state.kind].defaultBatchUnit ?? state.product.unit ?? 'kg',
+      batchUnit: printUnit,
       lines: state.rows.map((row) => ({
         code: row.code,
         name: row.name,
         kind: row.componentKind,
-        value: numberOf(row.value),
-        quantity: batchQuantity(state.kind, size, numberOf(row.value)),
+        value: rowValue(row),
+        quantity: batchQuantity(state.kind, size, rowValue(row), printUnit, row.unit, row.specificGravity),
+        onHand: row.onHand,
+        fillLabel: row.usesFill
+          ? `${formatQty(numberOf(row.fillQty), 3)} ${row.fillUnit}${
+              row.fillUnit === 'ml' || row.fillUnit === 'l' ? ` · SG ${formatQty(row.specificGravity && row.specificGravity > 0 ? row.specificGravity : 1, 3)}` : ''
+            }`
+          : null,
         unit: row.unit,
         remark: row.remark,
       })),
       notes: state.notes,
       createdByName: state.bom?.createdByName ?? null,
       approvedByName: state.bom?.approvedByName ?? null,
+      createdAt: state.bom?.createdAt ?? null,
       approvedAt: state.bom?.approvedAt ?? null,
       labels: {
-        formulaTitle: t('dermat_boms.print.formulaTitle', 'Formula sheet'),
-        packTitle: t('dermat_boms.print.packTitle', 'Pack BOM'),
+        formulaTitle: t('dermat_boms.print.formulaTitle', 'Bill of Material · Formula'),
+        packTitle: t('dermat_boms.print.packTitle', 'Bill of Material · Pack'),
         watermark: t('dermat_boms.print.watermark', 'DRAFT'),
+        watermarkOld: t('dermat_boms.print.watermarkOld', 'OLD VERSION'),
         status_draft: t('dermat_boms.status.draft', 'Draft'),
         status_approved: t('dermat_boms.status.approved', 'Approved'),
         status_superseded: t('dermat_boms.status.superseded', 'Superseded'),
-        product: t('dermat_boms.print.product', 'Product'),
-        productCode: t('dermat_boms.print.productCode', 'Product code'),
-        version: t('dermat_boms.print.version', 'Version'),
-        batch: t('dermat_boms.print.batch', 'Batch size'),
-        lines: t('dermat_boms.tile.lines', 'Lines'),
+        productName: t('dermat_boms.print.productName', 'Product Name'),
+        productCode: t('dermat_boms.print.productCode', 'Product Code'),
+        bomNo: t('dermat_boms.print.bomNo', 'BOM No.'),
+        quantity: t('dermat_boms.print.quantity', 'Quantity'),
+        createdOn: t('dermat_boms.print.createdOn', 'Created on'),
+        approvedOn: t('dermat_boms.print.approvedOn', 'Approved on'),
+        components: t('dermat_boms.print.components', 'Components'),
         totalPercent: t('dermat_boms.tile.total', 'Total RM %'),
         bulkPerPiece: t('dermat_boms.tile.bulkPerPiece', 'Bulk per piece'),
-        date: t('dermat_boms.print.date', 'Date'),
+        batch: t('dermat_boms.print.batch', 'Batch size'),
+        shortItems: t('dermat_boms.print.shortItems', 'Short in stock'),
+        sectionRm: t('dermat_boms.print.sectionRm', 'Raw Material'),
+        sectionBulk: t('dermat_boms.print.sectionBulk', 'Bulk'),
+        sectionPm: t('dermat_boms.print.sectionPm', 'Packing Material'),
+        sectionOther: t('dermat_boms.print.sectionOther', 'Other'),
         code: t('dermat_boms.table.code', 'Code'),
-        material: t('dermat_boms.table.material', 'Material'),
-        type: t('dermat_boms.table.type', 'Type'),
+        component: t('dermat_boms.print.component', 'Component'),
         percent: t('dermat_boms.table.percent', 'RM %'),
-        perPiece: t('dermat_boms.table.perPiece', 'Qty per piece'),
-        batchQty: t('dermat_boms.table.batchQty', 'Qty for batch'),
-        unit: t('dermat_boms.print.unit', 'Unit'),
-        remark: t('dermat_boms.table.remark', 'Remark'),
+        perPiece: t('dermat_boms.print.perPiece', 'Qty / pc'),
+        batchQty: t('dermat_boms.print.batchQty', 'Quantity'),
+        uom: t('dermat_boms.print.uom', 'UOM'),
+        onHand: t('dermat_boms.table.onHand', 'On hand'),
         total: t('dermat_boms.table.total', 'Total'),
         notes: t('dermat_boms.notes', 'Notes'),
         madeBy: t('dermat_boms.print.madeBy', 'Made by'),
@@ -522,14 +582,14 @@ export function BomEditor({ bomId, productId }: { bomId?: string; productId?: st
   const KindIcon = KIND_ICON[state.kind]
   const batchSize = numberOf(state.batchSize)
   const batchUnit = state.bom?.batchUnit ?? config.defaultBatchUnit ?? state.product.unit ?? 'kg'
-  const totalPercent = Math.round(state.rows.reduce((sum, row) => sum + numberOf(row.value), 0) * 10000) / 10000
+  const totalPercent = Math.round(state.rows.reduce((sum, row) => sum + rowValue(row), 0) * 10000) / 10000
   const percentOk = Math.abs(totalPercent - PERCENT_TOTAL) <= PERCENT_TOLERANCE
   const lines = state.rows.map((row) => {
-    const need = batchQuantity(state.kind, batchSize, numberOf(row.value))
+    const need = batchQuantity(state.kind, batchSize, rowValue(row), batchUnit, row.unit, row.specificGravity)
     return { row, need, short: need > row.onHand }
   })
-  const shortCount = lines.filter((line) => line.short && numberOf(line.row.value) > 0).length
-  const bulkPerPiece = state.rows.filter((row) => row.componentKind === 'bulk').reduce((sum, row) => sum + numberOf(row.value), 0)
+  const shortCount = lines.filter((line) => line.short && rowValue(line.row) > 0).length
+  const bulkPerPiece = state.rows.filter((row) => row.componentKind === 'bulk').reduce((sum, row) => sum + rowValue(row), 0)
   const valueLabel = state.kind === 'formula' ? t('dermat_boms.table.percent', 'RM %') : t('dermat_boms.table.perPiece', 'Qty per piece')
   const status = state.bom?.status ?? 'draft'
   const otherVersions = state.bom?.versions.filter((entry) => entry.id !== state.bom?.id) ?? []
@@ -685,7 +745,17 @@ export function BomEditor({ bomId, productId }: { bomId?: string; productId?: st
           ) : null}
 
           {view === 'tree' && state.bom ? (
-            <BomTree bomId={state.bom.id} defaultQuantity={state.bom.batchSize} unit={state.bom.batchUnit} dirty={dirty} />
+            <div className="space-y-5">
+              {state.kind === 'formula' && state.product.kind === 'bulk' ? (
+                <FillPlan
+                  productId={state.product.id}
+                  batchSize={state.bom.batchSize}
+                  bulkUnit={state.bom.batchUnit}
+                  specificGravity={state.bom.product?.specificGravity ?? null}
+                />
+              ) : null}
+              <BomTree bomId={state.bom.id} defaultQuantity={state.bom.batchSize} unit={state.bom.batchUnit} dirty={dirty} />
+            </div>
           ) : (
             <>
               <Card className="overflow-hidden">
@@ -705,7 +775,7 @@ export function BomEditor({ bomId, productId }: { bomId?: string; productId?: st
                           )
                         : t(
                             'dermat_boms.table.packHint',
-                            'Enter how much goes into one piece: bulk in kg (0.030 for 30 g), packing in pcs. Add several bulks for a kit.',
+                            "For each bulk enter the fill size of one piece (30 ml, 25 g) — it is turned into kg using the bulk's specific gravity. Packing is pcs per piece. Add several bulks for a kit.",
                           )}
                     </CardDescription>
                   </div>
@@ -757,7 +827,52 @@ export function BomEditor({ bomId, productId }: { bomId?: string; productId?: st
                                 </span>
                               </td>
                               <td className="p-2 text-right">
-                                {editable ? (
+                                {row.usesFill ? (
+                                  <div className="space-y-1">
+                                    {editable ? (
+                                      <div className="flex justify-end gap-1">
+                                        <Input
+                                          ref={(element) => {
+                                            valueRefs.current[row.key] = element
+                                          }}
+                                          type="number"
+                                          min={0}
+                                          step="any"
+                                          value={row.fillQty}
+                                          placeholder="30"
+                                          aria-label={t('dermat_boms.table.fillSize', 'Fill size per piece')}
+                                          className="h-8 w-20 text-right font-mono"
+                                          onChange={(event) => updateRow(row.key, { fillQty: event.target.value })}
+                                        />
+                                        <Select
+                                          value={row.fillUnit}
+                                          onValueChange={(value) => updateRow(row.key, { fillUnit: value as FillUnit })}
+                                        >
+                                          <SelectTrigger className="h-8 w-16">
+                                            <SelectValue />
+                                          </SelectTrigger>
+                                          <SelectContent>
+                                            {FILL_UNITS.map((unit) => (
+                                              <SelectItem key={unit} value={unit}>
+                                                {unit}
+                                              </SelectItem>
+                                            ))}
+                                          </SelectContent>
+                                        </Select>
+                                      </div>
+                                    ) : (
+                                      <span className="font-mono">
+                                        {formatQty(numberOf(row.fillQty), 3)} {row.fillUnit}
+                                      </span>
+                                    )}
+                                    <span className="block text-xs text-muted-foreground">
+                                      = {formatQty(rowValue(row), 5)} {row.unit}
+                                      {row.fillUnit === 'ml' || row.fillUnit === 'l'
+                                        ? ` · SG ${formatQty(row.specificGravity && row.specificGravity > 0 ? row.specificGravity : 1, 3)}`
+                                        : ''}
+                                    </span>
+                                  </div>
+                                ) : editable ? (
                                   <Input
                                     ref={(element) => {
                                       valueRefs.current[row.key] = element
@@ -766,7 +881,7 @@ export function BomEditor({ bomId, productId }: { bomId?: string; productId?: st
                                     min={0}
                                     step="any"
                                     value={row.value}
-                                    placeholder={state.kind === 'formula' ? '0.000' : '0.00000'}
+                                    placeholder={state.kind === 'formula' ? '0.000' : '1'}
                                     className="h-8 text-right font-mono"
                                     onChange={(event) => updateRow(row.key, { value: event.target.value })}
                                     onKeyDown={(event) => {
@@ -784,7 +899,7 @@ export function BomEditor({ bomId, productId }: { bomId?: string; productId?: st
                               <td className="p-3 text-right font-mono font-semibold">
                                 {formatQty(need)} <span className="text-xs font-normal text-muted-foreground">{row.unit}</span>
                               </td>
-                              <td className={cn('p-3 text-right font-mono', short && numberOf(row.value) > 0 && 'text-status-error-text')}>
+                              <td className={cn('p-3 text-right font-mono', short && rowValue(row) > 0 && 'text-status-error-text')}>
                                 {formatQty(row.onHand)} <span className="text-xs font-normal text-muted-foreground">{row.unit}</span>
                               </td>
                               <td className="p-2">
@@ -859,9 +974,7 @@ export function BomEditor({ bomId, productId }: { bomId?: string; productId?: st
                               {state.kind === 'formula' ? `${formatQty(totalPercent, 4)} %` : ''}
                             </td>
                             <td className="p-3 text-right font-mono">
-                              {state.kind === 'formula'
-                                ? `${formatQty(lines.reduce((sum, line) => sum + line.need, 0))} ${state.product.unit ?? ''}`
-                                : ''}
+                              {state.kind === 'formula' ? `${formatQty((totalPercent * batchSize) / PERCENT_TOTAL)} ${batchUnit}` : ''}
                             </td>
                             <td colSpan={editable ? 3 : 2} />
                           </tr>

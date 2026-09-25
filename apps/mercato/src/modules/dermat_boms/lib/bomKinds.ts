@@ -37,7 +37,69 @@ export function bomKindForProduct(productKind: string | null | undefined): BomKi
   return null
 }
 
-export function batchQuantity(kind: BomKind, batchSize: number, value: number): number {
-  if (kind === 'formula') return (value * batchSize) / PERCENT_TOTAL
+export const DEFAULT_SPECIFIC_GRAVITY = 1
+
+const UNIT_FACTOR: Record<string, { base: 'mass' | 'volume'; factor: number }> = {
+  kg: { base: 'mass', factor: 1 },
+  g: { base: 'mass', factor: 0.001 },
+  l: { base: 'volume', factor: 1 },
+  ml: { base: 'volume', factor: 0.001 },
+}
+
+export function convertQuantity(
+  value: number,
+  fromUnit: string | null | undefined,
+  toUnit: string | null | undefined,
+  specificGravity?: number | null,
+): number {
+  const from = UNIT_FACTOR[(fromUnit ?? '').toLowerCase()]
+  const to = UNIT_FACTOR[(toUnit ?? '').toLowerCase()]
+  if (!from || !to) return value
+  const sg = specificGravity && specificGravity > 0 ? specificGravity : DEFAULT_SPECIFIC_GRAVITY
+  let base = value * from.factor
+  if (from.base === 'volume' && to.base === 'mass') base *= sg
+  if (from.base === 'mass' && to.base === 'volume') base /= sg
+  return base / to.factor
+}
+
+export function batchQuantity(
+  kind: BomKind,
+  batchSize: number,
+  value: number,
+  batchUnit?: string | null,
+  componentUnit?: string | null,
+  componentSpecificGravity?: number | null,
+): number {
+  if (kind === 'formula') return convertQuantity((value * batchSize) / PERCENT_TOTAL, batchUnit, componentUnit, componentSpecificGravity)
   return value * batchSize
+}
+
+export const FILL_UNITS = ['ml', 'g', 'l', 'kg'] as const
+export type FillUnit = (typeof FILL_UNITS)[number]
+
+
+export function fillToBulkQuantity(
+  fillQty: number,
+  fillUnit: string,
+  bulkUnit: string | null | undefined,
+  specificGravity: number | null | undefined,
+): number {
+  return convertQuantity(fillQty, fillUnit, bulkUnit ?? 'kg', specificGravity)
+}
+
+const PACK_SIZE_UNITS: Record<string, FillUnit> = {
+  ml: 'ml', mls: 'ml', mltr: 'ml', millilitre: 'ml', milliliter: 'ml',
+  g: 'g', gm: 'g', gms: 'g', gram: 'g', grams: 'g', gr: 'g',
+  l: 'l', ltr: 'l', litre: 'l', liter: 'l',
+  kg: 'kg', kgs: 'kg',
+}
+
+export function parsePackSize(text: string | null | undefined): { qty: number; unit: FillUnit } | null {
+  if (!text) return null
+  const match = text.toLowerCase().replace(/,/g, '').match(/(\d+(?:\.\d+)?)\s*([a-z]+)/)
+  if (!match) return null
+  const unit = PACK_SIZE_UNITS[match[2]]
+  const qty = Number(match[1])
+  if (!unit || !(qty > 0)) return null
+  return { qty, unit }
 }

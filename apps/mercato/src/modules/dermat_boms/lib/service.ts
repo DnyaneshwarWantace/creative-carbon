@@ -1,6 +1,6 @@
 import { BomHeader, BomItem } from '../data/entities'
 import type { BomItemInput } from '../data/validators'
-import { BOM_KINDS, PERCENT_TOLERANCE, PERCENT_TOTAL, batchQuantity, bomKindForProduct, type BomKind } from './bomKinds'
+import { BOM_KINDS, PERCENT_TOLERANCE, PERCENT_TOTAL, batchQuantity, bomKindForProduct, fillToBulkQuantity, type BomKind } from './bomKinds'
 import { loadProducts, loadStock, type BomRequestContext, type ProductSummary } from './server'
 
 export class BomError extends Error {
@@ -27,6 +27,10 @@ export type BomItemView = {
   onHand: number
   available: number
   remark: string | null
+  fillQty: number | null
+  fillUnit: string | null
+  specificGravity: number | null
+  packSize: string | null
 }
 
 export type BomView = {
@@ -61,6 +65,8 @@ export function sumPercent(items: Array<{ value: number }>): number {
     4,
   )
 }
+
+export type ValidatedItem = Omit<BomItemInput, 'value' | 'fillQty' | 'fillUnit'> & { value: number; componentKind: string; unit: string; fillQty: number | null; fillUnit: string | null }
 
 export async function findBom(ctx: BomRequestContext, id: string): Promise<BomHeader> {
   const bom = await ctx.em.findOne(BomHeader, { id, tenantId: ctx.tenantId, organizationId: ctx.organizationId, deletedAt: null })
@@ -99,7 +105,7 @@ export async function validateItems(
   kind: BomKind,
   productId: string,
   items: BomItemInput[],
-): Promise<Array<BomItemInput & { componentKind: string; unit: string }>> {
+): Promise<ValidatedItem[]> {
   const config = BOM_KINDS[kind]
   const products = await loadProducts(
     ctx,
@@ -119,10 +125,18 @@ export async function validateItems(
     } else if (seen.has(component.id)) {
       rowErrors[rowKey] = `${component.title} is added twice`
     }
-    if (kind === 'formula' && item.value > PERCENT_TOTAL) rowErrors[rowKey] = 'RM % cannot be more than 100'
+    const usesFill = kind === 'pack' && component?.kind === 'bulk' && item.fillQty != null && item.fillUnit != null
+    const value = usesFill
+      ? Math.round(fillToBulkQuantity(item.fillQty as number, item.fillUnit as string, component?.unit, component?.specificGravity) * 100000) / 100000
+      : (item.value ?? 0)
+    if (!(value > 0)) rowErrors[rowKey] = 'Enter a quantity above 0'
+    if (kind === 'formula' && value > PERCENT_TOTAL) rowErrors[rowKey] = 'RM % cannot be more than 100'
     seen.add(item.componentProductId)
     return {
       ...item,
+      value,
+      fillQty: usesFill ? (item.fillQty as number) : null,
+      fillUnit: usesFill ? (item.fillUnit as string) : null,
       componentKind: component?.kind ?? '',
       unit: component?.unit ?? (kind === 'formula' ? 'kg' : 'pc'),
     }
@@ -140,7 +154,7 @@ export async function replaceItems(
   ctx: BomRequestContext,
   bom: BomHeader,
   kind: BomKind,
-  items: Array<BomItemInput & { componentKind: string; unit: string }>,
+  items: ValidatedItem[],
 ): Promise<void> {
   await ctx.em.nativeDelete(BomItem, { bomId: bom.id })
   items.forEach((item, index) => {
@@ -154,6 +168,8 @@ export async function replaceItems(
         componentKind: item.componentKind,
         percent: kind === 'formula' ? String(item.value) : null,
         qtyPerUnit: kind === 'pack' ? String(item.value) : null,
+        fillQty: item.fillQty != null ? String(item.fillQty) : null,
+        fillUnit: item.fillUnit,
         unit: item.unit,
         remark: item.remark?.trim() || null,
       }),
@@ -189,10 +205,14 @@ export async function serializeBom(ctx: BomRequestContext, bom: BomHeader): Prom
       name: component?.title ?? '(deleted product)',
       unit: component?.unit ?? item.unit,
       value,
-      quantity: roundTo(batchQuantity(kind, batchSize, value), 4),
+      quantity: roundTo(batchQuantity(kind, batchSize, value, bom.batchUnit, component?.unit ?? item.unit, component?.specificGravity), 4),
       onHand: componentStock?.onHand ?? 0,
       available: componentStock?.available ?? 0,
       remark: item.remark ?? null,
+      fillQty: item.fillQty == null ? null : Number(item.fillQty),
+      fillUnit: item.fillUnit ?? null,
+      specificGravity: component?.specificGravity ?? null,
+      packSize: null,
     }
   })
   return {
