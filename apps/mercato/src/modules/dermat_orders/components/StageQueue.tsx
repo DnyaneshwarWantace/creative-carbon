@@ -159,14 +159,19 @@ export function StageQueue({ stageKey }: { stageKey: string }) {
         id: 'open',
         header: '',
         cell: ({ row }) => (
-          <Link
-            href={`/backend/orders/${row.original.id}`}
-            onClick={(event) => event.stopPropagation()}
-            className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
-          >
-            {t('dermat_orders.queue.openOrder', 'Order page')}
-            <ExternalLink className="h-3 w-3" />
-          </Link>
+          <span className="flex flex-col gap-1 text-xs">
+            <Link
+              href={`/backend/orders/${row.original.id}/stages/${stageKey}`}
+              onClick={(event) => event.stopPropagation()}
+              className="inline-flex items-center gap-1 text-primary hover:underline"
+            >
+              {t('dermat_orders.queue.stagePage', 'Stage page')}
+              <ExternalLink className="h-3 w-3" />
+            </Link>
+            <Link href={`/backend/orders/${row.original.id}`} onClick={(event) => event.stopPropagation()} className="text-muted-foreground hover:underline">
+              {t('dermat_orders.queue.openOrder', 'Order page')}
+            </Link>
+          </span>
         ),
       },
     ],

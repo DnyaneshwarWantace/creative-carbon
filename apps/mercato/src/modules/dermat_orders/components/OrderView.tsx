@@ -22,10 +22,9 @@ import { STAGES, stageDef } from '../lib/stages'
 import { ORDER_VARIANT, PAYMENT_TERMS_LABEL, STAGE_VARIANT, daysUntil, formatDate, formatDateTime, formatQty } from './format'
 import { StageSheet, type StageActionRequest } from './StageSheet'
 import { useStageAction } from './useStageAction'
+import { useOrderMaterials } from './useOrderMaterials'
 import type { Order, Stage } from './types'
 
-type Requirement = { productId: string; name: string; code: string | null; kind: string | null; unit: string | null; quantity: number; onHand: number }
-type TreeNode = { productId: string; kind: string | null; quantity: number; unit: string | null; children: TreeNode[] }
 
 const KIND_LABEL: Record<string, string> = { raw_material: 'RM', packing_material: 'PM', bulk: 'Bulk', finished_goods: 'FG' }
 
@@ -123,8 +122,8 @@ export function OrderView({ orderId }: { orderId: string }) {
   const [openStage, setOpenStage] = React.useState<string | null>(null)
   const [cancelBusy, setBusy] = React.useState(false)
   const busy = cancelBusy || stageRunner.busy
-  const [materials, setMaterials] = React.useState<{ rows: Requirement[]; bulkByLine: Record<string, number>; missing: string[] } | null>(null)
   const [cancelOpen, setCancelOpen] = React.useState(false)
+  const materials = useOrderMaterials(order)
   const [cancelReason, setCancelReason] = React.useState('')
 
   const load = React.useCallback(async () => {
@@ -142,41 +141,6 @@ export function OrderView({ orderId }: { orderId: string }) {
       setPeople(call.result?.items ?? []),
     )
   }, [load])
-
-  const lineKey = order?.lines.map((line) => `${line.productId}:${line.quantity}:${line.bom?.id ?? ''}`).join('|') ?? ''
-
-  React.useEffect(() => {
-    if (!order) return
-    let cancelled = false
-    ;(async () => {
-      const totals = new Map<string, Requirement>()
-      const bulkByLine: Record<string, number> = {}
-      const missing: string[] = []
-      for (const line of order.lines) {
-        if (!line.bom) {
-          missing.push(line.product?.title ?? '—')
-          continue
-        }
-        const call = await apiCall<{ tree?: TreeNode; requirements?: Requirement[] }>(
-          `/api/dermat_boms/tree?bomId=${encodeURIComponent(line.bom.id)}&quantity=${line.quantity}`,
-          undefined,
-          { fallback: {} },
-        )
-        const bulk = (call.result?.tree?.children ?? []).filter((child) => child.kind === 'bulk').reduce((sum, child) => sum + child.quantity, 0)
-        bulkByLine[line.id] = bulk
-        for (const row of call.result?.requirements ?? []) {
-          const current = totals.get(row.productId)
-          totals.set(row.productId, current ? { ...current, quantity: current.quantity + row.quantity } : { ...row })
-        }
-      }
-      if (cancelled) return
-      const rows = Array.from(totals.values()).sort((a, b) => (a.kind ?? '').localeCompare(b.kind ?? '') || a.name.localeCompare(b.name))
-      setMaterials({ rows, bulkByLine, missing })
-    })()
-    return () => {
-      cancelled = true
-    }
-  }, [order, lineKey])
 
   const stageAction = async (stage: Stage, request: StageActionRequest): Promise<boolean> => {
     if (!order) return false
