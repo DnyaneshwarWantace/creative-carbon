@@ -18,6 +18,8 @@ export type KindConfig = {
   slug: string
   icon: 'flask' | 'boxes' | 'layers' | 'package' | 'sparkles'
   namePlaceholder: string
+  codeLabel: string
+  codeRequired: boolean
   codePlaceholder: string
   defaultUnit: string
   units: string[]
@@ -35,6 +37,8 @@ export const KIND_CONFIG: Record<ProductKind, KindConfig> = {
     slug: 'raw-materials',
     icon: 'flask',
     namePlaceholder: 'e.g. Niacinamide',
+    codeLabel: 'Code',
+    codeRequired: false,
     codePlaceholder: 'e.g. AP-070',
     defaultUnit: 'kg',
     units: ['kg', 'g', 'l', 'ml'],
@@ -61,6 +65,8 @@ export const KIND_CONFIG: Record<ProductKind, KindConfig> = {
     slug: 'packing-materials',
     icon: 'boxes',
     namePlaceholder: 'e.g. 30 ml Amber Dropper Bottle',
+    codeLabel: 'Code',
+    codeRequired: false,
     codePlaceholder: 'e.g. BR-016',
     defaultUnit: 'nos',
     units: ['nos', 'pc'],
@@ -87,6 +93,8 @@ export const KIND_CONFIG: Record<ProductKind, KindConfig> = {
     slug: 'bulk',
     icon: 'layers',
     namePlaceholder: 'e.g. Orange Skin Serum Bulk',
+    codeLabel: 'Code',
+    codeRequired: false,
     codePlaceholder: 'Optional',
     defaultUnit: 'kg',
     units: ['kg', 'g', 'l', 'ml'],
@@ -102,7 +110,9 @@ export const KIND_CONFIG: Record<ProductKind, KindConfig> = {
     slug: 'finished-goods',
     icon: 'package',
     namePlaceholder: 'e.g. Orange Skin Anti-Ageing Night Serum',
-    codePlaceholder: 'Optional',
+    codeLabel: 'Internal Reference ID',
+    codeRequired: true,
+    codePlaceholder: 'Internal reference used for this product',
     defaultUnit: 'nos',
     units: ['nos', 'pc'],
     detailsTitle: 'Product Details',
@@ -125,6 +135,8 @@ export const KIND_CONFIG: Record<ProductKind, KindConfig> = {
     slug: 'rnd-samples',
     icon: 'sparkles',
     namePlaceholder: 'e.g. 5DRGN Cell Serum trial',
+    codeLabel: 'Code',
+    codeRequired: false,
     codePlaceholder: 'Optional',
     defaultUnit: 'kg',
     units: ['kg', 'g', 'l', 'ml'],

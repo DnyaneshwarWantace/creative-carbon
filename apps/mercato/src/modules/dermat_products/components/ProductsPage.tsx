@@ -92,20 +92,28 @@ export function ProductsPage() {
         sortField: 'title',
         sortDir: 'asc',
       })
-      if (search.trim()) params.set('search', search.trim())
-      const call = await apiCall<ProductsResponse>(`/api/catalog/products?${params.toString()}`, undefined, {
-        fallback: { items: [], total: 0, totalPages: 1 },
-      })
+      const term = search.trim()
+      const byName = new URLSearchParams(params)
+      if (term) byName.set('search', term)
+      const byCode = new URLSearchParams(params)
+      byCode.set('cf_item_code', term)
+      const fallback: ProductsResponse = { items: [], total: 0, totalPages: 1 }
+      const [call, codeCall] = await Promise.all([
+        apiCall<ProductsResponse>(`/api/catalog/products?${byName.toString()}`, undefined, { fallback }),
+        term ? apiCall<ProductsResponse>(`/api/catalog/products?${byCode.toString()}`, undefined, { fallback }) : null,
+      ])
       if (cancelled) return
       if (!call.ok) {
         flash(t('dermat_products.list.loadError', 'Failed to load products'), 'error')
         setIsLoading(false)
         return
       }
-      const items = call.result?.items ?? []
+      const codeMatches = codeCall?.result?.items ?? []
+      const seen = new Set(codeMatches.map((item) => item.id))
+      const items = [...codeMatches, ...(call.result?.items ?? []).filter((item) => !seen.has(item.id))]
       setRows(items)
-      setTotal(call.result?.total ?? items.length)
-      setTotalPages(call.result?.totalPages ?? 1)
+      setTotal(term ? items.length : call.result?.total ?? items.length)
+      setTotalPages(term ? 1 : call.result?.totalPages ?? 1)
       setIsLoading(false)
       if (items.length) {
         const stockCall = await apiCall<{ items?: Record<string, Stock> }>(
@@ -124,7 +132,7 @@ export function ProductsPage() {
 
   const columns = React.useMemo<ColumnDef<Row>[]>(() => {
     const base: ColumnDef<Row>[] = [
-      { id: 'item_code', header: t('dermat_products.list.code', 'Code'), cell: ({ row }) => cell(row.original, 'item_code') },
+      { id: 'item_code', header: config.codeLabel, cell: ({ row }) => <span className="font-mono">{cell(row.original, 'item_code')}</span> },
       {
         id: 'title',
         header: t('dermat_products.list.name', 'Name'),
@@ -177,7 +185,7 @@ export function ProductsPage() {
             setSearch(value)
             setPage(1)
           }}
-          searchPlaceholder={t('dermat_products.list.search', 'Search by name, code or SKU')}
+          searchPlaceholder={t('dermat_products.list.search', 'Search by name, SKU or exact {label}', { label: config.codeLabel })}
           actions={
             <div className="flex gap-2">
               <Button asChild variant="outline">

@@ -141,6 +141,7 @@ export function ProductForm({ kind, productId }: { kind: ProductKind; productId?
   const [loadError, setLoadError] = React.useState<string | null>(null)
   const [saving, setSaving] = React.useState(false)
   const [nameError, setNameError] = React.useState<string | null>(null)
+  const [codeError, setCodeError] = React.useState<string | null>(null)
 
   React.useEffect(() => {
     let cancelled = false
@@ -172,6 +173,11 @@ export function ProductForm({ kind, productId }: { kind: ProductKind; productId?
       return
     }
     setNameError(null)
+    if (config.codeRequired && !state.itemCode.trim()) {
+      setCodeError(t('dermat_products.errors.codeRequired', 'Enter the {label}.', { label: config.codeLabel }))
+      return
+    }
+    setCodeError(null)
     const custom: Record<string, unknown> = {
       cf_item_code: state.itemCode.trim() || null,
       cf_hsn_code: state.hsnCode.trim() || null,
@@ -368,7 +374,7 @@ export function ProductForm({ kind, productId }: { kind: ProductKind; productId?
                     {nameError ? <p className="mt-1 text-xs text-destructive">{nameError}</p> : null}
                   </div>
                   <div className="sm:col-span-4">
-                    <Field label={t('dermat_products.form.code', 'Code')}>
+                    <Field label={config.codeLabel} required={config.codeRequired}>
                       <Input
                         value={state.itemCode}
                         onChange={(event) => update({ itemCode: event.target.value })}
@@ -376,6 +382,7 @@ export function ProductForm({ kind, productId }: { kind: ProductKind; productId?
                         className="font-mono"
                       />
                     </Field>
+                    {codeError ? <p className="mt-1 text-xs text-destructive">{codeError}</p> : null}
                   </div>
                 </CardContent>
               </Card>
