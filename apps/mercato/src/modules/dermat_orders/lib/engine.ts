@@ -1,9 +1,11 @@
 import { DermatOrder, DermatOrderEvent, DermatOrderLine, DermatOrderStage } from '../data/entities'
 import type { StageActionInput } from '../data/validators'
 import { STAGES, isFinished, missingRequired, missingSteps, stageDef, stepStates } from './stages'
+import { blockingChecks, checksForOrder, ensureChecksForStage, type StageQcSummary } from '../../dermat_quality/lib/service'
 import {
   OrderError,
   approvedPackBoms,
+  bulkForProducts,
   currentUserName,
   loadCustomers,
   loadProducts,
@@ -84,6 +86,22 @@ export function orderStatusFromStages(order: DermatOrder, stages: DermatOrderSta
   return 'booked'
 }
 
+async function afterOpened(ctx: OrderContext, order: DermatOrder, opened: string[], byName: string | null) {
+  if (!opened.length) return
+  const lines = await ctx.em.find(DermatOrderLine, { orderId: order.id })
+  for (const key of opened) {
+    logEvent(ctx, order, 'opened', key, null, null)
+    const created = await ensureChecksForStage(ctx, {
+      orderId: order.id,
+      orderNo: order.orderNo,
+      stageKey: key,
+      productIds: key === 'manufacturing' ? await bulkForProducts(ctx, lines.map((line) => line.productId)) : lines.map((line) => line.productId),
+      byName,
+    })
+    if (created) logEvent(ctx, order, 'qc_created', key, `${created} QC check${created > 1 ? 's' : ''} sent to QC`, null)
+  }
+}
+
 export async function applyStageAction(ctx: OrderContext, order: DermatOrder, input: StageActionInput): Promise<void> {
   const def = stageDef(input.stageKey)
   if (!def) throw new OrderError('Unknown stage')
@@ -137,6 +155,10 @@ export async function applyStageAction(ctx: OrderContext, order: DermatOrder, in
       if (missing.length) throw new OrderError(`Fill in: ${missing.join(', ')}`, 400, { missing })
       const openSteps = missingSteps(def, stage.data)
       if (openSteps.length) throw new OrderError(`Tick these steps first: ${openSteps.join(', ')}`, 400, { steps: openSteps })
+      const qcBlocking = await blockingChecks(ctx, order.id, def.key)
+      if (qcBlocking.length) {
+        throw new OrderError(`QC has not passed yet: ${qcBlocking.map((check) => `${check.code} (${check.status})`).join(', ')}`, 400, { qc: qcBlocking.map((check) => check.id) })
+      }
       if (def.key === 'formulation') {
         const lines = await ctx.em.find(DermatOrderLine, { orderId: order.id })
         const boms = await approvedPackBoms(
@@ -156,7 +178,7 @@ export async function applyStageAction(ctx: OrderContext, order: DermatOrder, in
       stage.holdReason = null
       stage.holdParty = null
       logEvent(ctx, order, 'completed', def.key, note, byName)
-      for (const opened of openReadyStages(stages)) logEvent(ctx, order, 'opened', opened, null, null)
+      await afterOpened(ctx, order, openReadyStages(stages), byName)
       break
     }
     case 'skip': {
@@ -166,7 +188,7 @@ export async function applyStageAction(ctx: OrderContext, order: DermatOrder, in
       stage.completedAt = new Date()
       stage.completedByName = byName
       logEvent(ctx, order, 'skipped', def.key, note, byName)
-      for (const opened of openReadyStages(stages)) logEvent(ctx, order, 'opened', opened, null, null)
+      await afterOpened(ctx, order, openReadyStages(stages), byName)
       break
     }
     case 'hold': {
@@ -263,11 +285,14 @@ export async function serializeOrder(ctx: OrderContext, order: DermatOrder) {
     ctx.em.find(DermatOrderEvent, { orderId: order.id }, { orderBy: { createdAt: 'desc' }, limit: 200 }),
   ])
   const productIds = lines.map((line) => line.productId)
-  const [customers, products, boms] = await Promise.all([
+  const [customers, products, boms, qc] = await Promise.all([
     loadCustomers(ctx, [order.customerId]),
     loadProducts(ctx, productIds),
     approvedPackBoms(ctx, productIds),
+    checksForOrder(ctx, order.id),
   ])
+  const qcOnly = Object.values(qc).flat().map((check) => check.productId).filter((id) => !products.has(id))
+  if (qcOnly.length) for (const [id, product] of await loadProducts(ctx, qcOnly)) products.set(id, product)
   const views = stageViews(stages)
   return {
     id: order.id,
@@ -306,6 +331,12 @@ export async function serializeOrder(ctx: OrderContext, order: DermatOrder) {
       specs: line.specs ?? {},
     })),
     stages: views,
+    qc: Object.fromEntries(
+      Object.entries(qc).map(([key, list]) => [
+        key,
+        list.map((check: StageQcSummary) => ({ ...check, productTitle: products.get(check.productId)?.title ?? '' })),
+      ]),
+    ),
     events: events.map((event) => ({
       id: event.id,
       stageKey: event.stageKey ?? null,

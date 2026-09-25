@@ -213,6 +213,25 @@ export async function approvedPackBoms(ctx: OrderContext, productIds: string[]):
   return result
 }
 
+export async function bulkForProducts(ctx: OrderContext, productIds: string[]): Promise<string[]> {
+  const unique = Array.from(new Set(productIds.filter((id) => UUID_RE.test(id))))
+  if (!unique.length) return []
+  const rows = await ctx.em.getConnection().execute<Array<{ product_id: string; bulk_id: string | null }>>(
+    `select h.product_id, i.component_product_id as bulk_id
+       from dermat_bom_headers h
+       left join dermat_bom_items i on i.bom_id = h.id and i.component_kind = 'bulk'
+      where h.product_id = any(?::uuid[]) and h.tenant_id = ? and h.organization_id = ? and h.deleted_at is null and h.status = 'approved'`,
+    [`{${unique.join(',')}}`, ctx.tenantId, ctx.organizationId],
+    'all',
+    ctx.em.getTransactionContext(),
+  )
+  const bulks = new Map<string, string[]>()
+  for (const row of rows) {
+    if (row.bulk_id) bulks.set(row.product_id, [...(bulks.get(row.product_id) ?? []), row.bulk_id])
+  }
+  return Array.from(new Set(unique.flatMap((id) => bulks.get(id) ?? [id])))
+}
+
 export async function nextOrderNo(ctx: OrderContext, orderDate: string): Promise<string> {
   const prefix = `DER/SO/${financialYear(new Date(`${orderDate}T00:00:00`))}/`
   const [row] = await ctx.em.getConnection().execute<Array<{ max: number | null }>>(

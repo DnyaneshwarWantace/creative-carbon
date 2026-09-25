@@ -57,6 +57,17 @@ export type Stage = {
 
 export type OrderEvent = { id: string; stageKey: string | null; action: string; note: string | null; byName: string | null; at: string }
 
+export type OrderQcCheck = {
+  id: string
+  code: string
+  productId: string
+  productTitle: string
+  status: 'pending' | 'passed' | 'failed'
+  chemicalStatus: 'pending' | 'pass' | 'fail' | 'na'
+  microStatus: 'pending' | 'pass' | 'fail' | 'na'
+  batchNo: string | null
+}
+
 export type Order = {
   id: string
   orderNo: string
@@ -81,6 +92,7 @@ export type Order = {
   linesLocked: boolean
   lines: OrderLine[]
   stages: Stage[]
+  qc: Record<string, OrderQcCheck[]>
   events: OrderEvent[]
 }
 

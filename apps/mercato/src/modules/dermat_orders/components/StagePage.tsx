@@ -2,6 +2,7 @@
 
 import * as React from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { ArrowLeft, ArrowRight, History, Info, Layers, ListChecks, Package } from 'lucide-react'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { cn } from '@open-mercato/shared/lib/utils'
@@ -338,6 +339,7 @@ function PreviousStages({ order, def }: { order: Order; def: StageDef }) {
 
 export function StagePage({ orderId, stageKey }: { orderId: string; stageKey: string }) {
   const t = useT()
+  const router = useRouter()
   const [order, setOrder] = React.useState<Order | null>(null)
   const [loadError, setLoadError] = React.useState<string | null>(null)
   const [people, setPeople] = React.useState<Array<{ id: string; name: string }>>([])
@@ -366,6 +368,12 @@ export function StagePage({ orderId, stageKey }: { orderId: string; stageKey: st
     const result = await runner.run(order, stage, request)
     if (result.order) {
       setOrder(result.order)
+      if (request.action === 'complete' || request.action === 'skip') {
+        const nextOpen = result.order.stages.find(
+          (entry) => entry.status === 'open' && order.stages.find((before) => before.key === entry.key)?.status === 'waiting',
+        )
+        if (nextOpen) router.push(`/backend/orders/${order.id}/stages/${nextOpen.key}`)
+      }
       return true
     }
     if (result.conflict) await load()
@@ -474,7 +482,7 @@ export function StagePage({ orderId, stageKey }: { orderId: string; stageKey: st
                 <Link
                   key={entry.key}
                   href={`/backend/orders/${order.id}/stages/${entry.key}`}
-                  className={cn('rounded-full border px-2.5 py-0.5 text-xs transition-colors hover:bg-muted', entry.key === stageKey && 'border-primary bg-primary/10 font-semibold text-primary')}
+                  className={cn('rounded-full border px-2.5 py-0.5 text-xs transition-colors hover:bg-muted', entry.status === 'waiting' && 'opacity-50', entry.key === stageKey && 'border-primary bg-primary/10 font-semibold text-primary opacity-100')}
                 >
                   <span
                     className={cn(

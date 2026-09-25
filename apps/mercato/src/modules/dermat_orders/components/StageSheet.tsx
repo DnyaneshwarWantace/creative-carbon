@@ -37,6 +37,8 @@ type StageWorkAreaProps = {
   variant?: 'sheet' | 'page'
 }
 
+const QC_PART_VARIANT = { pending: 'warning', pass: 'success', fail: 'error', na: 'neutral' } as const
+
 type StageSheetProps = Omit<StageWorkAreaProps, 'variant'> & { onClose: () => void }
 
 type Mode = 'form' | 'hold' | 'revert' | 'skip'
@@ -185,8 +187,9 @@ export function StageWorkArea({ order, stage, people, canWork, busy, shortCount,
             </div>
           ) : null}
           {stage.status === 'waiting' ? (
-            <p className="col-span-2 text-muted-foreground">
-              {t('dermat_orders.sheet.waiting', 'Starts after: {stages}', {
+            <p className="col-span-2 font-medium text-muted-foreground">
+              {t('dermat_orders.sheet.locked', 'Locked. You can look but not complete this stage yet.')}{' '}
+              {t('dermat_orders.sheet.waiting', 'It opens when these are done: {stages}', {
                 stages: def.after.map((key) => stageDef(key)?.label ?? key).join(', '),
               })}
             </p>
@@ -235,6 +238,32 @@ export function StageWorkArea({ order, stage, people, canWork, busy, shortCount,
               ? t('dermat_orders.sheet.short', '{count} materials are short for this order — see Materials below.', { count: shortCount })
               : t('dermat_orders.sheet.allStock', 'All materials for this order are in stock.')}
           </p>
+        ) : null}
+
+        {order.qc?.[stage.key]?.length ? (
+          <div className="space-y-2">
+            <Label className="text-xs text-muted-foreground">{t('dermat_orders.sheet.qc', 'Quality checks (must pass before this stage can be completed)')}</Label>
+            <ul className="divide-y rounded-md border text-sm">
+              {order.qc[stage.key].map((check) => (
+                <li key={check.id}>
+                  <Link href={`/backend/qc/checks/${check.id}`} className="flex items-center justify-between gap-2 px-3 py-2 hover:bg-muted/40">
+                    <span className="min-w-0 truncate">
+                      <span className="mr-1 font-mono text-xs text-muted-foreground">{check.code}</span>
+                      {check.productTitle}
+                    </span>
+                    <span className="flex shrink-0 items-center gap-1">
+                      {check.chemicalStatus !== 'na' ? (
+                        <StatusBadge variant={QC_PART_VARIANT[check.chemicalStatus]}>{t('dermat_orders.sheet.qcChemical', 'Chemical')}</StatusBadge>
+                      ) : null}
+                      {check.microStatus !== 'na' ? (
+                        <StatusBadge variant={QC_PART_VARIANT[check.microStatus]}>{t('dermat_orders.sheet.qcMicro', 'Micro')}</StatusBadge>
+                      ) : null}
+                    </span>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </div>
         ) : null}
 
         {def.steps.length ? (

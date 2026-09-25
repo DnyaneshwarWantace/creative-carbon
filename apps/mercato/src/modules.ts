@@ -78,6 +78,7 @@ const dermatSidebarGroupOrder = [
   'dermat-01-sales.nav.group',
   'dermat-02-accounts.nav.group',
   'dermat-03-rnd.nav.group',
+  'dermat-03b-artwork.nav.group',
   'dermat-04-planning.nav.group',
   'dermat-05-purchase.nav.group',
   'dermat-06-store.nav.group',
@@ -256,6 +257,7 @@ export const enabledModules: ModuleEntry[] = [
   { id: 'dermat_products', from: '@app' },
   { id: 'dermat_boms', from: '@app' },
   { id: 'dermat_orders', from: '@app' },
+  { id: 'dermat_quality', from: '@app' },
   { id: 'dermat_vendors', from: '@app' },
   { id: 'ratelimit_probe', from: '@app' },
 ]

@@ -3,7 +3,7 @@
 import * as React from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { ArrowLeft, Ban, Copy, FileStack, History, Layers, Package, Pencil, UserRound } from 'lucide-react'
+import { ArrowLeft, Ban, CheckCircle2, Copy, FileStack, History, Layers, Lock, Package, Pencil, UserRound } from 'lucide-react'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { cn } from '@open-mercato/shared/lib/utils'
 import { Page, PageBody } from '@open-mercato/ui/backend/Page'
@@ -54,7 +54,7 @@ const STAGE_TONE: Record<string, string> = {
   skipped: 'border-border bg-muted/40',
   open: 'border-status-warning-border bg-status-warning-bg',
   on_hold: 'border-status-error-border bg-status-error-bg',
-  waiting: 'border-dashed border-border bg-background',
+  waiting: 'border-dashed border-border bg-background opacity-50',
 }
 
 const ACTION_LABEL: Record<string, string> = {
@@ -79,10 +79,18 @@ function StageCard({ stage, onOpen }: { stage: Stage; onOpen: () => void }) {
     <button
       type="button"
       onClick={onOpen}
-      className={cn('w-full rounded-lg border p-2.5 text-left transition-shadow hover:shadow-sm', STAGE_TONE[stage.status] ?? STAGE_TONE.waiting)}
+      title={stage.status === 'waiting' ? 'Opens when the earlier stages are done' : undefined}
+      className={cn(
+        'w-full rounded-lg border p-2.5 text-left transition-shadow',
+        stage.status === 'waiting' ? 'cursor-default' : 'hover:shadow-sm',
+        stage.status === 'open' && 'ring-2 ring-status-warning-border',
+        STAGE_TONE[stage.status] ?? STAGE_TONE.waiting,
+      )}
     >
       <div className="flex items-start justify-between gap-1">
         <span className="text-xs font-semibold leading-tight">{stage.label}</span>
+        {stage.status === 'done' ? <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-status-success-icon" /> : null}
+        {stage.status === 'waiting' ? <Lock className="h-3 w-3 shrink-0 text-muted-foreground" /> : null}
       </div>
       <div className="mt-1 text-xs text-muted-foreground">{stage.department}</div>
       <div className="mt-1.5 truncate text-xs">
@@ -147,7 +155,12 @@ export function OrderView({ orderId }: { orderId: string }) {
     const result = await stageRunner.run(order, stage, request)
     if (result.order) {
       setOrder(result.order)
-      if (request.action === 'complete' || request.action === 'skip') setOpenStage(null)
+      if (request.action === 'complete' || request.action === 'skip') {
+        const nextOpen = result.order.stages.filter(
+          (entry) => (entry.status === 'open' || entry.status === 'on_hold') && order.stages.find((before) => before.key === entry.key)?.status === 'waiting',
+        )
+        setOpenStage(nextOpen[0]?.key ?? null)
+      }
       return true
     }
     if (result.conflict) await load()

@@ -82,8 +82,8 @@ export const STAGES: StageDef[] = [
   {
     key: 'artwork',
     label: 'Artwork & packaging',
-    department: 'Artwork / QA',
-    group: 'qa',
+    department: 'Artwork & PM',
+    group: 'artwork',
     hint: 'Design, client approval, QA finalise, packing material ordered and received. Runs side by side with the formula.',
     after: ['sampling'],
     steps: [
@@ -134,12 +134,11 @@ export const STAGES: StageDef[] = [
     label: 'Manufacturing',
     department: 'Production',
     group: 'production',
-    hint: 'Bulk made in the vessel. Unit: kg / ml. Starts only when both arms are ready: material planned and artwork / packing material OK.',
+    hint: 'Bulk made in the vessel. Unit: kg / ml. Starts only when both arms are ready. The QC team tests the bulk (chemical and micro) before this can be done.',
     after: ['planning', 'artwork'],
     steps: [
       { key: 'store_requirement', label: 'Requirement given to store (material issued)' },
       { key: 'manufactured', label: 'Manufacturing done' },
-      { key: 'qc', label: 'QC testing of bulk passed' },
     ],
     fields: [
       { key: 'batch_no', label: 'Batch no.', type: 'text', required: true },
@@ -155,12 +154,11 @@ export const STAGES: StageDef[] = [
     label: 'Filling',
     department: 'Production',
     group: 'production',
-    hint: 'Bulk filled into bottles / tubes / jars. Unit: bottles / gm / ml.',
+    hint: 'Bulk filled into bottles / tubes / jars. Unit: bottles / gm / ml. QC after filling only if its QC rule is switched on.',
     after: ['manufacturing'],
     steps: [
       { key: 'bottle_requirement', label: 'Bottle / tube requirement given' },
       { key: 'filled', label: 'Filling done' },
-      { key: 'qc', label: 'QC testing after filling', optional: true },
     ],
     fields: [
       { key: 'filled_units', label: 'Units filled', type: 'number', required: true },
@@ -173,11 +171,10 @@ export const STAGES: StageDef[] = [
     label: 'Packing',
     department: 'Production',
     group: 'production',
-    hint: 'Finished goods packed. Unit: pieces.',
+    hint: 'Finished goods packed. Unit: pieces. The QC team does the final QC before this can be done.',
     after: ['filling'],
     steps: [
       { key: 'sample', label: 'Sample of the finished good made' },
-      { key: 'qc', label: 'Final QC testing passed' },
       { key: 'packed', label: 'All packaging done' },
     ],
     fields: [
