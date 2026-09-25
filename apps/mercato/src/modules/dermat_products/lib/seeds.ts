@@ -198,8 +198,51 @@ export async function seedDermatGstRates(em: EntityManager, scope: DermatSeedSco
   await em.flush()
 }
 
+const PRODUCT_TYPES = ['Storable', 'Consumable']
+
+export async function seedDermatProductTypes(em: EntityManager, scope: DermatSeedScope) {
+  let dictionary = await em.findOne(Dictionary, { ...scope, key: 'product_type', deletedAt: null })
+  if (!dictionary) {
+    dictionary = em.create(Dictionary, {
+      key: 'product_type',
+      name: 'Product type',
+      description: 'How a product is stocked (Storable, Consumable).',
+      ...scope,
+      isSystem: false,
+      isActive: true,
+      managerVisibility: 'default' satisfies DictionaryManagerVisibility,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    })
+    em.persist(dictionary)
+    await em.flush()
+  }
+  const existing = await em.find(DictionaryEntry, { dictionary, ...scope })
+  const present = new Set(existing.map((entry) => entry.normalizedValue))
+  PRODUCT_TYPES.forEach((value, index) => {
+    const normalized = value.toLowerCase()
+    if (present.has(normalized)) return
+    em.persist(
+      em.create(DictionaryEntry, {
+        dictionary,
+        ...scope,
+        value,
+        normalizedValue: normalized,
+        label: value,
+        color: null,
+        icon: null,
+        position: index,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      }),
+    )
+  })
+  await em.flush()
+}
+
 export async function seedDermatProducts(em: EntityManager, scope: DermatSeedScope) {
   await seedDermatUnits(em, scope)
+  await seedDermatProductTypes(em, scope)
   await seedDermatGstRates(em, scope)
   await seedDermatProductKinds(em, scope)
   await seedDermatCategories(em, scope)

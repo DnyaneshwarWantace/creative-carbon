@@ -114,6 +114,9 @@ The client rejected the Procuzy-style unit table and long forms. Current design:
 - Dropdown lists are managed in Masters → Dropdown Options (core dictionaries).
 - Fields per type follow the client's Excel sheets only: RM = Name, Code, INCI, Make/Brand, Supplier, Benefit, Alternative; PM = Name, Code, Capacity, Cap colour, Body colour, Supplier, Make/Brand; Bulk = Name, Code, R&D No.; FG = Name, Code, Brand, Pack size, MRP; R&D = Name, Code, R&D No., Brand. Every type also has Unit, Minimum stock, GST and HSN.
 - One Products page with a tab per type; "Add" opens that type's form with the type preset. Layout takes its style from the earlier Dermat create page (type strip, numbered cards).
+- Every type also has Product Type (dropdown list `product_type`: Storable, Consumable), Batch Consumption Method (FIFO / FEFO / LIFO, saved as the wms strategy), Selling Price and Cost Price (client request).
+- Finished Goods require the Internal Reference ID (`item_code`); list search matches it exactly.
+- Any optional field can be hidden per product type from "Customize fields" on the form (stored in module config `dermat_products.hiddenFields`, API `/api/dermat_products/field-settings`).
 - The "Fields per kind" and "Unit set / templates" tables above are superseded by this revision.
 
 ## Changelog

@@ -9,6 +9,9 @@ const systemEntities: CustomEntitySpec[] = [
     fields: [
       cf.text('item_code', { label: 'Code', listVisible: true, filterable: true }),
       cf.text('hsn_code', { label: 'HSN Code' }),
+      cf.text('product_type', { label: 'Product Type' }),
+      cf.currency('selling_price', { label: 'Selling Price' }),
+      cf.currency('cost_price', { label: 'Cost Price' }),
 
       cf.text('inci_name', { label: 'INCI Name', fieldset: 'raw_material', listVisible: true }),
       cf.text('benefit', { label: 'Benefit', fieldset: 'raw_material' }),

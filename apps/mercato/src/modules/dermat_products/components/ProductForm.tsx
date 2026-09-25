@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 import { useRouter } from 'next/navigation'
-import { ArrowLeft, Boxes, FlaskConical, Layers, Package, Receipt, Sparkles, Tag } from 'lucide-react'
+import { ArrowLeft, Boxes, FlaskConical, IndianRupee, Layers, Package, Receipt, Settings2, Sparkles, Tag } from 'lucide-react'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { cn } from '@open-mercato/shared/lib/utils'
 import { Page, PageBody } from '@open-mercato/ui/backend/Page'
@@ -10,6 +10,7 @@ import { Button } from '@open-mercato/ui/primitives/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@open-mercato/ui/primitives/card'
 import { Input } from '@open-mercato/ui/primitives/input'
 import { Label } from '@open-mercato/ui/primitives/label'
+import { Checkbox } from '@open-mercato/ui/primitives/checkbox'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@open-mercato/ui/primitives/select'
 import { apiCall, withScopedApiRequestHeaders } from '@open-mercato/ui/backend/utils/apiCall'
 import { createCrud, deleteCrud, updateCrud } from '@open-mercato/ui/backend/utils/crud'
@@ -31,6 +32,10 @@ type FormState = {
   taxRateId: string
   hsnCode: string
   minStock: string
+  productType: string
+  strategy: string
+  sellingPrice: string
+  costPrice: string
   details: Record<string, string>
 }
 
@@ -39,9 +44,17 @@ type Loaded = {
   rootCategoryId: string | null
   taxRates: TaxOption[]
   units: TaxOption[]
+  productTypes: TaxOption[]
+  hiddenFields: string[]
   profileId: string | null
   updatedAt: string | null
 }
+
+const STRATEGY_OPTIONS = [
+  { value: 'fifo', label: 'First In First Out (FIFO)' },
+  { value: 'fefo', label: 'First Expiry First Out (FEFO)' },
+  { value: 'lifo', label: 'Last In First Out (LIFO)' },
+]
 
 const KIND_ICONS: Record<KindConfig['icon'], React.ComponentType<{ className?: string }>> = {
   flask: FlaskConical,
@@ -78,11 +91,17 @@ function numberOrNull(value: string): number | null {
 
 async function load(config: KindConfig, productId?: string): Promise<Loaded> {
   const kindLabel = PRODUCT_KINDS.find((entry) => entry.code === config.kind)?.label ?? ''
-  const [tree, taxes, unitCall, productCall, profileCall] = await Promise.all([
+  const [tree, taxes, unitCall, typeCall, settingsCall, productCall, profileCall] = await Promise.all([
     apiCall<ListResponse<{ id: string; name: string }>>('/api/catalog/categories?view=tree', undefined, { fallback: { items: [] } }),
     apiCall<ListResponse<Row>>('/api/sales/tax-rates?pageSize=100', undefined, { fallback: { items: [] } }),
     apiCall<{ entries?: Array<{ value: string; label: string }> }>('/api/catalog/dictionaries/unit', undefined, {
       fallback: { entries: [] },
+    }),
+    apiCall<{ entries?: Array<{ value: string; label: string }> }>('/api/catalog/dictionaries/product_type', undefined, {
+      fallback: { entries: [] },
+    }),
+    apiCall<{ hiddenFields?: Record<string, string[]> }>('/api/dermat_products/field-settings', undefined, {
+      fallback: { hiddenFields: {} },
     }),
     productId ? apiCall<ListResponse<Row>>(`/api/catalog/products?id=${encodeURIComponent(productId)}&pageSize=1`) : null,
     productId
@@ -107,10 +126,16 @@ async function load(config: KindConfig, productId?: string): Promise<Loaded> {
       taxRateId: text(read(product, 'tax_rate_id', 'taxRateId')) || (product ? '' : defaultTax),
       hsnCode: text(read(product, 'cf_hsn_code')),
       minStock: text(read(profile, 'reorder_point', 'reorderPoint')),
+      productType: text(read(product, 'cf_product_type')) || (product ? '' : 'Storable'),
+      strategy: text(read(profile, 'default_strategy', 'defaultStrategy')) || 'fifo',
+      sellingPrice: text(read(product, 'cf_selling_price')),
+      costPrice: text(read(product, 'cf_cost_price')),
       details,
     },
     rootCategoryId: (tree.result?.items ?? []).find((node) => node.name === kindLabel)?.id ?? null,
     taxRates,
+    productTypes: (typeCall.result?.entries ?? []).map((entry) => ({ value: entry.value, label: entry.label })),
+    hiddenFields: settingsCall.result?.hiddenFields?.[config.kind] ?? [],
     units: unitsForKind(config, (unitCall.result?.entries ?? []).map((entry) => ({ value: entry.value, label: entry.label }))),
     profileId: profile ? text(read(profile, 'id')) : null,
     updatedAt: text(read(product, 'updated_at', 'updatedAt')) || null,
@@ -140,6 +165,51 @@ export function ProductForm({ kind, productId }: { kind: ProductKind; productId?
   const [state, setState] = React.useState<FormState | null>(null)
   const [loadError, setLoadError] = React.useState<string | null>(null)
   const [saving, setSaving] = React.useState(false)
+  const [customizing, setCustomizing] = React.useState(false)
+  const [hidden, setHidden] = React.useState<Set<string>>(new Set())
+
+  React.useEffect(() => {
+    if (loaded) setHidden(new Set(loaded.hiddenFields))
+  }, [loaded])
+
+  const hideableFields = React.useMemo(
+    () => [
+      ...(config.codeRequired ? [] : [{ key: 'item_code', label: config.codeLabel }]),
+      ...config.fields.map((field) => ({ key: field.key, label: field.label })),
+      { key: 'product_type', label: t('dermat_products.form.productType', 'Product Type') },
+      { key: 'batch_method', label: t('dermat_products.form.batchMethod', 'Batch Consumption Method') },
+      { key: 'min_stock', label: t('dermat_products.form.minStockPlain', 'Minimum Stock') },
+      { key: 'gst', label: t('dermat_products.form.gst', 'GST') },
+      { key: 'hsn', label: t('dermat_products.form.hsn', 'HSN Code') },
+      { key: 'selling_price', label: t('dermat_products.form.sellingPrice', 'Selling Price (₹)') },
+      { key: 'cost_price', label: t('dermat_products.form.costPrice', 'Cost Price (₹)') },
+    ],
+    [config, t],
+  )
+
+  const isVisible = (key: string) => !hidden.has(key) || (key === 'item_code' && config.codeRequired)
+
+  const toggleHidden = (key: string, hide: boolean) =>
+    setHidden((prev) => {
+      const next = new Set(prev)
+      if (hide) next.add(key)
+      else next.delete(key)
+      return next
+    })
+
+  const saveHiddenFields = async () => {
+    try {
+      await runMutation({
+        context: { kind, setting: 'hiddenFields' },
+        mutationPayload: { kind, hiddenFields: Array.from(hidden) },
+        operation: () => updateCrud('dermat_products/field-settings', { kind, hiddenFields: Array.from(hidden) }),
+      })
+      flash(t('dermat_products.flash.fieldsSaved', 'Field settings saved'), 'success')
+      setCustomizing(false)
+    } catch {
+      flash(t('dermat_products.flash.fieldsFailed', 'Could not save field settings.'), 'error')
+    }
+  }
   const [nameError, setNameError] = React.useState<string | null>(null)
   const [codeError, setCodeError] = React.useState<string | null>(null)
 
@@ -181,6 +251,9 @@ export function ProductForm({ kind, productId }: { kind: ProductKind; productId?
     const custom: Record<string, unknown> = {
       cf_item_code: state.itemCode.trim() || null,
       cf_hsn_code: state.hsnCode.trim() || null,
+      cf_product_type: state.productType || null,
+      cf_selling_price: numberOrNull(state.sellingPrice),
+      cf_cost_price: numberOrNull(state.costPrice),
     }
     for (const field of config.fields) {
       const value = state.details[field.key] ?? ''
@@ -199,7 +272,8 @@ export function ProductForm({ kind, productId }: { kind: ProductKind; productId?
     }
     const profilePayload = {
       defaultUom: state.unit,
-      defaultStrategy: 'fifo',
+      defaultStrategy: state.strategy === 'fefo' || state.strategy === 'lifo' ? state.strategy : 'fifo',
+      trackExpiration: state.strategy === 'fefo',
       trackLot: true,
       reorderPoint: numberOrNull(state.minStock) ?? 0,
     }
@@ -302,6 +376,10 @@ export function ProductForm({ kind, productId }: { kind: ProductKind; productId?
               <p className="ml-11 text-xs text-muted-foreground">{config.hint}</p>
             </div>
             <div className="flex items-center gap-2">
+              <Button type="button" variant="ghost" onClick={() => setCustomizing((open) => !open)}>
+                <Settings2 className="mr-2 h-4 w-4" />
+                {t('dermat_products.form.customize', 'Customize fields')}
+              </Button>
               {productId ? (
                 <Button type="button" variant="destructive-ghost" onClick={handleDelete} disabled={saving}>
                   {t('common.delete', 'Delete')}
@@ -373,45 +451,51 @@ export function ProductForm({ kind, productId }: { kind: ProductKind; productId?
                     </Field>
                     {nameError ? <p className="mt-1 text-xs text-destructive">{nameError}</p> : null}
                   </div>
-                  <div className="sm:col-span-4">
-                    <Field label={config.codeLabel} required={config.codeRequired}>
-                      <Input
-                        value={state.itemCode}
-                        onChange={(event) => update({ itemCode: event.target.value })}
-                        placeholder={config.codePlaceholder}
-                        className="font-mono"
-                      />
-                    </Field>
-                    {codeError ? <p className="mt-1 text-xs text-destructive">{codeError}</p> : null}
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader className="border-b bg-muted/20 pb-3">
-                  <CardTitle className="flex items-center gap-2 text-sm font-bold">
-                    {React.createElement(KIND_ICONS[config.icon], { className: 'h-4 w-4 text-primary' })}
-                    {`2. ${config.detailsTitle}`}
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="grid grid-cols-1 gap-4 pt-4 sm:grid-cols-2">
-                  {config.fields.map((field) => (
-                    <div key={field.key} className={field.wide ? 'sm:col-span-2' : undefined}>
-                      <Field label={field.label}>
+                  {isVisible('item_code') ? (
+                    <div className="sm:col-span-4">
+                      <Field label={config.codeLabel} required={config.codeRequired}>
                         <Input
-                          value={state.details[field.key] ?? ''}
-                          onChange={(event) => updateDetail(field.key, event.target.value)}
-                          placeholder={field.placeholder}
-                          inputMode={field.numeric ? 'decimal' : undefined}
+                          value={state.itemCode}
+                          onChange={(event) => update({ itemCode: event.target.value })}
+                          placeholder={config.codePlaceholder}
+                          className="font-mono"
                         />
                       </Field>
+                      {codeError ? <p className="mt-1 text-xs text-destructive">{codeError}</p> : null}
                     </div>
-                  ))}
+                  ) : null}
                 </CardContent>
               </Card>
+
+              {config.fields.some((field) => isVisible(field.key)) ? (
+                <Card>
+                  <CardHeader className="border-b bg-muted/20 pb-3">
+                    <CardTitle className="flex items-center gap-2 text-sm font-bold">
+                      {React.createElement(KIND_ICONS[config.icon], { className: 'h-4 w-4 text-primary' })}
+                      {`2. ${config.detailsTitle}`}
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="grid grid-cols-1 gap-4 pt-4 sm:grid-cols-2">
+                    {config.fields
+                      .filter((field) => isVisible(field.key))
+                      .map((field) => (
+                        <div key={field.key} className={field.wide ? 'sm:col-span-2' : undefined}>
+                          <Field label={field.label}>
+                            <Input
+                              value={state.details[field.key] ?? ''}
+                              onChange={(event) => updateDetail(field.key, event.target.value)}
+                              placeholder={field.placeholder}
+                              inputMode={field.numeric ? 'decimal' : undefined}
+                            />
+                          </Field>
+                        </div>
+                      ))}
+                  </CardContent>
+                </Card>
+              ) : null}
             </div>
 
-            <div className="lg:col-span-4">
+            <div className="space-y-6 lg:col-span-4">
               <Card>
                 <CardHeader className="border-b bg-muted/20 pb-3">
                   <CardTitle className="flex items-center gap-2 text-sm font-bold">
@@ -434,33 +518,137 @@ export function ProductForm({ kind, productId }: { kind: ProductKind; productId?
                       </SelectContent>
                     </Select>
                   </Field>
-                  <Field label={t('dermat_products.form.minStock', 'Minimum Stock ({unit})', { unit: state.unit })}>
-                    <Input
-                      value={state.minStock}
-                      onChange={(event) => update({ minStock: event.target.value })}
-                      inputMode="decimal"
-                      placeholder="0"
-                    />
-                  </Field>
-                  <Field label={t('dermat_products.form.gst', 'GST')}>
-                    <Select value={state.taxRateId} onValueChange={(taxRateId) => update({ taxRateId })}>
-                      <SelectTrigger>
-                        <SelectValue placeholder={t('dermat_products.form.gstPlaceholder', 'Select GST')} />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {loaded.taxRates.map((rate) => (
-                          <SelectItem key={rate.value} value={rate.value}>
-                            {rate.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </Field>
-                  <Field label={t('dermat_products.form.hsn', 'HSN Code')}>
-                    <Input value={state.hsnCode} onChange={(event) => update({ hsnCode: event.target.value })} placeholder="e.g. 3304" />
-                  </Field>
+                  {isVisible('product_type') ? (
+                    <Field label={t('dermat_products.form.productType', 'Product Type')}>
+                      <Select value={state.productType} onValueChange={(productType) => update({ productType })}>
+                        <SelectTrigger>
+                          <SelectValue placeholder={t('dermat_products.form.select', 'Select')} />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {loaded.productTypes.map((option) => (
+                            <SelectItem key={option.value} value={option.value}>
+                              {option.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </Field>
+                  ) : null}
+                  {isVisible('batch_method') ? (
+                    <Field label={t('dermat_products.form.batchMethod', 'Batch Consumption Method')}>
+                      <Select value={state.strategy} onValueChange={(strategy) => update({ strategy })}>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {STRATEGY_OPTIONS.map((option) => (
+                            <SelectItem key={option.value} value={option.value}>
+                              {option.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </Field>
+                  ) : null}
+                  {isVisible('min_stock') ? (
+                    <Field label={t('dermat_products.form.minStock', 'Minimum Stock ({unit})', { unit: state.unit })}>
+                      <Input
+                        value={state.minStock}
+                        onChange={(event) => update({ minStock: event.target.value })}
+                        inputMode="decimal"
+                        placeholder="0"
+                      />
+                    </Field>
+                  ) : null}
+                  {isVisible('gst') ? (
+                    <Field label={t('dermat_products.form.gst', 'GST')}>
+                      <Select value={state.taxRateId} onValueChange={(taxRateId) => update({ taxRateId })}>
+                        <SelectTrigger>
+                          <SelectValue placeholder={t('dermat_products.form.gstPlaceholder', 'Select GST')} />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {loaded.taxRates.map((rate) => (
+                            <SelectItem key={rate.value} value={rate.value}>
+                              {rate.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </Field>
+                  ) : null}
+                  {isVisible('hsn') ? (
+                    <Field label={t('dermat_products.form.hsn', 'HSN Code')}>
+                      <Input value={state.hsnCode} onChange={(event) => update({ hsnCode: event.target.value })} placeholder="e.g. 3304" />
+                    </Field>
+                  ) : null}
                 </CardContent>
               </Card>
+
+              {isVisible('selling_price') || isVisible('cost_price') ? (
+                <Card>
+                  <CardHeader className="border-b bg-muted/20 pb-3">
+                    <CardTitle className="flex items-center gap-2 text-sm font-bold">
+                      <IndianRupee className="h-4 w-4 text-primary" />
+                      {t('dermat_products.form.pricing', '4. Pricing')}
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="grid grid-cols-2 gap-4 pt-4">
+                    {isVisible('selling_price') ? (
+                      <Field label={t('dermat_products.form.sellingPrice', 'Selling Price (₹)')}>
+                        <Input
+                          value={state.sellingPrice}
+                          onChange={(event) => update({ sellingPrice: event.target.value })}
+                          inputMode="decimal"
+                          placeholder="0.00"
+                        />
+                      </Field>
+                    ) : null}
+                    {isVisible('cost_price') ? (
+                      <Field label={t('dermat_products.form.costPrice', 'Cost Price (₹)')}>
+                        <Input
+                          value={state.costPrice}
+                          onChange={(event) => update({ costPrice: event.target.value })}
+                          inputMode="decimal"
+                          placeholder="0.00"
+                        />
+                      </Field>
+                    ) : null}
+                  </CardContent>
+                </Card>
+              ) : null}
+
+              {customizing ? (
+                <Card>
+                  <CardHeader className="border-b bg-muted/20 pb-3">
+                    <CardTitle className="flex items-center gap-2 text-sm font-bold">
+                      <Settings2 className="h-4 w-4 text-primary" />
+                      {t('dermat_products.form.customizeTitle', 'Fields shown for {kind}', { kind: config.title })}
+                    </CardTitle>
+                    <CardDescription className="text-xs">
+                      {t('dermat_products.form.customizeHint', 'Untick a field you never fill. It is hidden for everyone and can be shown again here.')}
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-2 pt-4">
+                    {hideableFields.map((field) => (
+                      <label key={field.key} className="flex items-center gap-2 text-sm">
+                        <Checkbox
+                          checked={!hidden.has(field.key)}
+                          onCheckedChange={(checked) => toggleHidden(field.key, checked !== true)}
+                        />
+                        {field.label}
+                      </label>
+                    ))}
+                    <div className="flex justify-end gap-2 pt-2">
+                      <Button type="button" variant="outline" size="sm" onClick={() => setCustomizing(false)}>
+                        {t('common.cancel', 'Cancel')}
+                      </Button>
+                      <Button type="button" size="sm" onClick={saveHiddenFields}>
+                        {t('dermat_products.form.saveFields', 'Save fields')}
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              ) : null}
             </div>
           </div>
         </form>
