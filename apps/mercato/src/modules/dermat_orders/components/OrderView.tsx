@@ -29,18 +29,25 @@ type TreeNode = { productId: string; kind: string | null; quantity: number; unit
 
 const KIND_LABEL: Record<string, string> = { raw_material: 'RM', packing_material: 'PM', bulk: 'Bulk', finished_goods: 'FG' }
 
-const STAGE_COLUMNS: string[][] = [
-  ['order'],
-  ['advance'],
-  ['sampling'],
-  ['artwork', 'formulation'],
-  ['planning'],
-  ['manufacturing'],
-  ['filling'],
-  ['packing'],
-  ['qc_qa'],
-  ['billing'],
-  ['dispatch'],
+type RailBlock = { kind: 'single'; key: string } | { kind: 'arms'; lanes: Array<{ label: string; keys: string[] }> }
+
+const RAIL: RailBlock[] = [
+  { kind: 'single', key: 'order' },
+  { kind: 'single', key: 'advance' },
+  { kind: 'single', key: 'sampling' },
+  {
+    kind: 'arms',
+    lanes: [
+      { label: 'Packaging arm', keys: ['artwork'] },
+      { label: 'Formula arm', keys: ['formulation', 'planning'] },
+    ],
+  },
+  { kind: 'single', key: 'manufacturing' },
+  { kind: 'single', key: 'filling' },
+  { kind: 'single', key: 'packing' },
+  { kind: 'single', key: 'qc_qa' },
+  { kind: 'single', key: 'billing' },
+  { kind: 'single', key: 'dispatch' },
 ]
 
 const STAGE_TONE: Record<string, string> = {
@@ -323,15 +330,37 @@ export function OrderView({ orderId }: { orderId: string }) {
             </CardHeader>
             <CardContent className="overflow-x-auto p-4">
               <div className="flex min-w-max items-stretch gap-2">
-                {STAGE_COLUMNS.map((column, index) => (
-                  <React.Fragment key={column.join('-')}>
+                {RAIL.map((block, index) => (
+                  <React.Fragment key={block.kind === 'single' ? block.key : 'arms'}>
                     {index > 0 ? <div className="flex items-center text-muted-foreground">›</div> : null}
-                    <div className={cn('flex w-36 flex-col gap-2', column.length > 1 && 'justify-center')}>
-                      {column.map((key) => {
-                        const stage = stagesByKey.get(key)
-                        return stage ? <StageCard key={key} stage={stage} onOpen={() => setOpenStage(key)} /> : null
-                      })}
-                    </div>
+                    {block.kind === 'single' ? (
+                      <div className="flex w-36 flex-col justify-center">
+                        {stagesByKey.get(block.key) ? (
+                          <StageCard stage={stagesByKey.get(block.key)!} onOpen={() => setOpenStage(block.key)} />
+                        ) : null}
+                      </div>
+                    ) : (
+                      <div className="flex flex-col gap-2 rounded-lg border border-dashed p-2">
+                        {block.lanes.map((lane) => (
+                          <div key={lane.label} className="flex items-center gap-2">
+                            <span className="w-20 shrink-0 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                              {t(`dermat_orders.rail.lane.${lane.keys[0]}`, lane.label)}
+                            </span>
+                            {lane.keys.map((key, laneIndex) => (
+                              <React.Fragment key={key}>
+                                {laneIndex > 0 ? <span className="text-muted-foreground">›</span> : null}
+                                <div className="w-36">
+                                  {stagesByKey.get(key) ? <StageCard stage={stagesByKey.get(key)!} onOpen={() => setOpenStage(key)} /> : null}
+                                </div>
+                              </React.Fragment>
+                            ))}
+                          </div>
+                        ))}
+                        <span className="text-center text-xs text-muted-foreground">
+                          {t('dermat_orders.rail.merge', 'Both arms must finish before Manufacturing')}
+                        </span>
+                      </div>
+                    )}
                   </React.Fragment>
                 ))}
               </div>

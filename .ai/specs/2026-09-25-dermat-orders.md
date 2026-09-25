@@ -30,8 +30,8 @@ Production split per the client's 3-stage production diagram (Manufacturing kg/m
 | 3 | Sampling / R&D (skip for repeat) | R&D | 2 | R&D request received · Sample made · Sample sent · Client approved |
 | 4a | Artwork & packaging | QA | 3 | Artwork designed · Client approved · QA finalised · PM ordered · PM received (PM OK) |
 | 4b | Formula & BOM | R&D | 3 | automatic: every product needs an approved BOM |
-| 5 | Material planning | Planning | 4a + 4b | Checked against stock · Stock reserved · Purchase raised (if needed) · Material received & QC approved (if needed) |
-| 6 | Manufacturing (kg) | Production | 5 | Requirement to store · Manufacturing done · Bulk QC passed |
+| 5 | Material planning | Planning | 4b (formula arm) | Checked against stock · Stock reserved · Purchase raised (if needed) · Material received & QC approved (if needed) |
+| 6 | Manufacturing (kg) | Production | 5 **and** 4a — the two arms merge here (blueprint merge rule) | Requirement to store · Manufacturing done · Bulk QC passed |
 | 7 | Filling (bottles) | Production | 6 | Bottle/tube requirement · Filling done · QC after filling (if needed) |
 | 8 | Packing (pieces) | Production | 7 | FG sample made · Final QC passed · All packaging done |
 | 9 | QA release | QA | 8 | Batch documents checked · Released for dispatch |
@@ -71,3 +71,4 @@ Morning email digest, department work queues, order-specific BOM copy, planning 
 ## Known data issue
 
 The 10 demo customers created before 2026-09-23 were encrypted with an older key; their names cannot be decrypted. Order screens fall back to the readable Legal / Trade Name. Re-saving their names (or re-creating them) fixes the Customer page.
+- 2026-09-25: Merge point moved to Manufacturing (Planning belongs to the formula arm, per the blueprint). Test 40/40.

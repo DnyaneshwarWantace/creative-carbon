@@ -115,8 +115,8 @@ export const STAGES: StageDef[] = [
     label: 'Material planning',
     department: 'Planning',
     group: 'planning',
-    hint: 'Raw and packing material checked against stock; purchase raised for what is short; received material QC-approved.',
-    after: ['artwork', 'formulation'],
+    hint: 'Raw and packing material checked against stock; purchase raised for what is short; received material QC-approved. Runs in the formula arm, alongside artwork.',
+    after: ['formulation'],
     steps: [
       { key: 'checked', label: 'Material checked against stock' },
       { key: 'reserved', label: 'Stock reserved for this order' },
@@ -134,8 +134,8 @@ export const STAGES: StageDef[] = [
     label: 'Manufacturing',
     department: 'Production',
     group: 'production',
-    hint: 'Bulk made in the vessel. Unit: kg / ml.',
-    after: ['planning'],
+    hint: 'Bulk made in the vessel. Unit: kg / ml. Starts only when both arms are ready: material planned and artwork / packing material OK.',
+    after: ['planning', 'artwork'],
     steps: [
       { key: 'store_requirement', label: 'Requirement given to store (material issued)' },
       { key: 'manufactured', label: 'Manufacturing done' },
