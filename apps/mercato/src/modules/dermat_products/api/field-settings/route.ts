@@ -17,14 +17,16 @@ const SETTING_KEY = 'hiddenFields'
 
 const kindSchema = z.enum(PRODUCT_KINDS.map((kind) => kind.code) as [string, ...string[]])
 const fieldKeySchema = z.string().trim().min(1).max(64).regex(/^[a-z0-9_]+$/)
-const hiddenFieldsSchema = z.record(kindSchema, z.array(fieldKeySchema).max(50))
+const hiddenFieldsSchema = z.record(z.string(), z.array(fieldKeySchema).max(50))
+const KIND_CODES = new Set<string>(PRODUCT_KINDS.map((kind) => kind.code))
 const bodySchema = z.object({ kind: kindSchema, hiddenFields: z.array(fieldKeySchema).max(50) })
 const responseSchema = z.object({ hiddenFields: hiddenFieldsSchema })
 
 async function readHiddenFields(configService: ModuleConfigService, tenantId: string) {
   const value = await configService.getValue<unknown>(MODULE_ID, SETTING_KEY, { defaultValue: {}, scope: { tenantId } })
   const parsed = hiddenFieldsSchema.safeParse(value ?? {})
-  return parsed.success ? parsed.data : {}
+  if (!parsed.success) return {}
+  return Object.fromEntries(Object.entries(parsed.data).filter(([kind]) => KIND_CODES.has(kind)))
 }
 
 async function GET(req: Request) {

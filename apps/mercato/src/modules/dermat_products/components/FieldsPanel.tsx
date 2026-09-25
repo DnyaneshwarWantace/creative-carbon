@@ -139,12 +139,15 @@ export function FieldsPanel({ open, onOpenChange, kind, fields, defs, hidden, on
         operation: async () => {
           let dictionaryId: string | null = null
           if (newType === 'list') {
-            const dictionary = await createCrud<{ id?: string }>('dictionaries', {
-              key: `product_${key}`.slice(0, 100),
-              name: label,
-              description: `Options for the product field "${label}".`,
-            })
-            dictionaryId = dictionary.result?.id ?? null
+            for (let attempt = 1; attempt <= 5 && !dictionaryId; attempt += 1) {
+              const dictionaryKey = `product_${key}${attempt > 1 ? `_${attempt}` : ''}`.slice(0, 100)
+              const call = await apiCall<{ id?: string }>('/api/dictionaries', {
+                method: 'POST',
+                headers: { 'content-type': 'application/json' },
+                body: JSON.stringify({ key: dictionaryKey, name: label, description: `Options for the product field "${label}".` }),
+              })
+              if (call.ok) dictionaryId = call.result?.id ?? null
+            }
             if (!dictionaryId) throw new Error('[internal] dictionary id missing')
             for (const [position, value] of options.entries()) {
               await apiCall(`/api/dictionaries/${dictionaryId}/entries`, {
