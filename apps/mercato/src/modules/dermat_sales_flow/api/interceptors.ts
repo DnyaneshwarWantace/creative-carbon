@@ -2,8 +2,8 @@ import type { ApiInterceptor } from '@open-mercato/shared/lib/crud/api-intercept
 import { SalesOrderLine } from '@open-mercato/core/modules/sales/data/entities'
 
 /**
- * Production-committed quantity is a floor once a batch has actually started (any BatchStage
- * has startedAt set) for the order a line belongs to: decreases are blocked outright (material
+ * Production-committed quantity is a floor once production has started for the order a line
+ * belongs to (any production-stage run exists in dermat_workflow): decreases are blocked outright (material
  * already committed/consumed), increases are blocked as an in-place edit too — the order detail
  * UI offers "Create additional order" for the delta instead, so the original order's committed
  * quantity is never mutated once production is underway. Pre-production edits pass through
@@ -33,13 +33,12 @@ export const interceptors: ApiInterceptor[] = [
       const resolvedOrderId = typeof orderId === 'string' ? orderId : orderId?.id
       if (!resolvedOrderId) return { ok: true }
 
-      // dermat_production is a sibling app-level module — no direct entity import (FK-id +
+      // dermat_workflow is a sibling app-level module — no direct entity import (FK-id +
       // raw-SQL fetch pattern, same idiom as dealAdvanceReceivedConversion.ts).
       const startedStageRows = await context.em.getConnection().execute<Array<{ id: string }>>(
-        `select bs.id
-         from dermat_batch_stages bs
-         join dermat_production_batches pb on pb.id = bs.production_batch_id
-         where pb.order_id = ? and pb.organization_id = ? and pb.tenant_id = ? and bs.started_at is not null
+        `select id
+         from dermat_stage_runs
+         where order_id = ? and organization_id = ? and tenant_id = ? and subject_type = 'order_line' and deleted_at is null
          limit 1`,
         [resolvedOrderId, context.organizationId, context.tenantId],
       )
@@ -62,47 +61,6 @@ export const interceptors: ApiInterceptor[] = [
             'This order is already in production — quantity cannot be increased in place. Use "Create additional order" on the order page to place the extra quantity as a new, separately produced order.',
         }
       }
-      return { ok: true }
-    },
-  },
-  {
-    id: 'dermat_sales_flow.production-batches.sampling-gate',
-    targetRoute: 'dermat_production/batches',
-    methods: ['POST'],
-    priority: 100,
-    async before(request, context) {
-      const orderId = request.body?.orderId
-      if (typeof orderId !== 'string' || !orderId) return { ok: true }
-
-      // dermat_sampling is a sibling app-level module — no direct entity import (FK-id +
-      // raw-SQL fetch pattern, same idiom as the production-lock interceptor above).
-      const sampleRows = await context.em.getConnection().execute<Array<{ status: string }>>(
-        `select status
-         from dermat_samples
-         where order_id = ? and organization_id = ? and tenant_id = ? and deleted_at is null
-         order by created_at desc
-         limit 1`,
-        [orderId, context.organizationId, context.tenantId],
-      )
-
-      if (sampleRows.length === 0) {
-        return {
-          ok: false,
-          statusCode: 422,
-          message:
-            'This order requires an approved R&D sample before production can start. Use "Request Sample" on the order page.',
-        }
-      }
-
-      const latestStatus = sampleRows[0].status
-      if (latestStatus !== 'approved') {
-        return {
-          ok: false,
-          statusCode: 422,
-          message: `This order's R&D sample is not yet approved (current status: ${latestStatus.replace(/_/g, ' ')}). Production cannot start until the customer approves a sample.`,
-        }
-      }
-
       return { ok: true }
     },
   },

@@ -393,6 +393,8 @@ export type CrudFormProps<TValues extends Record<string, unknown>> = {
   readOnlyOverlay?: React.ReactNode
   // Optional mapping of entityId -> form value key storing the selected fieldset code
   customFieldsetBindings?: Record<string, { valueKey: string }>
+  /** Hide the built-in fieldset selector above custom fields — use when the host form renders its own bound selector (see `customFieldsetBindings`). */
+  hideCustomFieldsetSelector?: boolean
   /**
    * How the custom-fields "Manage fields" affordance behaves:
    * - 'inline' (default) — opens the embedded fieldset quick-editor dialog.
@@ -743,6 +745,7 @@ export function CrudForm<TValues extends Record<string, unknown>>({
   readOnly = false,
   readOnlyOverlay,
   customFieldsetBindings,
+  hideCustomFieldsetSelector = false,
   customFieldsManageMode = 'inline',
   injectionSpotId,
   replacementHandle,
@@ -3277,6 +3280,7 @@ export function CrudForm<TValues extends Record<string, unknown>>({
     customFieldLayout.forEach((entityLayout) => {
       const manageHref = buildCustomFieldsManageHref(entityLayout.entityId)
       const showSelector =
+        !hideCustomFieldsetSelector &&
         entityLayout.hasFieldsets &&
         entityLayout.singleFieldsetPerRecord &&
         entityLayout.availableFieldsets.length > 0
@@ -3415,6 +3419,7 @@ export function CrudForm<TValues extends Record<string, unknown>>({
     fieldsetSelectorLabel,
     handleFieldsetSelectionChange,
     handleOpenFieldsetEditor,
+    hideCustomFieldsetSelector,
     manageFieldsetLabel,
     placedCustomFieldIds,
     renderFields,

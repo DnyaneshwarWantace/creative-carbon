@@ -98,6 +98,9 @@ const systemEntities: CustomEntitySpec[] = [
       cf.text('brand_name', { label: 'Brand name' }),
       cf.text('pack_size', { label: 'Pack size' }),
       cf.text('uom', { label: 'UOM' }),
+      cf.currency('mrp', { label: 'MRP' }),
+      cf.currency('unit_price', { label: 'Unit price' }),
+      cf.text('batch_no', { label: 'Batch no.' }),
     ],
   },
   {
@@ -105,13 +108,63 @@ const systemEntities: CustomEntitySpec[] = [
     label: 'Product',
     showInSidebar: false,
     fields: [
-      // Product Master — confirmed fields (client transcript 40:24-40:36)
-      cf.text('product_code', { label: 'Product Code' }),
-      cf.text('internal_id', { label: 'Internal ID' }),
-      cf.float('min_floor_qty', { label: 'Min Floor Qty' }),
-      cf.text('category', { label: 'Category' }),
-      cf.text('gst_tax_category', { label: 'GST / Tax Category' }),
+      // One product master for every item kind. The product's
+      // `customFieldsetCode` (the category picked on the form) selects which
+      // fieldset below is shown; fields without a fieldset show for every
+      // category. Admins add / hide / remove fields per category from the
+      // form's "Manage fields" dialog — removed fields are soft-deleted and
+      // restorable. Field set sourced from the old RM / PM store masters,
+      // Procuzy's Add New Product screen and the client's recordings.
+
+      // Every category
+      cf.text('product_code', { label: 'Product Code', listVisible: true, filterable: true }),
+      cf.text('internal_id', { label: 'Internal Reference ID' }),
+      cf.text('hsn_code', { label: 'HSN / SAC Code' }),
+      cf.text('gst_tax_category', { label: 'GST %' }),
       cf.text('base_uom', { label: 'Base UOM' }),
+      cf.float('min_floor_qty', { label: 'Minimum Floor Quantity' }),
+      cf.integer('shelf_life_months', { label: 'Shelf Life (months)' }),
+
+      // Raw Material
+      cf.text('inci_name', { label: 'INCI Name', fieldset: 'raw_material' }),
+      cf.select('physical_state', ['Solid', 'Liquid', 'Semi-solid', 'Powder', 'Gel', 'Paste'], { label: 'Physical State', fieldset: 'raw_material' }),
+      cf.text('benefit', { label: 'Benefit / Function', fieldset: 'raw_material' }),
+      cf.text('alternate_rm', { label: 'Alternate RM', fieldset: 'raw_material' }),
+
+      // Packing Material
+      cf.select('pm_type', ['Bottle', 'Jar', 'Tube', 'Pump', 'Cap', 'Carton', 'Label', 'Shipper', 'Sachet'], { label: 'PM Type', fieldset: 'packing_material' }),
+      cf.text('dimensions', { label: 'Dimensions', fieldset: 'packing_material' }),
+
+      // Raw Material + Packing Material (purchased items)
+      cf.text('make_brand_name', { label: 'Make / Brand', fieldsets: ['raw_material', 'packing_material'] }),
+      cf.text('supplier', { label: 'Supplier', fieldsets: ['raw_material', 'packing_material'] }),
+      cf.float('grn_excess_percent', { label: '% Excess GRN Allowed', fieldsets: ['raw_material', 'packing_material'] }),
+
+      // Bulk (semi-finished formulation)
+      cf.text('pack_size', { label: 'Pack Size', fieldset: 'bulk' }),
+
+      // Finished Goods
+      cf.float('qty_in_ml', { label: 'Qty in ML', fieldset: 'finished_goods' }),
+      cf.float('mrp', { label: 'MRP (₹)', fieldset: 'finished_goods' }),
+
+      // Kept in sync automatically from the chosen category — not typed in.
+      cf.text('category', { label: 'Category Label', formEditable: false }),
+      cf.select('product_category_group', ['raw_material', 'packing_material', 'finished_goods', 'bulk', 'rnd'], {
+        label: 'Product Category Group',
+        listVisible: true,
+        filterable: true,
+        formEditable: false,
+      }),
+
+      // Parked (hidden) — never seen filled in the client's recordings. An
+      // admin can switch any of them on from "Manage fields".
+      cf.text('first_batch_no', { label: 'First Batch No.', formEditable: false }),
+      cf.text('carton_vendor', { label: 'Carton Vendor', formEditable: false }),
+      cf.text('tube_vendor', { label: 'Tube Vendor', formEditable: false }),
+      cf.text('fragrance', { label: 'Fragrance', formEditable: false }),
+      cf.text('printing_details', { label: 'Printing Details', formEditable: false }),
+      cf.text('packing_code', { label: 'Packing Code', formEditable: false }),
+      cf.text('colour', { label: 'Colour', formEditable: false }),
     ],
   },
   {
@@ -123,6 +176,46 @@ const systemEntities: CustomEntitySpec[] = [
       cf.text('uom', { label: 'UOM' }),
       cf.currency('mrp', { label: 'MRP' }),
       cf.text('shelf_life', { label: 'Shelf Life' }),
+    ],
+  },
+  {
+    id: entityId('customers', 'customer_company_profile'),
+    label: 'Customer Company',
+    showInSidebar: false,
+    fields: [
+      cf.select('customer_type_category', ['business', 'individual'], {
+        label: 'Customer Category',
+        defaultValue: 'business',
+        listVisible: true,
+      }),
+      cf.text('legal_trade_name', { label: 'Legal / Trade Name', listVisible: true }),
+      cf.select('gst_registration_type', ['unregistered', 'registered', 'composition', 'overseas'], {
+        label: 'Customer Type',
+        defaultValue: 'unregistered',
+        listVisible: true,
+        filterable: true,
+      }),
+      cf.text('gstin', { label: 'GSTIN', listVisible: true }),
+      cf.currency('default_currency', { label: 'Currencies', defaultValue: 'INR', listVisible: true }),
+      cf.select('payment_terms', ['due_on_delivery', '15_days', '30_days', '45_days', '60_days', '90_days'], {
+        label: 'Payment Terms',
+        defaultValue: 'due_on_delivery',
+        listVisible: true,
+      }),
+      cf.select('payment_remarks', [
+        '90 DAYS',
+        '60DAYS CREDIT',
+        'As Discussed',
+        '20% ADVANCE',
+        '25% Advance and 75% Before Dispatch',
+        '40% advance 60% before dispatch',
+        '50% advance and 50% before dispatch',
+        '30% Advance 70% before Dispatch',
+      ], {
+        label: 'Payment Remarks',
+        listVisible: true,
+      }),
+      cf.text('sales_manager', { label: 'Sales Manager', listVisible: true }),
     ],
   },
 ]

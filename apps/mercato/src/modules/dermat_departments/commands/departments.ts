@@ -121,10 +121,21 @@ const updateDepartmentCommand: CommandHandler<DepartmentUpdateInput, { departmen
 
     await em.flush()
 
-    // Keep the linked Role's name in sync with the department name so the role list
-    // (and any place that surfaces role names, e.g. the user's Department picker)
-    // never drifts from the department it backs.
-    if (renamed && department.roleId) {
+    // Backfill for departments created before the Department-owns-a-Role linkage
+    // existed: lazily create the backing Role on first save instead of leaving
+    // roleId null forever (which permanently hides the AclEditor on this department).
+    if (!department.roleId) {
+      const commandBus = ctx.container.resolve('commandBus') as CommandBus
+      const { result: role } = await commandBus.execute<Record<string, unknown>, Role>(
+        'auth.roles.create',
+        { input: { name: department.name, tenantId: department.tenantId }, ctx },
+      )
+      department.roleId = String(role.id)
+      await em.flush()
+    } else if (renamed) {
+      // Keep the linked Role's name in sync with the department name so the role list
+      // (and any place that surfaces role names, e.g. the user's Department picker)
+      // never drifts from the department it backs.
       const commandBus = ctx.container.resolve('commandBus') as CommandBus
       await commandBus.execute<Record<string, unknown>, Role>(
         'auth.roles.update',

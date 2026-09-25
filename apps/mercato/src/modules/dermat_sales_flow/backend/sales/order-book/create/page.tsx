@@ -2,16 +2,24 @@
 
 import * as React from 'react'
 import { useRouter } from 'next/navigation'
+import type { LegacyColumnDef as ColumnDef } from '@tanstack/react-table/legacy'
 import { Page, PageBody } from '@open-mercato/ui/backend/Page'
 import { Card, CardContent, CardHeader, CardTitle } from '@open-mercato/ui/primitives/card'
 import { Button } from '@open-mercato/ui/primitives/button'
 import { Input } from '@open-mercato/ui/primitives/input'
 import { Label } from '@open-mercato/ui/primitives/label'
 import { Textarea } from '@open-mercato/ui/primitives/textarea'
-import { SegmentedControl, SegmentedControlItem } from '@open-mercato/ui/primitives/segmented-control'
+import { ComboboxInput, type ComboboxOption } from '@open-mercato/ui/backend/inputs/ComboboxInput'
+import { fetchAssignableStaffMembers } from '@open-mercato/core/modules/customers/lib/assignableStaff'
+import { CreateCompanyPanel, type CreatedCompany } from '@open-mercato/core/modules/customers/components/CreateCompanyPanel'
+import { IconButton } from '@open-mercato/ui/primitives/icon-button'
 import { StepIndicator, type StepIndicatorStep } from '@open-mercato/ui/primitives/step-indicator'
 import { StatusBadge } from '@open-mercato/ui/primitives/status-badge'
-import { Checkbox } from '@open-mercato/ui/primitives/checkbox'
+import { CheckboxField } from '@open-mercato/ui/primitives/checkbox-field'
+import { DataTable } from '@open-mercato/ui/backend/DataTable'
+import { RowActions } from '@open-mercato/ui/backend/RowActions'
+import { EmptyState } from '@open-mercato/ui/primitives/empty-state'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@open-mercato/ui/primitives/dialog'
 import {
   Select,
   SelectContent,
@@ -39,6 +47,10 @@ import {
   HelpCircle,
   FileText,
   CreditCard,
+  Binoculars,
+  X,
+  ArrowUp,
+  ArrowDown,
 } from 'lucide-react'
 import { apiCall } from '@open-mercato/ui/backend/utils/apiCall'
 import { createCrud } from '@open-mercato/ui/backend/utils/crud'
@@ -46,7 +58,11 @@ import { flash } from '@open-mercato/ui/backend/FlashMessages'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { useOrganizationScopeDetail } from '@open-mercato/shared/lib/frontend/useOrganizationScope'
 
-const UOM_OPTIONS = [
+// Fallback options used only while the live dictionary fetch is loading or if it
+// fails — mirrors the pre-dictionary defaults so the wizard degrades gracefully
+// instead of rendering an empty dropdown. Editable via Settings > Dictionaries
+// (keys: unit [shared with catalog], category, packaging_type) once loaded.
+const UOM_FALLBACK_OPTIONS = [
   { value: 'ml', label: 'ml (Milliliter)' },
   { value: 'gm', label: 'gm (Gram)' },
   { value: 'kg', label: 'kg (Kilogram)' },
@@ -54,7 +70,7 @@ const UOM_OPTIONS = [
   { value: 'pcs', label: 'pcs (Pieces)' },
 ] as const
 
-const CATEGORY_OPTIONS = [
+const CATEGORY_FALLBACK_OPTIONS = [
   { value: 'Serum', label: 'Face Serum' },
   { value: 'Cream', label: 'Face Cream / Moisturizer' },
   { value: 'Lotion', label: 'Body Lotion / Milk' },
@@ -67,6 +83,8 @@ const CATEGORY_OPTIONS = [
   { value: 'Oil', label: 'Face / Hair Oil' },
 ] as const
 
+// Fixed Indian GST slabs — a law-defined constant, not Dermat business data, so it
+// intentionally stays hardcoded (not moved to a Dictionaries-module entry).
 const GST_RATES = [
   { value: '0', label: '0% (Exempt)' },
   { value: '5', label: '5% GST' },
@@ -75,7 +93,7 @@ const GST_RATES = [
   { value: '28', label: '28% GST' },
 ] as const
 
-const PACKAGING_TYPES = [
+const PACKAGING_TYPE_FALLBACK_OPTIONS = [
   { value: 'Bottle', label: 'Bottle (Dropper / Pump / Flip-top)' },
   { value: 'Jar', label: 'Jar (Glass / Acrylic / PP)' },
   { value: 'Tube', label: 'Tube (Lami / Aluminum / Plastic)' },
@@ -85,14 +103,58 @@ const PACKAGING_TYPES = [
   { value: 'Custom', label: 'Custom Packaging' },
 ] as const
 
+type DictionaryOption = { value: string; label: string }
+
+type DictionaryEntryPayload = { value?: string; label?: string }
+type DictionaryResponsePayload = { entries?: DictionaryEntryPayload[] }
+
+function buildDictionaryOptions(
+  entries: DictionaryEntryPayload[] | undefined,
+  fallback: readonly DictionaryOption[],
+): DictionaryOption[] {
+  const list = Array.isArray(entries) ? entries : []
+  const options = list
+    .map((entry) => {
+      const value = typeof entry.value === 'string' ? entry.value.trim() : ''
+      if (!value) return null
+      return { value, label: (typeof entry.label === 'string' && entry.label.trim()) || value }
+    })
+    .filter((entry): entry is DictionaryOption => Boolean(entry))
+  return options.length > 0 ? options : [...fallback]
+}
+
+const formatOptionLabel = (val: string): string => {
+  const map: Record<string, string> = {
+    unregistered: 'Unregistered',
+    registered: 'Registered Regular',
+    composition: 'Composition Scheme',
+    overseas: 'Overseas / SEZ',
+    due_on_delivery: 'Due on Delivery',
+    '15_days': '15 Days',
+    '30_days': '30 Days',
+    '45_days': '45 Days',
+    '60_days': '60 Days',
+    '90_days': '90 Days',
+    business: 'Business (B2B)',
+    individual: 'Individual (B2C)',
+  }
+  return map[val] || val
+}
+
 type CustomerRow = {
   id: string
   displayName: string
+  legalName?: string | null
   phone: string | null
   gstin: string | null
   salesPoc: string | null
   email?: string | null
   address?: string | null
+  paymentTerms?: string | null
+  paymentRemarks?: string | null
+  gstRegistrationType?: string | null
+  customerTypeCategory?: string | null
+  customFields?: Record<string, unknown>
 }
 
 type CatalogProductItem = {
@@ -128,6 +190,8 @@ type OrderLineDraft = {
   packSize: string
   uom: string
   quantity: string
+  batchNo: string
+  unitPrice: string
   rate: string
   gstPercent: string
   mrp: string
@@ -145,6 +209,8 @@ function makeEmptyLine(): OrderLineDraft {
     packSize: '',
     uom: 'ml',
     quantity: '',
+    batchNo: '',
+    unitPrice: '',
     rate: '',
     gstPercent: '18',
     mrp: '',
@@ -154,7 +220,7 @@ function makeEmptyLine(): OrderLineDraft {
 function calcLineSubtotal(line: OrderLineDraft): number {
   const qty = Number(line.quantity) || 0
   const rate = Number(line.rate) || 0
-  return qty * rate
+  return Math.max(qty * rate, 0)
 }
 
 function calcLineTax(line: OrderLineDraft): number {
@@ -183,30 +249,24 @@ export default function CreateOrderPage() {
   const [activeStep, setActiveStep] = React.useState<WizardStepId>('customer')
 
   // Step 1: Customer state
-  const [customerMode, setCustomerMode] = React.useState<'existing' | 'new'>('existing')
   const [search, setSearch] = React.useState('')
   const [customerRows, setCustomerRows] = React.useState<CustomerRow[]>([])
   const [loadingCustomers, setLoadingCustomers] = React.useState(false)
   const [selectedCustomer, setSelectedCustomer] = React.useState<CustomerRow | null>(null)
 
-  // Step 1: Inline New Customer state
-  const [newCustName, setNewCustName] = React.useState('')
-  const [newCustContact, setNewCustContact] = React.useState('')
-  const [newCustPhone, setNewCustPhone] = React.useState('')
-  const [newCustEmail, setNewCustEmail] = React.useState('')
-  const [newCustGstin, setNewCustGstin] = React.useState('')
-  const [newCustSalesPoc, setNewCustSalesPoc] = React.useState('')
-  const [newCustAddress, setNewCustAddress] = React.useState('')
-  const [creatingCustomer, setCreatingCustomer] = React.useState(false)
+  // Step 1: "Create New Customer" slide-over panel — reuses the same CrudForm
+  // config as the standalone Companies create page (packages/core), instead of
+  // a hand-rolled inline form.
+  const [createCustomerPanelOpen, setCreateCustomerPanelOpen] = React.useState(false)
 
   // Step 1: Commercial Header state
+  const [nextOrderNumber, setNextOrderNumber] = React.useState<string | null>(null)
   const [orderDate, setOrderDate] = React.useState(() => new Date().toISOString().slice(0, 10))
   const [deliveryDate, setDeliveryDate] = React.useState(() => {
     const d = new Date()
     d.setDate(d.getDate() + 30)
     return d.toISOString().slice(0, 10)
   })
-  const [customerPoRef, setCustomerPoRef] = React.useState('')
   const [orderType, setOrderType] = React.useState<'New' | 'Repeat' | 'Revision'>('New')
   const [priority, setPriority] = React.useState<'Normal' | 'High' | 'Urgent'>('Normal')
   const [salesPoc, setSalesPoc] = React.useState('')
@@ -219,10 +279,16 @@ export default function CreateOrderPage() {
   const [loadingCatalog, setLoadingCatalog] = React.useState(false)
 
   // Inline Product / Variation panel state — a line's panel is expanded directly
-  // below its row when targetLineKey matches that line's key (no modal).
-  const [targetLineKey, setTargetLineKey] = React.useState<string | null>(null)
-  const [prodModalMode, setProdModalMode] = React.useState<'existing' | 'new'>('existing')
   const [selectedExistingProdId, setSelectedExistingProdId] = React.useState<string>('')
+  // Compact variant picker: only shown inline next to the search combobox when the
+  // selected product genuinely has 2+ variants. A single (or zero) variant is
+  // auto-applied to the line immediately, no picker shown at all.
+  const [variantPickerLineKey, setVariantPickerLineKey] = React.useState<string | null>(null)
+  // Lines whose selected product has exactly 0/1 variants — these render a plain
+  // editable pack-size input (pre-filled from the single variant, still editable)
+  // instead of the multi-variant dropdown, so the variant field is never silently
+  // invisible even when there is nothing to "choose" between.
+  const [singleVariantLineKeys, setSingleVariantLineKeys] = React.useState<Set<string>>(new Set())
   // Multi-select: lets the user attach several variations (e.g. 30ml + 50ml) of the
   // same product to the order in one go, one order line per selected variation.
   const [selectedVariantIds, setSelectedVariantIds] = React.useState<string[]>([])
@@ -234,10 +300,11 @@ export default function CreateOrderPage() {
   >([])
   const [loadingVariants, setLoadingVariants] = React.useState(false)
 
-  // Make-to-Order Customer Attachment in modal
-  const [newProdCustomerId, setNewProdCustomerId] = React.useState<string>('')
-  const [newProdCustomerName, setNewProdCustomerName] = React.useState<string>('')
-  const [newProdBrandName, setNewProdBrandName] = React.useState('')
+  // Slide-over Create Product Panel state
+  // Catalog Product Search Modal state
+  const [catalogSearchOpen, setCatalogSearchOpen] = React.useState(false)
+  const [catalogSearchLineKey, setCatalogSearchLineKey] = React.useState<string | null>(null)
+  const [catalogSearchQuery, setCatalogSearchQuery] = React.useState('')
 
   // Section 1: Basic Product Information
   const [newProdTitle, setNewProdTitle] = React.useState('')
@@ -266,13 +333,6 @@ export default function CreateOrderPage() {
   const [packagingType, setPackagingType] = React.useState('Bottle')
   const [pmSource, setPmSource] = React.useState<'dermat' | 'client'>('dermat')
   const [artworkRequirement, setArtworkRequirement] = React.useState<'client' | 'in_house' | 'approved'>('client')
-  const [sampleRequired, setSampleRequired] = React.useState(false)
-  const [sampleQty, setSampleQty] = React.useState('2')
-  const [sampleDueDate, setSampleDueDate] = React.useState(() => {
-    const d = new Date()
-    d.setDate(d.getDate() + 7)
-    return d.toISOString().slice(0, 10)
-  })
   const [orderNotes, setOrderNotes] = React.useState('')
 
   // Step 3: Payment (spec §4.1 step 3 / §4.3 Advance Required, Advance %, Advance Amount,
@@ -289,6 +349,31 @@ export default function CreateOrderPage() {
   // Submission state
   const [submitting, setSubmitting] = React.useState(false)
 
+  // Dictionary-backed option lists (UOM, Category, Packaging Type) — admin-editable
+  // via Settings > Dictionaries instead of frozen in code. UOM reuses the shared
+  // `unit` dictionary catalog's ProductUomSection already fetches from; Category and
+  // Packaging Type are Dermat-specific dictionaries seeded by this module's setup.
+  const [uomOptions, setUomOptions] = React.useState<DictionaryOption[]>([...UOM_FALLBACK_OPTIONS])
+  const [categoryOptions, setCategoryOptions] = React.useState<DictionaryOption[]>([...CATEGORY_FALLBACK_OPTIONS])
+  const [packagingTypeOptions, setPackagingTypeOptions] = React.useState<DictionaryOption[]>([...PACKAGING_TYPE_FALLBACK_OPTIONS])
+
+  React.useEffect(() => {
+    let cancelled = false
+    async function loadDictionaryOptions() {
+      const [unitRes, categoryRes, packagingRes] = await Promise.all([
+        apiCall<DictionaryResponsePayload>('/api/catalog/dictionaries/unit', undefined, { fallback: { entries: [] } }),
+        apiCall<DictionaryResponsePayload>('/api/dermat_sales_flow/dictionaries/category', undefined, { fallback: { entries: [] } }),
+        apiCall<DictionaryResponsePayload>('/api/dermat_sales_flow/dictionaries/packaging_type', undefined, { fallback: { entries: [] } }),
+      ])
+      if (cancelled) return
+      setUomOptions(buildDictionaryOptions(unitRes.result?.entries, UOM_FALLBACK_OPTIONS))
+      setCategoryOptions(buildDictionaryOptions(categoryRes.result?.entries, CATEGORY_FALLBACK_OPTIONS))
+      setPackagingTypeOptions(buildDictionaryOptions(packagingRes.result?.entries, PACKAGING_TYPE_FALLBACK_OPTIONS))
+    }
+    void loadDictionaryOptions()
+    return () => { cancelled = true }
+  }, [])
+
   // Load existing customers
   const loadCustomers = React.useCallback(async (query: string) => {
     setLoadingCustomers(true)
@@ -296,20 +381,51 @@ export default function CreateOrderPage() {
       const params = new URLSearchParams()
       params.set('pageSize', '50')
       if (query) params.set('search', query)
-      const call = await apiCall<{ items: Array<{ id: string; display_name?: string; primary_phone?: string | null; primary_email?: string | null; cf_gst_number?: string | null; cf_sales_poc?: string | null; cf_address?: string | null }> }>(
+      const call = await apiCall<{
+        items: Array<{
+          id: string
+          display_name?: string
+          legal_name?: string | null
+          primary_phone?: string | null
+          primary_email?: string | null
+          cf_gstin?: string | null
+          cf_sales_manager?: string | null
+          cf_address?: string | null
+          cf_payment_terms?: string | null
+          cf_payment_remarks?: string | null
+          cf_legal_trade_name?: string | null
+          cf_gst_registration_type?: string | null
+          cf_customer_type_category?: string | null
+          [key: string]: unknown
+        }>
+      }>(
         `/api/customers/companies?${params.toString()}`
       )
       const items = call.ok ? call.result?.items ?? [] : []
       setCustomerRows(
-        items.map((item) => ({
-          id: item.id,
-          displayName: item.display_name ?? 'Unnamed Company',
-          phone: item.primary_phone ?? null,
-          email: item.primary_email ?? null,
-          gstin: item.cf_gst_number ?? null,
-          salesPoc: item.cf_sales_poc ?? null,
-          address: item.cf_address ?? null,
-        }))
+        items.map((item) => {
+          const cf: Record<string, unknown> = {}
+          for (const [k, v] of Object.entries(item)) {
+            if (k.startsWith('cf_')) {
+              cf[k.slice(3)] = v
+            }
+          }
+          return {
+            id: item.id,
+            displayName: item.display_name ?? 'Unnamed Company',
+            legalName: (item.cf_legal_trade_name as string) || (item.legal_name as string) || null,
+            phone: item.primary_phone ?? null,
+            email: item.primary_email ?? null,
+            gstin: (item.cf_gstin as string) ?? null,
+            salesPoc: (item.cf_sales_manager as string) ?? null,
+            address: (item.cf_address as string) ?? null,
+            paymentTerms: (item.cf_payment_terms as string) ?? null,
+            paymentRemarks: (item.cf_payment_remarks as string) ?? null,
+            gstRegistrationType: (item.cf_gst_registration_type as string) ?? null,
+            customerTypeCategory: (item.cf_customer_type_category as string) ?? null,
+            customFields: cf,
+          }
+        })
       )
     } finally {
       setLoadingCustomers(false)
@@ -317,10 +433,22 @@ export default function CreateOrderPage() {
   }, [])
 
   React.useEffect(() => {
-    if (customerMode !== 'existing') return
     const handle = setTimeout(() => loadCustomers(search), 250)
     return () => clearTimeout(handle)
-  }, [customerMode, search, loadCustomers])
+  }, [search, loadCustomers])
+
+  // Preview the auto-generated Sales Order # up front, matching the real system's
+  // header layout (order number shown first, read-only, with a Change Sequence
+  // link) — does not claim/increment the sequence, purely a preview.
+  React.useEffect(() => {
+    let cancelled = false
+    apiCall<{ nextOrderNumber: string }>('/api/dermat_sales_flow/orders/next-number').then((call) => {
+      if (!cancelled && call.ok && call.result?.nextOrderNumber) {
+        setNextOrderNumber(call.result.nextOrderNumber)
+      }
+    })
+    return () => { cancelled = true }
+  }, [])
 
   // Load catalog products for line picker
   React.useEffect(() => {
@@ -383,6 +511,62 @@ export default function CreateOrderPage() {
     return catalogProducts.filter((p) => !isProductForCustomer(p, selectedCustomer))
   }, [catalogProducts, selectedCustomer, isProductForCustomer])
 
+  // Product options for the line-level search combobox: code shown first/most
+  // prominently (client requirement — orders are placed by code), title as the
+  // description line, matching on both code and title, customer-linked products
+  // ranked first.
+  const productComboboxOptions = React.useMemo((): ComboboxOption[] => {
+    const ranked = [...customerMatchingProducts, ...otherCatalogProducts]
+    return ranked.map((p) => ({
+      value: p.id,
+      label: p.sku ? `${p.sku} — ${p.title}` : p.title,
+      description: p.category || null,
+    }))
+  }, [customerMatchingProducts, otherCatalogProducts])
+
+  const loadProductSuggestionsForLine = React.useCallback(
+    async (query?: string): Promise<ComboboxOption[]> => {
+      const q = (query || '').trim().toLowerCase()
+      if (!q) return productComboboxOptions
+      const ranked = [...customerMatchingProducts, ...otherCatalogProducts]
+      return ranked
+        .filter((p) => (p.sku && p.sku.toLowerCase().includes(q)) || p.title.toLowerCase().includes(q))
+        .map((p) => ({
+          value: p.id,
+          label: p.sku ? `${p.sku} — ${p.title}` : p.title,
+          description: p.category || null,
+        }))
+    },
+    [customerMatchingProducts, otherCatalogProducts, productComboboxOptions]
+  )
+
+  const filteredCatalogProducts = React.useMemo(() => {
+    const q = catalogSearchQuery.trim().toLowerCase()
+    const list = [...customerMatchingProducts, ...otherCatalogProducts]
+    if (!q) return list
+    return list.filter(
+      (p) =>
+        (p.sku && p.sku.toLowerCase().includes(q)) ||
+        p.title.toLowerCase().includes(q) ||
+        (p.category && p.category.toLowerCase().includes(q)) ||
+        (p.clientBrand && p.clientBrand.toLowerCase().includes(q))
+    )
+  }, [customerMatchingProducts, otherCatalogProducts, catalogSearchQuery])
+
+  // Sales POC / Executive — searches the real assignable-staff roster instead of
+  // letting a free-text field drift (typos, ex-employees, names that aren't on
+  // the sales team). Stores the staff member's display name, matching the
+  // existing free-text `salesPoc` shape already used across this file and on
+  // customer records (`cf_sales_poc`).
+  const loadSalesPocSuggestions = React.useCallback(async (query?: string): Promise<ComboboxOption[]> => {
+    const staff = await fetchAssignableStaffMembers(query || '', { pageSize: 20 })
+    return staff.map((member) => ({
+      value: member.displayName,
+      label: member.displayName,
+      description: member.teamName || member.email || null,
+    }))
+  }, [])
+
   // Automatically keep brand name synced and auto-select product for new empty order line when customer is selected
   React.useEffect(() => {
     if (!selectedCustomer) return
@@ -411,59 +595,55 @@ export default function CreateOrderPage() {
     })
   }, [selectedCustomer, catalogProducts, isProductForCustomer])
 
-  // Create Inline Customer
-  const handleCreateCustomer = React.useCallback(async () => {
-    if (!newCustName.trim()) {
-      flash('Company / Customer name is required', 'error')
-      return
+  // Called by the CreateCompanyPanel slide-over on successful creation — mirrors
+  // the state wiring the old hand-rolled inline form used to do on success
+  // (select the new customer, prepend it to the rows list, auto-fill Sales POC
+  // when empty), just sourced from the real CrudForm's CompanyFormValues shape
+  // instead of ad hoc local state.
+  const handleCustomerCreated = React.useCallback((company: CreatedCompany) => {
+    const customFields = company.customFields ?? {}
+    const gstin = typeof customFields.gstin === 'string' ? customFields.gstin : null
+    const companySalesPoc = typeof customFields.sales_manager === 'string' ? customFields.sales_manager : null
+    const paymentTerms = typeof customFields.payment_terms === 'string' ? customFields.payment_terms : null
+    const paymentRemarks = typeof customFields.payment_remarks === 'string' ? customFields.payment_remarks : null
+    const legalName = typeof customFields.legal_trade_name === 'string' ? customFields.legal_trade_name : null
+    const gstType = typeof customFields.gst_registration_type === 'string' ? customFields.gst_registration_type : null
+    const cust: CustomerRow = {
+      id: company.id,
+      displayName: company.displayName,
+      legalName,
+      phone: company.primaryPhone ?? null,
+      email: company.primaryEmail ?? null,
+      gstin,
+      salesPoc: companySalesPoc,
+      address: company.addressLine1 ?? null,
+      paymentTerms,
+      paymentRemarks,
+      gstRegistrationType: gstType,
+      customerTypeCategory: typeof customFields.customer_type_category === 'string' ? customFields.customer_type_category : null,
+      customFields,
     }
-    setCreatingCustomer(true)
-    try {
-      const customFields: Record<string, unknown> = {}
-      if (newCustGstin.trim()) customFields.gst_number = newCustGstin.trim()
-      if (newCustSalesPoc.trim()) customFields.sales_poc = newCustSalesPoc.trim()
-      if (newCustAddress.trim()) customFields.address = newCustAddress.trim()
+    setCustomerRows((prev) => [cust, ...prev.filter((c) => c.id !== company.id)])
+    setSelectedCustomer(cust)
+    if (companySalesPoc && !salesPoc) setSalesPoc(companySalesPoc)
 
-      const payload = {
-        organizationId,
-        tenantId,
-        displayName: newCustName.trim(),
-        primaryPhone: newCustPhone.trim() || undefined,
-        primaryEmail: newCustEmail.trim() || undefined,
-        contactName: newCustContact.trim() || undefined,
-        customFields: Object.keys(customFields).length ? customFields : undefined,
+    if (paymentRemarks) {
+      const match = paymentRemarks.match(/(\d+)%\s*advance/i)
+      if (match && match[1]) {
+        setAdvanceRequired(true)
+        setAdvancePercent(match[1])
       }
-
-      const res = await createCrud<{ id: string }>('customers/companies', payload)
-      const createdId = res.result?.id
-      if (createdId) {
-        const cust: CustomerRow = {
-          id: createdId,
-          displayName: newCustName.trim(),
-          phone: newCustPhone.trim() || null,
-          email: newCustEmail.trim() || null,
-          gstin: newCustGstin.trim() || null,
-          salesPoc: newCustSalesPoc.trim() || null,
-          address: newCustAddress.trim() || null,
-        }
-        setCustomerRows((prev) => [cust, ...prev.filter((c) => c.id !== createdId)])
-        setSelectedCustomer(cust)
-        if (newCustSalesPoc.trim() && !salesPoc) setSalesPoc(newCustSalesPoc.trim())
-        flash(`Customer "${newCustName.trim()}" created & selected`, 'success')
-        setCustomerMode('existing')
-      }
-    } catch (err) {
-      flash(err instanceof Error ? err.message : 'Failed to create customer', 'error')
-    } finally {
-      setCreatingCustomer(false)
     }
-  }, [newCustName, newCustContact, newCustPhone, newCustEmail, newCustGstin, newCustSalesPoc, newCustAddress, organizationId, tenantId, salesPoc])
+  }, [salesPoc])
 
-  // Helper   // Load variants for a selected existing product
+  // Helper   // Load variants for a selected existing product. Returns the mapped
+  // variants so callers can decide whether to auto-apply the single result or show
+  // the compact multi-variant picker, in addition to the existing side effects
+  // (populating existingVariants / selectedVariantIds / the newProd* form fields).
   const loadVariantsForProduct = React.useCallback(async (prodId: string) => {
     if (!prodId) {
       setExistingVariants([])
-      return
+      return []
     }
     setLoadingVariants(true)
     try {
@@ -497,78 +677,22 @@ export default function CreateOrderPage() {
         } else {
           setSelectedVariantIds([])
         }
+        return mapped
       } else {
-        setExistingVariants([{ id: 'Standard', name: 'Standard (50ml)', packSize: '50', uom: 'ml', mrp: '599', gstPercent: '18', shelfLife: '24 Months' }])
+        const fallback = [{ id: 'Standard', name: 'Standard (50ml)', packSize: '50', uom: 'ml', mrp: '599', gstPercent: '18', shelfLife: '24 Months' }]
+        setExistingVariants(fallback)
         setSelectedVariantIds(['Standard'])
+        return fallback
       }
     } catch {
-      setExistingVariants([{ id: 'Standard', name: 'Standard (50ml)', packSize: '50', uom: 'ml', mrp: '599', gstPercent: '18', shelfLife: '24 Months' }])
+      const fallback = [{ id: 'Standard', name: 'Standard (50ml)', packSize: '50', uom: 'ml', mrp: '599', gstPercent: '18', shelfLife: '24 Months' }]
+      setExistingVariants(fallback)
       setSelectedVariantIds(['Standard'])
+      return fallback
     } finally {
       setLoadingVariants(false)
     }
   }, [])
-
-  // Expand the inline Product & Variation panel directly under a line's row
-  // (supports both existing-catalog and brand-new-product modes). Clicking the
-  // same trigger again while that line's panel is already open in the same mode
-  // collapses it, so the row link doubles as an open/close toggle.
-  const openLineProductPanel = React.useCallback(
-    (lineKey: string, mode: 'existing' | 'new' = 'existing', preselectedProdId?: string) => {
-      if (targetLineKey === lineKey && prodModalMode === mode) {
-        setTargetLineKey(null)
-        return
-      }
-      setTargetLineKey(lineKey)
-      const currentLine = lines.find((l) => l.key === lineKey)
-      setProdModalMode(mode)
-      setSelectedVariantIds([])
-      setAddingNewVariantRow(false)
-
-      const effectiveProdId =
-        preselectedProdId ||
-        currentLine?.productId ||
-        customerMatchingProducts[0]?.id ||
-        catalogProducts[0]?.id ||
-        ''
-      setSelectedExistingProdId(effectiveProdId)
-
-      // Customer assignment
-      setNewProdCustomerId(selectedCustomer?.id || '')
-      setNewProdCustomerName(selectedCustomer?.displayName || '')
-      setNewProdBrandName(currentLine?.brandName || selectedCustomer?.displayName || '')
-
-      if (mode === 'existing' && effectiveProdId) {
-        const matched = catalogProducts.find((p) => p.id === effectiveProdId)
-        setNewProdTitle(matched?.title || '')
-        setNewProdCode(matched?.sku || '')
-        setNewProdCategory(matched?.category || currentLine?.category || 'Serum')
-        setNewProdBaseUom(matched?.baseUom || currentLine?.uom || 'ml')
-        loadVariantsForProduct(effectiveProdId)
-      } else {
-        // Section 1: Basic Product Information
-        setNewProdTitle('')
-        setNewProdCode('')
-        setNewProdCategory(currentLine?.category || 'Serum')
-        setNewProdMinFloorQty('500')
-        setNewProdBaseUom(currentLine?.uom || 'ml')
-        setNewProdDescription('')
-      }
-
-      // Section 2: Variant Details
-      setNewProdVariantName('Standard')
-      setNewProdPackSize(currentLine?.packSize || '50')
-      setNewProdUom(currentLine?.uom || 'ml')
-      setNewProdMrp(currentLine?.mrp || '599')
-      setNewProdShelfLife('24 Months')
-
-      // Section 3: Commercial Order Terms
-      setNewProdQuantity(currentLine?.quantity || '500')
-      setNewProdRate(currentLine?.rate || '180')
-      setNewProdGstPercent(currentLine?.gstPercent || '18')
-    },
-    [lines, selectedCustomer, catalogProducts, loadVariantsForProduct]
-  )
 
   // Open the inline "add a new variation" table row, starting from blank fields
   // (not a pre-filled clone of whichever variant was last clicked).
@@ -663,258 +787,71 @@ export default function CreateOrderPage() {
     tenantId,
   ])
 
-  // Save product & variant (handles creating brand new product OR configuring existing product / new variant)
-  const handleCreateProduct = React.useCallback(async () => {
-    setCreatingProduct(true)
-    try {
-      const isMakeToOrder = Boolean(newProdCustomerId || selectedCustomer?.id)
-      const customerId = newProdCustomerId || selectedCustomer?.id
-      const customerName = newProdCustomerName || selectedCustomer?.displayName || 'Customer'
-      const clientBrand = newProdBrandName.trim() || customerName
-
-      let productId = selectedExistingProdId
-      let productTitle = newProdTitle.trim()
-      let productCode = newProdCode.trim()
-      let productCategory = newProdCategory.trim()
-      let baseUom = newProdBaseUom.trim()
-
-      // One entry per order line this save should produce — normally 1, but
-      // multiple when the user multi-selects several existing variations
-      // (e.g. 30ml + 50ml "both") to attach at once.
-      type AttachEntry = { variantName: string; packSize: string; packUom: string; mrp: string; rate: string; gstPercent: string }
-      let attachEntries: AttachEntry[] = [{
-        variantName: newProdVariantName.trim() || 'Standard',
-        packSize: newProdPackSize.trim(),
-        packUom: newProdUom.trim(),
-        mrp: newProdMrp.trim(),
-        rate: newProdRate.trim(),
-        gstPercent: newProdGstPercent.trim() || '18',
-      }]
-
-      if (prodModalMode === 'new') {
-        if (!newProdTitle.trim()) {
-          flash('Product Name is required', 'error')
-          setCreatingProduct(false)
-          return
-        }
-
-        const minFloorQtyNum = Number(newProdMinFloorQty)
-        const prodCustomFields: Record<string, unknown> = {
-          is_make_to_order: isMakeToOrder,
-        }
-        if (customerId) prodCustomFields.customer_id = customerId
-        if (customerName) prodCustomFields.customer_name = customerName
-        if (clientBrand) prodCustomFields.client_brand = clientBrand
-        if (newProdCode.trim()) prodCustomFields.product_code = newProdCode.trim()
-        if (newProdCategory.trim()) prodCustomFields.category = newProdCategory.trim()
-        if (newProdBaseUom.trim()) prodCustomFields.base_uom = newProdBaseUom.trim()
-        if (newProdMinFloorQty.trim() && !Number.isNaN(minFloorQtyNum)) {
-          prodCustomFields.min_floor_qty = minFloorQtyNum
-        }
-
-        const prodPayload = {
-          organizationId,
-          tenantId,
-          title: newProdTitle.trim(),
-          sku: newProdCode.trim() || undefined,
-          description: newProdDescription.trim() || undefined,
-          isActive: true,
-          productType: 'simple',
-          metadata: {
-            is_make_to_order: isMakeToOrder,
-            customer_id: customerId,
-            customer_name: customerName,
-            client_brand: clientBrand,
-            product_code: newProdCode.trim(),
-            category: newProdCategory.trim(),
-            base_uom: newProdBaseUom.trim(),
-            min_floor_qty: minFloorQtyNum,
-          },
-          customFields: Object.keys(prodCustomFields).length ? prodCustomFields : undefined,
-        }
-
-        const prodRes = await createCrud<{ id: string }>('catalog/products', prodPayload)
-        productId = prodRes.result?.id || ''
-
-        if (!productId) {
-          throw new Error('Product created, but ID was not returned.')
-        }
-
-        // Add to catalog cache
-        const newItem: CatalogProductItem = {
-          id: productId,
-          title: newProdTitle.trim(),
-          sku: newProdCode.trim() || null,
-          category: newProdCategory.trim(),
-          baseUom: newProdBaseUom.trim(),
-          customerName,
-          clientBrand,
-        }
-        setCatalogProducts((prev) => [newItem, ...prev])
-      } else {
-        // Existing product selected
-        if (!selectedExistingProdId) {
-          flash('Please select an available product', 'error')
-          setCreatingProduct(false)
-          return
-        }
-        const matched = catalogProducts.find((p) => p.id === selectedExistingProdId)
-        if (matched) {
-          productId = matched.id
-          productTitle = matched.title
-          productCode = matched.sku || ''
-          productCategory = matched.category || 'Serum'
-          baseUom = matched.baseUom || 'ml'
-        }
-      }
-
-      // A brand-new product always needs its first variant created too (existing
-      // products already get their variants via the inline "add variation" row).
-      if (prodModalMode === 'new') {
-        const mrpNum = Number(newProdMrp)
-        const packNum = Number(newProdPackSize)
-        const rateNum = Number(newProdRate)
-        const variantPayload = {
-          organizationId,
-          tenantId,
-          productId,
-          name: newProdVariantName.trim() || `${newProdPackSize}${newProdUom}`,
-          isActive: true,
-          weightValue: !Number.isNaN(packNum) ? packNum : undefined,
-          weightUnit: newProdUom || undefined,
-          metadata: {
-            pack_size: newProdPackSize.trim(),
-            uom: newProdUom.trim(),
-            mrp: newProdMrp.trim(),
-            rate: newProdRate.trim(),
-            gst_percent: newProdGstPercent.trim() || '18',
-            gst_tax_category: newProdGstTaxCategory.trim() || '18% GST Cosmetics',
-            shelf_life: newProdShelfLife.trim() || '24 Months',
-          },
-          customFields: {
-            pack_size: newProdPackSize.trim() || undefined,
-            uom: newProdUom.trim() || undefined,
-            shelf_life: newProdShelfLife.trim() || undefined,
-            mrp: !Number.isNaN(mrpNum) ? mrpNum : undefined,
-            rate: !Number.isNaN(rateNum) ? rateNum : undefined,
-            gst_percent: newProdGstPercent.trim() || '18',
-            gst_tax_category: newProdGstTaxCategory.trim() || '18% GST Cosmetics',
-          },
-        }
-        await createCrud('catalog/variants', variantPayload)
-      } else if (prodModalMode === 'existing') {
-        const chosen = existingVariants.filter((v) => selectedVariantIds.includes(v.id))
-        if (!chosen.length) {
-          flash('Select at least one variation (or add a new one)', 'error')
-          setCreatingProduct(false)
-          return
-        }
-        attachEntries = chosen.map((v) => ({
-          variantName: v.name,
-          packSize: v.packSize || newProdPackSize.trim(),
-          packUom: v.uom || newProdUom.trim(),
-          mrp: v.mrp || newProdMrp.trim(),
-          rate: v.rate || newProdRate.trim(),
-          gstPercent: v.gstPercent || newProdGstPercent.trim() || '18',
-        }))
-      }
-
-      // Attach to the active target line — the first entry mutates that line in
-      // place, any further entries (multi-selected variations) append new lines.
-      if (targetLineKey) {
-        const [first, ...rest] = attachEntries
-        if (first) {
-          setLines((prev) =>
-            prev.map((l) =>
-              l.key === targetLineKey
-                ? {
-                    ...l,
-                    productId,
-                    productLabel: productTitle,
-                    productCode,
-                    category: productCategory || 'Serum',
-                    variantSku: first.variantName || 'Standard',
-                    brandName: clientBrand,
-                    packSize: first.packSize || l.packSize || '50',
-                    uom: first.packUom || l.uom || 'ml',
-                    quantity: newProdQuantity.trim() || l.quantity || '500',
-                    rate: first.rate || l.rate || '180',
-                    gstPercent: first.gstPercent || l.gstPercent || '18',
-                    mrp: first.mrp || l.mrp || '599',
-                  }
-                : l
-            )
-          )
-        }
-        if (rest.length) {
-          setLines((prev) => [
-            ...prev,
-            ...rest.map((entry) => ({
-              ...makeEmptyLine(),
-              productId,
-              productLabel: productTitle,
-              productCode,
-              category: productCategory || 'Serum',
-              variantSku: entry.variantName || 'Standard',
-              brandName: clientBrand,
-              packSize: entry.packSize || '50',
-              uom: entry.packUom || 'ml',
-              quantity: newProdQuantity.trim() || '500',
-              rate: entry.rate || '180',
-              gstPercent: entry.gstPercent || '18',
-              mrp: entry.mrp || '599',
-            })),
-          ])
-        }
-      }
-
-      flash(
-        prodModalMode === 'new'
-          ? `New product "${productTitle}" created & attached to order!`
-          : attachEntries.length > 1
-            ? `${attachEntries.length} variations of "${productTitle}" attached to order!`
-            : `Product "${productTitle}" attached to order!`,
-        'success'
-      )
-      setTargetLineKey(null)
-    } catch (err) {
-      flash(err instanceof Error ? err.message : 'Failed to save product', 'error')
-    } finally {
-      setCreatingProduct(false)
-    }
-  }, [
-    prodModalMode,
-    selectedExistingProdId,
-    selectedVariantIds,
-    existingVariants,
-    newProdTitle,
-    newProdCode,
-    newProdCategory,
-    newProdGstTaxCategory,
-    newProdMinFloorQty,
-    newProdBaseUom,
-    newProdDescription,
-    newProdVariantName,
-    newProdPackSize,
-    newProdUom,
-    newProdMrp,
-    newProdShelfLife,
-    newProdQuantity,
-    newProdRate,
-    newProdGstPercent,
-    newProdBrandName,
-    newProdCustomerId,
-    newProdCustomerName,
-    targetLineKey,
-    selectedCustomer,
-    catalogProducts,
-    organizationId,
-    tenantId,
-  ])
-
   const updateLine = React.useCallback((key: string, patch: Partial<OrderLineDraft>) => {
     setLines((prev) => prev.map((line) => (line.key === key ? { ...line, ...patch } : line)))
   }, [])
+
+  // Apply one resolved variant's data onto a line — the single shared place both
+  // the auto-apply path (0/1 variant) and the compact multi-variant picker call
+  // once a variant is known, so a line always ends up with the same fields set
+  // regardless of which path picked it.
+  const applyVariantToLine = React.useCallback(
+    (lineKey: string, product: CatalogProductItem, variant?: { id: string; name: string; packSize?: string; uom?: string; mrp?: string; rate?: string | null; gstPercent?: string }) => {
+      updateLine(lineKey, {
+        productId: product.id,
+        productLabel: product.title,
+        productCode: product.sku || '',
+        category: product.category || 'Serum',
+        variantSku: variant?.name || 'Standard',
+        packSize: variant?.packSize || '',
+        uom: variant?.uom || product.baseUom || 'ml',
+        mrp: variant?.mrp || '',
+        rate: variant?.rate || '',
+        gstPercent: variant?.gstPercent || '18',
+        brandName: product.clientBrand || selectedCustomer?.displayName || '',
+      })
+    },
+    [updateLine, selectedCustomer]
+  )
+
+  // Main product-attach entry point for the search combobox: resolves the
+  // product's variants and either auto-applies the single (or zero) variant
+  // straight onto the line, or opens the compact inline picker when the product
+  // genuinely has 2+ variants to choose from.
+  const handleSelectProductForLine = React.useCallback(
+    async (lineKey: string, productId: string) => {
+      const product = catalogProducts.find((p) => p.id === productId)
+      if (!product) return
+      setVariantPickerLineKey(null)
+      setSingleVariantLineKeys((prev) => {
+        const next = new Set(prev)
+        next.delete(lineKey)
+        return next
+      })
+      const variants = await loadVariantsForProduct(productId)
+      if (variants.length <= 1) {
+        applyVariantToLine(lineKey, product, variants[0])
+        // Still surface an editable pack-size field even though there is only
+        // one (or zero) variant — auto-applying the value must not make the
+        // field invisible to the user.
+        setSingleVariantLineKeys((prev) => new Set(prev).add(lineKey))
+      } else {
+        // Apply the product identity immediately so the row reflects the pick
+        // right away; pack/price stay from the previous line state until a
+        // variant is chosen in the dropdown.
+        updateLine(lineKey, {
+          productId: product.id,
+          productLabel: product.title,
+          productCode: product.sku || '',
+          category: product.category || 'Serum',
+          brandName: product.clientBrand || selectedCustomer?.displayName || '',
+        })
+        setSelectedExistingProdId(productId)
+        setVariantPickerLineKey(lineKey)
+      }
+    },
+    [catalogProducts, loadVariantsForProduct, applyVariantToLine, updateLine, selectedCustomer]
+  )
 
   const addLine = React.useCallback(() => {
     setLines((prev) => [
@@ -930,6 +867,7 @@ export default function CreateOrderPage() {
     const newLine: OrderLineDraft = {
       ...line,
       key: typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `line-${Math.random().toString(36).slice(2)}`,
+      batchNo: '',
     }
     setLines((prev) => [...prev, newLine])
     flash('Product line duplicated', 'info')
@@ -939,9 +877,130 @@ export default function CreateOrderPage() {
     setLines((prev) => (prev.length > 1 ? prev.filter((line) => line.key !== key) : prev))
   }, [])
 
+  // Purely client-side reorder of the `lines` array — the wizard's line items are
+  // local component state before the order is saved, so no persisted backend
+  // `reorder` API is needed; the existing save flow already sends `lines` in
+  // array order, so the swapped order is naturally preserved on submit.
+  const moveLine = React.useCallback((key: string, direction: 'up' | 'down') => {
+    setLines((prev) => {
+      const index = prev.findIndex((line) => line.key === key)
+      if (index < 0) return prev
+      const targetIndex = direction === 'up' ? index - 1 : index + 1
+      if (targetIndex < 0 || targetIndex >= prev.length) return prev
+      const next = [...prev]
+      const source = next[index]
+      next[index] = next[targetIndex]
+      next[targetIndex] = source
+      return next
+    })
+  }, [])
+
   // Wizard status validation
   const customerComplete = Boolean(selectedCustomer)
   const linesComplete = lines.some((line) => line.productId && Number(line.quantity) > 0 && Number(line.rate) > 0)
+
+  const customerColumns = React.useMemo<ColumnDef<CustomerRow>[]>(() => [
+    {
+      id: 'displayName',
+      header: 'Customer',
+      cell: ({ row }) => (
+        <div className="space-y-0.5">
+          <div className="font-semibold text-sm">{row.original.displayName}</div>
+          {row.original.legalName && row.original.legalName !== row.original.displayName ? (
+            <div className="text-xs text-muted-foreground">{row.original.legalName}</div>
+          ) : null}
+          {row.original.gstin ? (
+            <div className="text-xs text-muted-foreground font-mono">GST: {row.original.gstin}</div>
+          ) : null}
+        </div>
+      ),
+    },
+    {
+      id: 'contact',
+      header: 'Contact',
+      cell: ({ row }) => (
+        <div className="text-xs text-muted-foreground space-y-0.5">
+          {row.original.phone ? <div>{row.original.phone}</div> : null}
+          {row.original.email ? <div>{row.original.email}</div> : null}
+        </div>
+      ),
+    },
+    {
+      id: 'commercial',
+      header: 'Commercial Terms',
+      cell: ({ row }) => {
+        const terms = row.original.paymentTerms ? formatOptionLabel(row.original.paymentTerms) : null
+        const remarks = row.original.paymentRemarks
+        return (
+          <div className="text-xs space-y-0.5">
+            {terms ? <div className="font-medium text-foreground">{terms}</div> : null}
+            {remarks ? <div className="text-muted-foreground truncate max-w-[200px]">{remarks}</div> : null}
+            {!terms && !remarks ? <span className="text-muted-foreground">—</span> : null}
+          </div>
+        )
+      },
+    },
+    {
+      id: 'salesPoc',
+      header: 'Sales Manager',
+      cell: ({ row }) => row.original.salesPoc || '—',
+    },
+  ], [])
+
+  const reviewLineColumns = React.useMemo<ColumnDef<OrderLineDraft>[]>(() => [
+    {
+      id: 'item',
+      header: 'Item',
+      cell: ({ row }) => (
+        <div>
+          <div className="font-medium">{row.original.productLabel || 'Custom Formulation'}</div>
+          <div className="text-[11px] text-muted-foreground">
+            Brand: <strong>{row.original.brandName || selectedCustomer?.displayName}</strong>
+          </div>
+        </div>
+      ),
+    },
+    {
+      id: 'category',
+      header: 'Category',
+      cell: ({ row }) => row.original.category || 'Serum',
+    },
+    {
+      id: 'pack',
+      header: 'Pack',
+      cell: ({ row }) => `${row.original.packSize} ${row.original.uom}`,
+    },
+    {
+      id: 'qty',
+      header: 'Qty',
+      cell: ({ row }) => <span className="font-semibold">{row.original.quantity}</span>,
+    },
+    {
+      id: 'batchNo',
+      header: 'Batch No.',
+      cell: ({ row }) => row.original.batchNo || '—',
+    },
+    {
+      id: 'rate',
+      header: 'Rate',
+      cell: ({ row }) => formatINR(Number(row.original.rate) || 0),
+    },
+    {
+      id: 'gst',
+      header: 'GST',
+      cell: ({ row }) => `${row.original.gstPercent}%`,
+    },
+    {
+      id: 'total',
+      header: 'Total',
+      meta: { align: 'right' },
+      cell: ({ row }) => (
+        <span className="text-right font-bold text-status-success-text block">
+          {formatINR(calcLineTotal(row.original))}
+        </span>
+      ),
+    },
+  ], [selectedCustomer])
 
   const steps: StepIndicatorStep[] = React.useMemo(
     () =>
@@ -988,9 +1047,6 @@ export default function CreateOrderPage() {
         packaging_type: packagingType,
         pm_source: pmSource,
         artwork_requirement: artworkRequirement,
-        sample_required: sampleRequired,
-        sample_qty: sampleRequired ? sampleQty : undefined,
-        sample_due_date: sampleRequired ? sampleDueDate : undefined,
         // Kanban stage-gate mechanism: every new order starts in the 'new' pipeline stage;
         // the advance fields below drive the advance-confirmation gate on New -> Verified.
         order_stage: 'new',
@@ -1009,7 +1065,6 @@ export default function CreateOrderPage() {
         customerEntityId: selectedCustomer.id,
         currencyCode: 'INR',
         taxStrategyKey: 'gst_exclusive',
-        customerReference: customerPoRef.trim() || undefined,
         placedAt: orderDate ? new Date(orderDate) : new Date(),
         expectedDeliveryAt: deliveryDate ? new Date(deliveryDate) : undefined,
         comments: orderNotes.trim() || undefined,
@@ -1020,7 +1075,6 @@ export default function CreateOrderPage() {
           packaging_type: packagingType,
           pm_source: pmSource,
           artwork_requirement: artworkRequirement,
-          sample_required: sampleRequired,
           order_stage: 'new',
           subtotal,
           total_tax: totalTax,
@@ -1030,9 +1084,9 @@ export default function CreateOrderPage() {
           const qty = Number(line.quantity) || 0
           const rate = Number(line.rate) || 0
           const gst = Number(line.gstPercent) || 0
-          const lineSubtotal = qty * rate
-          const lineTax = (lineSubtotal * gst) / 100
-          const lineTotal = lineSubtotal + lineTax
+          const lineSubtotal = calcLineSubtotal(line)
+          const lineTax = calcLineTax(line)
+          const lineTotal = calcLineTotal(line)
           return {
             lineNumber: idx + 1,
             currencyCode: 'INR',
@@ -1053,6 +1107,8 @@ export default function CreateOrderPage() {
               pack_size: line.packSize,
               uom: line.uom,
               mrp: line.mrp ? Number(line.mrp) : undefined,
+              unit_price: line.unitPrice ? Number(line.unitPrice) : undefined,
+              batch_no: line.batchNo || undefined,
             },
           }
         }),
@@ -1073,15 +1129,11 @@ export default function CreateOrderPage() {
     orderType,
     priority,
     salesPoc,
-    customerPoRef,
     orderDate,
     deliveryDate,
     packagingType,
     pmSource,
     artworkRequirement,
-    sampleRequired,
-    sampleQty,
-    sampleDueDate,
     orderNotes,
     advanceRequired,
     advancePercent,
@@ -1096,644 +1148,6 @@ export default function CreateOrderPage() {
     tenantId,
     router,
   ])
-
-  // Rendered inline under whichever order line has its Product & Variation
-  // panel expanded (targetLineKey) — same JSX element reused wherever it matches,
-  // so no separate modal/dialog is involved.
-  const productPanelContent = (
-      <div className="rounded-lg border-2 border-primary/25 bg-background shadow-sm">
-        <div className="p-4 space-y-4">
-            <div className="flex items-start justify-between gap-2 border-b pb-3">
-              <div>
-                <div className="flex items-center gap-2 text-sm font-semibold">
-                  {prodModalMode === 'existing' ? (
-                    <>
-                      <PackageCheck className="h-4 w-4 text-primary" />
-                      Select Product & Variation
-                    </>
-                  ) : (
-                    <>
-                      <Sparkles className="h-4 w-4 text-amber-500" />
-                      Create New Product
-                    </>
-                  )}
-                </div>
-                <p className="text-xs text-muted-foreground mt-1">
-                  {prodModalMode === 'existing'
-                    ? 'Choose an available product from the catalog, pick an existing variation or add a new variation, and attach it to your order.'
-                    : 'Register a brand-new product in the master catalog and attach it to your active order line.'}
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setTargetLineKey(null)}
-                className="text-muted-foreground hover:text-foreground text-sm shrink-0"
-                title="Close"
-              >
-                {'✕'}
-              </button>
-            </div>
-
-            <div className="space-y-4">
-              {/* TOP MODE TOGGLE: SELECT EXISTING PRODUCT VS CREATE NEW PRODUCT */}
-              <SegmentedControl
-                value={prodModalMode}
-                onValueChange={(val: any) => {
-                  setProdModalMode(val)
-                  if (val === 'existing') {
-                    const effId = selectedExistingProdId || catalogProducts[0]?.id || ''
-                    setSelectedExistingProdId(effId)
-                    if (effId) {
-                      const m = catalogProducts.find((p) => p.id === effId)
-                      setNewProdTitle(m?.title || '')
-                      setNewProdCode(m?.sku || '')
-                      setNewProdCategory(m?.category || 'Serum')
-                      setNewProdBaseUom(m?.baseUom || 'ml')
-                      loadVariantsForProduct(effId)
-                    }
-                  } else {
-                    setNewProdTitle('')
-                    setNewProdCode('')
-                    setNewProdDescription('')
-                  }
-                }}
-                className="w-full grid grid-cols-2"
-              >
-                <SegmentedControlItem value="existing" className="flex items-center justify-center gap-2 py-2">
-                  <PackageCheck className="h-4 w-4 text-primary" />
-                  <span className="font-medium text-xs">Select Existing Product</span>
-                </SegmentedControlItem>
-                <SegmentedControlItem value="new" className="flex items-center justify-center gap-2 py-2">
-                  <Sparkles className="h-4 w-4 text-amber-500" />
-                  <span className="font-medium text-xs">Create New Product</span>
-                </SegmentedControlItem>
-              </SegmentedControl>
-
-              {/* CLIENT & PRIVATE LABEL BRAND ASSIGNMENT */}
-              <div className="rounded-lg border border-primary/30 bg-primary/5 p-3.5 space-y-3">
-                <div className="flex items-center justify-between border-b border-primary/20 pb-2">
-                  <div className="flex items-center gap-2">
-                    <Building2 className="h-4 w-4 text-primary" />
-                    <h3 className="font-semibold text-xs text-primary uppercase tracking-wider">
-                      Client & Private Label Brand Assignment
-                    </h3>
-                  </div>
-                  {selectedCustomer ? (
-                    <span className="text-[11px] text-muted-foreground">
-                      Active: <strong className="text-foreground">{selectedCustomer.displayName}</strong>
-                    </span>
-                  ) : null}
-                </div>
-
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                  <div className="space-y-1">
-                    <Label className="text-xs font-medium">Customer / Client Company *</Label>
-                    <Select
-                      value={newProdCustomerId || selectedCustomer?.id || ''}
-                      onValueChange={(val) => {
-                        setNewProdCustomerId(val)
-                        const c = customerRows.find((item) => item.id === val)
-                        if (c) {
-                          setNewProdCustomerName(c.displayName)
-                          if (!newProdBrandName) setNewProdBrandName(c.displayName)
-                        }
-                      }}
-                    >
-                      <SelectTrigger className="text-xs h-9 bg-background">
-                        <SelectValue placeholder="Select Customer..." />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {customerRows.map((c) => (
-                          <SelectItem key={c.id} value={c.id} className="text-xs">
-                            {c.displayName} {c.gstin ? `(GST: ${c.gstin})` : ''}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div className="space-y-1">
-                    <Label className="text-xs font-medium">Private Label Brand Name *</Label>
-                    <Input
-                      value={newProdBrandName}
-                      onChange={(e) => setNewProdBrandName(e.target.value)}
-                      placeholder={selectedCustomer?.displayName || 'e.g. SkinGlo, DermaCare'}
-                      className="text-xs h-9 bg-background"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* ======================================================== */}
-              {/* MODE 1: SELECT EXISTING PRODUCT */}
-              {/* ======================================================== */}
-              {prodModalMode === 'existing' ? (
-                <div className="space-y-4">
-                  {/* SELECT PRODUCT FROM CATALOG */}
-                  <div className="rounded-lg border bg-muted/20 p-4 space-y-3">
-                    <div className="flex items-center justify-between border-b pb-2">
-                      <div className="flex items-center gap-2">
-                        <Package className="h-4 w-4 text-primary" />
-                        <h3 className="font-semibold text-xs uppercase tracking-wider text-muted-foreground">
-                          1. Select Product
-                        </h3>
-                      </div>
-                      <span className="text-[11px] text-muted-foreground font-mono">
-                        {customerMatchingProducts.length > 0
-                          ? `${customerMatchingProducts.length} linked to ${selectedCustomer?.displayName || 'Customer'} (${catalogProducts.length} total)`
-                          : `${catalogProducts.length} Available in Catalog`}
-                      </span>
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label className="text-xs font-medium">Choose Product *</Label>
-                      <Select
-                        value={selectedExistingProdId}
-                        onValueChange={(val) => {
-                          setSelectedExistingProdId(val)
-                          const matched = catalogProducts.find((p) => p.id === val)
-                          if (matched) {
-                            setNewProdTitle(matched.title)
-                            setNewProdCode(matched.sku || '')
-                            setNewProdCategory(matched.category || 'Serum')
-                            setNewProdBaseUom(matched.baseUom || 'ml')
-                            if (matched.clientBrand && !newProdBrandName) {
-                              setNewProdBrandName(matched.clientBrand)
-                            }
-                          }
-                          loadVariantsForProduct(val)
-                        }}
-                      >
-                        <SelectTrigger className="text-xs h-10 bg-background">
-                          <SelectValue placeholder="Select an available product..." />
-                        </SelectTrigger>
-                        <SelectContent className="max-h-72">
-                          {customerMatchingProducts.length > 0 ? (
-                            <div className="px-2 py-1 text-[11px] font-bold text-primary uppercase tracking-wider bg-primary/10 rounded-sm mb-1">
-                              ✨ {selectedCustomer?.displayName || 'Customer'} Products ({customerMatchingProducts.length})
-                            </div>
-                          ) : null}
-                          {customerMatchingProducts.map((p) => (
-                            <SelectItem key={p.id} value={p.id} className="text-xs py-2 bg-primary/5 hover:bg-primary/10 mb-0.5">
-                              <div className="flex flex-col">
-                                <span className="font-semibold text-primary">{p.title}</span>
-                                <span className="text-[11px] text-muted-foreground flex items-center gap-2 mt-0.5">
-                                  {p.sku ? <span className="font-mono bg-muted px-1.5 py-0.5 rounded text-[10px]">SKU: {p.sku}</span> : null}
-                                  {p.category ? <span>• {p.category}</span> : null}
-                                  {p.clientBrand ? <span>• Brand: {p.clientBrand}</span> : null}
-                                </span>
-                              </div>
-                            </SelectItem>
-                          ))}
-                          {otherCatalogProducts.length > 0 ? (
-                            <>
-                              <div className="px-2 py-1 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider bg-muted/40 rounded-sm my-1 border-t">
-                                Other Catalog Products ({otherCatalogProducts.length})
-                              </div>
-                              {otherCatalogProducts.map((p) => (
-                                <SelectItem key={p.id} value={p.id} className="text-xs py-2">
-                                  <div className="flex flex-col">
-                                    <span className="font-medium text-foreground">{p.title}</span>
-                                    <span className="text-[11px] text-muted-foreground flex items-center gap-2 mt-0.5">
-                                      {p.sku ? <span className="font-mono bg-muted px-1.5 py-0.5 rounded text-[10px]">SKU: {p.sku}</span> : null}
-                                      {p.category ? <span>• {p.category}</span> : null}
-                                      {p.clientBrand ? <span>• Brand: {p.clientBrand}</span> : null}
-                                    </span>
-                                  </div>
-                                </SelectItem>
-                              ))}
-                            </>
-                          ) : null}
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    {/* Selected Product Summary Box */}
-                    {selectedExistingProdId ? (
-                      <div className="rounded-md border bg-background/80 p-3 text-xs grid grid-cols-2 sm:grid-cols-4 gap-2">
-                        <div>
-                          <span className="text-muted-foreground text-[10px] uppercase font-semibold">SKU Code</span>
-                          <div className="font-mono font-bold text-foreground">{newProdCode || 'DER-FORM-01'}</div>
-                        </div>
-                        <div>
-                          <span className="text-muted-foreground text-[10px] uppercase font-semibold">Category</span>
-                          <div className="font-medium text-foreground">{newProdCategory || 'Serum'}</div>
-                        </div>
-                        <div>
-                          <span className="text-muted-foreground text-[10px] uppercase font-semibold">Base UOM</span>
-                          <div className="font-medium text-foreground">{newProdBaseUom || 'ml'}</div>
-                        </div>
-                        <div>
-                          <span className="text-muted-foreground text-[10px] uppercase font-semibold">Status</span>
-                          <div className="font-semibold text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
-                            <CheckCircle2 className="h-3 w-3" /> Ready in Catalog
-                          </div>
-                        </div>
-                      </div>
-                    ) : null}
-                  </div>
-
-                  {/* VARIATION TABLE — pick one or more existing rows, or add a new one inline */}
-                  <div className="rounded-lg border bg-muted/20 p-4 space-y-2">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <Boxes className="h-4 w-4 text-primary" />
-                        <h3 className="font-semibold text-xs uppercase tracking-wider text-muted-foreground">
-                          2. Variations — select one or more, or add a new one
-                        </h3>
-                      </div>
-                      <span className="text-[11px] text-muted-foreground">{existingVariants.length} available</span>
-                    </div>
-
-                    <div className="overflow-x-auto rounded border bg-background">
-                      <table className="w-full text-xs">
-                        <thead className="bg-muted/40 text-[10px] uppercase tracking-wider text-muted-foreground">
-                          <tr>
-                            <th className="py-2 px-2 w-8"></th>
-                            <th className="py-2 px-2 text-left">Variation</th>
-                            <th className="py-2 px-2 text-left">Pack</th>
-                            <th className="py-2 px-2 text-right">MRP (₹)</th>
-                            <th className="py-2 px-2 text-right">Rate (₹)</th>
-                            <th className="py-2 px-2 text-right">GST</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y">
-                          {loadingVariants ? (
-                            <tr>
-                              <td colSpan={6} className="py-3 text-center text-muted-foreground font-mono">
-                                Loading product variations...
-                              </td>
-                            </tr>
-                          ) : (
-                            existingVariants.map((v) => {
-                              const isSelected = selectedVariantIds.includes(v.id)
-                              return (
-                                <tr
-                                  key={v.id}
-                                  onClick={() =>
-                                    setSelectedVariantIds((prev) =>
-                                      prev.includes(v.id) ? prev.filter((id) => id !== v.id) : [...prev, v.id]
-                                    )
-                                  }
-                                  className={`cursor-pointer transition-colors ${isSelected ? 'bg-primary/10' : 'hover:bg-muted/40'}`}
-                                >
-                                  <td className="py-2 px-2 text-center">
-                                    <span className={`inline-flex h-3.5 w-3.5 items-center justify-center rounded-sm border text-[9px] ${isSelected ? 'border-primary bg-primary text-primary-foreground' : 'border-muted-foreground/40'}`}>
-                                      {isSelected ? '✓' : ''}
-                                    </span>
-                                  </td>
-                                  <td className="py-2 px-2 font-medium">
-                                    {v.name}
-                                    {v.isDefault ? <span className="ml-1.5 text-[9px] font-semibold text-emerald-600 dark:text-emerald-400">Default</span> : null}
-                                  </td>
-                                  <td className="py-2 px-2 font-mono">{v.packSize} {v.uom}</td>
-                                  <td className="py-2 px-2 text-right font-mono">{v.mrp || '—'}</td>
-                                  <td className="py-2 px-2 text-right font-mono">{v.rate || '—'}</td>
-                                  <td className="py-2 px-2 text-right font-mono">{v.gstPercent || '18'}%</td>
-                                </tr>
-                              )
-                            })
-                          )}
-
-                          {addingNewVariantRow ? (
-                            <tr className="bg-amber-500/5">
-                              <td className="py-1.5 px-2"></td>
-                              <td className="py-1.5 px-2">
-                                <Input
-                                  value={newProdVariantName}
-                                  onChange={(e) => setNewProdVariantName(e.target.value)}
-                                  placeholder="e.g. 30ml"
-                                  className="h-7 text-xs bg-background"
-                                />
-                              </td>
-                              <td className="py-1.5 px-2">
-                                <div className="flex items-center gap-1">
-                                  <Input
-                                    value={newProdPackSize}
-                                    onChange={(e) => setNewProdPackSize(e.target.value)}
-                                    placeholder="30"
-                                    className="h-7 w-14 text-xs text-center font-mono bg-background"
-                                  />
-                                  <Select value={newProdUom} onValueChange={setNewProdUom}>
-                                    <SelectTrigger className="h-7 w-16 text-xs bg-background">
-                                      <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                      {UOM_OPTIONS.map((opt) => (
-                                        <SelectItem key={opt.value} value={opt.value} className="text-xs">
-                                          {opt.value}
-                                        </SelectItem>
-                                      ))}
-                                    </SelectContent>
-                                  </Select>
-                                </div>
-                              </td>
-                              <td className="py-1.5 px-2">
-                                <Input
-                                  type="number"
-                                  min={0}
-                                  value={newProdMrp}
-                                  onChange={(e) => setNewProdMrp(e.target.value)}
-                                  placeholder="599"
-                                  className="h-7 text-xs font-mono text-right bg-background"
-                                />
-                              </td>
-                              <td className="py-1.5 px-2">
-                                <Input
-                                  type="number"
-                                  min={0}
-                                  value={newProdRate}
-                                  onChange={(e) => setNewProdRate(e.target.value)}
-                                  placeholder="180"
-                                  className="h-7 text-xs font-mono text-right bg-background"
-                                />
-                              </td>
-                              <td className="py-1.5 px-2">
-                                <Select value={newProdGstPercent} onValueChange={setNewProdGstPercent}>
-                                  <SelectTrigger className="h-7 text-xs bg-background">
-                                    <SelectValue />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    {GST_RATES.map((opt) => (
-                                      <SelectItem key={opt.value} value={opt.value} className="text-xs">
-                                        {opt.value}%
-                                      </SelectItem>
-                                    ))}
-                                  </SelectContent>
-                                </Select>
-                              </td>
-                            </tr>
-                          ) : null}
-                        </tbody>
-                      </table>
-                    </div>
-
-                    {addingNewVariantRow ? (
-                      <div className="flex items-center justify-end gap-2 pt-1">
-                        <button
-                          type="button"
-                          onClick={() => setAddingNewVariantRow(false)}
-                          className="text-muted-foreground hover:text-foreground text-[11px] font-medium"
-                        >
-                          Cancel
-                        </button>
-                        <Button
-                          type="button"
-                          size="sm"
-                          className="h-7 text-xs"
-                          onClick={handleSaveNewVariantRow}
-                          disabled={savingNewVariantRow || !newProdPackSize.trim()}
-                        >
-                          {savingNewVariantRow ? 'Saving...' : 'Save Variation'}
-                        </Button>
-                      </div>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={startAddingNewVariantRow}
-                        className="text-primary hover:underline text-[11px] font-medium inline-flex items-center gap-1"
-                      >
-                        <Plus className="h-3 w-3" />
-                        Add a new variation (e.g. a size that isn't listed)
-                      </button>
-                    )}
-                  </div>
-                </div>
-              ) : (
-                /* ======================================================== */
-                /* MODE 2: CREATE BRAND NEW PRODUCT */
-                /* ======================================================== */
-                <div className="space-y-3">
-                  <div className="rounded-lg border bg-muted/20 p-3">
-                    <div className="flex items-center gap-2 pb-2">
-                      <Package className="h-4 w-4 text-primary" />
-                      <h3 className="font-semibold text-xs uppercase tracking-wider text-muted-foreground">
-                        New Product & Variation — fill in what's needed, then save
-                      </h3>
-                    </div>
-                    <div className="overflow-x-auto rounded border bg-background">
-                      <table className="w-full text-xs">
-                        <thead className="bg-muted/40 text-[10px] uppercase tracking-wider text-muted-foreground">
-                          <tr>
-                            <th className="py-2 px-2 text-left min-w-[160px]">Product Name *</th>
-                            <th className="py-2 px-2 text-left">Code</th>
-                            <th className="py-2 px-2 text-left">Category</th>
-                            <th className="py-2 px-2 text-left">Pack</th>
-                            <th className="py-2 px-2 text-right">MRP (₹)</th>
-                            <th className="py-2 px-2 text-right">Rate (₹)</th>
-                            <th className="py-2 px-2 text-right">GST</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          <tr>
-                            <td className="py-1.5 px-2">
-                              <Input
-                                value={newProdTitle}
-                                onChange={(e) => setNewProdTitle(e.target.value)}
-                                placeholder="e.g. 10% Niacinamide Face Serum"
-                                className="h-7 text-xs bg-background"
-                              />
-                            </td>
-                            <td className="py-1.5 px-2">
-                              <Input
-                                value={newProdCode}
-                                onChange={(e) => setNewProdCode(e.target.value)}
-                                placeholder="DER-FORM-01"
-                                className="h-7 w-28 text-xs font-mono bg-background"
-                              />
-                            </td>
-                            <td className="py-1.5 px-2">
-                              <Select value={newProdCategory} onValueChange={setNewProdCategory}>
-                                <SelectTrigger className="h-7 w-32 text-xs bg-background">
-                                  <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  {CATEGORY_OPTIONS.map((opt) => (
-                                    <SelectItem key={opt.value} value={opt.value} className="text-xs">
-                                      {opt.label}
-                                    </SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                            </td>
-                            <td className="py-1.5 px-2">
-                              <div className="flex items-center gap-1">
-                                <Input
-                                  value={newProdPackSize}
-                                  onChange={(e) => setNewProdPackSize(e.target.value)}
-                                  placeholder="50"
-                                  className="h-7 w-14 text-xs text-center font-mono bg-background"
-                                />
-                                <Select value={newProdUom} onValueChange={(v) => { setNewProdUom(v); setNewProdBaseUom(v) }}>
-                                  <SelectTrigger className="h-7 w-16 text-xs bg-background">
-                                    <SelectValue />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    {UOM_OPTIONS.map((opt) => (
-                                      <SelectItem key={opt.value} value={opt.value} className="text-xs">
-                                        {opt.value}
-                                      </SelectItem>
-                                    ))}
-                                  </SelectContent>
-                                </Select>
-                              </div>
-                            </td>
-                            <td className="py-1.5 px-2">
-                              <Input
-                                type="number"
-                                min={0}
-                                value={newProdMrp}
-                                onChange={(e) => setNewProdMrp(e.target.value)}
-                                placeholder="599"
-                                className="h-7 w-16 text-xs font-mono text-right bg-background"
-                              />
-                            </td>
-                            <td className="py-1.5 px-2">
-                              <Input
-                                type="number"
-                                min={0}
-                                value={newProdRate}
-                                onChange={(e) => setNewProdRate(e.target.value)}
-                                placeholder="180"
-                                className="h-7 w-16 text-xs font-mono text-right bg-background"
-                              />
-                            </td>
-                            <td className="py-1.5 px-2">
-                              <Select value={newProdGstPercent} onValueChange={setNewProdGstPercent}>
-                                <SelectTrigger className="h-7 w-16 text-xs bg-background">
-                                  <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  {GST_RATES.map((opt) => (
-                                    <SelectItem key={opt.value} value={opt.value} className="text-xs">
-                                      {opt.value}%
-                                    </SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                            </td>
-                          </tr>
-                        </tbody>
-                      </table>
-                    </div>
-                    <div className="mt-2 space-y-1">
-                      <Label className="text-xs text-muted-foreground">Description & Specifications (optional)</Label>
-                      <Textarea
-                        value={newProdDescription}
-                        onChange={(e) => setNewProdDescription(e.target.value)}
-                        rows={2}
-                        placeholder="Active ingredients, target texture, packaging details..."
-                        className="text-xs bg-background"
-                      />
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* SECTION 3: COMMERCIAL ORDER TERMS */}
-              <div className="rounded-lg border bg-emerald-500/5 border-emerald-500/20 p-4 space-y-3">
-                <div className="flex items-center gap-2 border-b border-emerald-500/20 pb-2">
-                  <ShoppingBag className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
-                  <h3 className="font-semibold text-xs uppercase tracking-wider text-emerald-700 dark:text-emerald-300">
-                    3. Commercial Order Terms for this Line
-                  </h3>
-                </div>
-
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-                  <div className="space-y-1">
-                    <Label className="text-xs font-semibold">Batch Order Qty (Units) *</Label>
-                    <Input
-                      type="number"
-                      min={1}
-                      value={newProdQuantity}
-                      onChange={(e) => setNewProdQuantity(e.target.value)}
-                      placeholder="500"
-                      className="text-xs font-mono font-bold bg-background"
-                    />
-                  </div>
-
-                  <div className="space-y-1">
-                    <Label className="text-xs font-semibold">Contract Billing Rate (₹) *</Label>
-                    <Input
-                      type="number"
-                      min={0}
-                      value={newProdRate}
-                      onChange={(e) => setNewProdRate(e.target.value)}
-                      placeholder="180"
-                      className="text-xs font-mono font-bold bg-background"
-                    />
-                  </div>
-
-                  <div className="space-y-1">
-                    <Label className="text-xs">GST Tax Rate</Label>
-                    <Select value={newProdGstPercent} onValueChange={setNewProdGstPercent}>
-                      <SelectTrigger className="text-xs bg-background">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {GST_RATES.map((opt) => (
-                          <SelectItem key={opt.value} value={opt.value} className="text-xs">
-                            {opt.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-
-                {/* Calculation Preview */}
-                <div className="rounded border bg-background p-3 flex items-center justify-between text-xs">
-                  <div>
-                    <span className="text-muted-foreground">Line Subtotal: </span>
-                    <strong className="font-mono">{formatINR((Number(newProdQuantity) || 0) * (Number(newProdRate) || 0))}</strong>
-                    <span className="text-muted-foreground ml-3">GST ({newProdGstPercent}%): </span>
-                    <strong className="font-mono">
-                      {formatINR(
-                        (((Number(newProdQuantity) || 0) * (Number(newProdRate) || 0)) * (Number(newProdGstPercent) || 0)) / 100
-                      )}
-                    </strong>
-                  </div>
-                  <div className="text-right">
-                    <span className="text-muted-foreground">Line Total: </span>
-                    <span className="font-bold text-sm text-emerald-600 dark:text-emerald-400 font-mono">
-                      {formatINR(
-                        ((Number(newProdQuantity) || 0) * (Number(newProdRate) || 0)) *
-                          (1 + (Number(newProdGstPercent) || 0) / 100)
-                      )}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div className="flex items-center justify-end gap-2 border-t pt-3">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setTargetLineKey(null)}
-              >
-                Cancel
-              </Button>
-              <Button
-                type="button"
-                className="bg-primary font-semibold"
-                onClick={handleCreateProduct}
-                disabled={
-                  creatingProduct ||
-                  (prodModalMode === 'new' && !newProdTitle.trim()) ||
-                  (prodModalMode === 'existing' && !selectedExistingProdId)
-                }
-              >
-                {creatingProduct
-                  ? 'Saving Product...'
-                  : prodModalMode === 'new'
-                    ? 'Create Product & Add to Order'
-                    : 'Add Selected Variation(s) to Order'}
-              </Button>
-            </div>
-          </div>
-        </div>
-  )
 
   return (
     <Page>
@@ -1773,168 +1187,149 @@ export default function CreateOrderPage() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <SegmentedControl
-                    value={customerMode}
-                    onValueChange={(next) => setCustomerMode(next as 'existing' | 'new')}
-                  >
-                    <SegmentedControlItem value="existing">
-                      Select Existing Customer
-                    </SegmentedControlItem>
-                    <SegmentedControlItem value="new">
-                      + Create New Customer (Inline)
-                    </SegmentedControlItem>
-                  </SegmentedControl>
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                    <div className="relative flex-1">
+                      <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        value={search}
+                        onChange={(e) => setSearch(e.target.value)}
+                        placeholder="Search customer by name, phone, GSTIN..."
+                        className="pl-9"
+                      />
+                    </div>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => setCreateCustomerPanelOpen(true)}
+                    >
+                      + Create New Customer
+                    </Button>
+                  </div>
 
-                  {customerMode === 'existing' ? (
-                    <div className="space-y-3">
-                      <div className="relative">
-                        <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
-                        <Input
-                          value={search}
-                          onChange={(e) => setSearch(e.target.value)}
-                          placeholder="Search customer by name, phone, GSTIN..."
-                          className="pl-9"
-                        />
-                      </div>
+                  {selectedCustomer ? (
+                    <div className="rounded-lg border border-primary/30 bg-primary/5 p-4 flex flex-col md:flex-row md:items-start justify-between gap-4">
+                      <div className="space-y-2 flex-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <CheckCircle2 className="h-4 w-4 text-primary shrink-0" />
+                          <span className="font-semibold text-base text-foreground">{selectedCustomer.displayName}</span>
+                          {selectedCustomer.legalName && selectedCustomer.legalName !== selectedCustomer.displayName ? (
+                            <span className="text-xs text-muted-foreground font-normal">
+                              ({selectedCustomer.legalName})
+                            </span>
+                          ) : null}
+                          {selectedCustomer.gstin ? (
+                            <span className="rounded bg-background px-2 py-0.5 text-xs font-mono border font-medium">
+                              GST: {selectedCustomer.gstin}
+                            </span>
+                          ) : null}
+                          {selectedCustomer.gstRegistrationType ? (
+                            <span className="rounded bg-muted px-2 py-0.5 text-[11px] text-muted-foreground border">
+                              {formatOptionLabel(selectedCustomer.gstRegistrationType)}
+                            </span>
+                          ) : null}
+                        </div>
 
-                      {selectedCustomer ? (
-                        <div className="rounded-lg border border-primary/30 bg-primary/5 p-4 flex items-center justify-between">
-                          <div className="space-y-1">
-                            <div className="flex items-center gap-2">
-                              <CheckCircle2 className="h-4 w-4 text-primary" />
-                              <span className="font-semibold text-sm">{selectedCustomer.displayName}</span>
-                              {selectedCustomer.gstin ? (
-                                <span className="rounded bg-background px-1.5 py-0.5 text-xs font-mono border">
-                                  GST: {selectedCustomer.gstin}
-                                </span>
-                              ) : null}
-                            </div>
-                            <div className="text-xs text-muted-foreground flex items-center gap-3">
-                              {selectedCustomer.phone ? <span>Phone: {selectedCustomer.phone}</span> : null}
-                              {selectedCustomer.email ? <span>Email: {selectedCustomer.email}</span> : null}
-                              {selectedCustomer.salesPoc ? <span>POC: {selectedCustomer.salesPoc}</span> : null}
-                            </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 text-xs text-muted-foreground pt-0.5">
+                          {selectedCustomer.phone ? (
+                            <div><span className="font-medium text-foreground">Phone:</span> {selectedCustomer.phone}</div>
+                          ) : null}
+                          {selectedCustomer.email ? (
+                            <div><span className="font-medium text-foreground">Email:</span> {selectedCustomer.email}</div>
+                          ) : null}
+                          {selectedCustomer.salesPoc ? (
+                            <div><span className="font-medium text-foreground">Sales Manager:</span> {selectedCustomer.salesPoc}</div>
+                          ) : null}
+                          {selectedCustomer.address ? (
+                            <div className="truncate"><span className="font-medium text-foreground">Address:</span> {selectedCustomer.address}</div>
+                          ) : null}
+                        </div>
+
+                        {(selectedCustomer.paymentTerms || selectedCustomer.paymentRemarks) ? (
+                          <div className="flex flex-wrap items-center gap-2 pt-1 text-xs">
+                            <span className="font-medium text-foreground">Commercial Terms:</span>
+                            {selectedCustomer.paymentTerms ? (
+                              <span className="rounded bg-primary/10 text-primary font-medium px-2 py-0.5 border border-primary/20">
+                                {formatOptionLabel(selectedCustomer.paymentTerms)}
+                              </span>
+                            ) : null}
+                            {selectedCustomer.paymentRemarks ? (
+                              <span className="rounded bg-amber-500/10 text-amber-700 dark:text-amber-400 px-2 py-0.5 border border-amber-500/20 font-medium">
+                                {selectedCustomer.paymentRemarks}
+                              </span>
+                            ) : null}
                           </div>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => setSelectedCustomer(null)}
-                          >
-                            Change
-                          </Button>
-                        </div>
-                      ) : null}
+                        ) : null}
 
-                      {!selectedCustomer ? (
-                        <div className="max-h-60 overflow-y-auto rounded-lg border divide-y">
-                          {loadingCustomers ? (
-                            <div className="p-4 text-center text-xs text-muted-foreground">Loading customers...</div>
-                          ) : customerRows.length === 0 ? (
-                            <div className="p-6 text-center text-xs text-muted-foreground">
-                              No matching customers found. Switch to "+ Create New Customer" tab to add one.
+                        {/* Any dynamically added custom attributes automatically reflected */}
+                        {(() => {
+                          const ignored = new Set([
+                            'gstin', 'sales_manager', 'legal_trade_name', 'payment_terms',
+                            'payment_remarks', 'gst_registration_type', 'customer_type_category',
+                            'default_currency', 'address', 'phone', 'email', 'name', 'legal_name'
+                          ])
+                          const extraKeys = Object.keys(selectedCustomer.customFields ?? {}).filter(
+                            (k) => !ignored.has(k) && selectedCustomer.customFields?.[k] !== undefined && selectedCustomer.customFields?.[k] !== null && selectedCustomer.customFields?.[k] !== ''
+                          )
+                          if (!extraKeys.length) return null
+                          return (
+                            <div className="flex flex-wrap items-center gap-2 pt-1 text-xs">
+                              <span className="font-medium text-muted-foreground">Additional Attributes:</span>
+                              {extraKeys.map((k) => (
+                                <span key={k} className="rounded bg-background px-2 py-0.5 border text-foreground font-mono text-[11px]">
+                                  {k.replace(/_/g, ' ')}: {String(selectedCustomer.customFields?.[k])}
+                                </span>
+                              ))}
                             </div>
-                          ) : (
-                            customerRows.map((cust) => (
-                              <div
-                                key={cust.id}
-                                onClick={() => {
-                                  setSelectedCustomer(cust)
-                                  if (cust.salesPoc && !salesPoc) setSalesPoc(cust.salesPoc)
-                                }}
-                                className="w-full text-left p-3 hover:bg-muted/50 transition-colors flex items-center justify-between cursor-pointer"
-                              >
-                                <div className="space-y-0.5">
-                                  <div className="font-semibold text-sm">{cust.displayName}</div>
-                                  <div className="text-xs text-muted-foreground flex flex-wrap gap-2">
-                                    {cust.phone ? <span>📞 {cust.phone}</span> : null}
-                                    {cust.email ? <span>✉️ {cust.email}</span> : null}
-                                    {cust.gstin ? <span>GSTIN: <strong>{cust.gstin}</strong></span> : null}
-                                    {cust.salesPoc ? <span>POC: {cust.salesPoc}</span> : null}
-                                  </div>
-                                </div>
-                                <Button type="button" variant="outline" size="sm">Select</Button>
-                              </div>
-                            ))
-                          )}
-                        </div>
-                      ) : null}
-                    </div>
-                  ) : (
-                    /* INLINE CREATE NEW CUSTOMER FORM */
-                    <div className="rounded-lg border bg-muted/10 p-4 space-y-4">
-                      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                        <div className="space-y-1 sm:col-span-2">
-                          <Label>Company / Customer Name *</Label>
-                          <Input
-                            value={newCustName}
-                            onChange={(e) => setNewCustName(e.target.value)}
-                            placeholder="e.g. SkinGlo Pharma Pvt Ltd"
-                          />
-                        </div>
-                        <div className="space-y-1">
-                          <Label>Contact Person</Label>
-                          <Input
-                            value={newCustContact}
-                            onChange={(e) => setNewCustContact(e.target.value)}
-                            placeholder="e.g. Dr. Rajesh Sharma"
-                          />
-                        </div>
-                        <div className="space-y-1">
-                          <Label>Phone Number</Label>
-                          <Input
-                            value={newCustPhone}
-                            onChange={(e) => setNewCustPhone(e.target.value)}
-                            placeholder="e.g. +91 98765 43210"
-                          />
-                        </div>
-                        <div className="space-y-1">
-                          <Label>Email Address</Label>
-                          <Input
-                            type="email"
-                            value={newCustEmail}
-                            onChange={(e) => setNewCustEmail(e.target.value)}
-                            placeholder="e.g. contact@skinglo.com"
-                          />
-                        </div>
-                        <div className="space-y-1">
-                          <Label>GSTIN / Tax ID</Label>
-                          <Input
-                            value={newCustGstin}
-                            onChange={(e) => setNewCustGstin(e.target.value)}
-                            placeholder="e.g. 27AAAAA0000A1Z5"
-                          />
-                        </div>
-                        <div className="space-y-1">
-                          <Label>Sales POC (Responsible Person)</Label>
-                          <Input
-                            value={newCustSalesPoc}
-                            onChange={(e) => setNewCustSalesPoc(e.target.value)}
-                            placeholder="e.g. Amit Kumar"
-                          />
-                        </div>
-                        <div className="space-y-1">
-                          <Label>Billing / Shipping Address</Label>
-                          <Input
-                            value={newCustAddress}
-                            onChange={(e) => setNewCustAddress(e.target.value)}
-                            placeholder="e.g. Sector 18, Gurugram, Haryana"
-                          />
-                        </div>
+                          )
+                        })()}
                       </div>
-                      <div className="flex justify-end pt-2">
-                        <Button
-                          type="button"
-                          onClick={handleCreateCustomer}
-                          disabled={creatingCustomer || !newCustName.trim()}
-                        >
-                          {creatingCustomer ? 'Creating Customer...' : 'Save & Select Customer'}
-                        </Button>
-                      </div>
+
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setSelectedCustomer(null)}
+                        className="shrink-0"
+                      >
+                        Change Customer
+                      </Button>
                     </div>
-                  )}
+                  ) : null}
+
+                  {!selectedCustomer ? (
+                    <DataTable
+                      columns={customerColumns}
+                      data={customerRows}
+                      embedded
+                      isLoading={loadingCustomers}
+                      onRowClick={(cust: CustomerRow) => {
+                        setSelectedCustomer(cust)
+                        if (cust.salesPoc && !salesPoc) setSalesPoc(cust.salesPoc)
+                        if (cust.paymentRemarks) {
+                          const match = cust.paymentRemarks.match(/(\d+)%\s*advance/i)
+                          if (match && match[1]) {
+                            setAdvanceRequired(true)
+                            setAdvancePercent(match[1])
+                          }
+                        }
+                      }}
+                      emptyState={(
+                        <EmptyState
+                          size="sm"
+                          title="No matching customers found"
+                          description='Click "+ Create New Customer" to add one.'
+                        />
+                      )}
+                    />
+                  ) : null}
                 </CardContent>
               </Card>
+
+              <CreateCompanyPanel
+                open={createCustomerPanelOpen}
+                onOpenChange={setCreateCustomerPanelOpen}
+                onCreated={handleCustomerCreated}
+              />
 
               {/* Commercial Header Card */}
               <Card>
@@ -1946,6 +1341,17 @@ export default function CreateOrderPage() {
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                    <div className="space-y-1">
+                      <Label>Sales Order #</Label>
+                      <Input
+                        value={nextOrderNumber ?? 'Generating…'}
+                        disabled
+                        className="bg-muted text-muted-foreground font-mono"
+                      />
+                      <p className="text-[11px] text-muted-foreground">
+                        Auto-generated on save. The numbering format is configured in Sales Settings.
+                      </p>
+                    </div>
                     <div className="space-y-1">
                       <Label>Order Date *</Label>
                       <Input
@@ -1960,14 +1366,6 @@ export default function CreateOrderPage() {
                         type="date"
                         value={deliveryDate}
                         onChange={(e) => setDeliveryDate(e.target.value)}
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <Label>Customer PO / Ref No.</Label>
-                      <Input
-                        value={customerPoRef}
-                        onChange={(e) => setCustomerPoRef(e.target.value)}
-                        placeholder="e.g. PO-2026-089"
                       />
                     </div>
                     <div className="space-y-1">
@@ -1998,10 +1396,13 @@ export default function CreateOrderPage() {
                     </div>
                     <div className="space-y-1">
                       <Label>Sales POC / Executive</Label>
-                      <Input
+                      <ComboboxInput
                         value={salesPoc}
-                        onChange={(e) => setSalesPoc(e.target.value)}
-                        placeholder="e.g. Amit Kumar"
+                        onChange={setSalesPoc}
+                        loadSuggestions={loadSalesPocSuggestions}
+                        placeholder="Search sales team…"
+                        allowCustomValues
+                        clearable
                       />
                     </div>
                   </div>
@@ -2047,26 +1448,6 @@ export default function CreateOrderPage() {
                     </p>
                   </div>
                   <div className="flex items-center gap-2">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => openLineProductPanel(lines[0]?.key || '', 'existing')}
-                      className="text-xs"
-                    >
-                      <PackageCheck className="mr-1.5 h-3.5 w-3.5 text-primary" />
-                      Select Product / Variant
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => openLineProductPanel(lines[0]?.key || '', 'new')}
-                      className="text-xs border-dashed text-amber-600 dark:text-amber-400 hover:text-amber-700"
-                    >
-                      <Sparkles className="mr-1.5 h-3.5 w-3.5 text-amber-500" />
-                      + New Product
-                    </Button>
                     <Button type="button" size="sm" onClick={addLine} className="text-xs">
                       <Plus className="mr-1.5 h-3.5 w-3.5" />
                       Add Row
@@ -2095,18 +1476,7 @@ export default function CreateOrderPage() {
                           variant="secondary"
                           size="sm"
                           className="h-7 text-xs font-medium"
-                          onClick={() => {
-                            const p = customerMatchingProducts[0]
-                            updateLine(lines[0].key, {
-                              productId: p.id,
-                              productLabel: p.title,
-                              productCode: p.sku || '',
-                              category: p.category || 'Serum',
-                              uom: p.baseUom || 'ml',
-                              brandName: p.clientBrand || selectedCustomer.displayName,
-                              variantSku: 'Standard',
-                            })
-                          }}
+                          onClick={() => handleSelectProductForLine(lines[0].key, customerMatchingProducts[0].id)}
                         >
                           Quick-Select: {customerMatchingProducts[0].title}
                         </Button>
@@ -2118,14 +1488,14 @@ export default function CreateOrderPage() {
                       <thead className="bg-muted/40 border-b text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
                         <tr>
                           <th className="py-3 px-3 w-10 text-center">#</th>
-                          <th className="py-3 px-3 min-w-[240px]">Product *</th>
-                          <th className="py-3 px-3 min-w-[140px]">Client Brand</th>
-                          <th className="py-3 px-3 min-w-[130px]">Category</th>
-                          <th className="py-3 px-3 min-w-[140px]">Pack Size & UOM</th>
-                          <th className="py-3 px-3 min-w-[110px]">Order Qty *</th>
-                          <th className="py-3 px-3 min-w-[110px]">Rate (₹) *</th>
+                          <th className="py-3 px-3 min-w-[260px]">Product *</th>
+                          <th className="py-3 px-3 min-w-[90px]">Qty *</th>
+                          <th className="py-3 px-3 min-w-[110px]">Batch No.</th>
+                          <th className="py-3 px-3 min-w-[90px] text-right">MRP (₹)</th>
+                          <th className="py-3 px-3 min-w-[100px] text-right">Unit Price (₹)</th>
+                          <th className="py-3 px-3 min-w-[100px]">Rate (₹) *</th>
                           <th className="py-3 px-3 min-w-[95px] text-right">Taxable</th>
-                          <th className="py-3 px-3 min-w-[100px]">GST Rate</th>
+                          <th className="py-3 px-3 min-w-[90px]">GST</th>
                           <th className="py-3 px-3 min-w-[110px] text-right">Total (₹)</th>
                           <th className="py-3 px-3 w-16 text-center">Actions</th>
                         </tr>
@@ -2139,112 +1509,147 @@ export default function CreateOrderPage() {
                               {idx + 1}
                             </td>
 
-                            {/* Column 2: Product */}
+                            {/* Column 2: Product — one search box (code + name match, code
+                                shown first), an advanced-search icon button for the full
+                                picker, and an optional "create new product" side-action.
+                                Matches the client's real single-row attach-product flow. */}
                             <td className="py-3 px-3 align-middle">
-                              <div className="space-y-1.5">
-                                <Select
-                                  value={line.productId}
-                                  onValueChange={(val) => {
-                                    // Selecting a product here only opens the variation panel
-                                    // below with that product's real variations loaded — the
-                                    // line itself is only updated once a variation is actually
-                                    // confirmed there, so we never write a fake "Standard"
-                                    // variant with no real pack size onto the line.
-                                    if (val === '__new_product__') {
-                                      openLineProductPanel(line.key, 'new')
-                                      return
-                                    }
-                                    openLineProductPanel(line.key, 'existing', val)
-                                  }}
-                                >
-                                  <SelectTrigger className="text-xs h-8">
-                                    <SelectValue placeholder="Select product from Catalog…" />
-                                  </SelectTrigger>
-                                  <SelectContent className="max-h-72">
-                                    <SelectItem value="__new_product__" className="text-xs font-medium text-amber-600 dark:text-amber-400">
-                                      + Create New Product
-                                    </SelectItem>
-                                    {customerMatchingProducts.length > 0 ? (
-                                      <div className="px-2 py-1 text-[11px] font-bold text-primary uppercase tracking-wider bg-primary/10 rounded-sm mb-1">
-                                        ✨ {selectedCustomer?.displayName || 'Customer'} Products ({customerMatchingProducts.length})
-                                      </div>
+                              <div className="space-y-1.5 min-w-[220px]">
+                                <div className="flex items-center gap-1.5">
+                                  <div className="flex-1">
+                                    <ComboboxInput
+                                      value={line.productId}
+                                      onChange={(val) => {
+                                        if (!val) {
+                                          updateLine(line.key, { productId: '', productLabel: '', productCode: '' })
+                                          return
+                                        }
+                                        handleSelectProductForLine(line.key, val)
+                                      }}
+                                      suggestions={productComboboxOptions}
+                                      loadSuggestions={loadProductSuggestionsForLine}
+                                      placeholder="Search product by code or name…"
+                                      allowCustomValues={false}
+                                      clearable
+                                    />
+                                  </div>
+                                  <IconButton
+                                    type="button"
+                                    variant="outline"
+                                    size="default"
+                                    aria-label="Advanced product search"
+                                    title="Advanced product search"
+                                    onClick={() => {
+                                      setCatalogSearchLineKey(line.key)
+                                      setCatalogSearchQuery('')
+                                      setCatalogSearchOpen(true)
+                                    }}
+                                  >
+                                    <Binoculars className="h-4 w-4" />
+                                  </IconButton>
+                                </div>
+
+                                {line.productId ? (
+                                  <div className="flex flex-wrap items-center gap-1.5 text-[11px]">
+                                    {line.variantSku ? (
+                                      <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium text-foreground">
+                                        {line.variantSku}
+                                      </span>
                                     ) : null}
-                                    {customerMatchingProducts.map((p) => (
-                                      <SelectItem key={p.id} value={p.id} className="text-xs font-medium bg-primary/5 hover:bg-primary/10 mb-0.5">
-                                        <div className="flex flex-col">
-                                          <span className="font-semibold text-primary">{p.title}</span>
-                                          <span className="text-[10px] text-muted-foreground">
-                                            {p.sku ? `SKU: ${p.sku}` : ''} {p.category ? `• ${p.category}` : ''} {p.clientBrand ? `• Brand: ${p.clientBrand}` : ''}
-                                          </span>
-                                        </div>
-                                      </SelectItem>
-                                    ))}
-                                    {otherCatalogProducts.length > 0 ? (
-                                      <>
-                                        <div className="px-2 py-1 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider bg-muted/40 rounded-sm my-1 border-t">
-                                          Other Catalog Products ({otherCatalogProducts.length})
-                                        </div>
-                                        {otherCatalogProducts.map((p) => (
-                                          <SelectItem key={p.id} value={p.id} className="text-xs">
-                                            <div className="flex flex-col">
-                                              <span className="font-medium">{p.title}</span>
-                                              <span className="text-[10px] text-muted-foreground">
-                                                {p.sku ? `SKU: ${p.sku}` : ''} {p.category ? `• ${p.category}` : ''} {p.clientBrand ? `• Brand: ${p.clientBrand}` : ''}
-                                              </span>
-                                            </div>
+                                    {line.packSize ? (
+                                      <span className="text-[10px] text-muted-foreground">{line.packSize} {line.uom}</span>
+                                    ) : null}
+                                    {line.productCode ? (
+                                      <span className="font-mono text-muted-foreground text-[10px] truncate max-w-[100px]">
+                                        Code: {line.productCode}
+                                      </span>
+                                    ) : null}
+                                    {line.category ? (
+                                      <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">
+                                        {line.category}
+                                      </span>
+                                    ) : null}
+                                    {line.brandName || selectedCustomer?.displayName ? (
+                                      <span className="text-[10px] text-muted-foreground truncate max-w-[110px]">
+                                        Brand: {line.brandName || selectedCustomer?.displayName}
+                                      </span>
+                                    ) : null}
+                                  </div>
+                                ) : null}
+
+                                {/* Single/zero-variant products: a plain editable pack-size
+                                    field, pre-filled from the auto-applied variant but always
+                                    visible and editable — never silently invisible. */}
+                                {singleVariantLineKeys.has(line.key) && line.productId ? (
+                                  <div className="flex items-center gap-1.5">
+                                    <Input
+                                      value={line.packSize}
+                                      onChange={(e) => updateLine(line.key, { packSize: e.target.value })}
+                                      placeholder="e.g. 50"
+                                      className="h-7 w-20 text-[11px] font-mono"
+                                      aria-label="Pack size"
+                                    />
+                                    <Select
+                                      value={line.uom}
+                                      onValueChange={(val) => updateLine(line.key, { uom: val })}
+                                    >
+                                      <SelectTrigger className="h-7 w-24 text-[11px]">
+                                        <SelectValue />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        {uomOptions.map((opt) => (
+                                          <SelectItem key={opt.value} value={opt.value} className="text-xs">
+                                            {opt.value}
                                           </SelectItem>
                                         ))}
-                                      </>
-                                    ) : null}
-                                  </SelectContent>
-                                </Select>
+                                      </SelectContent>
+                                    </Select>
+                                  </div>
+                                ) : null}
 
-                                <button
-                                  type="button"
-                                  onClick={() => openLineProductPanel(line.key, 'existing', line.productId)}
-                                  className="w-full text-left text-[11px]"
-                                >
-                                  {line.productId ? (
-                                    <div className="flex flex-wrap items-center gap-1.5">
-                                      {line.variantSku ? (
-                                        <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium text-foreground">
-                                          {line.variantSku}
-                                        </span>
-                                      ) : null}
-                                      {line.packSize ? (
-                                        <span className="text-[10px] text-muted-foreground">{line.packSize} {line.uom}</span>
-                                      ) : null}
-                                      {line.productCode ? (
-                                        <span className="font-mono text-muted-foreground text-[10px] truncate max-w-[100px]">
-                                          Code: {line.productCode}
-                                        </span>
-                                      ) : null}
+                                {/* Variant dropdown — only rendered when the selected product
+                                    genuinely has 2+ variants (auto-applied otherwise, above). */}
+                                {variantPickerLineKey === line.key ? (
+                                  <div className="rounded-md border bg-muted/20 p-2 space-y-1.5">
+                                    <div className="flex items-center justify-between">
+                                      <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                                        Choose a variation
+                                      </span>
+                                      <span className="text-[10px] text-muted-foreground">{existingVariants.length} options</span>
                                     </div>
-                                  ) : (
-                                    <span className="text-muted-foreground text-[10px]">No variation chosen yet</span>
-                                  )}
-                                </button>
+                                    {loadingVariants ? (
+                                      <div className="text-[11px] text-muted-foreground">Loading variations…</div>
+                                    ) : (
+                                      <Select
+                                        value=""
+                                        onValueChange={(variantId) => {
+                                          const product = catalogProducts.find((p) => p.id === line.productId)
+                                          const v = existingVariants.find((entry) => entry.id === variantId)
+                                          if (product && v) applyVariantToLine(line.key, product, v)
+                                          setVariantPickerLineKey(null)
+                                        }}
+                                      >
+                                        <SelectTrigger className="h-8 text-[11px] bg-background">
+                                          <SelectValue placeholder="Select a variation…" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                          {existingVariants.map((v) => (
+                                            <SelectItem key={v.id} value={v.id} className="text-xs">
+                                              <span className="font-medium">
+                                                {v.name} <span className="text-muted-foreground font-mono">({v.packSize} {v.uom})</span>
+                                              </span>
+                                              {v.mrp ? <span className="text-muted-foreground font-mono ml-2">MRP ₹{v.mrp}</span> : null}
+                                            </SelectItem>
+                                          ))}
+                                        </SelectContent>
+                                      </Select>
+                                    )}
+                                  </div>
+                                ) : null}
                               </div>
                             </td>
 
-                            {/* Column 3: Client Brand (auto-filled, read-only) */}
-                            <td className="py-3 px-3 align-middle text-xs text-foreground">
-                              {line.brandName || selectedCustomer?.displayName || <span className="text-muted-foreground">—</span>}
-                            </td>
-
-                            {/* Column 4: Category (auto-filled, read-only) */}
-                            <td className="py-3 px-3 align-middle">
-                              <span className="inline-block rounded bg-muted px-2 py-1 text-[11px] font-medium text-foreground">
-                                {line.category || '—'}
-                              </span>
-                            </td>
-
-                            {/* Column 5: Pack Size & UOM (auto-filled, read-only) */}
-                            <td className="py-3 px-3 align-middle font-mono text-xs text-foreground">
-                              {line.packSize ? `${line.packSize} ${line.uom}` : '—'}
-                            </td>
-
-                            {/* Column 6: Order Qty (Units) */}
+                            {/* Column 3: Order Qty (Units) */}
                             <td className="py-3 px-3 align-middle">
                               <Input
                                 type="number"
@@ -2253,6 +1658,33 @@ export default function CreateOrderPage() {
                                 onChange={(e) => updateLine(line.key, { quantity: e.target.value })}
                                 placeholder="500"
                                 className="text-xs h-8 font-mono font-semibold text-right"
+                              />
+                            </td>
+
+                            {/* Column 4: Current Batch No. */}
+                            <td className="py-3 px-3 align-middle">
+                              <Input
+                                value={line.batchNo}
+                                onChange={(e) => updateLine(line.key, { batchNo: e.target.value })}
+                                placeholder="e.g. B-2409"
+                                className="text-xs h-8 font-mono"
+                              />
+                            </td>
+
+                            {/* Column 5: MRP (auto-filled from product/variant, read-only) */}
+                            <td className="py-3 px-3 align-middle text-right font-mono text-xs text-muted-foreground">
+                              {line.mrp ? formatINR(Number(line.mrp)) : '—'}
+                            </td>
+
+                            {/* Column 6: Unit Price (₹) */}
+                            <td className="py-3 px-3 align-middle">
+                              <Input
+                                type="number"
+                                min={0}
+                                value={line.unitPrice}
+                                onChange={(e) => updateLine(line.key, { unitPrice: e.target.value })}
+                                placeholder="0"
+                                className="text-xs h-8 font-mono text-right"
                               />
                             </td>
 
@@ -2293,7 +1725,7 @@ export default function CreateOrderPage() {
                             </td>
 
                             {/* Column 10: Line Total */}
-                            <td className="py-3 px-3 align-middle text-right font-mono font-bold text-sm text-emerald-600 dark:text-emerald-400">
+                            <td className="py-3 px-3 align-middle text-right font-mono font-bold text-sm text-status-success-text">
                               {formatINR(calcLineTotal(line))}
                             </td>
 
@@ -2305,8 +1737,33 @@ export default function CreateOrderPage() {
                                   variant="ghost"
                                   size="icon"
                                   className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                                  onClick={() => moveLine(line.key, 'up')}
+                                  disabled={idx === 0}
+                                  title="Move Up"
+                                  aria-label="Move row up"
+                                >
+                                  <ArrowUp className="h-3.5 w-3.5" />
+                                </Button>
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                                  onClick={() => moveLine(line.key, 'down')}
+                                  disabled={idx === lines.length - 1}
+                                  title="Move Down"
+                                  aria-label="Move row down"
+                                >
+                                  <ArrowDown className="h-3.5 w-3.5" />
+                                </Button>
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-7 w-7 text-muted-foreground hover:text-foreground"
                                   onClick={() => duplicateLine(line)}
                                   title="Duplicate Row"
+                                  aria-label="Duplicate row"
                                 >
                                   <Copy className="h-3.5 w-3.5" />
                                 </Button>
@@ -2318,19 +1775,13 @@ export default function CreateOrderPage() {
                                   onClick={() => removeLine(line.key)}
                                   disabled={lines.length === 1}
                                   title="Remove Row"
+                                  aria-label="Remove row"
                                 >
                                   <Trash2 className="h-3.5 w-3.5" />
                                 </Button>
                               </div>
                             </td>
                           </tr>
-                          {targetLineKey === line.key ? (
-                            <tr>
-                              <td colSpan={11} className="bg-muted/10 border-b p-3">
-                                {productPanelContent}
-                              </td>
-                            </tr>
-                          ) : null}
                           </React.Fragment>
                         ))}
                       </tbody>
@@ -2363,7 +1814,7 @@ export default function CreateOrderPage() {
                         <div className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider">
                           Grand Total (INR)
                         </div>
-                        <div className="text-xl font-black text-emerald-600 dark:text-emerald-400 font-mono">
+                        <div className="text-xl font-black text-status-success-text font-mono">
                           {formatINR(grandTotal)}
                         </div>
                       </div>
@@ -2414,7 +1865,7 @@ export default function CreateOrderPage() {
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          {PACKAGING_TYPES.map((opt) => (
+                          {packagingTypeOptions.map((opt) => (
                             <SelectItem key={opt.value} value={opt.value}>
                               {opt.label}
                             </SelectItem>
@@ -2457,41 +1908,10 @@ export default function CreateOrderPage() {
                 <CardHeader>
                   <CardTitle className="text-base flex items-center gap-2">
                     <FlaskConical className="h-5 w-5 text-primary" />
-                    R&D / Sampling Requirement
+                    Order Notes
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <label className="flex items-center gap-2 text-sm font-medium">
-                    <Checkbox
-                      checked={sampleRequired}
-                      onCheckedChange={(checked) => setSampleRequired(checked === true)}
-                    />
-                    R&D Sample / Lab Trial Required Before Full Batch Production
-                  </label>
-
-                  {sampleRequired ? (
-                    <div className="rounded-lg border bg-muted/20 p-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
-                      <div className="space-y-1">
-                        <Label>Sample Quantity (Pcs/Units)</Label>
-                        <Input
-                          type="number"
-                          min={1}
-                          value={sampleQty}
-                          onChange={(e) => setSampleQty(e.target.value)}
-                          placeholder="2"
-                        />
-                      </div>
-                      <div className="space-y-1">
-                        <Label>Sample Due Date</Label>
-                        <Input
-                          type="date"
-                          value={sampleDueDate}
-                          onChange={(e) => setSampleDueDate(e.target.value)}
-                        />
-                      </div>
-                    </div>
-                  ) : null}
-
                   <div className="space-y-1">
                     <Label>Order Notes & Special Production Instructions</Label>
                     <Textarea
@@ -2512,13 +1932,33 @@ export default function CreateOrderPage() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <label className="flex items-center gap-2 text-sm font-medium">
-                    <Checkbox
-                      checked={advanceRequired}
-                      onCheckedChange={(checked) => setAdvanceRequired(checked === true)}
-                    />
-                    Advance Payment Required Before Order Is Verified/Official
-                  </label>
+                  {selectedCustomer && (selectedCustomer.paymentTerms || selectedCustomer.paymentRemarks) ? (
+                    <div className="rounded-md border border-primary/20 bg-primary/5 px-3.5 py-2.5 text-xs flex flex-wrap items-center justify-between gap-3">
+                      <div className="flex items-center gap-2">
+                        <Sparkles className="h-4 w-4 text-primary shrink-0" />
+                        <div>
+                          <span className="font-semibold text-foreground">Customer Commercial Policy: </span>
+                          {selectedCustomer.paymentTerms ? (
+                            <span className="font-medium text-primary">
+                              {formatOptionLabel(selectedCustomer.paymentTerms)}
+                            </span>
+                          ) : null}
+                          {selectedCustomer.paymentRemarks ? (
+                            <span className="text-muted-foreground font-medium"> ({selectedCustomer.paymentRemarks})</span>
+                          ) : null}
+                        </div>
+                      </div>
+                      <span className="text-[10px] text-muted-foreground font-mono bg-background px-2 py-0.5 rounded border">
+                        Auto-linked from customer
+                      </span>
+                    </div>
+                  ) : null}
+
+                  <CheckboxField
+                    checked={advanceRequired}
+                    onCheckedChange={(checked) => setAdvanceRequired(checked === true)}
+                    label="Advance Payment Required Before Order Is Verified/Official"
+                  />
 
                   {advanceRequired ? (
                     <div className="rounded-lg border bg-muted/20 p-4 space-y-4">
@@ -2588,35 +2028,34 @@ export default function CreateOrderPage() {
                           ].map((p) => {
                             const amt = Math.round(grandTotal * p.pct)
                             return (
-                              <button
+                              <Button
                                 key={p.label}
                                 type="button"
+                                variant="outline"
+                                size="sm"
                                 onClick={() => {
                                   setAdvancePercent(String(Math.round(p.pct * 100)))
                                   setAdvanceAmount(String(amt))
                                 }}
-                                className="text-xs px-2.5 py-1 rounded bg-background hover:bg-muted border border-border text-foreground font-medium transition-colors"
                               >
                                 {p.label} (₹{amt.toLocaleString('en-IN')})
-                              </button>
+                              </Button>
                             )
                           })}
                         </div>
                       ) : null}
 
-                      <label className="flex items-center gap-2 text-sm pt-1">
-                        <Checkbox
-                          checked={advanceReceivedNow}
-                          onCheckedChange={(checked) => {
-                            const next = checked === true
-                            setAdvanceReceivedNow(next)
-                            if (next && !advanceReceivedDate) {
-                              setAdvanceReceivedDate(new Date().toISOString().slice(0, 10))
-                            }
-                          }}
-                        />
-                        Advance already received from client
-                      </label>
+                      <CheckboxField
+                        checked={advanceReceivedNow}
+                        onCheckedChange={(checked) => {
+                          const next = checked === true
+                          setAdvanceReceivedNow(next)
+                          if (next && !advanceReceivedDate) {
+                            setAdvanceReceivedDate(new Date().toISOString().slice(0, 10))
+                          }
+                        }}
+                        label="Advance already received from client"
+                      />
 
                       {advanceReceivedNow ? (
                         <div className="space-y-1 max-w-xs">
@@ -2674,47 +2113,16 @@ export default function CreateOrderPage() {
                       <div className="text-muted-foreground uppercase tracking-wide font-semibold text-[10px]">Commercial Terms</div>
                       <div>Order Date: <strong>{orderDate}</strong></div>
                       <div>Delivery Target: <strong>{deliveryDate}</strong></div>
-                      {customerPoRef ? <div>PO Ref: <strong>{customerPoRef}</strong></div> : null}
                       <div>Type: <StatusBadge variant="neutral">{orderType}</StatusBadge> Priority: <StatusBadge variant={priority === 'Urgent' ? 'error' : 'neutral'}>{priority}</StatusBadge></div>
                     </div>
                   </div>
 
                   {/* Lines Summary Table */}
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-xs">
-                      <thead>
-                        <tr className="border-b text-left text-muted-foreground uppercase font-semibold text-[10px]">
-                          <th className="py-2">Item</th>
-                          <th className="py-2">Category</th>
-                          <th className="py-2">Pack</th>
-                          <th className="py-2">Qty</th>
-                          <th className="py-2">Rate</th>
-                          <th className="py-2">GST</th>
-                          <th className="py-2 text-right">Total</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y">
-                        {lines.map((l) => (
-                          <tr key={l.key}>
-                            <td className="py-2.5 font-medium">
-                              <div>{l.productLabel || 'Custom Formulation'}</div>
-                              <div className="text-[11px] text-muted-foreground">
-                                Brand: <strong>{l.brandName || selectedCustomer?.displayName}</strong>
-                              </div>
-                            </td>
-                            <td className="py-2.5">{l.category || 'Serum'}</td>
-                            <td className="py-2.5">{l.packSize} {l.uom}</td>
-                            <td className="py-2.5 font-semibold">{l.quantity}</td>
-                            <td className="py-2.5">{formatINR(Number(l.rate) || 0)}</td>
-                            <td className="py-2.5">{l.gstPercent}%</td>
-                            <td className="py-2.5 text-right font-bold text-emerald-600 dark:text-emerald-400">
-                              {formatINR(calcLineTotal(l))}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
+                  <DataTable
+                    columns={reviewLineColumns}
+                    data={lines}
+                    embedded
+                  />
 
                   {/* Specifications Summary */}
                   <div className="rounded-lg border p-3 text-xs grid grid-cols-2 sm:grid-cols-4 gap-2 bg-background">
@@ -2729,10 +2137,6 @@ export default function CreateOrderPage() {
                     <div>
                       <span className="text-muted-foreground">Artwork:</span>
                       <div className="font-semibold">{artworkRequirement}</div>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground">R&D Lab Trial:</span>
-                      <div className="font-semibold">{sampleRequired ? `Yes (${sampleQty} pcs by ${sampleDueDate})` : 'No'}</div>
                     </div>
                     <div>
                       <span className="text-muted-foreground">Advance:</span>
@@ -2751,7 +2155,7 @@ export default function CreateOrderPage() {
                       <div className="text-xs text-muted-foreground">Includes {formatINR(totalTax)} GST</div>
                     </div>
                     <div className="text-right">
-                      <div className="text-2xl font-black text-emerald-600 dark:text-emerald-400">
+                      <div className="text-2xl font-black text-status-success-text">
                         {formatINR(grandTotal)}
                       </div>
                     </div>
@@ -2766,7 +2170,7 @@ export default function CreateOrderPage() {
                 <Button
                   type="button"
                   size="lg"
-                  className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-8"
+                  className="px-8"
                   onClick={handleSubmit}
                   disabled={submitting}
                 >
@@ -2775,6 +2179,87 @@ export default function CreateOrderPage() {
               </div>
             </div>
           ) : null}
+          {/* Advanced Catalog Search Dialog (Replaces clunky inline accordion) */}
+          <Dialog open={catalogSearchOpen} onOpenChange={setCatalogSearchOpen}>
+            <DialogContent className="max-w-2xl max-h-[85vh] flex flex-col p-6">
+              <DialogHeader className="border-b pb-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <DialogTitle className="text-base font-bold flex items-center gap-2">
+                      <Package className="h-5 w-5 text-primary" />
+                      Select Formulation / Product from Catalog
+                    </DialogTitle>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Showing matching products for <strong>{selectedCustomer?.displayName || 'Client'}</strong> and global formulas
+                    </p>
+                  </div>
+                </div>
+                <div className="mt-3 relative">
+                  <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    value={catalogSearchQuery}
+                    onChange={(e) => setCatalogSearchQuery(e.target.value)}
+                    placeholder="Search by product name, code (SKU), category, or brand..."
+                    className="pl-9 h-9 text-xs"
+                    autoFocus
+                  />
+                </div>
+              </DialogHeader>
+
+              <div className="overflow-y-auto flex-1 divide-y divide-border/60 -mx-6 px-6 py-2 max-h-[50vh]">
+                {filteredCatalogProducts.length === 0 ? (
+                  <div className="py-12 text-center text-xs text-muted-foreground space-y-3">
+                    <Package className="h-8 w-8 mx-auto text-muted-foreground/50" />
+                    <p>No products found matching &ldquo;{catalogSearchQuery}&rdquo;</p>
+                  </div>
+                ) : (
+                  filteredCatalogProducts.map((p) => {
+                    const isCustMatch = selectedCustomer && isProductForCustomer(p, selectedCustomer)
+                    return (
+                      <div
+                        key={p.id}
+                        className="py-3 flex items-center justify-between gap-4 hover:bg-muted/30 px-3 rounded-lg transition-colors"
+                      >
+                        <div className="space-y-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span className="font-semibold text-xs text-foreground truncate">{p.title}</span>
+                            {p.sku ? (
+                              <span className="font-mono text-[10px] bg-muted px-1.5 py-0.5 rounded border text-muted-foreground">
+                                {p.sku}
+                              </span>
+                            ) : null}
+                            {isCustMatch ? (
+                              <span className="text-[10px] bg-primary/10 text-primary font-medium px-1.5 py-0.5 rounded">
+                                Client Linked
+                              </span>
+                            ) : null}
+                          </div>
+                          <div className="flex items-center gap-3 text-[11px] text-muted-foreground">
+                            {p.category ? <span>{p.category}</span> : null}
+                            {p.baseUom ? <span>• Base: {p.baseUom}</span> : null}
+                            {p.clientBrand ? <span>• Brand: {p.clientBrand}</span> : null}
+                          </div>
+                        </div>
+                        <Button
+                          type="button"
+                          size="sm"
+                          className="h-7 text-xs px-3 shrink-0"
+                          onClick={() => {
+                            if (catalogSearchLineKey) {
+                              handleSelectProductForLine(catalogSearchLineKey, p.id)
+                            }
+                            setCatalogSearchOpen(false)
+                          }}
+                        >
+                          Select
+                        </Button>
+                      </div>
+                    )
+                  })
+                )}
+              </div>
+            </DialogContent>
+          </Dialog>
         </div>
       </PageBody>
     </Page>

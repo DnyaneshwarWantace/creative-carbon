@@ -90,6 +90,10 @@ export type CustomFieldDefinition = {
   maxAttachmentSizeMb?: number
   acceptExtensions?: string[]
   sourceMetadata?: Record<string, unknown>
+  // Column width in generated forms, matching CrudField's layout convention.
+  // Omitted/'full' renders one field per row (default, unchanged behavior);
+  // 'half' pairs two fields per row, 'third' fits three.
+  layout?: 'full' | 'half' | 'third'
 }
 
 export type CustomFieldSet = {

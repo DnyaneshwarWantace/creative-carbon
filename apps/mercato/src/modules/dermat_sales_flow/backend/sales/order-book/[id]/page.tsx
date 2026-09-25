@@ -51,6 +51,7 @@ import { updateCrud, createCrud, deleteCrud } from '@open-mercato/ui/backend/uti
 import { flash } from '@open-mercato/ui/backend/FlashMessages'
 import { LoadingMessage, ErrorMessage, RecordNotFoundState } from '@open-mercato/ui/backend/detail'
 import { Spinner } from '@open-mercato/ui/primitives/spinner'
+import { InjectionSpot } from '@open-mercato/ui/backend/injection/InjectionSpot'
 import { cn } from '@open-mercato/shared/lib/utils'
 
 const UOM_OPTIONS = [
@@ -137,14 +138,6 @@ type CustomerDetail = {
   address: string | null
 }
 
-type StatusOption = {
-  id: string
-  value: string
-  label: string
-  color: string | null
-  icon: string | null
-}
-
 type SampleStatus = 'requested' | 'in_preparation' | 'sent' | 'approved' | 'rejected'
 // Case-level R&D stage (spec correction, narrowed scope): the single field both the Order
 // page's compact panel below and the dedicated dermat_sampling R&D page read/write against
@@ -220,14 +213,6 @@ type OrderLineRow = {
   updated_at: string
 }
 
-type StockShortfall = {
-  rawMaterialId: string
-  rawMaterialName: string
-  required: number
-  onHand: number
-  unit: string
-}
-
 function formatINR(amount: string | number | null | undefined): string {
   const numeric = Number(amount ?? 0)
   if (!Number.isFinite(numeric)) return '₹0.00'
@@ -263,10 +248,12 @@ export default function OrderBookDetailPage({ params }: { params?: { id?: string
   const [error, setError] = React.useState<string | null>(null)
   const [isNotFound, setIsNotFound] = React.useState(false)
   const [reloadToken, setReloadToken] = React.useState(0)
+  const orderProgressContext = React.useMemo(
+    () => ({ orderId: id, onChanged: () => setReloadToken((value) => value + 1) }),
+    [id],
+  )
 
   // Status options
-  const [statusOptions, setStatusOptions] = React.useState<StatusOption[]>([])
-  const [statusLoading, setStatusLoading] = React.useState(false)
 
   // Samples
   const [samples, setSamples] = React.useState<SampleRow[]>([])
@@ -276,8 +263,6 @@ export default function OrderBookDetailPage({ params }: { params?: { id?: string
   const [sampleRejectionReason, setSampleRejectionReason] = React.useState('')
 
   // Stock check dialog
-  const [stockShortfalls, setStockShortfalls] = React.useState<StockShortfall[] | null>(null)
-  const [pendingConfirmEntryId, setPendingConfirmEntryId] = React.useState<string | null>(null)
 
   // Proforma invoice print preview
   const [proformaOpen, setProformaOpen] = React.useState(false)
@@ -385,34 +370,6 @@ export default function OrderBookDetailPage({ params }: { params?: { id?: string
     loadCatalog()
   }, [])
 
-  // Load Status options
-  const loadStatuses = React.useCallback(async (): Promise<StatusOption[]> => {
-    setStatusLoading(true)
-    try {
-      const call = await apiCall<{ items?: Array<{ id?: string; value?: string; label?: string | null; color?: string | null; icon?: string | null }> }>(
-        '/api/sales/order-statuses?page=1&pageSize=100'
-      )
-      if (call.ok && Array.isArray(call.result?.items)) {
-        const options = call.result.items
-          .map((item) => {
-            const optId = typeof item?.id === 'string' ? item.id : null
-            const value = typeof item?.value === 'string' ? item.value : null
-            if (!optId || !value) return null
-            const label = typeof item?.label === 'string' && item.label.trim().length ? item.label : value
-            const color = typeof item?.color === 'string' && item.color.trim().length ? item.color : null
-            const icon = typeof item?.icon === 'string' && item.icon.trim().length ? item.icon : null
-            return { id: optId, value, label, color, icon }
-          })
-          .filter((opt): opt is StatusOption => opt !== null)
-        setStatusOptions(options)
-        return options
-      }
-      return []
-    } finally {
-      setStatusLoading(false)
-    }
-  }, [])
-
   // Load Samples
   const loadSamples = React.useCallback(async () => {
     if (!id) return
@@ -463,32 +420,6 @@ export default function OrderBookDetailPage({ params }: { params?: { id?: string
       }
     },
     [order, t]
-  )
-
-  const handleUpdateStatus = React.useCallback(
-    async (entryId: string | null) => {
-      if (!order) return
-      const targetOption = entryId ? statusOptions.find((opt) => opt.id === entryId) : null
-      const isConfirming = targetOption?.value?.toLowerCase() === 'confirmed'
-
-      if (isConfirming && order.id) {
-        try {
-          const check = await apiCall<{ sufficient: boolean; shortfalls: StockShortfall[] }>(
-            `/api/dermat_sales_flow/orders/${order.id}/stock-check`
-          )
-          if (check.ok && check.result && !check.result.sufficient) {
-            setStockShortfalls(check.result.shortfalls)
-            setPendingConfirmEntryId(entryId)
-            return
-          }
-        } catch {
-          // ignore
-        }
-      }
-
-      await commitOrderField({ statusEntryId: entryId })
-    },
-    [order, statusOptions, commitOrderField]
   )
 
   // Handle Order Lines
@@ -696,9 +627,6 @@ export default function OrderBookDetailPage({ params }: { params?: { id?: string
                   </Link>
                 </Button>
                 <h1 className="text-2xl font-bold tracking-tight">{order.orderNumber}</h1>
-                <StatusBadge variant={order.status === 'confirmed' ? 'success' : order.status === 'in_production' ? 'info' : 'neutral'}>
-                  {order.status || 'Draft'}
-                </StatusBadge>
                 <StatusBadge variant={priority === 'Urgent' ? 'error' : priority === 'High' ? 'warning' : 'neutral'}>
                   {priority} Priority
                 </StatusBadge>
@@ -721,6 +649,11 @@ export default function OrderBookDetailPage({ params }: { params?: { id?: string
               </Button>
             </div>
           </div>
+
+          <InjectionSpot
+            spotId="detail:dermat_sales_flow.order:progress"
+            context={orderProgressContext}
+          />
 
           {/* Top 3 Metric Cards */}
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
@@ -1111,29 +1044,10 @@ export default function OrderBookDetailPage({ params }: { params?: { id?: string
                 <CardHeader className="pb-3 border-b">
                   <CardTitle className="text-base flex items-center gap-2">
                     <Clock className="h-5 w-5 text-primary" />
-                    Order Lifecycle Status
+                    Order Dates
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="pt-4 space-y-4">
-                  <div className="space-y-2">
-                    <Label className="text-xs text-muted-foreground uppercase tracking-wider">Current Status</Label>
-                    <Select
-                      value={order.statusEntryId ?? undefined}
-                      onValueChange={handleUpdateStatus}
-                    >
-                      <SelectTrigger className="h-10">
-                        <SelectValue placeholder="Select Status..." />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {statusOptions.map((opt) => (
-                          <SelectItem key={opt.id} value={opt.id}>
-                            {opt.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
                   <div className="rounded-lg border bg-muted/20 p-3 text-xs space-y-2">
                     <div className="flex items-center justify-between">
                       <span className="text-muted-foreground">Order Date:</span>
@@ -1482,43 +1396,6 @@ export default function OrderBookDetailPage({ params }: { params?: { id?: string
               </Button>
               <Button onClick={handleAddLineSubmit} disabled={savingLine || !newLineProductId}>
                 {savingLine ? 'Adding...' : 'Add to Order'}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-
-        {/* Stock Shortfall Warning Dialog */}
-        <Dialog open={stockShortfalls !== null} onOpenChange={(open) => { if (!open) setStockShortfalls(null) }}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Raw material may be short</DialogTitle>
-              <DialogDescription>
-                Based on current stock on hand, this formulation batch may have raw material shortfalls. You can still proceed to confirm the order.
-              </DialogDescription>
-            </DialogHeader>
-            <div className="space-y-2 py-2 text-xs">
-              {(stockShortfalls ?? []).map((shortfall) => (
-                <div key={shortfall.rawMaterialId} className="flex items-center justify-between rounded border p-2">
-                  <span className="font-semibold">{shortfall.rawMaterialName}</span>
-                  <span className="text-muted-foreground">
-                    Need {shortfall.required.toFixed(2)} {shortfall.unit}, have {shortfall.onHand.toFixed(2)} {shortfall.unit}
-                  </span>
-                </div>
-              ))}
-            </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setStockShortfalls(null)}>
-                Cancel
-              </Button>
-              <Button
-                onClick={async () => {
-                  const entryId = pendingConfirmEntryId
-                  setStockShortfalls(null)
-                  setPendingConfirmEntryId(null)
-                  await commitOrderField({ statusEntryId: entryId })
-                }}
-              >
-                Confirm Anyway
               </Button>
             </DialogFooter>
           </DialogContent>

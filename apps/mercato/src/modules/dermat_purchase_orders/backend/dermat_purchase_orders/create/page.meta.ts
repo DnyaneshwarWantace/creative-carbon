@@ -3,8 +3,8 @@ export const metadata = {
   requireFeatures: ['dermat_purchase_orders.manage'],
   pageTitle: 'New Purchase Order',
   pageTitleKey: 'dermat_purchase_orders.create.title',
-  pageGroup: 'Purchase Orders',
-  pageGroupKey: 'dermat-7-purchase-orders.nav.group',
+  pageGroup: 'Purchase',
+  pageGroupKey: 'dermat-05-purchase.nav.group',
   icon: 'shopping-cart',
   breadcrumb: [
     { label: 'Purchase Orders', labelKey: 'dermat_purchase_orders.list.title', href: '/backend/dermat_purchase_orders' },

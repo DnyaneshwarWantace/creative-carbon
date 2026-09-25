@@ -213,7 +213,13 @@ function mergeServerConversations(
   return { sessions, activeByAgent }
 }
 
-export function AiChatSessionsProvider({ children }: { children: React.ReactNode }) {
+export function AiChatSessionsProvider({
+  children,
+  serverSync = true,
+}: {
+  children: React.ReactNode
+  serverSync?: boolean
+}) {
   // Hydrate synchronously via a lazy initializer. The previous "empty
   // state + post-mount load effect" pattern had a window where the
   // persistence effect ran with the empty closure value (because the
@@ -255,6 +261,7 @@ export function AiChatSessionsProvider({ children }: { children: React.ReactNode
   }, [storageKey, state])
 
   React.useEffect(() => {
+    if (!serverSync) return
     let cancelled = false
     listAiServerConversations({ limit: 100 })
       .then((conversations) => {
@@ -272,7 +279,7 @@ export function AiChatSessionsProvider({ children }: { children: React.ReactNode
     return () => {
       cancelled = true
     }
-  }, [storageKey])
+  }, [storageKey, serverSync])
 
   const update = React.useCallback(
     (mutator: (prev: AiChatSessionsState) => AiChatSessionsState) => {

@@ -13,19 +13,23 @@ import { apiCall, readApiResultOrThrow, withScopedApiRequestHeaders } from '@ope
 import { flash } from '@open-mercato/ui/backend/FlashMessages'
 import { deleteCrud, buildCrudExportUrl } from '@open-mercato/ui/backend/utils/crud'
 import { buildOptimisticLockHeader } from '@open-mercato/ui/backend/utils/optimisticLock'
-import { useCustomFieldDefs } from '@open-mercato/ui/backend/utils/customFieldDefs'
-import { applyCustomFieldVisibility } from '@open-mercato/ui/backend/utils/customFieldColumns'
+import {
+  fetchCustomFieldDefinitionsPayload,
+  useCustomFieldDefs,
+  type CustomFieldDefDto,
+  type CustomFieldsetDto,
+} from '@open-mercato/ui/backend/utils/customFieldDefs'
+import { SegmentedControl, SegmentedControlItem } from '@open-mercato/ui/primitives/segmented-control'
+import { Tag } from '@open-mercato/ui/primitives/tag'
 import type { FilterDef, FilterValues } from '@open-mercato/ui/backend/FilterBar'
 import type { FilterOption } from '@open-mercato/ui/backend/FilterOverlay'
 import { BooleanIcon } from '@open-mercato/ui/backend/ValueIcons'
-import { markdownToPlainText } from '@open-mercato/ui/backend/markdown/markdownToPlainText'
 import { useOrganizationScopeVersion } from '@open-mercato/shared/lib/frontend/useOrganizationScope'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { useConfirmDialog } from '@open-mercato/ui/backend/confirm-dialog'
 import { useAppEvent } from '@open-mercato/ui/backend/injection/useAppEvent'
-import { ChevronRight, ChevronDown, Layers, Sparkles, FolderTree } from 'lucide-react'
 import { E } from '#generated/entities.ids.generated'
-import { ProductImageCell } from './ProductImageCell'
+import { productListFields } from './productCategoryFields'
 
 export type ProductRow = {
   id: string
@@ -68,11 +72,39 @@ export type ProductsDataTableSnapshot = {
 export type ProductsDataTableProps = {
   extraActions?: React.ReactNode
   onSnapshotChange?: (snapshot: ProductsDataTableSnapshot) => void
+  /**
+   * Locks the list to a single `cf_product_category_group` value — the clean
+   * enum (`raw_material` / `packing_material` / `finished_goods` / `bulk`)
+   * that drives the Dermat category pages and the fieldset-follows-category
+   * mechanism. Distinct from `cf_category`, which stays a free-text/rich
+   * classification label. When set:
+   *  - `cf_product_category_group` is force-merged into the query params on
+   *    every request — it wins over any value in `filterValues`, so the
+   *    fixed scope can never be widened from the filter UI.
+   *  - The "Create" button/empty-state link default to `?category=<value>`
+   *    so the create form pre-selects this page's category.
+   * All four category views (and the unfiltered All Products page) still
+   * read/write the exact same `catalog_product` table/API — this prop only
+   * narrows what the list shows and what the create link pre-fills.
+   */
+  fixedCategoryFilter?: string
+  /** Overrides the default create-product href; defaults to
+   * `/backend/catalog/products/create`, optionally suffixed with
+   * `?category=<fixedCategoryFilter>` when that prop is set. */
+  createHref?: string
+  /** Overrides the DataTable's perspective/extension tableId + injection spot
+   * so each fixed-category view gets its own saved-column/perspective scope
+   * instead of colliding with the All Products table. Defaults to the shared
+   * catalog products table id. */
+  tableId?: string
 }
 
 export default function ProductsDataTable({
   extraActions,
   onSnapshotChange,
+  fixedCategoryFilter,
+  createHref,
+  tableId,
 }: ProductsDataTableProps = {}) {
   const t = useT()
   const { confirm, ConfirmDialogElement } = useConfirmDialog()
@@ -87,23 +119,6 @@ export default function ProductsDataTable({
   const [filterValues, setFilterValues] = React.useState<FilterValues>({})
   const [isLoading, setIsLoading] = React.useState(false)
   const [reloadToken, setReloadToken] = React.useState(0)
-  const [expandedProducts, setExpandedProducts] = React.useState<Record<string, boolean>>({})
-
-  const toggleExpand = React.useCallback((id: string) => {
-    setExpandedProducts((prev) => ({ ...prev, [id]: !prev[id] }))
-  }, [])
-
-  const toggleExpandAll = React.useCallback(() => {
-    setExpandedProducts((prev) => {
-      const anyExpanded = rows.some((r) => prev[r.id])
-      if (anyExpanded) return {}
-      const next: Record<string, boolean> = {}
-      rows.forEach((r) => {
-        if (r.variants && r.variants.length > 0) next[r.id] = true
-      })
-      return next
-    })
-  }, [rows])
   // Step 5.18 (spec §10 line 836, D18 demo): refresh the list when a
   // catalog.product.* event arrives via the DOM event bridge. Confirmed
   // AI bulk mutations (one `ai.action.confirmed` + one
@@ -117,6 +132,27 @@ export default function ProductsDataTable({
   const { data: customFieldDefs = [] } = useCustomFieldDefs(ENTITY_ID, {
     keyExtras: [scopeVersion, reloadToken],
   })
+  const [activeCategory, setActiveCategory] = React.useState<string | null>(
+    typeof fixedCategoryFilter === 'string' && fixedCategoryFilter.trim().length ? fixedCategoryFilter.trim() : null,
+  )
+  const [categories, setCategories] = React.useState<CustomFieldsetDto[]>([])
+  React.useEffect(() => {
+    let cancelled = false
+    void fetchCustomFieldDefinitionsPayload([ENTITY_ID])
+      .then((payload) => {
+        if (!cancelled) setCategories(payload.fieldsetsByEntity?.[ENTITY_ID] ?? [])
+      })
+      .catch(() => {
+        if (!cancelled) setCategories([])
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [scopeVersion, reloadToken])
+  const categoryLabels = React.useMemo(
+    () => new Map(categories.map((category) => [category.code, category.label ?? category.code])),
+    [categories],
+  )
   const [categoryOptionsCache, setCategoryOptionsCache] = React.useState<Record<string, FilterOption>>({})
 
   const registerOptions = React.useCallback(
@@ -174,15 +210,6 @@ export default function ProductsDataTable({
 
   const filters = React.useMemo<FilterDef[]>(() => [
     { id: 'isActive', label: t('catalog.products.filters.active'), type: 'checkbox' },
-    {
-      id: 'categoryIds',
-      label: t('catalog.products.filters.categories', 'Categories'),
-      type: 'tags',
-      loadOptions: loadCategoryOptions,
-      options: categoryOptions,
-      formatValue: (val) => categoryOptionsCache[val]?.label ?? val,
-      formatDescription: (val) => categoryOptionsCache[val]?.description ?? null,
-    },
   ], [
     categoryOptions,
     categoryOptionsCache,
@@ -191,308 +218,58 @@ export default function ProductsDataTable({
   ])
 
   const columns = React.useMemo<ColumnDef<ProductRow>[]>(() => {
+    const noValue = <span className="text-xs text-muted-foreground">—</span>
+    const renderValue = (def: CustomFieldDefDto, raw: unknown) => {
+      if (raw === null || raw === undefined || raw === '') return noValue
+      if (Array.isArray(raw)) return raw.length ? <span className="text-sm">{raw.map(String).join(', ')}</span> : noValue
+      if (typeof raw === 'boolean') {
+        return <span className="text-sm">{raw ? t('catalog.products.table.yes', 'Yes') : t('catalog.products.table.no', 'No')}</span>
+      }
+      const option = (def.options ?? []).find((entry) => String(entry.value) === String(raw))
+      return <span className="text-sm">{option?.label ?? String(raw)}</span>
+    }
+    const categoryOf = (row: ProductRow): string | null => {
+      const code = row.custom_fieldset_code ?? (typeof row.cf_product_category_group === 'string' ? row.cf_product_category_group : null)
+      return typeof code === 'string' && code.length ? code : null
+    }
     const base: ColumnDef<ProductRow>[] = [
-      {
-        id: 'media',
-        header: '',
-        size: 80,
-        cell: ({ row }) => (
-          <ProductImageCell
-            mediaId={row.original.default_media_id}
-            mediaUrl={row.original.default_media_url}
-            title={row.original.title}
-            cropType="contain"
-          />
-        ),
-        meta: { sticky: true },
-      },
       {
         accessorKey: 'title',
         header: t('catalog.products.table.title', 'Product name'),
-        cell: ({ row }) => {
-          const variants = (row.original.variants || []) as Array<Record<string, any>>
-          const isExpanded = Boolean(expandedProducts[row.original.id])
-          const hasVariants = variants.length > 0
-
-          return (
-            <div className="flex flex-col gap-1 py-1 min-w-[280px] max-w-[320px]">
-              <div className="flex items-center gap-1.5">
-                {hasVariants ? (
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      toggleExpand(row.original.id)
-                    }}
-                    className="inline-flex items-center justify-center h-5 w-5 rounded hover:bg-slate-200 text-slate-600 transition-colors"
-                    title={isExpanded ? 'Collapse Variants Tree' : 'Expand Variants Tree'}
-                  >
-                    {isExpanded ? (
-                      <ChevronDown className="h-3.5 w-3.5 text-slate-800" />
-                    ) : (
-                      <ChevronRight className="h-3.5 w-3.5 text-slate-600" />
-                    )}
-                  </button>
-                ) : (
-                  <span className="w-5" />
-                )}
-                <span className="font-semibold text-slate-900">{row.original.title || '—'}</span>
-                {hasVariants ? (
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      toggleExpand(row.original.id)
-                    }}
-                    className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold transition-colors cursor-pointer border ${
-                      variants.length > 1
-                        ? 'bg-violet-50 hover:bg-violet-100 text-violet-700 border-violet-200'
-                        : 'bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-200'
-                    }`}
-                  >
-                    <FolderTree className="h-3 w-3 text-violet-600" />
-                    {variants.length} {variants.length === 1 ? 'variant' : 'variants'}
-                  </button>
-                ) : null}
-              </div>
-
-              {row.original.description ? (
-                <span className="text-xs text-muted-foreground pl-6">
-                  {markdownToPlainText(row.original.description)}
-                </span>
-              ) : null}
-
-              {/* Collapsed quick variant chips preview */}
-              {!isExpanded && hasVariants && variants.length > 1 ? (
-                <div className="pl-6 flex items-center gap-1.5 flex-wrap text-[11px] text-slate-500">
-                  <span className="text-[10px] font-medium text-slate-400">Packs:</span>
-                  {variants.map((v, i) => {
-                    const pack = v.metadata?.pack_size || `${v.weight_value || ''}${v.weight_unit || ''}`.trim() || v.name
-                    const mrp = v.metadata?.mrp ? `(₹${v.metadata.mrp})` : ''
-                    return (
-                      <span key={v.id || i} className="inline-flex items-center px-1.5 py-0.2 rounded bg-slate-100 text-slate-700 text-[10px] font-mono">
-                        {pack} {mrp}
-                      </span>
-                    )
-                  })}
-                </div>
-              ) : null}
-
-              {/* Nested Variant Tree View */}
-              {isExpanded && hasVariants ? (
-                <div className="mt-2 ml-5 w-[260px] max-w-[260px] border-l-2 border-violet-300 flex flex-col gap-1.5 bg-slate-50/95 p-2.5 rounded-r-md border border-slate-200 shadow-xs">
-                  <div className="text-[10px] font-semibold text-slate-700 uppercase tracking-wider pb-1 border-b border-slate-200/80 flex items-center gap-1.5 text-violet-700">
-                    <FolderTree className="h-3.5 w-3.5 shrink-0 text-violet-600" />
-                    <span className="truncate">Variations ({variants.length})</span>
-                  </div>
-                  {variants.map((v, idx) => {
-                    const isLast = idx === variants.length - 1
-                    const vPack = v.metadata?.pack_size || `${v.weight_value || ''} ${v.weight_unit || ''}`.trim()
-                    const vMrp = v.metadata?.mrp ? `₹${v.metadata.mrp}` : '—'
-                    const vRate = v.metadata?.rate ? `₹${v.metadata.rate}` : null
-                    const vShelf = v.metadata?.shelf_life || '24M'
-                    const vMeta = (v.metadata || {}) as Record<string, any>
-                    const vGst = vMeta.gst_percent || vMeta.gstPercent || (row.original.metadata as Record<string, any>)?.gst_rate_percent
-
-                    return (
-                      <div
-                        key={v.id || idx}
-                        className="flex flex-col gap-1 text-xs py-1.5 px-2.5 rounded bg-white border border-slate-200 shadow-2xs hover:border-violet-200 transition-colors"
-                      >
-                        <div className="flex items-center gap-1.5 min-w-0">
-                          <span className="text-violet-400 font-mono text-[11px] font-bold shrink-0">{isLast ? '└──' : '├──'}</span>
-                          <span className="font-medium text-slate-800 truncate">{v.name || 'Standard Pack'}</span>
-                          {v.is_default ? (
-                            <span className="text-[10px] px-1.5 py-0.2 rounded bg-emerald-50 text-emerald-700 border border-emerald-200 font-semibold shrink-0">
-                              Default
-                            </span>
-                          ) : null}
-                        </div>
-                        <div className="flex items-center gap-1.5 flex-wrap pl-[18px] text-slate-600">
-                          {v.sku ? (
-                            <span className="font-mono text-[10px] px-1.5 py-0.2 rounded bg-slate-100 text-slate-600 border border-slate-200">
-                              {v.sku}
-                            </span>
-                          ) : null}
-                          {vPack ? (
-                            <span className="font-semibold text-slate-700 bg-slate-100 px-1.5 py-0.5 rounded text-[10px] border border-slate-200">
-                              {vPack}
-                            </span>
-                          ) : null}
-                          <span className="font-semibold text-emerald-700 text-[10px]">{vMrp}</span>
-                          {vRate ? (
-                            <span className="text-[10px] text-slate-600 font-medium bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200">
-                              Rate: {vRate}
-                            </span>
-                          ) : null}
-                          {vGst ? (
-                            <span className="text-[10px] text-blue-700 font-semibold bg-blue-50 px-1.5 py-0.5 rounded border border-blue-200">
-                              GST {vGst}%
-                            </span>
-                          ) : null}
-                          <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded border ${
-                            Number(vMeta.stock_qty || 0) > 0
-                              ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                              : 'bg-slate-100 text-slate-600 border-slate-200'
-                          }`}>
-                            Stock: {vMeta.stock_qty || 0}
-                          </span>
-                          <span className="text-[10px] text-slate-400">{vShelf}</span>
-                        </div>
-                      </div>
-                    )
-                  })}
-                </div>
-              ) : null}
-            </div>
-          )
-        },
-        meta: { sticky: true },
-      },
-      {
-        accessorKey: 'cf_product_code',
-        header: t('catalog.products.form.productCode', 'Product Code'),
-        cell: ({ getValue, row }) => {
-          const meta = (row.original.metadata || {}) as Record<string, any>
-          const value = getValue() || (row.original as any).cf_product_code || (row.original as any).customValues?.product_code || meta.product_code || row.original.sku
-          return value ? <span className="font-mono text-xs font-semibold text-slate-800">{String(value)}</span> : <span className="text-xs text-muted-foreground">—</span>
-        },
-      },
-      {
-        accessorKey: 'cf_category',
-        header: t('catalog.products.form.category', 'Category'),
-        cell: ({ getValue, row }) => {
-          const meta = (row.original.metadata || {}) as Record<string, any>
-          const value = getValue() || (row.original as any).cf_category || (row.original as any).customValues?.category || meta.category
-          return value ? <span className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium bg-slate-100 text-slate-700 border border-slate-200">{String(value)}</span> : <span className="text-xs text-muted-foreground">—</span>
-        },
-      },
-      {
-        accessorKey: 'cf_customer',
-        header: t('catalog.products.form.customer', 'Customer'),
-        cell: ({ getValue, row }) => {
-          const meta = (row.original.metadata || {}) as Record<string, any>
-          const value = getValue() || (row.original as any).cf_customer || (row.original as any).cf_company || (row.original as any).cf_customer_name || (row.original as any).cf_client_brand || (row.original as any).customValues?.customer || (row.original as any).customValues?.company || meta.customer || meta.customer_name || meta.client_brand
-          return value ? <span className="text-xs font-semibold text-slate-800">{String(value)}</span> : <span className="text-xs text-muted-foreground">—</span>
-        },
-      },
-      {
-        accessorKey: 'cf_pack_size',
-        header: t('catalog.products.form.packSize', 'Pack Size'),
-        cell: ({ getValue, row }) => {
-          const meta = (row.original.metadata || {}) as Record<string, any>
-          const variants = (row.original.variants || []) as Array<Record<string, any>>
-
-          if (variants.length > 1) {
-            const packList = variants
-              .map((v) => (v.metadata?.pack_size ? `${v.metadata.pack_size}${v.metadata?.uom || ''}` : (v.weight_value ? `${v.weight_value}${v.weight_unit || ''}` : v.name)))
-              .filter(Boolean)
-            return (
-              <div className="flex flex-col gap-0.5">
-                <span className="font-medium text-xs text-slate-800">{packList.join(', ')}</span>
-                <span className="text-[10px] text-muted-foreground">{variants.length} options</span>
-              </div>
-            )
-          }
-
-          const singleVar = variants[0]
-          const varPack = singleVar?.metadata?.pack_size ? `${singleVar.metadata.pack_size} ${singleVar.metadata.uom || ''}`.trim() : (singleVar?.weight_value ? `${singleVar.weight_value} ${singleVar.weight_unit || ''}`.trim() : null)
-          const value = getValue() || (row.original as any).cf_pack_size || (row.original as any).customValues?.pack_size || varPack || meta.pack_size || (meta.pack ? `${meta.pack} ${meta.uom || ''}` : null)
-          return value ? <span className="font-medium text-xs text-slate-800">{String(value)}</span> : <span className="text-xs text-muted-foreground">—</span>
-        },
-      },
-      {
-        accessorKey: 'cf_mrp',
-        header: t('catalog.products.form.mrp', 'M.R.P. (₹)'),
-        cell: ({ getValue, row }) => {
-          const meta = (row.original.metadata || {}) as Record<string, any>
-          const variants = (row.original.variants || []) as Array<Record<string, any>>
-
-          if (variants.length > 1) {
-            const mrpList = variants.map((v) => (v.metadata?.mrp ? `₹${v.metadata.mrp}` : null)).filter(Boolean)
-            if (mrpList.length > 0) {
-              return <span className="font-semibold text-xs text-emerald-700">{mrpList.join(' / ')}</span>
-            }
-          }
-
-          const singleVar = variants[0]
-          const varMrp = singleVar?.metadata?.mrp ? `₹${singleVar.metadata.mrp}` : null
-          const raw = getValue() || (row.original as any).cf_mrp || (row.original as any).customValues?.mrp || varMrp || meta.mrp || (meta.mrp_num ? `₹${meta.mrp_num}` : null)
-          const value = raw ? (String(raw).startsWith('₹') ? String(raw) : `₹${raw}`) : null
-          return value ? <span className="font-semibold text-xs text-emerald-700">{String(value)}</span> : <span className="text-xs text-muted-foreground">—</span>
-        },
-      },
-      {
-        accessorKey: 'cf_min_floor_qty',
-        header: t('catalog.products.form.minFloorQty', 'Min Floor Qty'),
-        cell: ({ getValue, row }) => {
-          const meta = (row.original.metadata || {}) as Record<string, any>
-          const value = getValue() || (row.original as any).cf_min_floor_qty || (row.original as any).customValues?.min_floor_qty || meta.min_floor_qty || '500'
-          return value ? <span className="text-xs font-mono text-slate-700">{Number(value).toLocaleString()}</span> : <span className="text-xs text-muted-foreground">—</span>
-        },
-      },
-      {
-        accessorKey: 'cf_base_uom',
-        header: t('catalog.products.form.baseUom', 'Base UOM'),
-        cell: ({ getValue, row }) => {
-          const meta = (row.original.metadata || {}) as Record<string, any>
-          const value = getValue() || (row.original as any).cf_base_uom || (row.original as any).customValues?.base_uom || meta.base_uom || meta.uom || row.original.default_unit
-          return value ? <span className="text-xs font-mono uppercase text-slate-600">{String(value)}</span> : <span className="text-xs text-muted-foreground">—</span>
-        },
-      },
-      {
-        accessorKey: 'cf_stock_status',
-        header: t('catalog.products.form.stockStatus', 'Stock & Production Demand'),
-        cell: ({ row }) => {
-          const meta = (row.original.metadata || {}) as Record<string, any>
-          const cf = (row.original as any).customFields || {}
-          const stock = Number(cf.stock_qty ?? meta.stock_qty ?? 0)
-          const ordered = Number(cf.ordered_qty ?? meta.ordered_qty ?? 0)
-          const isMto = meta.is_make_to_order !== false
-
-          return (
-            <div className="flex flex-col gap-1 text-xs">
-              <div className="flex items-center gap-1.5">
-                <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold border ${
-                  stock > 0
-                    ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                    : 'bg-amber-50 text-amber-700 border-amber-200'
-                }`}>
-                  Stock: {stock} Units
-                </span>
-                {isMto ? (
-                  <span className="text-[10px] text-muted-foreground bg-slate-100 px-1 py-0.2 rounded border border-slate-200 font-medium">
-                    MTO
-                  </span>
-                ) : null}
-              </div>
-              {ordered > 0 ? (
-                <span className="text-[10px] text-blue-700 font-medium">
-                  To Build: {ordered.toLocaleString()} Units
-                </span>
-              ) : (
-                <span className="text-[10px] text-slate-400">Make to Order</span>
-              )}
-            </div>
-          )
-        },
+        meta: { sticky: true, maxWidth: '320px' },
+        cell: ({ row }) => (
+          <div className="flex min-w-0 flex-col py-1">
+            <span className="truncate font-medium">{row.original.title || '—'}</span>
+            {row.original.sku ? <span className="font-mono text-xs text-muted-foreground">{row.original.sku}</span> : null}
+          </div>
+        ),
       },
     ]
-    const withCustomFields = applyCustomFieldVisibility(base, customFieldDefs)
+    if (!activeCategory) {
+      base.push({
+        id: 'category',
+        header: t('catalog.products.table.category', 'Category'),
+        cell: ({ row }) => {
+          const code = categoryOf(row.original)
+          return code ? <Tag variant="neutral">{categoryLabels.get(code) ?? code}</Tag> : noValue
+        },
+      })
+    }
+    const fieldColumns = productListFields(customFieldDefs, activeCategory).map<ColumnDef<ProductRow>>((def) => ({
+      accessorKey: `cf_${def.key}`,
+      header: def.label || def.key,
+      meta: { maxWidth: '220px', truncate: true },
+      cell: ({ row }) => renderValue(def, row.original[`cf_${def.key}`]),
+    }))
     const trailing: ColumnDef<ProductRow>[] = [
       {
         accessorKey: 'is_active',
         header: t('catalog.products.table.active'),
         cell: ({ row }) => <BooleanIcon value={!!row.original.is_active} />,
       },
-      {
-        accessorKey: 'updated_at',
-        header: t('catalog.products.table.updatedAt'),
-        cell: ({ row }) => <span className="text-xs text-muted-foreground">{formatDate(row.original.updated_at)}</span>,
-      },
     ]
-    return [...withCustomFields, ...trailing]
-  }, [customFieldDefs, t])
+    return [...base, ...fieldColumns, ...trailing]
+  }, [activeCategory, categoryLabels, customFieldDefs, t])
 
   const handleSearchChange = React.useCallback((value: string) => {
     setSearch(value)
@@ -543,12 +320,6 @@ export default function ProductsDataTable({
     }
     if (filterValues.isActive === true) params.set('isActive', 'true')
     if (filterValues.isActive === false) params.set('isActive', 'false')
-    if (Array.isArray(filterValues.categoryIds) && filterValues.categoryIds.length) {
-      const values = filterValues.categoryIds
-        .map((value) => (typeof value === 'string' ? value : null))
-        .filter((value): value is string => !!value)
-      if (values.length) params.set('categoryIds', values.join(','))
-    }
     Object.entries(filterValues).forEach(([key, value]) => {
       if (!key.startsWith('cf_') || value == null) return
       if (Array.isArray(value)) {
@@ -571,8 +342,9 @@ export default function ProductsDataTable({
     if (typeof customFieldsetFilter === 'string' && customFieldsetFilter.trim().length > 0) {
       params.set('customFieldset', customFieldsetFilter.trim())
     }
+    if (activeCategory) params.set('cf_product_category_group', activeCategory)
     return params.toString()
-  }, [customFieldsetFilter, filterValues, page, search, sorting])
+  }, [activeCategory, customFieldsetFilter, filterValues, page, search, sorting])
 
   React.useEffect(() => {
     let cancelled = false
@@ -661,8 +433,39 @@ export default function ProductsDataTable({
     },
   }), [currentParams])
 
+  const resolvedCreateHref = React.useMemo(() => {
+    if (createHref) return createHref
+    const base = '/backend/catalog/products/create'
+    return activeCategory ? `${base}?category=${encodeURIComponent(activeCategory)}` : base
+  }, [activeCategory, createHref])
+
+  const resolvedTableId = tableId ?? extensionPoints.hosts.productsTable.tableId
+  const resolvedInjectionSpotId = tableId
+    ? `data-table:${tableId}`
+    : extensionPoints.hosts.productsTable.baseSpotId
+
+  const showCategoryTabs = !fixedCategoryFilter && categories.length > 0
+
   return (
     <>
+      {showCategoryTabs ? (
+        <SegmentedControl
+          className="mb-4"
+          value={activeCategory ?? 'all'}
+          onValueChange={(value) => {
+            setActiveCategory(value === 'all' ? null : value)
+            setPage(1)
+          }}
+          aria-label={t('catalog.products.tabs.label', 'Product category')}
+        >
+          <SegmentedControlItem value="all">{t('catalog.products.tabs.all', 'All')}</SegmentedControlItem>
+          {categories.map((category) => (
+            <SegmentedControlItem key={category.code} value={category.code}>
+              {category.label ?? category.code}
+            </SegmentedControlItem>
+          ))}
+        </SegmentedControl>
+      ) : null}
       <DataTable<ProductRow>
         title={t('catalog.products.page.title', 'Products')}
         entityId={ENTITY_ID}
@@ -675,19 +478,9 @@ export default function ProductsDataTable({
         actions={(
           <div className="flex items-center gap-2">
             {extraActions}
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={toggleExpandAll}
-              className="gap-1.5 text-xs font-semibold border-violet-200 bg-violet-50/60 hover:bg-violet-100 text-violet-700 transition-colors"
-            >
-              <FolderTree className="h-4 w-4 text-violet-600" />
-              {rows.some((r) => expandedProducts[r.id]) ? 'Collapse All Tree' : 'Expand All Variations Tree'}
-            </Button>
             <Button asChild>
-              <Link href="/backend/catalog/products/create">
-                {t('catalog.products.actions.create', 'Create')}
+              <Link href={resolvedCreateHref}>
+                {t('catalog.products.actions.addProduct', 'Add product')}
               </Link>
             </Button>
           </div>
@@ -697,7 +490,7 @@ export default function ProductsDataTable({
         emptyState={(
           <ListEmptyState
             entityName={t('catalog.products.page.title', 'Products')}
-            createHref="/backend/catalog/products/create"
+            createHref={resolvedCreateHref}
             createLabel={t('catalog.products.actions.create', 'Create')}
           />
         )}
@@ -710,7 +503,7 @@ export default function ProductsDataTable({
         onCustomFieldFilterFieldsetChange={handleCustomFieldsetFilterChange}
         sorting={sorting}
         onSortingChange={setSorting}
-        injectionSpotId={extensionPoints.hosts.productsTable.baseSpotId}
+        injectionSpotId={resolvedInjectionSpotId}
         injectionContext={{
           search,
           filters: filterValues,
@@ -735,7 +528,7 @@ export default function ProductsDataTable({
         }}
         exporter={exportConfig}
         isLoading={isLoading}
-        perspective={{ tableId: extensionPoints.hosts.productsTable.tableId }}
+        perspective={{ tableId: activeCategory ? `${resolvedTableId}:${activeCategory}` : resolvedTableId }}
         stickyActionsColumn
         rowActions={(row) => (
           <RowActions

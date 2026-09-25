@@ -3,7 +3,7 @@ export const metadata = {
   requireFeatures: ['dermat_pm_master.manage'],
   pageTitle: 'Create packaging material',
   pageTitleKey: 'dermat_pm_master.create.title',
-  pageGroup: 'Packaging Materials',
-  pageGroupKey: 'dermat_pm_master.nav.group',
+  pageGroup: 'Store',
+  pageGroupKey: 'dermat-06-store.nav.group',
   icon: 'package',
 }

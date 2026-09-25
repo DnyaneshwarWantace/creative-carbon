@@ -13,6 +13,7 @@ import {
   type BomCreateInput,
   type BomUpdateInput,
 } from '../data/validators'
+import { BOM_BASE_BATCH_KG } from '../lib/constants'
 
 const bomCrudIndexer: CrudIndexerConfig<Bom> = {
   entityType: (E as { dermat_bom?: { bom?: string } }).dermat_bom?.bom ?? 'dermat_bom:bom',
@@ -76,7 +77,7 @@ const createBomCommand: CommandHandler<BomCreateInput, { bomId: string }> = {
       tenantId: parsed.tenantId,
       bomName: parsed.bomName,
       catalogProductId: parsed.catalogProductId ?? null,
-      batchQuantity: parsed.batchQuantity != null ? String(parsed.batchQuantity) : '1',
+      batchQuantity: String(BOM_BASE_BATCH_KG),
       version: parsed.version ?? 1,
       isActive: parsed.isActive ?? true,
       metadata: parsed.metadata ?? null,
@@ -128,7 +129,7 @@ const updateBomCommand: CommandHandler<BomUpdateInput, { bomId: string }> = {
 
     if (parsed.bomName !== undefined) bom.bomName = parsed.bomName
     if (parsed.catalogProductId !== undefined) bom.catalogProductId = parsed.catalogProductId
-    if (parsed.batchQuantity !== undefined) bom.batchQuantity = String(parsed.batchQuantity)
+    bom.batchQuantity = String(BOM_BASE_BATCH_KG)
     if (parsed.version !== undefined) bom.version = parsed.version
     if (parsed.isActive !== undefined) bom.isActive = parsed.isActive
     if (parsed.metadata !== undefined) {

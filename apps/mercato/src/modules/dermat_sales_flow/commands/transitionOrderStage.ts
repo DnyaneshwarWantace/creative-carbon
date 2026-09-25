@@ -95,7 +95,9 @@ const transitionOrderStageCommand: CommandHandler<TransitionOrderStageInput, Tra
       recordIds: [id],
       tenantFallbacks: [tenantId],
     })
-    const existingCustomFields = customFieldValues[id] || {}
+    const existingCustomFields = Object.fromEntries(
+      Object.entries(customFieldValues[id] || {}).map(([key, value]) => [key.replace(/^cf_/, ''), value]),
+    )
     const rawStage = typeof existingCustomFields.order_stage === 'string' && existingCustomFields.order_stage.length > 0
       ? existingCustomFields.order_stage
       : ((order.status as string) || 'new')

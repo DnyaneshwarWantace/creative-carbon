@@ -11,6 +11,7 @@ import { APP_VERSION } from '@open-mercato/shared/lib/version'
 import { parseBooleanWithDefault } from '@open-mercato/shared/lib/boolean'
 import { PageInjectionBoundary } from '@open-mercato/ui/backend/injection/PageInjectionBoundary'
 import { BackendHeaderChrome } from '@/components/BackendHeaderChrome'
+import { enabledModules } from '@/modules'
 
 function collectStaticSettingsPathPrefixes(): string[] {
   const prefixes = new Set<string>()
@@ -102,6 +103,7 @@ export default async function BackendLayout({
   return (
     <I18nProvider locale={locale} dict={dict}>
       <AppShell
+        aiAssistantEnabled={enabledModules.some((entry) => entry.id === 'ai_assistant')}
         productName={productName}
         email={auth?.email}
         canManageUpgradeActions={canManageUpgradeActions}

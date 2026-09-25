@@ -92,6 +92,8 @@ export type ShellLogo = {
 }
 
 export type AppShellProps = {
+  /** Show the AI assistant launcher and sync AI chat sessions. Defaults to true; pass false when the ai_assistant module is not enabled. */
+  aiAssistantEnabled?: boolean
   productName?: string
   logo?: ShellLogo
   email?: string
@@ -519,7 +521,7 @@ export function AppShell(props: AppShellProps) {
   return (
     <QueryProvider>
       <BackendChromeProvider adminNavApi={props.adminNavApi}>
-        <AiChatSessionsProvider>
+        <AiChatSessionsProvider serverSync={props.aiAssistantEnabled !== false}>
           <AiDockProvider>
             <AppShellBody {...props} />
           </AiDockProvider>
@@ -529,7 +531,7 @@ export function AppShell(props: AppShellProps) {
   )
 }
 
-function AppShellBody({ productName, logo, email, canManageUpgradeActions = false, groups, rightHeaderSlot, children, sidebarCollapsedDefault = false, currentTitle, breadcrumb, version, settingsSectionTitle, settingsPathPrefixes = [], settingsSections, profileSections, profileSectionTitle, profilePathPrefixes = [], mobileSidebarSlot, hideFooter = false, progressCompletedAutoHideMs }: AppShellProps) {
+function AppShellBody({ productName, logo, email, canManageUpgradeActions = false, groups, rightHeaderSlot, children, sidebarCollapsedDefault = false, currentTitle, breadcrumb, version, settingsSectionTitle, settingsPathPrefixes = [], settingsSections, profileSections, profileSectionTitle, profilePathPrefixes = [], mobileSidebarSlot, hideFooter = false, progressCompletedAutoHideMs, aiAssistantEnabled }: AppShellProps) {
   const pathname = usePathname()
   const searchParams = useSearchParams()
   const t = useT()
@@ -1477,7 +1479,7 @@ function AppShellBody({ productName, logo, email, canManageUpgradeActions = fals
               context={injectionContext}
             />
             {renderedTopbarInjectedActions}
-            <AiAssistantLauncher variant="topbar" />
+            {aiAssistantEnabled !== false ? <AiAssistantLauncher variant="topbar" /> : null}
             {rightHeaderSlot ? (
               rightHeaderSlot
             ) : (

@@ -3,8 +3,8 @@ export const metadata = {
   requireFeatures: ['dermat_bom.view'],
   pageTitle: 'BOM',
   pageTitleKey: 'dermat_bom.detail.title',
-  pageGroup: 'BOM',
-  pageGroupKey: 'dermat-2-bom.nav.group',
+  pageGroup: 'Planning',
+  pageGroupKey: 'dermat-04-planning.nav.group',
   icon: 'layers',
   breadcrumb: [
     { label: 'Bill of Materials', labelKey: 'dermat_bom.list.page.title', href: '/backend/dermat_bom' },

@@ -57,6 +57,8 @@ import {
 } from '../../../components/detail/assignableStaff'
 import { CollectionPreviewCell, normalizeCollectionLabels } from '../../../components/list/CollectionPreviewCell'
 import { appendCustomerListSortParams } from '../listSorting'
+import { CreateCompanyPanel, type CreatedCompany } from '../../../components/CreateCompanyPanel'
+import { companyFormFieldKeys } from '../../../components/companyFormFieldKeys'
 
 type DictionaryOptionWithTone = AdvancedFilterOption & FilterOption
 
@@ -438,6 +440,16 @@ export default function CustomersCompaniesPage() {
     setReloadToken((token) => token + 1)
   }, [])
 
+  const [createPanelOpen, setCreatePanelOpen] = React.useState(false)
+  const handleCompanyCreated = React.useCallback((company: CreatedCompany) => {
+    // Refetch (rather than manually prepending) so the new row lands correctly
+    // sorted/paginated/filtered exactly like any other server-driven change to
+    // this list — same mechanism the refresh button already uses.
+    setPage(1)
+    handleRefresh()
+    flash(t('customers.companies.list.actions.new.success', '"{name}" created', { name: company.displayName }), 'success')
+  }, [handleRefresh, t])
+
   const handleDelete = React.useCallback(async (company: CompanyRow) => {
     if (!company?.id) return
     const name = company.name || t('customers.companies.list.deleteFallbackName')
@@ -621,7 +633,7 @@ export default function CustomersCompaniesPage() {
       },
       {
         accessorKey: 'email',
-        header: t('customers.companies.list.columns.email'),
+        header: t('customers.companies.list.columns.contactEmail', 'Contact Email'),
         meta: {
           columnChooserGroup: 'Contact',
           filterKey: 'primary_email',
@@ -633,10 +645,10 @@ export default function CustomersCompaniesPage() {
       },
       {
         accessorKey: 'phone',
-        header: t('customers.companies.detail.highlights.primaryPhone', 'Primary phone'),
+        header: t('customers.companies.detail.highlights.primaryPhone', 'Contact Number'),
         meta: {
           columnChooserGroup: 'Contact',
-          hidden: true,
+          hidden: false,
           filterKey: 'primary_phone',
           filterGroup: 'Contact',
           filterIconName: 'phone',
@@ -644,91 +656,15 @@ export default function CustomersCompaniesPage() {
         },
         cell: ({ row }) => row.original.phone || noValue,
       },
-      {
-        accessorKey: 'status',
-        header: t('customers.companies.list.columns.status'),
-        meta: {
-          filterType: 'select' as const,
-          filterOptions: dictionaryOptions.statuses,
-          columnChooserGroup: 'Basic Info',
-          filterGroup: 'CRM',
-        },
-        cell: ({ row }) => renderDictionaryCell('statuses', row.original.status),
-      },
-      {
-        accessorKey: 'nextInteractionAt',
-        header: t('customers.companies.list.columns.nextInteraction'),
-        meta: {
-          columnChooserGroup: 'Dates',
-          filterKey: 'next_interaction_at',
-          filterGroup: 'Activity',
-          filterIconName: 'calendar',
-        },
-        cell: ({ row }) =>
-          row.original.nextInteractionAt
-            ? (
-              <div className="flex items-start gap-2 text-sm">
-                {row.original.nextInteractionIcon ? (
-                  <span className="mt-0.5 inline-flex h-6 w-6 items-center justify-center rounded border border-border bg-card">
-                    {renderDictionaryIcon(row.original.nextInteractionIcon, 'h-4 w-4')}
-                  </span>
-                ) : null}
-                <div className="flex flex-col">
-                  <span>{formatDate(row.original.nextInteractionAt, t('customers.companies.list.noValue'))}</span>
-                  {row.original.nextInteractionName ? (
-                    <span className="text-xs text-muted-foreground">{row.original.nextInteractionName}</span>
-                  ) : null}
-                </div>
-                {row.original.nextInteractionColor ? (
-                  <span className="mt-1">
-                    {renderDictionaryColor(row.original.nextInteractionColor, 'h-3 w-3 rounded-full border border-border')}
-                  </span>
-                ) : null}
-              </div>
-            )
-            : noValue,
-      },
-      {
-        accessorKey: 'source',
-        header: t('customers.companies.list.columns.source'),
-        meta: {
-          filterType: 'select' as const,
-          filterOptions: dictionaryOptions.sources,
-          columnChooserGroup: 'Basic Info',
-          filterGroup: 'CRM',
-        },
-        cell: ({ row }) => renderDictionaryCell('sources', row.original.source),
-      },
-      {
-        accessorKey: 'ownerUserId',
-        header: t('customers.companies.list.columns.owner', 'Owner'),
-        meta: {
-          columnChooserGroup: 'CRM',
-          filterType: 'select',
-          filterOptions: resolvedOwnerFilterOptions,
-          filterLoadOptions: loadOwnerFilterOptions,
-          filterGroup: 'CRM',
-          filterIconName: 'user-round',
-          filterKey: 'owner_user_id',
-          hidden: true,
-        },
-        cell: ({ row }) => row.original.ownerUserId ?? null,
-      },
-      {
-        accessorKey: 'description',
-        header: t('customers.companies.detail.fields.description', 'Description'),
-        meta: {
-          columnChooserGroup: 'Notes',
-          hidden: true,
-          filterKey: 'description',
-          filterGroup: 'Notes',
-        },
-        cell: ({ row }) => row.original.description || noValue,
-      },
     ]
 
-    const customColumns = customFieldDefs
-      .filter((def) => supportsCustomFieldColumn(def))
+    const companyProfileDefs = customFieldDefs.filter(
+      (def) => !def.entityId || def.entityId === E.customers.customer_company_profile,
+    )
+    const formKeys = companyFormFieldKeys(companyProfileDefs)
+    const customColumns = formKeys
+      .map((key) => companyProfileDefs.find((def) => def.key === key))
+      .filter((def): def is (typeof companyProfileDefs)[number] => Boolean(def) && supportsCustomFieldColumn(def!))
       .map<ColumnDef<CompanyRow>>((def) => ({
         accessorKey: `cf_${def.key}`,
         header: def.label || def.key,
@@ -738,7 +674,6 @@ export default function CustomersCompaniesPage() {
           filterGroup: def.group?.title ?? t('ui.columnChooser.customFieldsGroup', 'Custom Fields'),
           filterType: mapCustomFieldKindToFilterType(def.kind),
           filterOptions: normalizeCustomFieldFilterOptions(def.options),
-          hidden: def.listVisible === false,
           maxWidth: '220px',
         },
         cell: ({ getValue }) => renderCustomFieldCell(getValue()),
@@ -783,10 +718,8 @@ export default function CustomersCompaniesPage() {
             onRefresh: () => { setSearch(''); setPage(1); handleRefresh() },
           }}
           actions={(
-            <Button asChild>
-              <Link href="/backend/customers/companies/create">
-                {t('dermat_sales_flow.customer.create.title', 'Create Customer')}
-              </Link>
+            <Button type="button" onClick={() => setCreatePanelOpen(true)}>
+              {t('dermat_sales_flow.customer.create.title', 'Create Customer')}
             </Button>
           )}
           columns={columns}
@@ -890,6 +823,11 @@ export default function CustomersCompaniesPage() {
           savedFilterStorageKey="customers.companies.list"
         />
       </PageBody>
+      <CreateCompanyPanel
+        open={createPanelOpen}
+        onOpenChange={setCreatePanelOpen}
+        onCreated={handleCompanyCreated}
+      />
       {ConfirmDialogElement}
     </Page>
   )

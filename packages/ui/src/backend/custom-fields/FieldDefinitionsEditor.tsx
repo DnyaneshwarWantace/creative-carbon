@@ -461,6 +461,33 @@ export function FieldDefinitionsEditor({
           </div>
         </div>
       )}
+      <div>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={onAddField}
+        >
+          <Plus className="h-4 w-4" /> {resolvedAddButtonLabel}
+        </Button>
+        {resolvedInfoNote}
+        {deletedKeys && deletedKeys.length > 0 && onRestoreField ? (
+          <div className="text-xs text-muted-foreground mt-2">
+            {t('entities.customFields.editor.restoreDeletedFields', 'Restore deleted fields:')}{' '}
+            {deletedKeys.map((key, idx) => (
+              <span key={key}>
+                <Button
+                  variant="link"
+                  className="h-auto p-0"
+                  onClick={() => onRestoreField(key)}
+                >
+                  {key}
+                </Button>
+                {idx < deletedKeys.length - 1 ? ', ' : ''}
+              </span>
+            ))}
+          </div>
+        ) : null}
+      </div>
       {filteredDefinitions.map(({ definition, index }) => {
         const assignedFieldset = typeof definition.configJson?.fieldset === 'string' ? definition.configJson.fieldset : null
         const groupOptions = assignedFieldset
@@ -510,33 +537,6 @@ export function FieldDefinitionsEditor({
           />
         </div>
       )})}
-      <div>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={onAddField}
-        >
-          <Plus className="h-4 w-4" /> {resolvedAddButtonLabel}
-        </Button>
-        {resolvedInfoNote}
-        {deletedKeys && deletedKeys.length > 0 && onRestoreField ? (
-          <div className="text-xs text-muted-foreground mt-2">
-            {t('entities.customFields.editor.restoreDeletedFields', 'Restore deleted fields:')}{' '}
-            {deletedKeys.map((key, idx) => (
-              <span key={key}>
-                <Button
-                  variant="link"
-                  className="h-auto p-0"
-                  onClick={() => onRestoreField(key)}
-                >
-                  {key}
-                </Button>
-                {idx < deletedKeys.length - 1 ? ', ' : ''}
-              </span>
-            ))}
-          </div>
-        ) : null}
-      </div>
       {ConfirmDialogElement}
     </div>
   )

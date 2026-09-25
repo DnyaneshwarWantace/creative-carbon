@@ -3,7 +3,7 @@ export const metadata = {
   requireFeatures: ['dermat_rm_master.view'],
   pageTitle: 'Raw material',
   pageTitleKey: 'dermat_rm_master.detail.title',
-  pageGroup: 'Raw Materials',
-  pageGroupKey: 'dermat_rm_master.nav.group',
+  pageGroup: 'Store',
+  pageGroupKey: 'dermat-06-store.nav.group',
   icon: 'flask-conical',
 }

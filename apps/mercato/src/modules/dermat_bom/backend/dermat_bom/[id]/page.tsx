@@ -150,8 +150,8 @@ export default function BomDetailPage({ params }: { params?: { id?: string } }) 
   const [addingLine, setAddingLine] = React.useState(false)
 
   // Order Demand Explosion Calculator state
-  const [calcOrderQty, setCalcOrderQty] = React.useState('4000')
-  const [calcPackSize, setCalcPackSize] = React.useState('25')
+  const [calcOrderQty, setCalcOrderQty] = React.useState('')
+  const [calcPackSize, setCalcPackSize] = React.useState('')
   const [calcPackUom, setCalcPackUom] = React.useState('gm')
 
   // PDF Preview Modal
@@ -268,6 +268,14 @@ export default function BomDetailPage({ params }: { params?: { id?: string } }) 
         }
 
         const batchQtyNum = Number(found.batch_quantity) || 100
+
+        const sizeMatch = String(found.bom_name ?? '').match(/(\d+(?:\.\d+)?)\s*(kg|gms?|g|ml|l)\b/i)
+        if (sizeMatch) {
+          const sizeUnit = sizeMatch[2].toLowerCase()
+          const grams = sizeUnit === 'kg' || sizeUnit === 'l' ? Number(sizeMatch[1]) * 1000 : Number(sizeMatch[1])
+          setCalcPackSize(String(grams))
+          setCalcPackUom(sizeUnit === 'ml' || sizeUnit === 'l' ? 'ml' : 'gm')
+        }
 
         const formattedComponents: BomComponentRow[] = lineItems.map((l, index) => {
           const isRm = l.component_kind === 'raw_material'
@@ -614,8 +622,8 @@ export default function BomDetailPage({ params }: { params?: { id?: string } }) 
   const totalRmWeight = rmComponents.reduce((sum, c) => sum + toBaseKgOrLiter(Number(c.quantity) || 0, c.unit), 0)
 
   // Order Demand Explosion Simulation
-  const orderPcs = Number(calcOrderQty) || 4000
-  const packGram = Number(calcPackSize) || 25
+  const orderPcs = Number(calcOrderQty) || 0
+  const packGram = Number(calcPackSize) || 0
   const totalBulkRequiredKg = (orderPcs * packGram) / 1000
   const scaleMultiplier = baseBatchQty > 0 ? totalBulkRequiredKg / baseBatchQty : 1
 
@@ -1327,8 +1335,8 @@ export default function BomDetailPage({ params }: { params?: { id?: string } }) 
                       type="number"
                       value={calcOrderQty}
                       onChange={(e) => setCalcOrderQty(e.target.value)}
-                      placeholder="4000"
-                      className="font-mono text-xs font-bold bg-background"
+                      placeholder="e.g. 4000"
+                      className="bg-background"
                     />
                     <p className="text-[10px] text-muted-foreground">Total finished bottles/tubes to produce</p>
                   </div>
@@ -1339,11 +1347,11 @@ export default function BomDetailPage({ params }: { params?: { id?: string } }) 
                         type="number"
                         value={calcPackSize}
                         onChange={(e) => setCalcPackSize(e.target.value)}
-                        placeholder="25"
-                        className="font-mono text-xs font-bold bg-background"
+                        placeholder="e.g. 30"
+                        className="bg-background"
                       />
                       <Select value={calcPackUom} onValueChange={setCalcPackUom}>
-                        <SelectTrigger className="w-24 text-xs font-bold bg-background">
+                        <SelectTrigger className="w-24 bg-background">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
@@ -1356,11 +1364,19 @@ export default function BomDetailPage({ params }: { params?: { id?: string } }) 
                   </div>
                   <div className="space-y-1.5">
                     <Label className="text-xs font-bold text-foreground">Calculated Bulk Formulation Required</Label>
-                    <div className="h-9 px-3 rounded-md border bg-background flex items-center justify-between font-mono text-xs font-extrabold text-primary">
-                      <span>{orderPcs.toLocaleString()} × {calcPackSize} {calcPackUom} =</span>
-                      <span>{totalBulkRequiredKg.toFixed(2)} Kg / L</span>
+                    <div className="h-9 px-3 rounded-md border bg-background flex items-center justify-between text-sm">
+                      {orderPcs > 0 && packGram > 0 ? (
+                        <>
+                          <span className="text-muted-foreground">{orderPcs.toLocaleString()} × {calcPackSize} {calcPackUom} =</span>
+                          <span className="font-semibold">{totalBulkRequiredKg.toFixed(2)} kg</span>
+                        </>
+                      ) : (
+                        <span className="text-muted-foreground">Enter order quantity and pack size</span>
+                      )}
                     </div>
-                    <p className="text-[10px] text-emerald-600 font-semibold">Scaling Factor: {scaleMultiplier.toFixed(2)}× of Base Batch</p>
+                    {orderPcs > 0 && packGram > 0 ? (
+                      <p className="text-xs text-muted-foreground">{scaleMultiplier.toFixed(2)} × the {baseBatchQty} kg BOM batch</p>
+                    ) : null}
                   </div>
                 </div>
 
@@ -1397,7 +1413,7 @@ export default function BomDetailPage({ params }: { params?: { id?: string } }) 
                             const isRm = comp.type === 'RM'
                             const requiredAmount = isRm
                               ? Number((toBaseKgOrLiter(Number(comp.quantity), comp.unit) * scaleMultiplier).toFixed(3))
-                              : Number(orderPcs * Number(comp.quantity))
+                              : Math.ceil(Number(comp.quantity) * scaleMultiplier)
 
                             const available = Number(comp.on_hand)
                             const shortage = Math.max(0, requiredAmount - available)

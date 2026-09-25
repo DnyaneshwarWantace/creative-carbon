@@ -262,6 +262,24 @@ export const addressUpdateSchema = z
   })
   .merge(addressCreateSchema.partial())
 
+export const contactCreateSchema = scopedSchema.extend({
+  entityId: uuid(),
+  name: z.string().min(1).max(150),
+  phone: z
+    .string()
+    .max(50)
+    .refine((value) => value === '' || isValidPhoneNumber(value), { message: CUSTOMER_PHONE_INVALID_MESSAGE_KEY })
+    .optional(),
+  email: z.string().email().max(200).optional(),
+  sortOrder: z.coerce.number().int().optional(),
+})
+
+export const contactUpdateSchema = z
+  .object({
+    id: uuid(),
+  })
+  .merge(contactCreateSchema.partial())
+
 export const tagCreateSchema = scopedSchema.extend({
   slug: z
     .string()
@@ -594,6 +612,8 @@ export type CommentCreateInput = z.infer<typeof commentCreateSchema>
 export type CommentUpdateInput = z.infer<typeof commentUpdateSchema>
 export type AddressCreateInput = z.infer<typeof addressCreateSchema>
 export type AddressUpdateInput = z.infer<typeof addressUpdateSchema>
+export type ContactCreateInput = z.infer<typeof contactCreateSchema>
+export type ContactUpdateInput = z.infer<typeof contactUpdateSchema>
 export type TagCreateInput = z.infer<typeof tagCreateSchema>
 export type TagUpdateInput = z.infer<typeof tagUpdateSchema>
 export type TagAssignmentInput = z.infer<typeof tagAssignmentSchema>

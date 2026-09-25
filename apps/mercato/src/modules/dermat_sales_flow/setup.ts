@@ -1,6 +1,17 @@
 import type { ModuleSetupConfig } from '@open-mercato/shared/modules/setup'
+import { seedDermatSalesFlowDictionaries, seedDermatProductFieldsets } from './lib/seeds'
 
 export const setup: ModuleSetupConfig = {
+  seedDefaults: async (ctx) => {
+    await seedDermatSalesFlowDictionaries(ctx.em, {
+      tenantId: ctx.tenantId,
+      organizationId: ctx.organizationId,
+    })
+    await seedDermatProductFieldsets(ctx.em, {
+      tenantId: ctx.tenantId,
+      organizationId: ctx.organizationId,
+    })
+  },
   defaultRoleFeatures: {
     sales: [
       'sales.orders.view',

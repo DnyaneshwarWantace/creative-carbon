@@ -19,7 +19,7 @@ const inputWrapperVariants = cva(
 )
 
 const inputElementVariants = cva(
-  'flex-1 min-w-0 bg-transparent border-0 outline-none placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:bg-transparent',
+  'flex-1 min-w-0 bg-transparent border-0 outline-none placeholder:text-muted-foreground placeholder:font-normal disabled:cursor-not-allowed disabled:bg-transparent',
   {
     variants: {
       size: {

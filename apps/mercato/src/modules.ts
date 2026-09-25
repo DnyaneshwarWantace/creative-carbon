@@ -72,16 +72,21 @@ export const moduleOverrideExamples: ModuleOverrides = {
 // framework's default alphabetical grouping: master setup, then master data,
 // then who supplies it, then the recipe, then the customer order that drives
 // it, then production/QC, then R&D. Ids not listed here keep their existing order.
+// Sidebar is organised by department (client ask): each department group opens
+// with its Work Queue, followed by that department's own pages.
 const dermatSidebarGroupOrder = [
-  'dermat_departments.nav.group',
-  'dermat_rm_master.nav.group',
-  'dermat_pm_master.nav.group',
-  'dermat_vendors.nav.group',
-  'dermat_bom.nav.group',
-  'customers~sales.nav.group',
-  'dermat_production.nav.group',
-  'dermat_qc.nav.group',
-  'dermat_sampling.nav.group',
+  'dermat-01-sales.nav.group',
+  'dermat-02-accounts.nav.group',
+  'dermat-03-rnd.nav.group',
+  'dermat-04-planning.nav.group',
+  'dermat-05-purchase.nav.group',
+  'dermat-06-store.nav.group',
+  'dermat-07-production.nav.group',
+  'dermat-08-qc.nav.group',
+  'dermat-09-qa.nav.group',
+  'dermat-10-dispatch.nav.group',
+  'catalog.nav.group',
+  'dermat-11-masters.nav.group',
 ]
 
 export const enabledModules: ModuleEntry[] = [
@@ -101,23 +106,16 @@ export const enabledModules: ModuleEntry[] = [
   // wms: disabled for now per request — re-add the entry above to bring
   // Inventory/Warehouses/Zones/Locations/Lots/Movements/Reservations back.
   { id: 'api_keys', from: '@open-mercato/core' },
-  { id: 'devices', from: '@open-mercato/core' },
   { id: 'dictionaries', from: '@open-mercato/core' },
-  { id: 'content', from: '@open-mercato/content' },
-  { id: 'api_docs', from: '@open-mercato/core' },
   { id: 'search', from: '@open-mercato/search' },
   { id: 'currencies', from: '@open-mercato/core' },
   { id: 'events', from: '@open-mercato/events' },
   { id: 'notifications', from: '@open-mercato/core' },
   { id: 'progress', from: '@open-mercato/core' },
-  { id: 'messages', from: '@open-mercato/core' },
-  { id: 'ai_assistant', from: '@open-mercato/ai-assistant' },
   { id: 'translations', from: '@open-mercato/core' },
-  { id: 'scheduler', from: '@open-mercato/scheduler' },
-  { id: 'inbox_ops', from: '@open-mercato/core' },
-  { id: 'integrations', from: '@open-mercato/core' },
   { id: 'widgets', from: '@open-mercato/core' },
-  { id: 'workflows', from: '@open-mercato/core' },
+  // Removed for Dermat (not just hidden): devices, content, api_docs, messages,
+  // ai_assistant, scheduler, inbox_ops, integrations, workflows.
   // Dermat India custom modules — app-local (@app), not part of upstream core.
   { id: 'dermat_rm_master', from: '@app' },
   { id: 'dermat_pm_master', from: '@app' },
@@ -129,7 +127,8 @@ export const enabledModules: ModuleEntry[] = [
       nav: { groupOrder: dermatSidebarGroupOrder },
     },
   },
-  { id: 'dermat_production', from: '@app' },
+  // dermat_production (old batch register, 0 rows) is replaced by dermat_workflow's
+  // per-product Manufacturing / Filling / Packing stages.
   { id: 'dermat_qc', from: '@app' },
   {
     id: 'dermat_sales_flow',
@@ -152,7 +151,7 @@ export const enabledModules: ModuleEntry[] = [
               pageTitle: 'Customer',
               pageTitleKey: 'dermat_sales_flow.nav.customer',
               pageGroup: 'Sales',
-              pageGroupKey: 'customers~sales.nav.group',
+              pageGroupKey: 'dermat-01-sales.nav.group',
               pagePriority: 10,
               pageOrder: 20,
               breadcrumb: [{ label: 'Customer', labelKey: 'dermat_sales_flow.nav.customer' }],
@@ -165,29 +164,38 @@ export const enabledModules: ModuleEntry[] = [
           // packages/core/src/modules/customers/backend and
           // packages/core/src/modules/sales/backend; no override needed
           // for a route that no longer exists.)
-          '/backend/sales/quotes': { metadata: { navHidden: true } },
-          '/backend/config/system-status': { metadata: { navHidden: true } },
-          '/backend/config/cache': { metadata: { navHidden: true } },
-          '/backend/config/module-telemetry': { metadata: { navHidden: true } },
-          '/backend/entities/system': { metadata: { navHidden: true } },
+          // Generic platform pages Dermat never uses — removed as routes
+          // (null), not merely hidden from the sidebar.
+          '/backend/sales/quotes': null,
+          '/backend/config/system-status': null,
+          '/backend/config/cache': null,
+          '/backend/config/module-telemetry': null,
+          '/backend/entities/system': null,
+          '/backend/config/encryption': null,
+          '/backend/query-indexes': null,
+          '/backend/data-sync': null,
+          '/backend/feature-toggles/global': null,
+          '/backend/feature-toggles/overrides': null,
+          '/backend/config/translations': null,
+          '/backend/payment-gateways': null,
+          '/backend/config/search': null,
+          '/backend/webhooks': null,
+          '/backend/config/sales': null,
+          '/backend/config/customers/deals': null,
+          '/backend/config/customers/pipeline-stages': null,
+          // Open Mercato's category tree is unused — a Dermat product's
+          // category is its fieldset (Raw Material, Packing Material, …),
+          // shown as tabs on the Products page.
+          '/backend/catalog/categories': null,
+          '/backend/catalog/categories/create': null,
+          // Reached from the Products page's "Add product" button, not the sidebar.
+          '/backend/catalog/products/create': { metadata: { navHidden: true } },
+          // Admin tools Dermat does need (custom fields, dropdown lists,
+          // attachment settings) stay reachable from Settings, off the main nav.
           '/backend/entities/user': { metadata: { navHidden: true } },
           '/backend/config/settings': { metadata: { navHidden: true } },
-          '/backend/config/encryption': { metadata: { navHidden: true } },
           '/backend/config/dictionaries': { metadata: { navHidden: true } },
-          '/backend/docs': { metadata: { navHidden: true } },
-          '/backend/query-indexes': { metadata: { navHidden: true } },
-          '/backend/data-sync': { metadata: { navHidden: true } },
-          '/backend/feature-toggles/global': { metadata: { navHidden: true } },
-          '/backend/feature-toggles/overrides': { metadata: { navHidden: true } },
-          '/backend/config/translations': { metadata: { navHidden: true } },
-          '/backend/payment-gateways': { metadata: { navHidden: true } },
-          '/backend/devices': { metadata: { navHidden: true } },
           '/backend/config/attachments': { metadata: { navHidden: true } },
-          '/backend/config/search': { metadata: { navHidden: true } },
-          '/backend/webhooks': { metadata: { navHidden: true } },
-          '/backend/config/scheduled-jobs': { metadata: { navHidden: true } },
-          '/backend/integrations': { metadata: { navHidden: true } },
-          '/backend/config/sales': { metadata: { navHidden: true } },
         },
       },
     },
@@ -197,6 +205,7 @@ export const enabledModules: ModuleEntry[] = [
   // No sidebar entry — a Purchase Order is created and viewed from the BOM page,
   // not as a standalone navigable section (matches Procuzy: BOM and PO are one screen).
   { id: 'dermat_purchase_orders', from: '@app' },
+  { id: 'dermat_workflow', from: '@app' },
   { id: 'ratelimit_probe', from: '@app' },
 ]
 

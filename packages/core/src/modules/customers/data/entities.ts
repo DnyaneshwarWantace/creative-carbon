@@ -108,6 +108,9 @@ export class CustomerEntity {
   @OneToMany(() => CustomerAddress, (address) => address.entity)
   addresses = new Collection<CustomerAddress>(this)
 
+  @OneToMany(() => CustomerContact, (contact) => contact.entity)
+  contacts = new Collection<CustomerContact>(this)
+
   @OneToMany(() => CustomerActivity, (activity) => activity.entity)
   activities = new Collection<CustomerActivity>(this)
 
@@ -774,6 +777,42 @@ export class CustomerAddress {
   createdAt: Date = new Date()
 
   @Property({ name: 'updated_at', type: Date, onUpdate: () => new Date() })
+  updatedAt: Date = new Date()
+
+  @ManyToOne(() => CustomerEntity, { fieldName: 'entity_id' })
+  entity!: CustomerEntity
+}
+
+@Entity({ tableName: 'customer_contacts' })
+@Index({ name: 'customer_contacts_entity_idx', properties: ['entity'] })
+export class CustomerContact {
+  [OptionalProps]?: 'createdAt' | 'updatedAt'
+
+  @PrimaryKey({ type: 'uuid', defaultRaw: 'gen_random_uuid()' })
+  id!: string
+
+  @Property({ name: 'organization_id', type: 'uuid' })
+  organizationId!: string
+
+  @Property({ name: 'tenant_id', type: 'uuid' })
+  tenantId!: string
+
+  @Property({ name: 'name', type: 'text' })
+  name!: string
+
+  @Property({ name: 'phone', type: 'text', nullable: true })
+  phone?: string | null
+
+  @Property({ name: 'email', type: 'text', nullable: true })
+  email?: string | null
+
+  @Property({ name: 'sort_order', type: 'integer', default: 0 })
+  sortOrder: number = 0
+
+  @Property({ name: 'created_at', type: Date, onCreate: () => new Date() })
+  createdAt: Date = new Date()
+
+  @Property({ name: 'updated_at', type: Date, onCreate: () => new Date(), onUpdate: () => new Date() })
   updatedAt: Date = new Date()
 
   @ManyToOne(() => CustomerEntity, { fieldName: 'entity_id' })

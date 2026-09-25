@@ -45,6 +45,21 @@ export type CustomerAddressValue = CustomerAddressInput & {
   purpose?: string | null
 }
 
+/**
+ * Opt-in config that swaps the generic "add any address" tile list for a
+ * dedicated Billing / Shipping pair with a "Same as Billing Address"
+ * shortcut, matching a common two-purpose CRM address pattern. Kept as a
+ * prop on the shared component (rather than a one-off wrapper) so any
+ * module embedding `CustomerAddressTiles` can opt into the same UX.
+ */
+export type BillingShippingShortcutConfig = {
+  billingLabel: string
+  shippingLabel: string
+  sameAsBillingLabel: string
+  billingPurpose: string
+  shippingPurpose: string
+}
+
 type CustomerAddressTilesProps = {
   addresses: CustomerAddressValue[]
   onCreate: (payload: CustomerAddressInput) => Promise<void> | void
@@ -58,6 +73,215 @@ type CustomerAddressTilesProps = {
   onAddActionChange?: (action: { openCreateForm: () => void; addDisabled: boolean } | null) => void
   emptyStateTitle?: string
   emptyStateActionLabel?: string
+  /** Opt-in: render a Billing/Shipping pair with a same-as-billing shortcut instead of the generic tile list. */
+  billingShippingShortcut?: BillingShippingShortcutConfig
+}
+
+const emptyAddressDraft = (purpose: string): DraftAddressState => ({
+  name: '',
+  purpose,
+  addressLine1: '',
+  addressLine2: '',
+  city: '',
+  region: '',
+  postalCode: '',
+  country: '',
+  isPrimary: false,
+})
+
+function BillingShippingSection({
+  addresses,
+  onCreate,
+  onUpdate,
+  onDelete,
+  t,
+  isSubmitting = false,
+  config,
+}: {
+  addresses: CustomerAddressValue[]
+  onCreate: (payload: CustomerAddressInput) => Promise<void> | void
+  onUpdate?: (id: string, payload: CustomerAddressInput) => Promise<void> | void
+  onDelete?: (id: string) => Promise<void> | void
+  t: Translator
+  isSubmitting?: boolean
+  config: BillingShippingShortcutConfig
+}) {
+  const billingAddress = React.useMemo(
+    () => addresses.find((entry) => entry.purpose === config.billingPurpose) ?? null,
+    [addresses, config.billingPurpose],
+  )
+  const shippingAddress = React.useMemo(
+    () => addresses.find((entry) => entry.purpose === config.shippingPurpose) ?? null,
+    [addresses, config.shippingPurpose],
+  )
+
+  const [billingDraft, setBillingDraft] = React.useState<DraftAddressState>(() =>
+    billingAddress
+      ? {
+          name: billingAddress.name ?? '',
+          purpose: config.billingPurpose,
+          addressLine1: billingAddress.addressLine1,
+          addressLine2: billingAddress.addressLine2 ?? '',
+          city: billingAddress.city ?? '',
+          region: billingAddress.region ?? '',
+          postalCode: billingAddress.postalCode ?? '',
+          country: billingAddress.country ?? '',
+          isPrimary: billingAddress.isPrimary ?? false,
+        }
+      : emptyAddressDraft(config.billingPurpose)
+  )
+  const [shippingDraft, setShippingDraft] = React.useState<DraftAddressState>(() =>
+    shippingAddress
+      ? {
+          name: shippingAddress.name ?? '',
+          purpose: config.shippingPurpose,
+          addressLine1: shippingAddress.addressLine1,
+          addressLine2: shippingAddress.addressLine2 ?? '',
+          city: shippingAddress.city ?? '',
+          region: shippingAddress.region ?? '',
+          postalCode: shippingAddress.postalCode ?? '',
+          country: shippingAddress.country ?? '',
+          isPrimary: shippingAddress.isPrimary ?? false,
+        }
+      : emptyAddressDraft(config.shippingPurpose)
+  )
+  const [sameAsBilling, setSameAsBilling] = React.useState(false)
+  const [saving, setSaving] = React.useState(false)
+
+  const disableActions = saving || isSubmitting
+
+  const persist = React.useCallback(
+    async (existing: CustomerAddressValue | null, draft: DraftAddressState) => {
+      const trimmedLine1 = draft.addressLine1.trim()
+      if (!trimmedLine1.length) return
+      const payload: CustomerAddressInput = {
+        purpose: draft.purpose,
+        addressLine1: trimmedLine1,
+        isPrimary: draft.isPrimary,
+      }
+      const name = draft.name.trim()
+      if (name.length) payload.name = name
+      const line2 = draft.addressLine2.trim()
+      if (line2.length) payload.addressLine2 = line2
+      const city = draft.city.trim()
+      if (city.length) payload.city = city
+      const region = draft.region.trim()
+      if (region.length) payload.region = region
+      const postal = draft.postalCode.trim()
+      if (postal.length) payload.postalCode = postal
+      const country = draft.country.trim()
+      if (country.length) payload.country = country.toUpperCase()
+
+      if (existing && onUpdate) await onUpdate(existing.id, payload)
+      else await onCreate(payload)
+    },
+    [onCreate, onUpdate],
+  )
+
+  const handleBillingBlurSave = React.useCallback(async () => {
+    setSaving(true)
+    try {
+      await persist(billingAddress, billingDraft)
+      if (sameAsBilling) {
+        const mirrored: DraftAddressState = { ...billingDraft, purpose: config.shippingPurpose, isPrimary: false }
+        setShippingDraft(mirrored)
+        await persist(shippingAddress, mirrored)
+      }
+    } catch (err) {
+      const message = err instanceof Error && err.message ? err.message : t('customers.people.detail.addresses.error')
+      flash(message, 'error')
+    } finally {
+      setSaving(false)
+    }
+  }, [billingAddress, billingDraft, config.shippingPurpose, persist, sameAsBilling, shippingAddress, t])
+
+  const handleShippingBlurSave = React.useCallback(async () => {
+    if (sameAsBilling) return
+    setSaving(true)
+    try {
+      await persist(shippingAddress, shippingDraft)
+    } catch (err) {
+      const message = err instanceof Error && err.message ? err.message : t('customers.people.detail.addresses.error')
+      flash(message, 'error')
+    } finally {
+      setSaving(false)
+    }
+  }, [persist, sameAsBilling, shippingAddress, shippingDraft, t])
+
+  const handleSameAsBillingChange = React.useCallback(
+    async (checked: boolean) => {
+      setSameAsBilling(checked)
+      if (!checked) return
+      const mirrored: DraftAddressState = { ...billingDraft, purpose: config.shippingPurpose, isPrimary: false }
+      setShippingDraft(mirrored)
+      setSaving(true)
+      try {
+        await persist(shippingAddress, mirrored)
+      } catch (err) {
+        const message = err instanceof Error && err.message ? err.message : t('customers.people.detail.addresses.error')
+        flash(message, 'error')
+      } finally {
+        setSaving(false)
+      }
+    },
+    [billingDraft, config.shippingPurpose, persist, shippingAddress, t],
+  )
+
+  return (
+    <div className="space-y-4">
+      <div className="rounded-lg border bg-background p-4">
+        <div className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          {config.billingLabel}
+        </div>
+        <AddressEditor
+          value={billingDraft}
+          onChange={setBillingDraft}
+          t={t}
+          disabled={disableActions}
+          hidePrimaryToggle
+        />
+        <div className="mt-3 flex justify-end">
+          <Button type="button" variant="outline" size="sm" onClick={handleBillingBlurSave} disabled={disableActions}>
+            {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+            {t('customers.people.detail.addresses.save')}
+          </Button>
+        </div>
+      </div>
+
+      <label className="flex items-center gap-2 text-sm">
+        <input
+          type="checkbox"
+          checked={sameAsBilling}
+          onChange={(event) => {
+            void handleSameAsBillingChange(event.target.checked)
+          }}
+          disabled={disableActions}
+        />
+        <span>{config.sameAsBillingLabel}</span>
+      </label>
+
+      <div className="rounded-lg border bg-background p-4">
+        <div className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          {config.shippingLabel}
+        </div>
+        <AddressEditor
+          value={shippingDraft}
+          onChange={setShippingDraft}
+          t={t}
+          disabled={disableActions || sameAsBilling}
+          hidePrimaryToggle
+        />
+        {!sameAsBilling ? (
+          <div className="mt-3 flex justify-end">
+            <Button type="button" variant="outline" size="sm" onClick={handleShippingBlurSave} disabled={disableActions}>
+              {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+              {t('customers.people.detail.addresses.save')}
+            </Button>
+          </div>
+        ) : null}
+      </div>
+    </div>
+  )
 }
 
 type DraftAddressState = {
@@ -160,6 +384,7 @@ export function CustomerAddressTiles({
   onAddActionChange,
   emptyStateTitle,
   emptyStateActionLabel,
+  billingShippingShortcut,
 }: CustomerAddressTilesProps) {
   const scopeVersion = useOrganizationScopeVersion()
   const queryClient = useQueryClient()
@@ -477,6 +702,20 @@ export function CustomerAddressTiles({
       t,
     ]
   )
+
+  if (billingShippingShortcut) {
+    return (
+      <BillingShippingSection
+        addresses={addresses}
+        onCreate={onCreate}
+        onUpdate={onUpdate}
+        onDelete={onDelete}
+        t={t}
+        isSubmitting={isSubmitting}
+        config={billingShippingShortcut}
+      />
+    )
+  }
 
   return (
     <div className="space-y-4">

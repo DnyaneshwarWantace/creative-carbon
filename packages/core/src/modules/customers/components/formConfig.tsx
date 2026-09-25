@@ -48,6 +48,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { useEmailDuplicateCheck } from '../backend/hooks/useEmailDuplicateCheck'
 import { lookupPhoneDuplicate } from '../utils/phoneDuplicates'
 import { CustomerAddressTiles, type CustomerAddressInput, type CustomerAddressValue } from './AddressTiles'
+import { ContactRows, type CustomerContactValue } from './ContactRows'
 import {
   ensureCustomerDictionary,
   invalidateCustomerDictionary,
@@ -106,6 +107,7 @@ export type CompanyFormValues = {
   annualRevenue?: string
   description?: string
   addresses?: CustomerAddressValue[]
+  contacts?: CustomerContactValue[]
 } & Record<string, unknown>
 
 type DictionarySelectFieldProps = {
@@ -1265,6 +1267,24 @@ export const createCompanyFormFields = (t: Translator, options?: { defaultCountr
       type: 'textarea',
     },
     {
+      id: 'contacts',
+      label: '',
+      type: 'custom',
+      layout: 'full',
+      component: ({ value, setValue }: CrudCustomFieldRenderProps) => {
+        const contacts = Array.isArray(value) ? (value as CustomerContactValue[]) : []
+        return (
+          <ContactRows
+            contacts={contacts}
+            onChange={(next) => setValue(next)}
+            t={t}
+            defaultCountryIso2={defaultCountryIso2}
+            emptyLabel={t('customers.companies.form.contacts.empty', 'No contacts added yet')}
+          />
+        )
+      },
+    },
+    {
       id: 'addresses',
       label: '',
       type: 'custom',
@@ -1277,6 +1297,13 @@ export const createCompanyFormFields = (t: Translator, options?: { defaultCountr
             t={t}
             emptyLabel={t('customers.companies.detail.empty.addresses')}
             gridClassName="grid gap-4 grid-cols-1"
+            billingShippingShortcut={{
+              billingLabel: t('customers.companies.form.addresses.billing', 'Billing Address'),
+              shippingLabel: t('customers.companies.form.addresses.shipping', 'Shipping Address'),
+              sameAsBillingLabel: t('customers.companies.form.addresses.sameAsBilling', 'Same as Billing Address'),
+              billingPurpose: 'billing',
+              shippingPurpose: 'shipping',
+            }}
             onCreate={async (payload: CustomerAddressInput) => {
               const nextId =
                 typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
@@ -1338,7 +1365,19 @@ export const createCompanyFormGroups = (t: Translator): CrudFormGroup[] => [
     id: 'details',
     title: t('customers.companies.form.groups.details'),
     column: 1,
-    fields: ['displayName', 'primaryEmail', 'primaryPhone', 'status', 'source'],
+    fields: ['displayName'],
+  },
+  {
+    id: 'contacts',
+    title: t('customers.companies.form.groups.contacts', 'Contact information'),
+    column: 1,
+    fields: ['contacts'],
+  },
+  {
+    id: 'customFields',
+    title: t('customers.companies.form.groups.custom'),
+    column: 1,
+    kind: 'customFields',
   },
   {
     id: 'addresses',
@@ -1349,16 +1388,38 @@ export const createCompanyFormGroups = (t: Translator): CrudFormGroup[] => [
   {
     id: 'notes',
     title: t('customers.companies.form.groups.notes'),
-    column: 2,
+    column: 1,
     fields: ['description'],
   },
-  {
-    id: 'customFields',
-    title: t('customers.companies.form.groups.custom'),
-    column: 2,
-    kind: 'customFields',
-  },
 ]
+
+/**
+ * The create form no longer exposes standalone Primary Email/Phone fields — they're
+ * captured via the repeatable Contact Information rows instead (matching Procuzy,
+ * which has no top-level email/phone on Add Customer). The Companies list page still
+ * displays and filters on primary_email/primary_phone columns, so on create we derive
+ * them from the first contact row that has a phone or email filled in, keeping those
+ * columns populated without reintroducing standalone fields. Edit mode is unaffected:
+ * it keeps its own explicit primaryEmail/primaryPhone fields and never calls this.
+ */
+export function deriveCompanyContactDefaults(
+  contacts?: CustomerContactValue[] | null,
+): { primaryEmail?: string; primaryPhone?: string } {
+  const rows = Array.isArray(contacts) ? contacts : []
+  const result: { primaryEmail?: string; primaryPhone?: string } = {}
+  for (const row of rows) {
+    if (!result.primaryEmail) {
+      const email = typeof row.email === 'string' ? row.email.trim() : ''
+      if (email.length) result.primaryEmail = email
+    }
+    if (!result.primaryPhone) {
+      const phone = typeof row.phone === 'string' ? row.phone.trim() : ''
+      if (phone.length) result.primaryPhone = phone
+    }
+    if (result.primaryEmail && result.primaryPhone) break
+  }
+  return result
+}
 
 export function buildCompanyPayload(
   values: CompanyFormValues | CompanyEditFormValues,

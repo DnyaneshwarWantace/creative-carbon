@@ -22,6 +22,7 @@ import { flash } from '@open-mercato/ui/backend/FlashMessages'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { useOrganizationScopeDetail } from '@open-mercato/shared/lib/frontend/useOrganizationScope'
 import { ArrowLeft, Layers, Sparkles, Building2 } from 'lucide-react'
+import { BOM_BASE_BATCH_KG } from '../../../lib/constants'
 
 type CatalogProductSearchItem = { id: string; title: string; sku: string | null }
 
@@ -37,9 +38,6 @@ export default function CreateBomPage() {
   const [internalCode, setInternalCode] = React.useState('')
   const [bomType, setBomType] = React.useState<'Finished Good' | 'Bulk' | 'Packaging Sub-Assembly'>('Finished Good')
   const [version, setVersion] = React.useState('V1')
-  const [baseBatchQty, setBaseBatchQty] = React.useState('')
-  const [baseUom, setBaseUom] = React.useState('L')
-  const [orderQtySourceLabel, setOrderQtySourceLabel] = React.useState<string | null>(null)
   const [status, setStatus] = React.useState<'Draft' | 'Under Review' | 'Approved'>('Draft')
   const [effectiveFrom, setEffectiveFrom] = React.useState(() => new Date().toISOString().slice(0, 10))
   const [customLabel, setCustomLabel] = React.useState('')
@@ -51,13 +49,8 @@ export default function CreateBomPage() {
     if (query) params.set('search', query)
     const call = await apiCall<{ items: CatalogProductSearchItem[] }>(`/api/catalog/products?${params.toString()}`)
     if (!call.ok || !call.result?.items) {
-      // Fallback cosmetic items
-      return [
-        { value: 'p1', label: 'Vitamin C Serum (SKU-4329)' },
-        { value: 'p2', label: 'Face Cream 50 gm (SKU-5501)' },
-        { value: 'p3', label: 'Zitlite Salicylic Gel 25g (SKU-8801)' },
-        { value: 'p4', label: 'Niacinamide Glowing Toner 100ml (SKU-2201)' },
-      ]
+      flash('Failed to search products. Please try again.', 'error')
+      return []
     }
     const items = call.result.items
     for (const item of items) productCacheRef.current.set(item.id, item)
@@ -67,31 +60,14 @@ export default function CreateBomPage() {
     }))
   }, [])
 
-  // "This much [is what the] customer want[s]" — when a product is picked,
-  // pull the batch quantity from that product's most recent order line
-  // instead of leaving an arbitrary placeholder number in the field.
-  const handleProductChange = React.useCallback(async (productId: string) => {
+  const handleProductChange = React.useCallback((productId: string) => {
     setSelectedProductId(productId)
-    setOrderQtySourceLabel(null)
-    if (!productId) return
-    const call = await apiCall<{ found: boolean; quantity?: number; unit?: string | null; orderNumber?: string }>(
-      `/api/dermat_bom/order-quantity?productId=${encodeURIComponent(productId)}`,
-    )
-    if (call.ok && call.result?.found && call.result.quantity) {
-      setBaseBatchQty(String(call.result.quantity))
-      if (call.result.unit) setBaseUom(call.result.unit)
-      setOrderQtySourceLabel(`Auto-filled from order ${call.result.orderNumber}`)
-    }
   }, [])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!selectedProductId && !customLabel.trim()) {
       flash('Please select a product or enter a formulation label', 'error')
-      return
-    }
-    if (!baseBatchQty.trim() || Number(baseBatchQty) <= 0) {
-      flash('Please enter a base batch quantity', 'error')
       return
     }
 
@@ -106,14 +82,14 @@ export default function CreateBomPage() {
         tenantId,
         bomName,
         catalogProductId: selectedProductId || null,
-        batchQuantity: Number(baseBatchQty),
+        batchQuantity: BOM_BASE_BATCH_KG,
         version: 1,
         isActive: status === 'Approved',
         metadata: {
           internal_code: internalCode,
           bom_type: bomType,
           version_label: version,
-          base_uom: baseUom,
+          base_uom: 'kg',
           status,
           effective_from: effectiveFrom,
         },
@@ -234,40 +210,15 @@ export default function CreateBomPage() {
                     />
                   </div>
 
-                  {/* Base Batch Quantity & UOM */}
-                  <div className="grid grid-cols-2 gap-2">
-                    <div className="space-y-1.5">
-                      <Label className="text-xs font-semibold">
-                        Base Batch Qty <span className="text-rose-500">*</span>
-                      </Label>
-                      <Input
-                        type="number"
-                        min="0.001"
-                        step="any"
-                        value={baseBatchQty}
-                        onChange={(e) => { setBaseBatchQty(e.target.value); setOrderQtySourceLabel(null) }}
-                        placeholder="e.g. 100"
-                        className="font-mono text-xs font-bold text-right"
-                      />
-                      {orderQtySourceLabel && (
-                        <p className="text-[11px] text-emerald-600">{orderQtySourceLabel}</p>
-                      )}
+                  {/* Base batch — fixed: every BOM is written per 100 kg of bulk */}
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-semibold">Base Batch</Label>
+                    <div className="rounded-md border border-border bg-muted/40 px-3 py-2 font-mono text-xs font-bold">
+                      {BOM_BASE_BATCH_KG} KG
                     </div>
-                    <div className="space-y-1.5">
-                      <Label className="text-xs font-semibold">Base UOM</Label>
-                      <Select value={baseUom} onValueChange={setBaseUom}>
-                        <SelectTrigger className="text-xs font-medium">
-                          <SelectValue placeholder="UOM" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="L" className="text-xs">L (Litres)</SelectItem>
-                          <SelectItem value="kg" className="text-xs">kg (Kilograms)</SelectItem>
-                          <SelectItem value="unit" className="text-xs">unit (Pieces)</SelectItem>
-                          <SelectItem value="ml" className="text-xs">ml (Millilitres)</SelectItem>
-                          <SelectItem value="gm" className="text-xs">gm (Grams)</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Every BOM is written per {BOM_BASE_BATCH_KG} kg of bulk. Order quantities are scaled from this automatically.
+                    </p>
                   </div>
 
                   {/* Status */}

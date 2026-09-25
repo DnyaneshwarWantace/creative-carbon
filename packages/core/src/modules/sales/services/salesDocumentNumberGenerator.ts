@@ -145,7 +145,7 @@ export class SalesDocumentNumberGenerator {
     return Math.min(value, MAX_SEQUENCE)
   }
 
-  private formatNumber(
+  formatNumber(
     template: string,
     context: { kind: SalesDocumentNumberKind; sequence: number; date: Date; guid?: string | null }
   ): string {
