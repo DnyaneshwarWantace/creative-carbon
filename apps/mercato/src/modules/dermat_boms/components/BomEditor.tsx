@@ -1,9 +1,21 @@
-"use client"
+'use client'
 
 import * as React from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { ArrowDown, ArrowLeft, ArrowUp, CheckCircle2, CopyPlus, FlaskConical, Layers, Package, Trash2 } from 'lucide-react'
+import {
+  ArrowDown,
+  ArrowLeft,
+  ArrowUp,
+  CheckCircle2,
+  CopyPlus,
+  FlaskConical,
+  Layers,
+  Network,
+  Package,
+  Printer,
+  Trash2,
+} from 'lucide-react'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { cn } from '@open-mercato/shared/lib/utils'
 import { Page, PageBody } from '@open-mercato/ui/backend/Page'
@@ -22,6 +34,8 @@ import { KIND_CONFIG } from '../../dermat_products/lib/kindConfig'
 import type { ProductKind } from '../../dermat_products/lib/kinds'
 import { BOM_KINDS, PERCENT_TOLERANCE, PERCENT_TOTAL, batchQuantity, bomKindForProduct, type BomKind } from '../lib/bomKinds'
 import { MaterialPicker, formatQty } from './MaterialPicker'
+import { BomTree } from './BomTree'
+import { openPrintSheet } from './printSheet'
 import type { BomView, ComponentOption } from './types'
 
 type Row = {
@@ -114,7 +128,9 @@ function Tile({ label, value, hint, tone }: { label: string; value: React.ReactN
   return (
     <div className="rounded-lg border bg-card p-3">
       <div className="text-xs text-muted-foreground">{label}</div>
-      <div className={cn('text-lg font-semibold', tone === 'bad' && 'text-status-error-text', tone === 'ok' && 'text-status-success-text')}>{value}</div>
+      <div className={cn('text-lg font-semibold', tone === 'bad' && 'text-status-error-text', tone === 'ok' && 'text-status-success-text')}>
+        {value}
+      </div>
       {hint ? <div className="text-xs text-muted-foreground">{hint}</div> : null}
     </div>
   )
@@ -148,6 +164,7 @@ export function BomEditor({ bomId, productId }: { bomId?: string; productId?: st
   const [busy, setBusy] = React.useState(false)
   const [rowErrors, setRowErrors] = React.useState<Record<string, string>>({})
   const [dirty, setDirty] = React.useState(false)
+  const [view, setView] = React.useState<'lines' | 'tree'>('lines')
   const valueRefs = React.useRef<Record<string, HTMLInputElement | null>>({})
   const focusKey = React.useRef<string | null>(null)
 
@@ -245,7 +262,8 @@ export function BomEditor({ bomId, productId }: { bomId?: string; productId?: st
     state.rows.forEach((row, index) => {
       const value = numberOf(row.value)
       if (!(value > 0)) errors[String(index + 1)] = t('dermat_boms.errors.value', 'Enter a quantity above 0')
-      else if (state.kind === 'formula' && value > PERCENT_TOTAL) errors[String(index + 1)] = t('dermat_boms.errors.percent', 'RM % cannot be more than 100')
+      else if (state.kind === 'formula' && value > PERCENT_TOTAL)
+        errors[String(index + 1)] = t('dermat_boms.errors.percent', 'RM % cannot be more than 100')
     })
     if (!(numberOf(state.batchSize) > 0)) {
       flash(t('dermat_boms.errors.batch', 'Enter the batch size.'), 'error')
@@ -259,7 +277,11 @@ export function BomEditor({ bomId, productId }: { bomId?: string; productId?: st
     const body = {
       batchSize: numberOf(state.batchSize),
       notes: state.notes.trim() || null,
-      items: state.rows.map((row) => ({ componentProductId: row.componentProductId, value: numberOf(row.value), remark: row.remark.trim() || null })),
+      items: state.rows.map((row) => ({
+        componentProductId: row.componentProductId,
+        value: numberOf(row.value),
+        remark: row.remark.trim() || null,
+      })),
     }
     const payload = state.bom ? { ...body, id: state.bom.id } : { ...body, productId: state.product.id }
     const call = await runMutation({
@@ -393,6 +415,65 @@ export function BomEditor({ bomId, productId }: { bomId?: string; productId?: st
     }
   }
 
+  const handlePrint = () => {
+    if (!state) return
+    const size = numberOf(state.batchSize)
+    const opened = openPrintSheet({
+      kind: state.kind,
+      productName: state.product.title,
+      productCode: state.product.code,
+      bomCode: state.bom?.code ?? null,
+      version: state.bom?.version ?? 1,
+      status: state.bom?.status ?? 'draft',
+      batchSize: size,
+      batchUnit: state.bom?.batchUnit ?? BOM_KINDS[state.kind].defaultBatchUnit ?? state.product.unit ?? 'kg',
+      lines: state.rows.map((row) => ({
+        code: row.code,
+        name: row.name,
+        kind: row.componentKind,
+        value: numberOf(row.value),
+        quantity: batchQuantity(state.kind, size, numberOf(row.value)),
+        unit: row.unit,
+        remark: row.remark,
+      })),
+      notes: state.notes,
+      createdByName: state.bom?.createdByName ?? null,
+      approvedByName: state.bom?.approvedByName ?? null,
+      approvedAt: state.bom?.approvedAt ?? null,
+      labels: {
+        formulaTitle: t('dermat_boms.print.formulaTitle', 'Formula sheet'),
+        packTitle: t('dermat_boms.print.packTitle', 'Pack BOM'),
+        watermark: t('dermat_boms.print.watermark', 'DRAFT'),
+        status_draft: t('dermat_boms.status.draft', 'Draft'),
+        status_approved: t('dermat_boms.status.approved', 'Approved'),
+        status_superseded: t('dermat_boms.status.superseded', 'Superseded'),
+        product: t('dermat_boms.print.product', 'Product'),
+        productCode: t('dermat_boms.print.productCode', 'Product code'),
+        version: t('dermat_boms.print.version', 'Version'),
+        batch: t('dermat_boms.print.batch', 'Batch size'),
+        lines: t('dermat_boms.tile.lines', 'Lines'),
+        totalPercent: t('dermat_boms.tile.total', 'Total RM %'),
+        bulkPerPiece: t('dermat_boms.tile.bulkPerPiece', 'Bulk per piece'),
+        date: t('dermat_boms.print.date', 'Date'),
+        code: t('dermat_boms.table.code', 'Code'),
+        material: t('dermat_boms.table.material', 'Material'),
+        type: t('dermat_boms.table.type', 'Type'),
+        percent: t('dermat_boms.table.percent', 'RM %'),
+        perPiece: t('dermat_boms.table.perPiece', 'Qty per piece'),
+        batchQty: t('dermat_boms.table.batchQty', 'Qty for batch'),
+        unit: t('dermat_boms.print.unit', 'Unit'),
+        remark: t('dermat_boms.table.remark', 'Remark'),
+        total: t('dermat_boms.table.total', 'Total'),
+        notes: t('dermat_boms.notes', 'Notes'),
+        madeBy: t('dermat_boms.print.madeBy', 'Made by'),
+        approvedBy: t('dermat_boms.print.approvedBy', 'Approved by'),
+        issuedTo: t('dermat_boms.print.issuedTo', 'Issued to production'),
+        printed: t('dermat_boms.print.printed', 'Printed'),
+      },
+    })
+    if (!opened) flash(t('dermat_boms.print.blocked', 'Allow pop-ups for this site to print the sheet.'), 'error')
+  }
+
   if (loadError) {
     return (
       <Page>
@@ -410,7 +491,10 @@ export function BomEditor({ bomId, productId }: { bomId?: string; productId?: st
           <div className="mx-auto max-w-xl space-y-4 py-8">
             <h1 className="text-xl font-semibold">{t('dermat_boms.new.title', 'New BOM')}</h1>
             <p className="text-sm text-muted-foreground">
-              {t('dermat_boms.new.hint', 'Pick the product this BOM is for. Bulk and R&D products get a formula in RM %; Finished Goods get a pack BOM per piece.')}
+              {t(
+                'dermat_boms.new.hint',
+                'Pick the product this BOM is for. Bulk and R&D products get a formula in RM %; Finished Goods get a pack BOM per piece.',
+              )}
             </p>
             <MaterialPicker
               variant="field"
@@ -463,7 +547,9 @@ export function BomEditor({ bomId, productId }: { bomId?: string; productId?: st
               <div className="flex flex-wrap items-center gap-2">
                 <KindIcon className="h-5 w-5 text-primary" />
                 <h1 className="truncate text-xl font-bold">{state.product.title}</h1>
-                <span className="rounded-full bg-primary/10 px-2 py-0.5 font-mono text-xs font-bold text-primary">v{state.bom?.version ?? 1}</span>
+                <span className="rounded-full bg-primary/10 px-2 py-0.5 font-mono text-xs font-bold text-primary">
+                  v{state.bom?.version ?? 1}
+                </span>
                 <StatusBadge variant={STATUS_VARIANT[status] ?? 'neutral'} dot>
                   {t(`dermat_boms.status.${status}`, status)}
                 </StatusBadge>
@@ -488,7 +574,11 @@ export function BomEditor({ bomId, productId }: { bomId?: string; productId?: st
                 <div className="flex flex-wrap items-center gap-1.5 pt-1 text-xs">
                   <span className="text-muted-foreground">{t('dermat_boms.versions', 'Other versions:')}</span>
                   {otherVersions.map((entry) => (
-                    <Link key={entry.id} href={`/backend/boms/${entry.id}`} className="rounded border bg-muted/30 px-2 py-0.5 hover:bg-muted">
+                    <Link
+                      key={entry.id}
+                      href={`/backend/boms/${entry.id}`}
+                      className="rounded border bg-muted/30 px-2 py-0.5 hover:bg-muted"
+                    >
                       v{entry.version} · {t(`dermat_boms.status.${entry.status}`, entry.status)}
                     </Link>
                   ))}
@@ -496,6 +586,10 @@ export function BomEditor({ bomId, productId }: { bomId?: string; productId?: st
               ) : null}
             </div>
             <div className="flex flex-wrap items-center gap-2">
+              <Button type="button" variant="outline" size="sm" onClick={handlePrint} disabled={!state.rows.length}>
+                <Printer className="mr-1.5 h-4 w-4" />
+                {t('dermat_boms.print.button', 'Print / PDF')}
+              </Button>
               <Button asChild variant="ghost" size="sm">
                 <Link href={`/backend/products/${state.product.id}`}>{t('dermat_boms.openProduct', 'Open product')}</Link>
               </Button>
@@ -529,7 +623,11 @@ export function BomEditor({ bomId, productId }: { bomId?: string; productId?: st
             <Tile
               label={t('dermat_boms.tile.lines', 'Lines')}
               value={state.rows.length}
-              hint={state.kind === 'formula' ? t('dermat_boms.tile.linesFormula', 'raw materials') : t('dermat_boms.tile.linesPack', 'bulk + packing')}
+              hint={
+                state.kind === 'formula'
+                  ? t('dermat_boms.tile.linesFormula', 'raw materials')
+                  : t('dermat_boms.tile.linesPack', 'bulk + packing')
+              }
             />
             {state.kind === 'formula' ? (
               <Tile
@@ -562,204 +660,252 @@ export function BomEditor({ bomId, productId }: { bomId?: string; productId?: st
             />
           </div>
 
-          <Card className="overflow-hidden">
-            <CardHeader className="flex flex-col gap-3 border-b bg-muted/20 pb-3 sm:flex-row sm:items-end sm:justify-between">
-              <div>
-                <CardTitle className="flex items-center gap-2 text-sm font-bold">
-                  <Layers className="h-4 w-4 text-primary" />
-                  {state.kind === 'formula' ? t('dermat_boms.table.formulaTitle', 'Formula') : t('dermat_boms.table.packTitle', 'Pack BOM')}
-                </CardTitle>
-                <CardDescription className="text-xs">
-                  {state.kind === 'formula'
-                    ? t('dermat_boms.table.formulaHint', 'Enter RM % for each material. The quantity for the batch is calculated. The total must be 100 % to approve.')
-                    : t('dermat_boms.table.packHint', 'Enter how much goes into one piece: bulk in kg (0.030 for 30 g), packing in pcs. Add several bulks for a kit.')}
-                </CardDescription>
-              </div>
-              <div className="flex items-end gap-2">
-                <div className="space-y-1">
-                  <Label className="text-xs">{t('dermat_boms.batchSize', 'Batch size ({unit})', { unit: batchUnit })}</Label>
-                  <Input
-                    type="number"
-                    min={0}
-                    step="any"
-                    className="h-8 w-32 text-right font-mono"
-                    value={state.batchSize}
-                    disabled={!editable}
-                    onChange={(event) => patch({ batchSize: event.target.value })}
-                  />
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent className="p-0">
-              <div className="overflow-x-auto">
-                <table className="w-full border-collapse text-sm">
-                  <thead className="border-b bg-muted/50 text-xs uppercase tracking-wide text-muted-foreground">
-                    <tr>
-                      <th className="w-10 p-3 text-center">#</th>
-                      <th className="w-28 p-3 text-left">{t('dermat_boms.table.code', 'Code')}</th>
-                      <th className="min-w-56 p-3 text-left">{t('dermat_boms.table.material', 'Material')}</th>
-                      <th className="w-16 p-3 text-center">{t('dermat_boms.table.type', 'Type')}</th>
-                      <th className="w-32 p-3 text-right">{valueLabel}</th>
-                      <th className="w-36 p-3 text-right">{t('dermat_boms.table.batchQty', 'Qty for batch')}</th>
-                      <th className="w-32 p-3 text-right">{t('dermat_boms.table.onHand', 'On hand')}</th>
-                      <th className="min-w-40 p-3 text-left">{t('dermat_boms.table.remark', 'Remark')}</th>
-                      {editable ? <th className="w-28 p-3" /> : null}
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y">
-                    {lines.map(({ row, need, short }, index) => {
-                      const error = rowErrors[String(index + 1)]
-                      return (
-                        <tr key={row.key} className={cn('align-top', error && 'bg-status-error-bg')}>
-                          <td className="p-3 text-center font-mono text-xs text-muted-foreground">{index + 1}</td>
-                          <td className="p-3 font-mono text-xs">{row.code ?? '—'}</td>
-                          <td className="p-3">
-                            <span className="font-medium">{row.name}</span>
-                            {error ? <span className="block text-xs text-status-error-text">{error}</span> : null}
-                          </td>
-                          <td className="p-3 text-center">
-                            <span className="rounded border bg-muted/40 px-1.5 py-0.5 text-xs font-semibold">{kindShort(row.componentKind)}</span>
-                          </td>
-                          <td className="p-2 text-right">
-                            {editable ? (
-                              <Input
-                                ref={(element) => {
-                                  valueRefs.current[row.key] = element
-                                }}
-                                type="number"
-                                min={0}
-                                step="any"
-                                value={row.value}
-                                placeholder={state.kind === 'formula' ? '0.000' : '0.00000'}
-                                className="h-8 text-right font-mono"
-                                onChange={(event) => updateRow(row.key, { value: event.target.value })}
-                                onKeyDown={(event) => {
-                                  if (event.key === 'Enter') {
-                                    event.preventDefault()
-                                    const next = state.rows[index + 1]
-                                    if (next) valueRefs.current[next.key]?.focus()
-                                  }
-                                }}
-                              />
-                            ) : (
-                              <span className="font-mono">{formatQty(numberOf(row.value), 5)}</span>
-                            )}
-                          </td>
-                          <td className="p-3 text-right font-mono font-semibold">
-                            {formatQty(need)} <span className="text-xs font-normal text-muted-foreground">{row.unit}</span>
-                          </td>
-                          <td className={cn('p-3 text-right font-mono', short && numberOf(row.value) > 0 && 'text-status-error-text')}>
-                            {formatQty(row.onHand)} <span className="text-xs font-normal text-muted-foreground">{row.unit}</span>
-                          </td>
-                          <td className="p-2">
-                            {editable ? (
-                              <Input className="h-8" value={row.remark} onChange={(event) => updateRow(row.key, { remark: event.target.value })} />
-                            ) : (
-                              <span className="text-xs text-muted-foreground">{row.remark || '—'}</span>
-                            )}
-                          </td>
-                          {editable ? (
-                            <td className="p-2">
-                              <div className="flex justify-end gap-0.5">
-                                <Button
-                                  type="button"
-                                  variant="ghost"
-                                  size="icon"
-                                  className="h-8 w-8"
-                                  aria-label={t('dermat_boms.table.up', 'Move up')}
-                                  disabled={index === 0}
-                                  onClick={() => moveRow(index, -1)}
-                                >
-                                  <ArrowUp className="h-4 w-4" />
-                                </Button>
-                                <Button
-                                  type="button"
-                                  variant="ghost"
-                                  size="icon"
-                                  className="h-8 w-8"
-                                  aria-label={t('dermat_boms.table.down', 'Move down')}
-                                  disabled={index === state.rows.length - 1}
-                                  onClick={() => moveRow(index, 1)}
-                                >
-                                  <ArrowDown className="h-4 w-4" />
-                                </Button>
-                                <Button
-                                  type="button"
-                                  variant="ghost"
-                                  size="icon"
-                                  className="h-8 w-8 text-muted-foreground"
-                                  aria-label={t('dermat_boms.table.remove', 'Remove line')}
-                                  onClick={() => removeRow(row.key)}
-                                >
-                                  <Trash2 className="h-4 w-4" />
-                                </Button>
-                              </div>
-                            </td>
-                          ) : null}
-                        </tr>
-                      )
-                    })}
-                    {!state.rows.length ? (
-                      <tr>
-                        <td colSpan={editable ? 9 : 8} className="p-8 text-center text-sm text-muted-foreground">
-                          {t('dermat_boms.table.empty', 'No lines yet. Use "Add material" below.')}
-                        </td>
-                      </tr>
-                    ) : null}
-                  </tbody>
-                  {state.rows.length ? (
-                    <tfoot className="border-t bg-muted/30 text-sm font-semibold">
-                      <tr>
-                        <td colSpan={4} className="p-3 text-right text-xs uppercase text-muted-foreground">
-                          {t('dermat_boms.table.total', 'Total')}
-                        </td>
-                        <td className={cn('p-3 text-right font-mono', state.kind === 'formula' && !percentOk && 'text-status-error-text')}>
-                          {state.kind === 'formula' ? `${formatQty(totalPercent, 4)} %` : ''}
-                        </td>
-                        <td className="p-3 text-right font-mono">
-                          {state.kind === 'formula' ? `${formatQty(lines.reduce((sum, line) => sum + line.need, 0))} ${state.product.unit ?? ''}` : ''}
-                        </td>
-                        <td colSpan={editable ? 3 : 2} />
-                      </tr>
-                    </tfoot>
-                  ) : null}
-                </table>
-              </div>
-              {editable ? (
-                <div className="flex flex-wrap items-center gap-3 border-t p-3">
-                  <MaterialPicker
-                    kinds={config.componentKinds}
-                    excludeIds={[state.product.id, ...state.rows.map((row) => row.componentProductId)]}
-                    onSelect={addRow}
-                    label={t('dermat_boms.table.add', 'Add material')}
-                  />
-                  <span className="text-xs text-muted-foreground">
-                    {state.kind === 'formula'
-                      ? t('dermat_boms.table.addFormulaHint', 'Raw materials, or another Bulk as a sub-formula')
-                      : t('dermat_boms.table.addPackHint', 'Bulk and packing materials')}
-                  </span>
-                </div>
-              ) : null}
-            </CardContent>
-          </Card>
+          {state.bom ? (
+            <div className="inline-flex rounded-lg border bg-muted p-1 text-xs">
+              {(
+                [
+                  { value: 'lines', label: t('dermat_boms.view.lines', 'Lines'), icon: Layers },
+                  { value: 'tree', label: t('dermat_boms.view.tree', 'Tree & needs'), icon: Network },
+                ] as const
+              ).map((option) => (
+                <button
+                  key={option.value}
+                  type="button"
+                  onClick={() => setView(option.value)}
+                  className={cn(
+                    'flex items-center gap-1.5 rounded-md px-3 py-1.5 font-semibold transition-colors',
+                    view === option.value ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground',
+                  )}
+                >
+                  <option.icon className="h-3.5 w-3.5" />
+                  {option.label}
+                </button>
+              ))}
+            </div>
+          ) : null}
 
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-bold">{t('dermat_boms.notes', 'Notes')}</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {editable ? (
-                <Textarea
-                  rows={3}
-                  value={state.notes}
-                  placeholder={t('dermat_boms.notesPlaceholder', 'Process notes, order of adding, temperature…')}
-                  onChange={(event) => patch({ notes: event.target.value })}
-                />
-              ) : (
-                <p className="whitespace-pre-wrap text-sm text-muted-foreground">{state.notes || '—'}</p>
-              )}
-            </CardContent>
-          </Card>
+          {view === 'tree' && state.bom ? (
+            <BomTree bomId={state.bom.id} defaultQuantity={state.bom.batchSize} unit={state.bom.batchUnit} dirty={dirty} />
+          ) : (
+            <>
+              <Card className="overflow-hidden">
+                <CardHeader className="flex flex-col gap-3 border-b bg-muted/20 pb-3 sm:flex-row sm:items-end sm:justify-between">
+                  <div>
+                    <CardTitle className="flex items-center gap-2 text-sm font-bold">
+                      <Layers className="h-4 w-4 text-primary" />
+                      {state.kind === 'formula'
+                        ? t('dermat_boms.table.formulaTitle', 'Formula')
+                        : t('dermat_boms.table.packTitle', 'Pack BOM')}
+                    </CardTitle>
+                    <CardDescription className="text-xs">
+                      {state.kind === 'formula'
+                        ? t(
+                            'dermat_boms.table.formulaHint',
+                            'Enter RM % for each material. The quantity for the batch is calculated. The total must be 100 % to approve.',
+                          )
+                        : t(
+                            'dermat_boms.table.packHint',
+                            'Enter how much goes into one piece: bulk in kg (0.030 for 30 g), packing in pcs. Add several bulks for a kit.',
+                          )}
+                    </CardDescription>
+                  </div>
+                  <div className="flex items-end gap-2">
+                    <div className="space-y-1">
+                      <Label className="text-xs">{t('dermat_boms.batchSize', 'Batch size ({unit})', { unit: batchUnit })}</Label>
+                      <Input
+                        type="number"
+                        min={0}
+                        step="any"
+                        className="h-8 w-32 text-right font-mono"
+                        value={state.batchSize}
+                        disabled={!editable}
+                        onChange={(event) => patch({ batchSize: event.target.value })}
+                      />
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent className="p-0">
+                  <div className="overflow-x-auto">
+                    <table className="w-full border-collapse text-sm">
+                      <thead className="border-b bg-muted/50 text-xs uppercase tracking-wide text-muted-foreground">
+                        <tr>
+                          <th className="w-10 p-3 text-center">#</th>
+                          <th className="w-28 p-3 text-left">{t('dermat_boms.table.code', 'Code')}</th>
+                          <th className="min-w-56 p-3 text-left">{t('dermat_boms.table.material', 'Material')}</th>
+                          <th className="w-16 p-3 text-center">{t('dermat_boms.table.type', 'Type')}</th>
+                          <th className="w-32 p-3 text-right">{valueLabel}</th>
+                          <th className="w-36 p-3 text-right">{t('dermat_boms.table.batchQty', 'Qty for batch')}</th>
+                          <th className="w-32 p-3 text-right">{t('dermat_boms.table.onHand', 'On hand')}</th>
+                          <th className="min-w-40 p-3 text-left">{t('dermat_boms.table.remark', 'Remark')}</th>
+                          {editable ? <th className="w-28 p-3" /> : null}
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y">
+                        {lines.map(({ row, need, short }, index) => {
+                          const error = rowErrors[String(index + 1)]
+                          return (
+                            <tr key={row.key} className={cn('align-top', error && 'bg-status-error-bg')}>
+                              <td className="p-3 text-center font-mono text-xs text-muted-foreground">{index + 1}</td>
+                              <td className="p-3 font-mono text-xs">{row.code ?? '—'}</td>
+                              <td className="p-3">
+                                <span className="font-medium">{row.name}</span>
+                                {error ? <span className="block text-xs text-status-error-text">{error}</span> : null}
+                              </td>
+                              <td className="p-3 text-center">
+                                <span className="rounded border bg-muted/40 px-1.5 py-0.5 text-xs font-semibold">
+                                  {kindShort(row.componentKind)}
+                                </span>
+                              </td>
+                              <td className="p-2 text-right">
+                                {editable ? (
+                                  <Input
+                                    ref={(element) => {
+                                      valueRefs.current[row.key] = element
+                                    }}
+                                    type="number"
+                                    min={0}
+                                    step="any"
+                                    value={row.value}
+                                    placeholder={state.kind === 'formula' ? '0.000' : '0.00000'}
+                                    className="h-8 text-right font-mono"
+                                    onChange={(event) => updateRow(row.key, { value: event.target.value })}
+                                    onKeyDown={(event) => {
+                                      if (event.key === 'Enter') {
+                                        event.preventDefault()
+                                        const next = state.rows[index + 1]
+                                        if (next) valueRefs.current[next.key]?.focus()
+                                      }
+                                    }}
+                                  />
+                                ) : (
+                                  <span className="font-mono">{formatQty(numberOf(row.value), 5)}</span>
+                                )}
+                              </td>
+                              <td className="p-3 text-right font-mono font-semibold">
+                                {formatQty(need)} <span className="text-xs font-normal text-muted-foreground">{row.unit}</span>
+                              </td>
+                              <td className={cn('p-3 text-right font-mono', short && numberOf(row.value) > 0 && 'text-status-error-text')}>
+                                {formatQty(row.onHand)} <span className="text-xs font-normal text-muted-foreground">{row.unit}</span>
+                              </td>
+                              <td className="p-2">
+                                {editable ? (
+                                  <Input
+                                    className="h-8"
+                                    value={row.remark}
+                                    onChange={(event) => updateRow(row.key, { remark: event.target.value })}
+                                  />
+                                ) : (
+                                  <span className="text-xs text-muted-foreground">{row.remark || '—'}</span>
+                                )}
+                              </td>
+                              {editable ? (
+                                <td className="p-2">
+                                  <div className="flex justify-end gap-0.5">
+                                    <Button
+                                      type="button"
+                                      variant="ghost"
+                                      size="icon"
+                                      className="h-8 w-8"
+                                      aria-label={t('dermat_boms.table.up', 'Move up')}
+                                      disabled={index === 0}
+                                      onClick={() => moveRow(index, -1)}
+                                    >
+                                      <ArrowUp className="h-4 w-4" />
+                                    </Button>
+                                    <Button
+                                      type="button"
+                                      variant="ghost"
+                                      size="icon"
+                                      className="h-8 w-8"
+                                      aria-label={t('dermat_boms.table.down', 'Move down')}
+                                      disabled={index === state.rows.length - 1}
+                                      onClick={() => moveRow(index, 1)}
+                                    >
+                                      <ArrowDown className="h-4 w-4" />
+                                    </Button>
+                                    <Button
+                                      type="button"
+                                      variant="ghost"
+                                      size="icon"
+                                      className="h-8 w-8 text-muted-foreground"
+                                      aria-label={t('dermat_boms.table.remove', 'Remove line')}
+                                      onClick={() => removeRow(row.key)}
+                                    >
+                                      <Trash2 className="h-4 w-4" />
+                                    </Button>
+                                  </div>
+                                </td>
+                              ) : null}
+                            </tr>
+                          )
+                        })}
+                        {!state.rows.length ? (
+                          <tr>
+                            <td colSpan={editable ? 9 : 8} className="p-8 text-center text-sm text-muted-foreground">
+                              {t('dermat_boms.table.empty', 'No lines yet. Use "Add material" below.')}
+                            </td>
+                          </tr>
+                        ) : null}
+                      </tbody>
+                      {state.rows.length ? (
+                        <tfoot className="border-t bg-muted/30 text-sm font-semibold">
+                          <tr>
+                            <td colSpan={4} className="p-3 text-right text-xs uppercase text-muted-foreground">
+                              {t('dermat_boms.table.total', 'Total')}
+                            </td>
+                            <td
+                              className={cn('p-3 text-right font-mono', state.kind === 'formula' && !percentOk && 'text-status-error-text')}
+                            >
+                              {state.kind === 'formula' ? `${formatQty(totalPercent, 4)} %` : ''}
+                            </td>
+                            <td className="p-3 text-right font-mono">
+                              {state.kind === 'formula'
+                                ? `${formatQty(lines.reduce((sum, line) => sum + line.need, 0))} ${state.product.unit ?? ''}`
+                                : ''}
+                            </td>
+                            <td colSpan={editable ? 3 : 2} />
+                          </tr>
+                        </tfoot>
+                      ) : null}
+                    </table>
+                  </div>
+                  {editable ? (
+                    <div className="flex flex-wrap items-center gap-3 border-t p-3">
+                      <MaterialPicker
+                        kinds={config.componentKinds}
+                        excludeIds={[state.product.id, ...state.rows.map((row) => row.componentProductId)]}
+                        onSelect={addRow}
+                        label={t('dermat_boms.table.add', 'Add material')}
+                      />
+                      <span className="text-xs text-muted-foreground">
+                        {state.kind === 'formula'
+                          ? t('dermat_boms.table.addFormulaHint', 'Raw materials, or another Bulk as a sub-formula')
+                          : t('dermat_boms.table.addPackHint', 'Bulk and packing materials')}
+                      </span>
+                    </div>
+                  ) : null}
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-bold">{t('dermat_boms.notes', 'Notes')}</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {editable ? (
+                    <Textarea
+                      rows={3}
+                      value={state.notes}
+                      placeholder={t('dermat_boms.notesPlaceholder', 'Process notes, order of adding, temperature…')}
+                      onChange={(event) => patch({ notes: event.target.value })}
+                    />
+                  ) : (
+                    <p className="whitespace-pre-wrap text-sm text-muted-foreground">{state.notes || '—'}</p>
+                  )}
+                </CardContent>
+              </Card>
+            </>
+          )}
         </div>
       </PageBody>
     </Page>

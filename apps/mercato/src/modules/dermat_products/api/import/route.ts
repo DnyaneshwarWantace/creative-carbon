@@ -7,7 +7,7 @@ import { createRequestContainer } from '@open-mercato/shared/lib/di/container'
 import { getAuthFromRequest } from '@open-mercato/shared/lib/auth/server'
 import { resolveOrganizationScopeForRequest } from '@open-mercato/core/modules/directory/utils/organizationScope'
 import type { CommandBus, CommandRuntimeContext } from '@open-mercato/shared/lib/commands'
-import { runCrudMutationGuardAfterSuccess, validateCrudMutationGuard } from '@open-mercato/shared/lib/crud/mutation-guard'
+import { runRouteMutationGuards } from '@open-mercato/shared/lib/crud/route-mutation-guard'
 import { productCreateSchema, productUpdateSchema, variantCreateSchema } from '@open-mercato/core/modules/catalog/data/validators'
 import { productInventoryProfileCreateSchema } from '@open-mercato/core/modules/wms/data/validators'
 import { splitCustomFieldPayload } from '@open-mercato/shared/lib/crud/custom-fields'
@@ -127,19 +127,13 @@ async function POST(req: Request) {
   const actorCandidates = [ctx.auth.sub, ctx.auth.userId, ctx.auth.keyId]
   const actorId = actorCandidates.find((value): value is string => typeof value === 'string' && UUID_RE.test(value)) ?? ''
 
-  const guardInput = {
-    tenantId,
-    organizationId,
-    userId: actorId,
-    resourceKind: 'dermat_products.import',
-    resourceId: kind,
-    operation: 'custom' as const,
-    requestMethod: req.method,
-    requestHeaders: req.headers,
-    mutationPayload: { kind, rowCount: rows.length },
-  }
-  const guardResult = await validateCrudMutationGuard(ctx.container, guardInput)
-  if (guardResult && !guardResult.ok) return NextResponse.json(guardResult.body, { status: guardResult.status })
+  const guard = await runRouteMutationGuards({
+    container: ctx.container,
+    req,
+    auth: { userId: actorId || 'system', tenantId, organizationId },
+    input: { resourceKind: 'dermat_products.import', resourceId: kind, operation: 'custom', mutationPayload: { kind, rowCount: rows.length } },
+  })
+  if (!guard.ok) return guard.response
 
   const em = (ctx.container.resolve('em') as EntityManager).fork()
   const connection = em.getConnection()
@@ -326,19 +320,7 @@ async function POST(req: Request) {
     }
   }
 
-  if (guardResult?.ok && guardResult.shouldRunAfterSuccess) {
-    await runCrudMutationGuardAfterSuccess(ctx.container, {
-      tenantId,
-      organizationId,
-      userId: actorId,
-      resourceKind: 'dermat_products.import',
-      resourceId: kind,
-      operation: 'custom',
-      requestMethod: req.method,
-      requestHeaders: req.headers,
-      metadata: guardResult.metadata ?? null,
-    })
-  }
+  await guard.runAfterSuccess()
   return NextResponse.json({ results })
 }
 

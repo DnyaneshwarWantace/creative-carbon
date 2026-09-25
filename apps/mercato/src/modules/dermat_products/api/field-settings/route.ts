@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { z } from 'zod'
 import { createRequestContainer } from '@open-mercato/shared/lib/di/container'
 import { getAuthFromRequest } from '@open-mercato/shared/lib/auth/server'
-import { runCrudMutationGuardAfterSuccess, validateCrudMutationGuard } from '@open-mercato/shared/lib/crud/mutation-guard'
+import { runRouteMutationGuards } from '@open-mercato/shared/lib/crud/route-mutation-guard'
 import type { OpenApiRouteDoc } from '@open-mercato/shared/lib/openapi'
 import type { ModuleConfigService } from '@open-mercato/core/modules/configs/lib/module-config-service'
 import { PRODUCT_KINDS } from '../../lib/kinds'
@@ -44,26 +44,18 @@ async function PUT(req: Request) {
   if (!parsed.success) return NextResponse.json({ error: 'Invalid field settings' }, { status: 400 })
   const container = await createRequestContainer()
   const actorId = (typeof auth.sub === 'string' && auth.sub) || 'system'
-  const guardInput = {
-    tenantId: auth.tenantId,
-    organizationId: auth.orgId ?? null,
-    userId: actorId,
-    resourceKind: 'dermat_products.field_settings',
-    resourceId: parsed.data.kind,
-    operation: 'custom' as const,
-    requestMethod: req.method,
-    requestHeaders: req.headers,
-    mutationPayload: parsed.data,
-  }
-  const guardResult = await validateCrudMutationGuard(container, guardInput)
-  if (guardResult && !guardResult.ok) return NextResponse.json(guardResult.body, { status: guardResult.status })
+  const guard = await runRouteMutationGuards({
+    container,
+    req,
+    auth: { userId: actorId, tenantId: auth.tenantId, organizationId: auth.orgId ?? null },
+    input: { resourceKind: 'dermat_products.field_settings', resourceId: parsed.data.kind, operation: 'custom', mutationPayload: parsed.data },
+  })
+  if (!guard.ok) return guard.response
   const configService = container.resolve('moduleConfigService') as ModuleConfigService
   const current = await readHiddenFields(configService, auth.tenantId)
   const next = { ...current, [parsed.data.kind]: Array.from(new Set(parsed.data.hiddenFields)) }
   await configService.setValue(MODULE_ID, SETTING_KEY, next, { tenantId: auth.tenantId })
-  if (guardResult?.ok && guardResult.shouldRunAfterSuccess) {
-    await runCrudMutationGuardAfterSuccess(container, { ...guardInput, metadata: guardResult.metadata ?? null })
-  }
+  await guard.runAfterSuccess()
   return NextResponse.json({ hiddenFields: next })
 }
 

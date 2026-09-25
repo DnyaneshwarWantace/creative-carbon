@@ -360,8 +360,9 @@ export function ProductForm({ kind, productId }: { kind: ProductKind; productId?
       })
       flash(t('dermat_products.flash.deleted', '{kind} deleted', { kind: config.singular }), 'success')
       router.push(listHref)
-    } catch {
-      flash(t('dermat_products.flash.deleteFailed', 'Could not delete.'), 'error')
+    } catch (error) {
+      const message = error instanceof Error && error.message && !error.message.startsWith('[internal]') ? error.message : null
+      flash(message ?? t('dermat_products.flash.deleteFailed', 'Could not delete.'), 'error')
     } finally {
       setSaving(false)
     }

@@ -31,6 +31,9 @@ Old tables `dermat_boms` / `dermat_bom_lines` hold demo data from the deleted mo
 - `PUT boms` — replace a Draft `{ id, batchSize, notes, items[] }`; optimistic lock on `updated_at`.
 - `DELETE boms?id=` — Drafts only.
 - `POST boms/approve` `{ id }` (feature `dermat_boms.approve`) and `POST boms/new-version` `{ id }` (feature `dermat_boms.manage`).
+- `GET tree?bomId=&quantity=` — multi-level explosion (FG → Bulk → RM) using each Bulk's current BOM (approved, else draft), with a flat list of total needs, on hand and shortage. Loops are flagged and not expanded.
+- `GET components?kinds=&search=` — material search by name or partial code, with on-hand.
+- Mutation guard `dermat_boms.product-in-use` (`data/guards.ts`): deleting a catalog product that owns or is used in a draft/approved BOM returns 409 with the BOM names.
 
 Features: `dermat_boms.view`, `dermat_boms.manage`, `dermat_boms.approve`.
 
@@ -38,6 +41,8 @@ Features: `dermat_boms.view`, `dermat_boms.manage`, `dermat_boms.approve`.
 
 - **R&D → BOM** (`/backend/boms`): tabs Formulas (Bulk + R&D) / Pack BOMs (Finished Goods); columns Product, Code, Version, Status, Lines, Total %, Updated.
 - **BOM page** (`/backend/boms/new?productId=` and `/backend/boms/<id>`): header strip (product, code, version, status, made/approved by), summary tiles (lines, total % or bulk per piece, batch size, short in stock), batch size, inline table (code, material, type, RM % or qty per piece, qty for batch, on hand with shortage highlight, remark, move up/down, remove), "Add material" search by name or code (`GET /api/dermat_boms/components`), notes; Save draft, Approve, Edit as new version, Delete draft.
+- **Tree & needs** view on the BOM page: quantity to make, collapsible tree with per-parent value, needed qty, on hand, BOM links, "no formula yet" warning; total materials table with shortage.
+- **Print / PDF**: A4 sheet (Dermat India header, product, BOM No., version, status, batch, lines with RM % / qty per piece and batch qty, totals, notes, Made by / Approved by name stamps, DRAFT watermark when not approved); printed or saved as PDF from the browser print dialog.
 - Product edit page for Bulk / R&D / FG shows a "BOM" button (open existing or create).
 
 ## Later (with the order page)
@@ -46,11 +51,12 @@ Order-specific BOM copy and edits, planning explosion (FG → Bulk → RM), rese
 
 ## Status
 
-Implemented 2026-09-25. Verified through the API (26/26): search by partial code and name, create, one-draft rule, % totals and batch quantities, approve blocked below 100 %, stale edit refused (409), duplicate / self / wrong-type lines refused, approved locked, new version + supersede, pack BOM per piece, list filters, delete draft. UI not yet clicked through in a browser.
+Implemented 2026-09-25. Verified through the API (31/31, incl. tree 1000 pcs → 30 kg bulk → RM by %, totals, shortage, scaling, and delete protection): search by partial code and name, create, one-draft rule, % totals and batch quantities, approve blocked below 100 %, stale edit refused (409), duplicate / self / wrong-type lines refused, approved locked, new version + supersede, pack BOM per piece, list filters, delete draft. UI not yet clicked through in a browser.
 
-Not done yet: print / PDF sheet, tree view of FG → Bulk → RM, blocking deletion of a product that is used in an approved BOM.
+Not done yet: order-specific BOM copies (with the order page).
 
 ## Changelog
 
 - 2026-09-25: Spec created.
 - 2026-09-25: Implemented API, screens, product-page link.
+- 2026-09-25: Tree & needs view, print/PDF sheet, product-in-use delete guard; custom routes moved to runRouteMutationGuards.
