@@ -449,17 +449,13 @@ export function buildDocumentCrudOptions(binding: DocumentBinding) {
   // grid never reads them, so selecting them for list pages fetches and decrypts
   // blobs over the wire for nothing (#2233). `customer_snapshot` is intentionally
   // kept because the grid derives the customer name/email column from it.
-  // `metadata` is likewise kept — small (not a large snapshot blob) and the
-  // dermat_sales_flow Order Book grid reads `metadata.order_stage` from it to
-  // resolve each row's pipeline stage; trimming it made every grid row silently
-  // fall back to the base `status` field and mis-render the pipeline stage/
-  // "Verified" badge regardless of the order's real stage.
   const detailOnlyProjectionFields = new Set([
     'billing_address_snapshot',
     'shipping_address_snapshot',
     'shipping_method_snapshot',
     'payment_method_snapshot',
     'totals_snapshot',
+    'metadata',
   ])
 
   const gridFields = listFields.filter((field) => !detailOnlyProjectionFields.has(field))

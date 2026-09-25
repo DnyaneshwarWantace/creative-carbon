@@ -1,1914 +1,2113 @@
-"use client"
+"use client";
 
-import * as React from "react"
-import { useRouter, useSearchParams } from "next/navigation"
-import { Page, PageBody } from "@open-mercato/ui/backend/Page"
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@open-mercato/ui/primitives/card"
-import { Button } from "@open-mercato/ui/primitives/button"
-import { Input } from "@open-mercato/ui/primitives/input"
-import { Label } from "@open-mercato/ui/primitives/label"
-import { Textarea } from "@open-mercato/ui/primitives/textarea"
+import * as React from "react";
+import { extensionPoints } from "@open-mercato/core/modules/catalog/extension-points";
+import { useRouter, useSearchParams } from "next/navigation";
+import type { ZodType } from "zod";
+import { Page, PageBody } from "@open-mercato/ui/backend/Page";
+import {
+  CrudForm,
+  type CrudFormGroup,
+  type CrudFormGroupComponentProps,
+} from "@open-mercato/ui/backend/CrudForm";
+import { createCrud } from "@open-mercato/ui/backend/utils/crud";
+import { createCrudFormError } from "@open-mercato/ui/backend/utils/serverErrors";
+import { flash } from "@open-mercato/ui/backend/FlashMessages";
+import { TagsInput } from "@open-mercato/ui/backend/inputs/TagsInput";
+import MarkdownField from "@open-mercato/ui/backend/inputs/MarkdownField";
+import { Button } from "@open-mercato/ui/primitives/button";
+import { Input } from "@open-mercato/ui/primitives/input";
+import { Label } from "@open-mercato/ui/primitives/label";
+import { RadioGroup, Radio } from "@open-mercato/ui/primitives/radio";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@open-mercato/ui/primitives/select"
+} from "@open-mercato/ui/primitives/select";
+import { cn } from "@open-mercato/shared/lib/utils";
 import {
-  Package,
-  Layers,
-  Sparkles,
-  DollarSign,
-  ShieldCheck,
-  FlaskConical,
-  Boxes,
-  ArrowLeft,
-  Info,
-  CheckCircle2,
-  Clock,
-  Warehouse,
-} from "lucide-react"
-import { createCrud } from "@open-mercato/ui/backend/utils/crud"
-import { apiCall } from "@open-mercato/ui/backend/utils/apiCall"
-import { flash } from "@open-mercato/ui/backend/FlashMessages"
-import { useT } from "@open-mercato/shared/lib/i18n/context"
-import { useOrganizationScopeDetail } from "@open-mercato/shared/lib/frontend/useOrganizationScope"
+  Plus,
+  Trash2,
+  FileText,
+  AlignLeft,
+  ChevronLeft,
+  ChevronRight,
+  AlertCircle,
+  Settings,
+} from "lucide-react";
+import {
+  apiCall,
+  readApiResultOrThrow,
+} from "@open-mercato/ui/backend/utils/apiCall";
+import { useT } from "@open-mercato/shared/lib/i18n/context";
+import { E } from "#generated/entities.ids.generated";
+import {
+  ProductMediaManager,
+  type ProductMediaItem,
+} from "@open-mercato/core/modules/catalog/components/products/ProductMediaManager";
+import { ProductCategorizeSection } from "@open-mercato/core/modules/catalog/components/products/ProductCategorizeSection";
+import {
+  PRODUCT_FORM_STEPS,
+  type PriceKindSummary,
+  type PriceKindApiPayload,
+  type TaxRateSummary,
+  type ProductOptionInput,
+  type VariantPriceValue,
+  type VariantDraft,
+  type ProductFormValues,
+  type ProductUnitConversionDraft,
+  type ProductUnitPriceReferenceUnit,
+  type ProductUnitRoundingMode,
+  productFormSchema,
+  createInitialProductFormValues,
+  createVariantDraft,
+  buildOptionValuesKey,
+  haveSameOptionValues,
+  normalizePriceKindSummary,
+  formatTaxRateLabel,
+  slugify,
+  createLocalId,
+  buildOptionSchemaDefinition,
+  buildVariantCombinations,
+  normalizeProductDimensions,
+  normalizeProductWeight,
+  sanitizeProductDimensions,
+  sanitizeProductWeight,
+  updateDimensionValue,
+  updateWeightValue,
+  isConfigurableProductType,
+  buildComplianceProductPayload,
+} from "@open-mercato/core/modules/catalog/components/products/productForm";
+import { CATALOG_PRODUCT_TYPES } from "@open-mercato/core/modules/catalog/data/types";
+import {
+  buildAttachmentImageUrl,
+  slugifyAttachmentFileName,
+} from "@open-mercato/core/modules/attachments/lib/imageUrls";
+import { ProductUomSection } from "@open-mercato/core/modules/catalog/components/products/ProductUomSection";
+import { ProductComplianceSection } from "@open-mercato/core/modules/catalog/components/products/ProductComplianceSection";
+import { canonicalizeUnitCode } from "@open-mercato/core/modules/catalog/lib/unitCodes";
+import {
+  UNIT_PRICE_REFERENCE_UNITS,
+  toTrimmedOrNull,
+  parseNumericInput,
+  toPositiveNumberOrNull,
+  toIntegerInRangeOrDefault,
+  normalizeProductConversionInputs,
+  type ProductUnitConversionInput,
+} from "@open-mercato/core/modules/catalog/components/products/productFormUtils";
+import { createLogger } from '@open-mercato/shared/lib/logger'
 
-export type InventoryCategory = "fg" | "rm" | "pm" | "bulk" | "rd"
+const logger = createLogger('catalog')
 
-// Maps this page's inventory-category tabs to the 4 fieldset codes seeded by
-// seedDermatProductFieldsets (apps/mercato/src/modules/dermat_sales_flow/lib/seeds.ts).
-// Tab values and fieldset codes are NOT the same strings — R&D ("rd") has no
-// matching fieldset/category-group and intentionally maps to undefined, so
-// R&D products show only the always-shown backbone fields.
-const INVENTORY_CATEGORY_TO_FIELDSET: Record<InventoryCategory, string | undefined> = {
-  fg: "finished_goods",
-  rm: "raw_material",
-  pm: "packing_material",
-  bulk: "bulk",
-  rd: undefined,
+const productFormTypedSchema =
+  productFormSchema as unknown as ZodType<ProductFormValues>;
+
+type VariantPriceRequest = {
+  variantDraftId: string;
+  priceKindId: string;
+  currencyCode: string;
+  amount: number;
+  displayMode: PriceKindSummary["displayMode"];
+  taxRateId: string | null;
+  taxRateValue: number | null;
+};
+
+type ProductFormStep = (typeof PRODUCT_FORM_STEPS)[number];
+
+const TRUE_BOOLEAN_VALUES = new Set(["true", "1", "yes", "y", "t"]);
+
+const matchField = (fieldId: string) => (value: string) =>
+  value === fieldId ||
+  value.startsWith(`${fieldId}.`) ||
+  value.startsWith(`${fieldId}[`);
+const matchPrefix = (prefix: string) => (value: string) =>
+  value.startsWith(prefix);
+
+const STEP_FIELD_MATCHERS: Record<
+  ProductFormStep,
+  ((value: string) => boolean)[]
+> = {
+  general: [
+    matchField("title"),
+    matchField("sku"),
+    matchField("productType"),
+    matchField("description"),
+    matchField("mediaItems"),
+    matchField("mediaDraftId"),
+    matchPrefix("defaultMedia"),
+    matchPrefix("dimensions"),
+    matchPrefix("weight"),
+  ],
+  organize: [
+    matchField("categoryIds"),
+    matchField("channelIds"),
+    matchField("tags"),
+  ],
+  uom: [
+    matchField("defaultUnit"),
+    matchField("defaultSalesUnit"),
+    matchField("defaultSalesUnitQuantity"),
+    matchField("uomRoundingScale"),
+    matchField("uomRoundingMode"),
+    matchField("unitPriceEnabled"),
+    matchField("unitPriceReferenceUnit"),
+    matchField("unitPriceBaseQuantity"),
+    matchPrefix("unitConversions"),
+  ],
+  compliance: [
+    matchField("countryOfOriginCode"),
+    matchField("pkwiuCode"),
+    matchField("cnCode"),
+    matchField("hsCode"),
+    matchField("taxClassificationCode"),
+    matchField("gtuCodes"),
+    matchField("ageMin"),
+    matchField("isExciseGood"),
+    matchField("exciseCategory"),
+    matchField("requiresPrescription"),
+    matchPrefix("hazmat"),
+    matchField("unNumber"),
+    matchField("containsLithiumBattery"),
+    matchField("launchAt"),
+    matchField("endOfLifeAt"),
+    matchField("availableFrom"),
+    matchField("availableUntil"),
+    matchField("minOrderQty"),
+    matchField("maxOrderQty"),
+    matchField("orderQtyIncrement"),
+    matchField("requiresShipping"),
+    matchField("isQuoteOnly"),
+    matchField("seoTitle"),
+    matchField("seoDescription"),
+    matchField("canonicalUrl"),
+  ],
+  variants: [
+    matchField("hasVariants"),
+    matchPrefix("options"),
+    matchPrefix("variants"),
+  ],
+};
+
+function resolveStepForField(fieldId: string): ProductFormStep | null {
+  const normalized = fieldId?.trim();
+  if (!normalized) return null;
+  for (const step of PRODUCT_FORM_STEPS) {
+    const matchers = STEP_FIELD_MATCHERS[step];
+    if (matchers.some((matcher) => matcher(normalized))) return step;
+  }
+  return null;
 }
 
-const CATEGORY_TABS: { id: InventoryCategory; label: string; sub: string; icon: React.ComponentType<{ className?: string }> }[] = [
-  { id: "fg", label: "Finished Goods (FG)", sub: "Packaged Skincare & Cosmetics", icon: Package },
-  { id: "rm", label: "Raw Materials (RM)", sub: "Chemicals, Actives & Fragrances", icon: FlaskConical },
-  { id: "pm", label: "Packaging Materials (PM)", sub: "Bottles, Pumps, Droppers & Boxes", icon: Boxes },
-  { id: "bulk", label: "Bulk Formulation (SFG)", sub: "Semi-Finished Compounded Bulk", icon: Layers },
-  { id: "rd", label: "R&D / Trial Batches", sub: "Pilot Formulations & Lab Samples", icon: Sparkles },
-]
-
-// FG category fallback — used only while the Dictionaries-module entry is
-// loading or if the fetch fails. Live options come from the "category"
-// dictionary (Settings > Dictionaries) via /api/dermat_sales_flow/dictionaries/category,
-// so admins can add new categories without a code change.
-const FG_CATEGORY_FALLBACK_OPTIONS = [
-  { value: "Serum", label: "Face Serum" },
-  { value: "Sunscreen", label: "Sunscreen Gel / Lotion SPF" },
-  { value: "Cream", label: "Face Cream / Moisturizer" },
-  { value: "Face Wash", label: "Cleanser / Face Wash" },
-  { value: "Gel", label: "Treatment Gel / Salicylic" },
-  { value: "Lotion", label: "Body Lotion / Milk" },
-  { value: "Toner", label: "Facial Toner / Mist" },
-  { value: "Shampoo", label: "Hair Care / Shampoo / Conditioner" },
-  { value: "Mask", label: "Face Mask / Peeling Solution" },
-  { value: "Oil", label: "Face / Hair Oil" },
-  { value: "Other", label: "Other / Custom Formulation" },
-] as const
-
-type DictionaryOption = { value: string; label: string }
-type DictionaryEntryPayload = { value?: string; label?: string }
-type DictionaryResponsePayload = { entries?: DictionaryEntryPayload[] }
-
-function buildDictionaryOptions(
-  entries: DictionaryEntryPayload[] | undefined,
-  fallback: readonly DictionaryOption[],
-): DictionaryOption[] {
-  const list = Array.isArray(entries) ? entries : []
-  const options = list
-    .map((entry) => {
-      const value = typeof entry.value === "string" ? entry.value.trim() : ""
-      if (!value) return null
-      return { value, label: (typeof entry.label === "string" && entry.label.trim()) || value }
-    })
-    .filter((entry): entry is DictionaryOption => Boolean(entry))
-  return options.length > 0 ? options : [...fallback]
+function resolveBooleanFlag(value: unknown): boolean {
+  if (typeof value === "boolean") return value;
+  if (typeof value === "string") {
+    const normalized = value.trim().toLowerCase();
+    if (!normalized) return false;
+    if (TRUE_BOOLEAN_VALUES.has(normalized)) return true;
+    if (["false", "0", "no", "n", "f"].includes(normalized)) return false;
+  }
+  if (typeof value === "number") return value !== 0;
+  return false;
 }
 
-// RM Options
-const RM_CLASSIFICATIONS = [
-  { value: "Active", label: "Active Ingredient / Botanical Extract" },
-  { value: "Surfactant", label: "Surfactant / Foaming Agent" },
-  { value: "Emulsifier", label: "Emulsifier / Stabilizer" },
-  { value: "Preservative", label: "Preservative / Broad Spectrum Antimicrobial" },
-  { value: "Fragrance", label: "Fragrance / Essential Oil" },
-  { value: "OilWax", label: "Natural Oil / Butter / Wax" },
-  { value: "Thickener", label: "Thickener / Rheology Modifier / Polymer" },
-  { value: "Solvent", label: "Solvent / Carrier / Glycol" },
-  { value: "Acid", label: "Acid / Exfoliant (AHA / BHA / PHA)" },
-  { value: "Other", label: "Other Chemical Compound" },
-]
 
-// PM Options
-const PM_TYPES = [
-  { value: "Bottle", label: "Primary Bottle / Container" },
-  { value: "Pump", label: "Pump / Dispenser / Spray" },
-  { value: "Dropper", label: "Pipette Dropper / Glass Cap" },
-  { value: "Cap", label: "Cap / Screw Closure / Flip-Top" },
-  { value: "Jar", label: "Jar / Acrylic Tub" },
-  { value: "Tube", label: "Squeeze Tube / Laminated Tube" },
-  { value: "Monocarton", label: "Monocarton / Outer Printed Unit Box" },
-  { value: "Label", label: "Product Label / Front & Back Sticker" },
-  { value: "Shipper", label: "Master Corrugated Shipper Box" },
-  { value: "Liner", label: "Shrink Wrap / Induction Heat Seal Liner" },
-]
+interface InboxProductDraft {
+  actionId: string;
+  proposalId: string;
+  payload: Record<string, unknown>;
+}
 
-const PM_MATERIALS = [
-  { value: "Amber Glass", label: "Amber Glass" },
-  { value: "Flint Glass", label: "Flint / Clear Glass" },
-  { value: "PET", label: "PET Plastic" },
-  { value: "HDPE", label: "HDPE Plastic" },
-  { value: "PP", label: "Polypropylene (PP)" },
-  { value: "Acrylic", label: "Acrylic / PMMA" },
-  { value: "Paperboard", label: "Virgin Paperboard / SBS / Kraft" },
-  { value: "Corrugated", label: "Corrugated 3-Ply / 5-Ply" },
-  { value: "Aluminum", label: "Aluminum / Metallic" },
-]
-
-// Bulk Options
-const BULK_FORMULATION_TYPES = [
-  { value: "Emulsion", label: "Emulsion / Cream / Lotion" },
-  { value: "Serum", label: "Serum / Aqueous Solution" },
-  { value: "Gel", label: "Gel / Thickened Aqueous Base" },
-  { value: "Cleanser", label: "Cleanser / Surfactant Solution" },
-  { value: "Suspension", label: "Suspension / Clay Mask" },
-  { value: "Anhydrous", label: "Anhydrous / Oil Blend / Balm" },
-]
-
-// RD Options
-const RD_STAGES = [
-  { value: "Lab Formulation", label: "Lab Formulation & Compounding" },
-  { value: "Stability Testing", label: "Stability Testing (30-90 Days)" },
-  { value: "Client Sample", label: "Client Sample Submission & Feedback" },
-  { value: "Approved Commercial", label: "Approved for Commercial Production" },
-]
-
-const GST_OPTIONS = [
-  { value: "18", label: "18% GST (Cosmetics / Chemical Standard)" },
-  { value: "12", label: "12% GST (Ayurvedic / Derma / Paperboard)" },
-  { value: "5", label: "5% GST (Essential Raw Materials)" },
-  { value: "0", label: "0% GST (Exempt / Internal Trial)" },
-]
-
-const STORAGE_OPTIONS = [
-  { value: "Room Temp (15-25°C)", label: "Room Temperature (15-25°C)" },
-  { value: "Cool & Dry (2-8°C)", label: "Cool & Dry (2-8°C Refrigerated)" },
-  { value: "Amber / Dark Protection", label: "Protect from Direct Light / Amber Storage" },
-  { value: "Moisture Sensitive / Air-tight", label: "Air-tight / Hygroscopic (Moisture Sensitive)" },
-]
-
-const SHELF_LIFE_OPTIONS = [
-  "24 Months",
-  "36 Months",
-  "18 Months",
-  "12 Months",
-  "6 Months",
-]
+function readInboxProductDraft(): InboxProductDraft | null {
+  try {
+    const raw = sessionStorage.getItem("inbox_ops.productDraft");
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as InboxProductDraft;
+    if (!parsed.actionId || !parsed.proposalId || !parsed.payload) return null;
+    return parsed;
+  } catch {
+    return null;
+  }
+}
 
 export default function CreateCatalogProductPage() {
-  const t = useT()
-  const router = useRouter()
-  const searchParams = useSearchParams()
-  const returnTo = searchParams.get("returnTo")
-  const { organizationId, tenantId } = useOrganizationScopeDetail()
+  const t = useT();
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const fromInboxAction = searchParams.get("fromInboxAction");
 
-  // Master Category Tab
-  const [invCategory, setInvCategory] = React.useState<InventoryCategory>("fg")
+  const inboxDraft = React.useMemo<InboxProductDraft | null>(() => {
+    if (!fromInboxAction) return null;
+    return readInboxProductDraft();
+  }, [fromInboxAction]);
 
-  // Cosmetic category options — Dictionaries-module-backed (Settings > Dictionaries
-  // > "category") so admins can add new categories without a code change. Falls
-  // back to the shipped defaults while loading or if the fetch fails.
-  const [categoryOptions, setCategoryOptions] = React.useState<DictionaryOption[]>([...FG_CATEGORY_FALLBACK_OPTIONS])
+  const initialValuesRef = React.useRef<ProductFormValues | null>(null);
+  if (!initialValuesRef.current) {
+    const initial = createInitialProductFormValues();
+    if (inboxDraft?.payload) {
+      const p = inboxDraft.payload;
+      if (typeof p.title === "string" && p.title.trim()) initial.title = p.title.trim();
+      if (typeof p.description === "string" && p.description.trim()) initial.description = p.description.trim();
+    }
+    initialValuesRef.current = initial;
+  }
+  const [priceKinds, setPriceKinds] = React.useState<PriceKindSummary[]>([]);
+  const [taxRates, setTaxRates] = React.useState<TaxRateSummary[]>([]);
   React.useEffect(() => {
-    let cancelled = false
-    async function loadCategoryDictionary() {
-      const res = await apiCall<DictionaryResponsePayload>(
-        "/api/dermat_sales_flow/dictionaries/category",
-        undefined,
-        { fallback: { entries: [] } },
-      )
-      if (cancelled) return
-      setCategoryOptions(buildDictionaryOptions(res.result?.entries, FG_CATEGORY_FALLBACK_OPTIONS))
-    }
-    void loadCategoryDictionary()
-    return () => {
-      cancelled = true
-    }
-  }, [])
-
-  // Common Fields
-  const [title, setTitle] = React.useState("")
-  const [sku, setSku] = React.useState("")
-  const [description, setDescription] = React.useState("")
-  const [submitting, setSubmitting] = React.useState(false)
-
-  // 1. Finished Goods (FG) Specific
-  const [fgCategory, setFgCategory] = React.useState("Serum")
-  const [clientBrand, setClientBrand] = React.useState("")
-  const [fgPackSize, setFgPackSize] = React.useState("50")
-  const [fgUom, setFgUom] = React.useState("ml")
-  const [fgMrp, setFgMrp] = React.useState("599")
-  const [fgRate, setFgRate] = React.useState("180")
-  const [fgGst, setFgGst] = React.useState("18")
-  const [fgShelfLife, setFgShelfLife] = React.useState("24 Months")
-  const [fgMoq, setFgMoq] = React.useState("500")
-
-  // 2. Raw Materials (RM) Specific
-  const [rmClassification, setRmClassification] = React.useState("Active")
-  const [rmGrade, setRmGrade] = React.useState("Cosmetic Grade USP")
-  const [rmUom, setRmUom] = React.useState("kg")
-  const [rmPurchaseRate, setRmPurchaseRate] = React.useState("1450")
-  const [rmReorderLevel, setRmReorderLevel] = React.useState("25")
-  const [rmGst, setRmGst] = React.useState("18")
-  const [rmStorage, setRmStorage] = React.useState("Cool & Dry (2-8°C)")
-  const [rmRetestPeriod, setRmRetestPeriod] = React.useState("24 Months")
-  const [rmLeadTimeDays, setRmLeadTimeDays] = React.useState("7")
-
-  // 3. Packaging Materials (PM) Specific
-  const [pmType, setPmType] = React.useState("Bottle")
-  const [pmMaterial, setPmMaterial] = React.useState("Amber Glass")
-  const [pmVolume, setPmVolume] = React.useState("30 ml")
-  const [pmNeckSize, setPmNeckSize] = React.useState("18/415")
-  const [pmUom, setPmUom] = React.useState("pcs")
-  const [pmCostRate, setPmCostRate] = React.useState("14.50")
-  const [pmMoq, setPmMoq] = React.useState("2500")
-  const [pmGst, setPmGst] = React.useState("18")
-  const [pmLeadTimeDays, setPmLeadTimeDays] = React.useState("14")
-
-  // 4. Bulk Formulation (SFG) Specific
-  const [bulkMatrix, setBulkMatrix] = React.useState("Serum")
-  const [bulkBatchSize, setBulkBatchSize] = React.useState("100")
-  const [bulkUom, setBulkUom] = React.useState("kg")
-  const [bulkCostRate, setBulkCostRate] = React.useState("380")
-  const [bulkGst, setBulkGst] = React.useState("18")
-  const [bulkTargetPh, setBulkTargetPh] = React.useState("5.5 - 6.0")
-  const [bulkViscosity, setBulkViscosity] = React.useState("12,000 - 15,000 cps")
-  const [bulkShelfLife, setBulkShelfLife] = React.useState("12 Months")
-
-  // 5. R&D / Trial Specific
-  const [rdTargetCategory, setRdTargetCategory] = React.useState("Serum")
-  const [rdStage, setRdStage] = React.useState("Lab Formulation")
-  const [rdSampleSize, setRdSampleSize] = React.useState("100")
-  const [rdSampleUom, setRdSampleUom] = React.useState("gm")
-  const [rdClientProspect, setRdClientProspect] = React.useState("")
-  const [rdLabCost, setRdLabCost] = React.useState("500")
-
-  // Auto-fill SKU generator helper based on current category
-  const handleAutoGenerateSku = React.useCallback(() => {
-    const random = Math.floor(100 + Math.random() * 900)
-    if (invCategory === "fg") {
-      const brandPrefix = clientBrand ? clientBrand.slice(0, 3).toUpperCase() : "DER"
-      const catPrefix = fgCategory.slice(0, 3).toUpperCase()
-      const size = fgPackSize || "50"
-      setSku(`FG-${brandPrefix}-${catPrefix}-${size}-${random}`)
-    } else if (invCategory === "rm") {
-      const classPrefix = rmClassification.slice(0, 3).toUpperCase()
-      const namePart = (title || "MAT").slice(0, 3).toUpperCase().replace(/[^A-Z]/g, "X")
-      setSku(`RM-${classPrefix}-${namePart}-${random}`)
-    } else if (invCategory === "pm") {
-      const typePrefix = pmType.slice(0, 3).toUpperCase()
-      const sizePart = (pmVolume || "30").replace(/[^0-9]/g, "") || "30"
-      setSku(`PM-${typePrefix}-${sizePart}-${random}`)
-    } else if (invCategory === "bulk") {
-      const matrixPrefix = bulkMatrix.slice(0, 3).toUpperCase()
-      setSku(`SFG-${matrixPrefix}-${bulkBatchSize}KG-${random}`)
-    } else if (invCategory === "rd") {
-      setSku(`RD-TRIAL-${random}`)
-    }
-  }, [
-    invCategory,
-    clientBrand,
-    fgCategory,
-    fgPackSize,
-    rmClassification,
-    title,
-    pmType,
-    pmVolume,
-    bulkMatrix,
-    bulkBatchSize,
-  ])
-
-  // Calculations for live preview
-  // FG preview
-  const numFgMrp = Number(fgMrp) || 0
-  const numFgRate = Number(fgRate) || 0
-  const numFgMoq = Number(fgMoq) || 500
-  const fgMarginPercent = numFgMrp > 0 && numFgRate > 0 ? Math.round(((numFgMrp - numFgRate) / numFgMrp) * 100) : 0
-  const fgMoqBatchTaxable = numFgMoq * numFgRate
-  const fgMoqBatchTax = Math.round((fgMoqBatchTaxable * (Number(fgGst) || 18)) / 100)
-  const fgMoqBatchTotal = fgMoqBatchTaxable + fgMoqBatchTax
-
-  // RM preview
-  const numRmRate = Number(rmPurchaseRate) || 0
-  const numRmReorder = Number(rmReorderLevel) || 0
-  const rmMinStockValue = numRmRate * numRmReorder
-  const rmMinStockTax = Math.round((rmMinStockValue * (Number(rmGst) || 18)) / 100)
-
-  // PM preview
-  const numPmRate = Number(pmCostRate) || 0
-  const numPmMoq = Number(pmMoq) || 0
-  const pmMoqBatchTaxable = numPmRate * numPmMoq
-  const pmMoqBatchTax = Math.round((pmMoqBatchTaxable * (Number(pmGst) || 18)) / 100)
-  const pmMoqBatchTotal = pmMoqBatchTaxable + pmMoqBatchTax
-
-  // Bulk preview
-  const numBulkBatch = Number(bulkBatchSize) || 100
-  const numBulkRate = Number(bulkCostRate) || 0
-  const bulkTotalBatchValue = numBulkBatch * numBulkRate
-
-  // Save product
-  const handleSubmit = React.useCallback(
-    async (e?: React.FormEvent) => {
-      if (e) e.preventDefault()
-      if (!title.trim()) {
-        flash("Item name / formulation title is required", "error")
-        return
-      }
-
-      setSubmitting(true)
+    const loadPriceKinds = async () => {
       try {
-        let baseUom = "pcs"
-        let rateStr = "0"
-        let mrpStr = "0"
-        let categoryName = ""
-        let defaultVariantWeight = 1
-        let customMetadata: Record<string, unknown> = {
-          inventory_category: invCategory,
-        }
-
-        if (invCategory === "fg") {
-          baseUom = fgUom
-          rateStr = fgRate.trim()
-          mrpStr = fgMrp.trim()
-          categoryName = fgCategory
-          defaultVariantWeight = Number(fgPackSize) || 50
-          customMetadata = {
-            ...customMetadata,
-            client_brand: clientBrand.trim() || "Dermat India",
-            product_code: sku.trim(),
-            category: fgCategory,
-            product_nature: "fg",
-            base_uom: fgUom,
-            pack_size: fgPackSize.trim(),
-            mrp: fgMrp.trim(),
-            rate: fgRate.trim(),
-            gst_percent: fgGst,
-            shelf_life: fgShelfLife,
-            min_floor_qty: numFgMoq,
-          }
-        } else if (invCategory === "rm") {
-          baseUom = rmUom
-          rateStr = rmPurchaseRate.trim()
-          categoryName = `RM - ${rmClassification}`
-          defaultVariantWeight = 1
-          customMetadata = {
-            ...customMetadata,
-            material_code: sku.trim(),
-            rm_classification: rmClassification,
-            chemical_grade: rmGrade.trim(),
-            purchase_uom: rmUom,
-            purchase_rate: rmPurchaseRate.trim(),
-            reorder_level: rmReorderLevel.trim(),
-            gst_percent: rmGst,
-            storage_condition: rmStorage,
-            retest_period: rmRetestPeriod,
-            lead_time_days: rmLeadTimeDays.trim(),
-          }
-        } else if (invCategory === "pm") {
-          baseUom = pmUom
-          rateStr = pmCostRate.trim()
-          categoryName = `PM - ${pmType}`
-          defaultVariantWeight = 1
-          customMetadata = {
-            ...customMetadata,
-            material_code: sku.trim(),
-            pm_type: pmType,
-            pm_material: pmMaterial,
-            compatible_volume: pmVolume.trim(),
-            neck_size: pmNeckSize.trim(),
-            base_uom: pmUom,
-            unit_cost: pmCostRate.trim(),
-            moq_qty: pmMoq.trim(),
-            gst_percent: pmGst,
-            lead_time_days: pmLeadTimeDays.trim(),
-          }
-        } else if (invCategory === "bulk") {
-          baseUom = bulkUom
-          rateStr = bulkCostRate.trim()
-          categoryName = `SFG Bulk - ${bulkMatrix}`
-          defaultVariantWeight = Number(bulkBatchSize) || 100
-          customMetadata = {
-            ...customMetadata,
-            bulk_code: sku.trim(),
-            bulk_matrix: bulkMatrix,
-            standard_batch_size: bulkBatchSize.trim(),
-            bulk_uom: bulkUom,
-            cost_rate: bulkCostRate.trim(),
-            gst_percent: bulkGst,
-            target_ph: bulkTargetPh.trim(),
-            viscosity: bulkViscosity.trim(),
-            shelf_life: bulkShelfLife,
-          }
-        } else if (invCategory === "rd") {
-          baseUom = rdSampleUom
-          rateStr = rdLabCost.trim()
-          categoryName = `R&D Trial - ${rdTargetCategory}`
-          defaultVariantWeight = Number(rdSampleSize) || 100
-          customMetadata = {
-            ...customMetadata,
-            trial_code: sku.trim(),
-            rd_stage: rdStage,
-            sample_size: rdSampleSize.trim(),
-            sample_uom: rdSampleUom,
-            prospect_brand: rdClientProspect.trim(),
-            lab_cost: rdLabCost.trim(),
-          }
-        }
-
-        // 1. Create Product
-        const productPayload = {
-          organizationId,
-          tenantId,
-          title: title.trim(),
-          sku: sku.trim() || undefined,
-          description: description.trim() || undefined,
-          isActive: true,
-          productType: "simple",
-          defaultUnit: baseUom,
-          hsCode: "33049900", // Standard cosmetics/chemistry HS code stored silently
-          metadata: customMetadata,
-          customFields: {
-            ...customMetadata,
-            title: title.trim(),
-            sku: sku.trim() || undefined,
-            category: categoryName,
-            // Clean enum driving the fieldset-follows-category mechanism and
-            // the 4 category page filters (Raw Material / Packing Material /
-            // Finished Goods / Bulk) — kept separate from `category` above,
-            // which stays a rich display label. R&D has no matching
-            // fieldset/category-group value; it intentionally falls through
-            // to the always-shown backbone fields only.
-            product_category_group: INVENTORY_CATEGORY_TO_FIELDSET[invCategory],
-          },
-        }
-
-        const prodRes = await createCrud<{ id: string }>("catalog/products", productPayload)
-        const newProductId = prodRes.result?.id
-
-        if (!newProductId) {
-          throw new Error("Product created, but ID was not returned by server.")
-        }
-
-        // 2. Create Default Standard Variant (no multi-pack variations required)
-        const defaultVariantPayload = {
-          organizationId,
-          tenantId,
-          productId: newProductId,
-          name: "Standard",
-          sku: sku.trim() || `${newProductId.slice(0, 8)}-STD`,
-          isActive: true,
-          isDefault: true,
-          weightValue: defaultVariantWeight,
-          weightUnit: baseUom,
-          metadata: {
-            rate: rateStr,
-            mrp: mrpStr,
-            uom: baseUom,
-            ...customMetadata,
-          },
-          customFields: {
-            rate: Number(rateStr) || undefined,
-            mrp: Number(mrpStr) || undefined,
-            uom: baseUom,
-          },
-        }
-
-        await createCrud("catalog/variants", defaultVariantPayload)
-
-        flash(`Item "${title}" successfully saved to inventory catalog!`, "success")
-        if (returnTo) {
-          router.push(returnTo)
-        } else {
-          router.push(`/backend/catalog/products/${newProductId}`)
-        }
+        const payload = await readApiResultOrThrow<{
+          items?: PriceKindApiPayload[];
+        }>("/api/catalog/price-kinds?pageSize=100", undefined, {
+          errorMessage: t(
+            "catalog.priceKinds.errors.load",
+            "Failed to load price kinds.",
+          ),
+        });
+        const items = Array.isArray(payload.items) ? payload.items : [];
+        setPriceKinds(
+          items
+            .map((item) => normalizePriceKindSummary(item))
+            .filter((item): item is PriceKindSummary => item !== null),
+        );
       } catch (err) {
-        flash(err instanceof Error ? err.message : "Failed to create inventory item", "error")
-      } finally {
-        setSubmitting(false)
+        logger.error('catalog.price-kinds.fetch failed', { err });
+        setPriceKinds([]);
       }
-    },
-    [
-      title,
-      sku,
-      description,
-      invCategory,
-      organizationId,
-      tenantId,
-      // FG
-      fgCategory,
-      clientBrand,
-      fgPackSize,
-      fgUom,
-      fgMrp,
-      fgRate,
-      fgGst,
-      fgShelfLife,
-      numFgMoq,
-      // RM
-      rmClassification,
-      rmGrade,
-      rmUom,
-      rmPurchaseRate,
-      rmReorderLevel,
-      rmGst,
-      rmStorage,
-      rmRetestPeriod,
-      rmLeadTimeDays,
-      // PM
-      pmType,
-      pmMaterial,
-      pmVolume,
-      pmNeckSize,
-      pmUom,
-      pmCostRate,
-      pmMoq,
-      pmGst,
-      pmLeadTimeDays,
-      // Bulk
-      bulkMatrix,
-      bulkBatchSize,
-      bulkUom,
-      bulkCostRate,
-      bulkGst,
-      bulkTargetPh,
-      bulkViscosity,
-      bulkShelfLife,
-      // RD
-      rdTargetCategory,
-      rdStage,
-      rdSampleSize,
-      rdSampleUom,
-      rdClientProspect,
-      rdLabCost,
-      returnTo,
-      router,
-    ]
-  )
+    };
+    loadPriceKinds().catch(() => {});
+  }, [t]);
+
+  React.useEffect(() => {
+    const loadTaxRates = async () => {
+      try {
+        const payload = await readApiResultOrThrow<{
+          items?: Array<Record<string, unknown>>;
+        }>("/api/sales/tax-rates?pageSize=100", undefined, {
+          errorMessage: t(
+            "catalog.products.create.taxRates.error",
+            "Failed to load tax rates.",
+          ),
+          fallback: { items: [] },
+        });
+        const items = Array.isArray(payload.items) ? payload.items : [];
+        setTaxRates(
+          items.map((item) => {
+            const rawRate =
+              typeof item.rate === "number"
+                ? item.rate
+                : Number(item.rate ?? Number.NaN);
+            return {
+              id: String(item.id),
+              name:
+                typeof item.name === "string" && item.name.trim().length
+                  ? item.name
+                  : t(
+                      "catalog.products.create.taxRates.unnamed",
+                      "Untitled tax rate",
+                    ),
+              code:
+                typeof item.code === "string" && item.code.trim().length
+                  ? item.code
+                  : null,
+              rate: Number.isFinite(rawRate) ? rawRate : null,
+              isDefault: resolveBooleanFlag(
+                typeof item.isDefault !== "undefined"
+                  ? item.isDefault
+                  : item.is_default,
+              ),
+            };
+          }),
+        );
+      } catch (err) {
+        logger.error('sales.tax-rates.fetch failed', { err });
+        setTaxRates([]);
+      }
+    };
+    loadTaxRates().catch(() => {});
+  }, [t]);
+
+  const groups = React.useMemo<CrudFormGroup[]>(
+    () => [
+      {
+        id: "builder",
+        column: 1,
+        component: ({
+          values,
+          setValue,
+          errors,
+          requiredFieldIds,
+        }: CrudFormGroupComponentProps) => (
+          <ProductBuilder
+            values={values as ProductFormValues}
+            setValue={setValue}
+            errors={errors}
+            priceKinds={priceKinds}
+            taxRates={taxRates}
+            requiredFieldIds={requiredFieldIds}
+          />
+        ),
+      },
+      {
+        id: "product-meta",
+        column: 2,
+        title: t("catalog.products.create.meta.title", "Product meta"),
+        description: t(
+          "catalog.products.create.meta.description",
+          "Manage subtitle and handle for storefronts.",
+        ),
+        component: ({
+          values,
+          setValue,
+          errors,
+        }: CrudFormGroupComponentProps) => (
+          <ProductMetaSection
+            values={values as ProductFormValues}
+            setValue={setValue}
+            errors={errors}
+            taxRates={taxRates}
+          />
+        ),
+      },
+    ],
+    [priceKinds, taxRates, t],
+  );
 
   return (
     <Page>
       <PageBody>
-        <div className="space-y-6 max-w-6xl mx-auto pb-16">
-          {/* Header */}
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-b pb-4">
-            <div>
-              <div className="flex items-center gap-2">
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8 text-muted-foreground mr-1"
-                  onClick={() => {
-                    if (returnTo) router.push(returnTo)
-                    else router.push("/backend/catalog/products")
-                  }}
-                  title="Back"
-                >
-                  <ArrowLeft className="h-4 w-4" />
-                </Button>
-                <Warehouse className="h-6 w-6 text-primary" />
-                <h1 className="text-2xl font-bold tracking-tight">Add Master Inventory Item</h1>
-              </div>
-              <p className="text-xs text-muted-foreground mt-0.5 ml-11">
-                Unified master entry for Finished Goods, Raw Materials, Packaging, Bulk Formulations, and R&D Trials
-              </p>
-            </div>
-            <div className="flex items-center gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => {
-                  if (returnTo) router.push(returnTo)
-                  else router.push("/backend/catalog/products")
-                }}
-              >
-                Cancel
-              </Button>
-              <Button
-                type="button"
-                onClick={handleSubmit}
-                disabled={submitting || !title.trim()}
-                className="px-6 font-semibold"
-              >
-                {submitting ? "Saving Item..." : "Save Master Item"}
-              </Button>
-            </div>
-          </div>
-
-          {/* Top Category Tabs Selector */}
-          <div className="rounded-xl border bg-muted/30 p-1.5 shadow-sm">
-            <div className="grid grid-cols-2 sm:grid-cols-5 gap-1.5">
-              {CATEGORY_TABS.map((tab) => {
-                const Icon = tab.icon
-                const isSelected = invCategory === tab.id
-                return (
-                  <button
-                    key={tab.id}
-                    type="button"
-                    onClick={() => {
-                      setInvCategory(tab.id)
-                      // Clear SKU or regenerate if empty
-                      if (!sku || sku.includes("-")) {
-                        // let user trigger or leave blank
-                      }
-                    }}
-                    className={`flex flex-col items-center sm:items-start text-left p-3 rounded-lg transition-all ${
-                      isSelected
-                        ? "bg-background text-primary shadow-sm border border-primary/20 font-semibold ring-1 ring-primary/20"
-                        : "text-muted-foreground hover:bg-background/50 hover:text-foreground border border-transparent"
-                    }`}
-                  >
-                    <div className="flex items-center gap-2 mb-1">
-                      <Icon className={`h-4 w-4 ${isSelected ? "text-primary" : "text-muted-foreground"}`} />
-                      <span className="text-xs font-bold leading-none">{tab.label}</span>
-                    </div>
-                    <span className="text-[10px] text-muted-foreground hidden sm:inline-block leading-tight">
-                      {tab.sub}
-                    </span>
-                  </button>
+        <CrudForm<ProductFormValues>
+          title={t("catalog.products.create.title", "Create product")}
+          backHref="/backend/catalog/products"
+          fields={[]}
+          groups={groups}
+          injectionSpotId={extensionPoints.hosts.productForm.spotId}
+          initialValues={
+            initialValuesRef.current ?? createInitialProductFormValues()
+          }
+          schema={productFormTypedSchema}
+          submitLabel={t("catalog.products.create.submit", "Create")}
+          cancelHref="/backend/catalog/products"
+          onSubmit={async (formValues) => {
+            const title = formValues.title?.trim();
+            if (!title) {
+              throw createCrudFormError(
+                t(
+                  "catalog.products.create.errors.title",
+                  "Provide a product title.",
+                ),
+                {
+                  title: t(
+                    "catalog.products.create.errors.title",
+                    "Provide a product title.",
+                  ),
+                },
+              );
+            }
+            const handle = formValues.handle?.trim() || undefined;
+            const description = formValues.description?.trim() || undefined;
+            const defaultMediaId =
+              typeof formValues.defaultMediaId === "string" &&
+              formValues.defaultMediaId.trim().length
+                ? formValues.defaultMediaId
+                : null;
+            const mediaItems = Array.isArray(formValues.mediaItems)
+              ? formValues.mediaItems
+              : [];
+            const attachmentIds = mediaItems
+              .map((item) => (typeof item.id === "string" ? item.id : null))
+              .filter((value): value is string => !!value);
+            const mediaDraftId =
+              typeof formValues.mediaDraftId === "string"
+                ? formValues.mediaDraftId
+                : "";
+            const defaultMediaEntry = defaultMediaId
+              ? mediaItems.find((item) => item.id === defaultMediaId)
+              : null;
+            const defaultMediaUrl = defaultMediaEntry
+              ? buildAttachmentImageUrl(defaultMediaEntry.id, {
+                  slug: slugifyAttachmentFileName(defaultMediaEntry.fileName),
+                })
+              : null;
+            const optionSchemaDefinition = buildOptionSchemaDefinition(
+              formValues.options,
+              title,
+            );
+            const dimensions = sanitizeProductDimensions(
+              formValues.dimensions ?? null,
+            );
+            const weight = sanitizeProductWeight(formValues.weight ?? null);
+            const resolveTaxRateValue = (taxRateId?: string | null) => {
+              if (!taxRateId) return null;
+              const match = taxRates.find((rate) => rate.id === taxRateId);
+              return typeof match?.rate === "number" ? match.rate : null;
+            };
+            const productLevelTaxRateId = formValues.taxRateId ?? null;
+            const productTaxRate = resolveTaxRateValue(productLevelTaxRateId);
+            const resolveVariantTax = (variant: VariantDraft) => {
+              const resolvedVariantTaxRateId =
+                variant.taxRateId ?? productLevelTaxRateId;
+              const resolvedVariantTaxRate =
+                resolveTaxRateValue(resolvedVariantTaxRateId) ??
+                (resolvedVariantTaxRateId ? null : (productTaxRate ?? null));
+              return { resolvedVariantTaxRateId, resolvedVariantTaxRate };
+            };
+            const defaultUnit = canonicalizeUnitCode(formValues.defaultUnit);
+            const defaultSalesUnit = canonicalizeUnitCode(
+              formValues.defaultSalesUnit,
+            );
+            const defaultSalesUnitQuantity =
+              toPositiveNumberOrNull(formValues.defaultSalesUnitQuantity) ?? 1;
+            const uomRoundingScale = toIntegerInRangeOrDefault(
+              formValues.uomRoundingScale,
+              0,
+              6,
+              4,
+            );
+            const uomRoundingMode: ProductUnitRoundingMode =
+              formValues.uomRoundingMode === "down" ||
+              formValues.uomRoundingMode === "up"
+                ? formValues.uomRoundingMode
+                : "half_up";
+            const unitPriceEnabled = Boolean(formValues.unitPriceEnabled);
+            const unitPriceReferenceUnit = canonicalizeUnitCode(
+              formValues.unitPriceReferenceUnit,
+            );
+            const unitPriceBaseQuantity = toPositiveNumberOrNull(
+              formValues.unitPriceBaseQuantity,
+            );
+            if (defaultSalesUnit && !defaultUnit) {
+              const message = t(
+                "catalog.products.uom.errors.baseRequired",
+                "Base unit is required when default sales unit is set.",
+              );
+              throw createCrudFormError(message, { defaultSalesUnit: message });
+            }
+            const conversionInputs = normalizeProductConversionInputs(
+              formValues.unitConversions,
+              t(
+                "catalog.products.uom.errors.duplicateConversion",
+                "Duplicate conversion unit is not allowed.",
+              ),
+            );
+            if (conversionInputs.length && !defaultUnit) {
+              const message = t(
+                "catalog.products.uom.errors.baseRequiredForConversions",
+                "Base unit is required when conversions are configured.",
+              );
+              throw createCrudFormError(message, { defaultUnit: message });
+            }
+            const defaultUnitKey = defaultUnit?.toLowerCase() ?? null;
+            const defaultSalesUnitKey = defaultSalesUnit?.toLowerCase() ?? null;
+            if (
+              defaultUnitKey &&
+              defaultSalesUnitKey &&
+              defaultSalesUnitKey !== defaultUnitKey
+            ) {
+              const hasDefaultSalesConversion = conversionInputs.some(
+                (entry) =>
+                  entry.isActive &&
+                  entry.unitCode.toLowerCase() === defaultSalesUnitKey,
+              );
+              if (!hasDefaultSalesConversion) {
+                const message = t(
+                  "catalog.products.uom.errors.defaultSalesConversionRequired",
+                  "Active conversion for default sales unit is required when it differs from base unit.",
+                );
+                throw createCrudFormError(message, {
+                  defaultSalesUnit: message,
+                  unitConversions: message,
+                });
+              }
+            }
+            if (unitPriceEnabled) {
+              if (
+                !unitPriceReferenceUnit ||
+                !UNIT_PRICE_REFERENCE_UNITS.has(
+                  unitPriceReferenceUnit as ProductUnitPriceReferenceUnit,
                 )
-              })}
-            </div>
-          </div>
+              ) {
+                const message = t(
+                  "catalog.products.unitPrice.errors.referenceUnit",
+                  "Reference unit is required when unit price display is enabled.",
+                );
+                throw createCrudFormError(message, {
+                  unitPriceReferenceUnit: message,
+                });
+              }
+              if (unitPriceBaseQuantity === null) {
+                const message = t(
+                  "catalog.products.unitPrice.errors.baseQuantity",
+                  "Base quantity is required when unit price display is enabled.",
+                );
+                throw createCrudFormError(message, {
+                  unitPriceBaseQuantity: message,
+                });
+              }
+            }
+            const productPayload: Record<string, unknown> = {
+              title,
+              subtitle: formValues.subtitle?.trim() || undefined,
+              description,
+              handle,
+              sku: formValues.sku?.trim() || undefined,
+              productType: formValues.productType || "simple",
+              taxRateId: formValues.taxRateId ?? null,
+              taxRate: productTaxRate ?? null,
+              isConfigurable: isConfigurableProductType(
+                formValues.productType || "simple",
+              ),
+              defaultMediaId: defaultMediaId ?? undefined,
+              defaultMediaUrl: defaultMediaUrl ?? undefined,
+              dimensions,
+              weightValue: weight?.value ?? null,
+              weightUnit: weight?.unit ?? null,
+              defaultUnit: defaultUnit ?? null,
+              defaultSalesUnit: defaultSalesUnit ?? defaultUnit ?? null,
+              defaultSalesUnitQuantity,
+              uomRoundingScale,
+              uomRoundingMode,
+              unitPriceEnabled,
+              unitPriceReferenceUnit: unitPriceEnabled
+                ? unitPriceReferenceUnit
+                : undefined,
+              unitPriceBaseQuantity: unitPriceEnabled
+                ? unitPriceBaseQuantity
+                : undefined,
+              ...buildComplianceProductPayload(formValues),
+            };
+            if (optionSchemaDefinition) {
+              productPayload.optionSchema = optionSchemaDefinition;
+            }
+            const categoryIds = Array.isArray(formValues.categoryIds)
+              ? formValues.categoryIds
+                  .map((id) => (typeof id === "string" ? id.trim() : ""))
+                  .filter((id) => id.length)
+              : [];
+            if (categoryIds.length) {
+              productPayload.categoryIds = Array.from(new Set(categoryIds));
+            }
+            const tags = Array.isArray(formValues.tags)
+              ? Array.from(
+                  new Set(
+                    formValues.tags
+                      .map((tag) => (typeof tag === "string" ? tag.trim() : ""))
+                      .filter((tag) => tag.length),
+                  ),
+                )
+              : [];
+            if (tags.length) {
+              productPayload.tags = tags;
+            }
+            const channelIds = Array.isArray(formValues.channelIds)
+              ? formValues.channelIds
+                  .map((id) => (typeof id === "string" ? id.trim() : ""))
+                  .filter((id) => id.length)
+              : [];
+            if (channelIds.length) {
+              productPayload.offers = channelIds.map((channelId) => ({
+                channelId,
+                title,
+                description,
+                defaultMediaId: defaultMediaId ?? undefined,
+                defaultMediaUrl: defaultMediaUrl ?? undefined,
+              }));
+            }
 
-          <form onSubmit={handleSubmit}>
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-              {/* Left Column: Form Cards (8 cols) */}
-              <div className="lg:col-span-8 space-y-6">
+            const variantDrafts =
+              (Array.isArray(formValues.variants) && formValues.variants.length
+                ? formValues.variants
+                : [
+                    createVariantDraft(formValues.taxRateId ?? null, {
+                      isDefault: true,
+                    }),
+                  ]) ?? [];
+            const priceRequests: VariantPriceRequest[] = [];
+            for (const variant of variantDrafts) {
+              const { resolvedVariantTaxRateId, resolvedVariantTaxRate } =
+                resolveVariantTax(variant);
+              for (const priceKind of priceKinds) {
+                const value = variant.prices?.[priceKind.id]?.amount?.trim();
+                if (!value) continue;
+                const numeric = Number(value);
+                if (
+                  Number.isNaN(numeric) ||
+                  !Number.isFinite(numeric) ||
+                  numeric < 0
+                ) {
+                  throw createCrudFormError(
+                    t(
+                      "catalog.products.create.errors.priceNonNegative",
+                      "Prices must be zero or greater.",
+                    ),
+                  );
+                }
+                const currencyCode =
+                  typeof priceKind.currencyCode === "string" &&
+                  priceKind.currencyCode.trim().length
+                    ? priceKind.currencyCode.trim().toUpperCase()
+                    : "";
+                if (!currencyCode) {
+                  throw createCrudFormError(
+                    t(
+                      "catalog.products.create.errors.currency",
+                      "Provide a currency for all price kinds.",
+                    ),
+                    {},
+                  );
+                }
+                priceRequests.push({
+                  variantDraftId: variant.id,
+                  priceKindId: priceKind.id,
+                  currencyCode,
+                  amount: numeric,
+                  displayMode: priceKind.displayMode,
+                  taxRateId: resolvedVariantTaxRateId ?? null,
+                  taxRateValue: resolvedVariantTaxRate ?? null,
+                });
+              }
+            }
 
-                {/* 1. CATEGORY: FINISHED GOODS (FG) */}
-                {invCategory === "fg" && (
-                  <>
-                    {/* FG Card 1: Identity */}
-                    <Card>
-                      <CardHeader className="pb-3 border-b bg-muted/20">
-                        <CardTitle className="text-sm font-bold flex items-center gap-2">
-                          <Package className="h-4 w-4 text-primary" />
-                          1. Finished Good Identity & Brand
-                        </CardTitle>
-                        <CardDescription className="text-xs">
-                          Finished skincare / cosmetic product formulation and code
-                        </CardDescription>
-                      </CardHeader>
-                      <CardContent className="pt-4 space-y-4">
-                        <div className="grid grid-cols-1 sm:grid-cols-12 gap-3">
-                          <div className="sm:col-span-8 space-y-1.5">
-                            <Label className="text-xs font-medium">Product / Formulation Name *</Label>
-                            <Input
-                              value={title}
-                              onChange={(e) => setTitle(e.target.value)}
-                              placeholder="e.g. Niacinamide 10% + Zinc 1% Clarifying Serum"
-                              className="h-9 text-xs font-medium"
-                              required
-                            />
-                          </div>
-                          <div className="sm:col-span-4 space-y-1.5">
-                            <div className="flex items-center justify-between">
-                              <Label className="text-xs font-medium">Product Code / SKU</Label>
-                              <button
-                                type="button"
-                                onClick={handleAutoGenerateSku}
-                                className="text-[10px] text-primary hover:underline font-medium"
-                              >
-                                Auto-Gen
-                              </button>
-                            </div>
-                            <Input
-                              value={sku}
-                              onChange={(e) => setSku(e.target.value)}
-                              placeholder="e.g. FG-DER-SER-50"
-                              className="h-9 text-xs font-mono"
-                            />
-                          </div>
-                        </div>
+            const cleanupState: {
+              productId: string | null;
+              variantIds: string[];
+            } = { productId: null, variantIds: [] };
+            try {
+              const { result: created } = await createCrud<{ id?: string }>(
+                "catalog/products",
+                productPayload,
+              );
+              const productId = created?.id;
+              if (!productId) {
+                throw createCrudFormError(
+                  t(
+                    "catalog.products.create.errors.id",
+                    "Product id missing after create.",
+                  ),
+                );
+              }
+              cleanupState.productId = productId;
 
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                          <div className="space-y-1.5">
-                            <Label className="text-xs font-medium">Cosmetic Category</Label>
-                            <Select value={fgCategory} onValueChange={setFgCategory}>
-                              <SelectTrigger className="h-9 text-xs">
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {categoryOptions.map((opt) => (
-                                  <SelectItem key={opt.value} value={opt.value} className="text-xs">
-                                    {opt.label}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          </div>
-                          <div className="space-y-1.5">
-                            <Label className="text-xs font-medium">Brand Name (Optional)</Label>
-                            <Input
-                              value={clientBrand}
-                              onChange={(e) => setClientBrand(e.target.value)}
-                              placeholder="e.g. Dermat India, Skin Theta"
-                              className="h-9 text-xs"
-                            />
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
+              for (const conversion of conversionInputs) {
+                await createCrud("catalog/product-unit-conversions", {
+                  productId,
+                  unitCode: conversion.unitCode,
+                  toBaseFactor: conversion.toBaseFactor,
+                  sortOrder: conversion.sortOrder,
+                  isActive: conversion.isActive,
+                });
+              }
 
-                    {/* FG Card 2: Pack Size & Pricing */}
-                    <Card>
-                      <CardHeader className="pb-3 border-b bg-muted/20">
-                        <CardTitle className="text-sm font-bold flex items-center gap-2">
-                          <DollarSign className="h-4 w-4 text-primary" />
-                          2. Pack Size & Commercial Pricing
-                        </CardTitle>
-                        <CardDescription className="text-xs">
-                          Finished container volume, printed retail MRP, and manufacturing billing rate
-                        </CardDescription>
-                      </CardHeader>
-                      <CardContent className="pt-4 space-y-4">
-                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                          <div className="space-y-1.5">
-                            <Label className="text-xs font-medium">Pack Size *</Label>
-                            <Input
-                              value={fgPackSize}
-                              onChange={(e) => setFgPackSize(e.target.value)}
-                              placeholder="50"
-                              className="h-9 text-xs font-mono font-bold"
-                              required
-                            />
-                          </div>
-                          <div className="space-y-1.5">
-                            <Label className="text-xs font-medium">Unit (UOM)</Label>
-                            <Select value={fgUom} onValueChange={setFgUom}>
-                              <SelectTrigger className="h-9 text-xs">
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="ml" className="text-xs">ml (Milliliters)</SelectItem>
-                                <SelectItem value="gm" className="text-xs">gm (Grams)</SelectItem>
-                                <SelectItem value="pcs" className="text-xs">pcs (Pieces)</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </div>
-                          <div className="space-y-1.5">
-                            <Label className="text-xs font-medium">Printed MRP (₹)</Label>
-                            <Input
-                              value={fgMrp}
-                              onChange={(e) => setFgMrp(e.target.value)}
-                              placeholder="599"
-                              className="h-9 text-xs font-mono"
-                            />
-                          </div>
-                          <div className="space-y-1.5">
-                            <Label className="text-xs font-medium">Contract Rate (₹/unit) *</Label>
-                            <Input
-                              value={fgRate}
-                              onChange={(e) => setFgRate(e.target.value)}
-                              placeholder="180"
-                              className="h-9 text-xs font-mono font-bold text-primary"
-                              required
-                            />
-                          </div>
-                        </div>
+              const variantIdMap: Record<string, string> = {};
+              for (const variant of variantDrafts) {
+                const { resolvedVariantTaxRateId, resolvedVariantTaxRate } =
+                  resolveVariantTax(variant);
+                const variantPayload: Record<string, unknown> = {
+                  productId,
+                  name:
+                    variant.title?.trim() ||
+                    Object.values(variant.optionValues).join(" / ") ||
+                    "Variant",
+                  sku: variant.sku?.trim() || undefined,
+                  isDefault: Boolean(variant.isDefault),
+                  isActive: true,
+                  optionValues: Object.keys(variant.optionValues).length
+                    ? variant.optionValues
+                    : undefined,
+                  taxRateId: resolvedVariantTaxRateId ?? null,
+                  taxRate: resolvedVariantTaxRate ?? null,
+                };
+                const { result: variantResult } = await createCrud<{
+                  id?: string;
+                  variantId?: string;
+                }>("catalog/variants", variantPayload);
+                const variantId = variantResult?.variantId ?? variantResult?.id;
+                if (!variantId) {
+                  throw createCrudFormError(
+                    t(
+                      "catalog.products.create.errors.variant",
+                      "Failed to create variant.",
+                    ),
+                  );
+                }
+                variantIdMap[variant.id] = variantId;
+                cleanupState.variantIds.push(variantId);
+              }
 
-                        <div className="rounded-md border bg-muted/30 px-3.5 py-2.5 flex items-center justify-between text-xs">
-                          <div className="flex items-center gap-2">
-                            <Info className="h-4 w-4 text-muted-foreground" />
-                            <span className="text-muted-foreground">
-                              Retail Markup: <strong>₹{numFgMrp > numFgRate ? numFgMrp - numFgRate : 0} / unit</strong>
-                            </span>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <span className="text-muted-foreground">Brand Margin:</span>
-                            <span className="rounded bg-primary/10 text-primary font-bold px-2 py-0.5 text-xs font-mono">
-                              {fgMarginPercent}%
-                            </span>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
+              for (const draft of priceRequests) {
+                const variantId = variantIdMap[draft.variantDraftId];
+                if (!variantId) continue;
+                const pricePayload: Record<string, unknown> = {
+                  productId,
+                  variantId,
+                  currencyCode: draft.currencyCode,
+                  priceKindId: draft.priceKindId,
+                };
+                if (draft.taxRateId) {
+                  pricePayload.taxRateId = draft.taxRateId;
+                } else if (
+                  typeof draft.taxRateValue === "number" &&
+                  Number.isFinite(draft.taxRateValue)
+                ) {
+                  pricePayload.taxRate = draft.taxRateValue;
+                }
+                if (draft.displayMode === "including-tax") {
+                  pricePayload.unitPriceGross = draft.amount;
+                } else {
+                  pricePayload.unitPriceNet = draft.amount;
+                }
+                await createCrud("catalog/prices", pricePayload);
+              }
 
-                    {/* FG Card 3: GST & Shelf Life */}
-                    <Card>
-                      <CardHeader className="pb-3 border-b bg-muted/20">
-                        <CardTitle className="text-sm font-bold flex items-center gap-2">
-                          <ShieldCheck className="h-4 w-4 text-primary" />
-                          3. GST & Production Batch Parameters
-                        </CardTitle>
-                        <CardDescription className="text-xs">
-                          Tax rate, shelf life stability, and minimum production floor
-                        </CardDescription>
-                      </CardHeader>
-                      <CardContent className="pt-4 space-y-4">
-                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                          <div className="space-y-1.5">
-                            <Label className="text-xs font-medium">GST Tax Rate</Label>
-                            <Select value={fgGst} onValueChange={setFgGst}>
-                              <SelectTrigger className="h-9 text-xs font-medium">
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {GST_OPTIONS.map((g) => (
-                                  <SelectItem key={g.value} value={g.value} className="text-xs">
-                                    {g.label}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          </div>
-                          <div className="space-y-1.5">
-                            <Label className="text-xs font-medium">Shelf Life</Label>
-                            <Select value={fgShelfLife} onValueChange={setFgShelfLife}>
-                              <SelectTrigger className="h-9 text-xs">
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {SHELF_LIFE_OPTIONS.map((sl) => (
-                                  <SelectItem key={sl} value={sl} className="text-xs">
-                                    {sl}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          </div>
-                          <div className="space-y-1.5">
-                            <Label className="text-xs font-medium">Min Batch / MOQ (Units)</Label>
-                            <Input
-                              type="number"
-                              min={1}
-                              value={fgMoq}
-                              onChange={(e) => setFgMoq(e.target.value)}
-                              placeholder="500"
-                              className="h-9 text-xs font-mono font-semibold"
-                            />
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
+              if (mediaDraftId && attachmentIds.length) {
+                const transfer = await apiCall<{
+                  ok?: boolean;
+                  error?: string;
+                }>(
+                  "/api/attachments/transfer",
+                  {
+                    method: "POST",
+                    headers: { "content-type": "application/json" },
+                    body: JSON.stringify({
+                      entityId: E.catalog.catalog_product,
+                      attachmentIds,
+                      fromRecordId: mediaDraftId,
+                      toRecordId: productId,
+                    }),
+                  },
+                  { fallback: null },
+                );
+                if (!transfer.ok) {
+                  logger.error("attachments.transfer.failed", { err: transfer.result?.error });
+                }
+              }
 
-                    {/* FG Card 4: Formulation Notes */}
-                    <Card>
-                      <CardHeader className="pb-3 border-b bg-muted/20">
-                        <CardTitle className="text-sm font-bold flex items-center gap-2">
-                          <Layers className="h-4 w-4 text-primary" />
-                          4. Formulation Actives & Packaging Notes
-                        </CardTitle>
-                      </CardHeader>
-                      <CardContent className="pt-4">
-                        <Textarea
-                          value={description}
-                          onChange={(e) => setDescription(e.target.value)}
-                          placeholder="e.g. Key Actives: Niacinamide 10%, Zinc PCA 1%, Hyaluronic Acid 0.5%. Target pH: 5.5 - 6.0. Glass dropper bottle with tamper-evident seal."
-                          rows={3}
-                          className="text-xs leading-relaxed"
-                        />
-                      </CardContent>
-                    </Card>
-                  </>
-                )}
+              if (inboxDraft) {
+                try {
+                  sessionStorage.removeItem("inbox_ops.productDraft");
+                } catch { /* ignore */ }
+                try {
+                  await apiCall(
+                    `/api/inbox_ops/proposals/${inboxDraft.proposalId}/actions/${inboxDraft.actionId}/complete`,
+                    {
+                      method: "PATCH",
+                      body: JSON.stringify({
+                        createdEntityId: productId,
+                        createdEntityType: "catalog_product",
+                      }),
+                    },
+                  );
+                } catch {
+                  flash(
+                    t(
+                      "inbox_ops.flash.complete_failed",
+                      "Product created but failed to update inbox action status.",
+                    ),
+                    "warning",
+                  );
+                }
+              }
 
-                {/* 2. CATEGORY: RAW MATERIALS (RM) */}
-                {invCategory === "rm" && (
-                  <>
-                    {/* RM Card 1: Identity */}
-                    <Card>
-                      <CardHeader className="pb-3 border-b bg-muted/20">
-                        <CardTitle className="text-sm font-bold flex items-center gap-2">
-                          <FlaskConical className="h-4 w-4 text-primary" />
-                          1. Raw Material / Chemical Identity
-                        </CardTitle>
-                        <CardDescription className="text-xs">
-                          Active ingredients, chemical compounds, extracts, surfactants, and oils
-                        </CardDescription>
-                      </CardHeader>
-                      <CardContent className="pt-4 space-y-4">
-                        <div className="grid grid-cols-1 sm:grid-cols-12 gap-3">
-                          <div className="sm:col-span-8 space-y-1.5">
-                            <Label className="text-xs font-medium">Material / Chemical Name *</Label>
-                            <Input
-                              value={title}
-                              onChange={(e) => setTitle(e.target.value)}
-                              placeholder="e.g. Sodium Silicate / Niacinamide PC (USP) / Hyaluronic Acid Powder"
-                              className="h-9 text-xs font-medium"
-                              required
-                            />
-                          </div>
-                          <div className="sm:col-span-4 space-y-1.5">
-                            <div className="flex items-center justify-between">
-                              <Label className="text-xs font-medium">Material Code / SKU</Label>
-                              <button
-                                type="button"
-                                onClick={handleAutoGenerateSku}
-                                className="text-[10px] text-primary hover:underline font-medium"
-                              >
-                                Auto-Gen
-                              </button>
-                            </div>
-                            <Input
-                              value={sku}
-                              onChange={(e) => setSku(e.target.value)}
-                              placeholder="e.g. RM-ACT-NIA-01"
-                              className="h-9 text-xs font-mono"
-                            />
-                          </div>
-                        </div>
-
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                          <div className="space-y-1.5">
-                            <Label className="text-xs font-medium">Chemical Classification</Label>
-                            <Select value={rmClassification} onValueChange={setRmClassification}>
-                              <SelectTrigger className="h-9 text-xs">
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {RM_CLASSIFICATIONS.map((c) => (
-                                  <SelectItem key={c.value} value={c.value} className="text-xs">
-                                    {c.label}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          </div>
-                          <div className="space-y-1.5">
-                            <Label className="text-xs font-medium">Grade / CAS No. (Optional)</Label>
-                            <Input
-                              value={rmGrade}
-                              onChange={(e) => setRmGrade(e.target.value)}
-                              placeholder="e.g. Cosmetic Grade USP / CAS: 98-92-0"
-                              className="h-9 text-xs"
-                            />
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-
-                    {/* RM Card 2: Procurement & Inventory Stocking */}
-                    <Card>
-                      <CardHeader className="pb-3 border-b bg-muted/20">
-                        <CardTitle className="text-sm font-bold flex items-center gap-2">
-                          <DollarSign className="h-4 w-4 text-primary" />
-                          2. Procurement Rate & Stock Thresholds
-                        </CardTitle>
-                        <CardDescription className="text-xs">
-                          Unit purchase rate, inventory reorder level, and tax
-                        </CardDescription>
-                      </CardHeader>
-                      <CardContent className="pt-4 space-y-4">
-                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                          <div className="space-y-1.5">
-                            <Label className="text-xs font-medium">Purchase Unit (UOM)</Label>
-                            <Select value={rmUom} onValueChange={setRmUom}>
-                              <SelectTrigger className="h-9 text-xs font-bold">
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="kg" className="text-xs">kg (Kilograms)</SelectItem>
-                                <SelectItem value="gm" className="text-xs">gm (Grams)</SelectItem>
-                                <SelectItem value="l" className="text-xs">L (Liters)</SelectItem>
-                                <SelectItem value="ml" className="text-xs">ml (Milliliters)</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </div>
-                          <div className="space-y-1.5">
-                            <Label className="text-xs font-medium">Purchase Rate (₹/{rmUom}) *</Label>
-                            <Input
-                              value={rmPurchaseRate}
-                              onChange={(e) => setRmPurchaseRate(e.target.value)}
-                              placeholder="1450"
-                              className="h-9 text-xs font-mono font-bold text-primary"
-                              required
-                            />
-                          </div>
-                          <div className="space-y-1.5">
-                            <Label className="text-xs font-medium">Reorder Level ({rmUom})</Label>
-                            <Input
-                              value={rmReorderLevel}
-                              onChange={(e) => setRmReorderLevel(e.target.value)}
-                              placeholder="25"
-                              className="h-9 text-xs font-mono font-semibold"
-                            />
-                          </div>
-                          <div className="space-y-1.5">
-                            <Label className="text-xs font-medium">GST Tax Rate</Label>
-                            <Select value={rmGst} onValueChange={setRmGst}>
-                              <SelectTrigger className="h-9 text-xs">
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {GST_OPTIONS.map((g) => (
-                                  <SelectItem key={g.value} value={g.value} className="text-xs">
-                                    {g.label}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-
-                    {/* RM Card 3: Storage & Safety */}
-                    <Card>
-                      <CardHeader className="pb-3 border-b bg-muted/20">
-                        <CardTitle className="text-sm font-bold flex items-center gap-2">
-                          <Warehouse className="h-4 w-4 text-primary" />
-                          3. Storage Conditions & Quality Retest
-                        </CardTitle>
-                        <CardDescription className="text-xs">
-                          Warehouse storage requirements, shelf stability, and procurement lead time
-                        </CardDescription>
-                      </CardHeader>
-                      <CardContent className="pt-4 space-y-4">
-                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                          <div className="space-y-1.5">
-                            <Label className="text-xs font-medium">Storage Condition</Label>
-                            <Select value={rmStorage} onValueChange={setRmStorage}>
-                              <SelectTrigger className="h-9 text-xs">
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {STORAGE_OPTIONS.map((s) => (
-                                  <SelectItem key={s.value} value={s.value} className="text-xs">
-                                    {s.label}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          </div>
-                          <div className="space-y-1.5">
-                            <Label className="text-xs font-medium">Retest / Shelf Life</Label>
-                            <Select value={rmRetestPeriod} onValueChange={setRmRetestPeriod}>
-                              <SelectTrigger className="h-9 text-xs">
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {SHELF_LIFE_OPTIONS.map((sl) => (
-                                  <SelectItem key={sl} value={sl} className="text-xs">
-                                    {sl}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          </div>
-                          <div className="space-y-1.5">
-                            <Label className="text-xs font-medium">Lead Time (Days)</Label>
-                            <Input
-                              type="number"
-                              value={rmLeadTimeDays}
-                              onChange={(e) => setRmLeadTimeDays(e.target.value)}
-                              placeholder="7"
-                              className="h-9 text-xs font-mono"
-                            />
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-
-                    {/* RM Card 4: Supplier Notes */}
-                    <Card>
-                      <CardHeader className="pb-3 border-b bg-muted/20">
-                        <CardTitle className="text-sm font-bold flex items-center gap-2">
-                          <Info className="h-4 w-4 text-primary" />
-                          4. Supplier & COA Specification Notes
-                        </CardTitle>
-                      </CardHeader>
-                      <CardContent className="pt-4">
-                        <Textarea
-                          value={description}
-                          onChange={(e) => setDescription(e.target.value)}
-                          placeholder="e.g. Approved Suppliers: BASF, Clariant, Croda. COA and microbial testing mandatory with each incoming shipment lot."
-                          rows={3}
-                          className="text-xs leading-relaxed"
-                        />
-                      </CardContent>
-                    </Card>
-                  </>
-                )}
-
-                {/* 3. CATEGORY: PACKAGING MATERIALS (PM) */}
-                {invCategory === "pm" && (
-                  <>
-                    {/* PM Card 1: Identity */}
-                    <Card>
-                      <CardHeader className="pb-3 border-b bg-muted/20">
-                        <CardTitle className="text-sm font-bold flex items-center gap-2">
-                          <Boxes className="h-4 w-4 text-primary" />
-                          1. Packaging Material Identity
-                        </CardTitle>
-                        <CardDescription className="text-xs">
-                          Primary containers, droppers, pumps, caps, monocartons, and labels
-                        </CardDescription>
-                      </CardHeader>
-                      <CardContent className="pt-4 space-y-4">
-                        <div className="grid grid-cols-1 sm:grid-cols-12 gap-3">
-                          <div className="sm:col-span-8 space-y-1.5">
-                            <Label className="text-xs font-medium">Packaging Item Name *</Label>
-                            <Input
-                              value={title}
-                              onChange={(e) => setTitle(e.target.value)}
-                              placeholder="e.g. 30ml Amber Glass Dropper Bottle (18/415) / Outer Monocarton"
-                              className="h-9 text-xs font-medium"
-                              required
-                            />
-                          </div>
-                          <div className="sm:col-span-4 space-y-1.5">
-                            <div className="flex items-center justify-between">
-                              <Label className="text-xs font-medium">Material Code / SKU</Label>
-                              <button
-                                type="button"
-                                onClick={handleAutoGenerateSku}
-                                className="text-[10px] text-primary hover:underline font-medium"
-                              >
-                                Auto-Gen
-                              </button>
-                            </div>
-                            <Input
-                              value={sku}
-                              onChange={(e) => setSku(e.target.value)}
-                              placeholder="e.g. PM-BOT-30-AMB"
-                              className="h-9 text-xs font-mono"
-                            />
-                          </div>
-                        </div>
-
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                          <div className="space-y-1.5">
-                            <Label className="text-xs font-medium">Packaging Type</Label>
-                            <Select value={pmType} onValueChange={setPmType}>
-                              <SelectTrigger className="h-9 text-xs">
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {PM_TYPES.map((t) => (
-                                  <SelectItem key={t.value} value={t.value} className="text-xs">
-                                    {t.label}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          </div>
-                          <div className="space-y-1.5">
-                            <Label className="text-xs font-medium">Material Construction</Label>
-                            <Select value={pmMaterial} onValueChange={setPmMaterial}>
-                              <SelectTrigger className="h-9 text-xs">
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {PM_MATERIALS.map((m) => (
-                                  <SelectItem key={m.value} value={m.value} className="text-xs">
-                                    {m.label}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-
-                    {/* PM Card 2: Dimensions & Compatibility */}
-                    <Card>
-                      <CardHeader className="pb-3 border-b bg-muted/20">
-                        <CardTitle className="text-sm font-bold flex items-center gap-2">
-                          <Info className="h-4 w-4 text-primary" />
-                          2. Technical Dimensions & Compatibility
-                        </CardTitle>
-                      </CardHeader>
-                      <CardContent className="pt-4 space-y-4">
-                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                          <div className="space-y-1.5">
-                            <Label className="text-xs font-medium">Compatible Volume / Size</Label>
-                            <Input
-                              value={pmVolume}
-                              onChange={(e) => setPmVolume(e.target.value)}
-                              placeholder="e.g. 30 ml / 50 ml"
-                              className="h-9 text-xs"
-                            />
-                          </div>
-                          <div className="space-y-1.5">
-                            <Label className="text-xs font-medium">Neck / Closure Thread</Label>
-                            <Input
-                              value={pmNeckSize}
-                              onChange={(e) => setPmNeckSize(e.target.value)}
-                              placeholder="e.g. 18/415 / 20/410 / N/A"
-                              className="h-9 text-xs"
-                            />
-                          </div>
-                          <div className="space-y-1.5">
-                            <Label className="text-xs font-medium">Base Inventory Unit</Label>
-                            <Select value={pmUom} onValueChange={setPmUom}>
-                              <SelectTrigger className="h-9 text-xs font-bold">
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="pcs" className="text-xs">pcs (Pieces)</SelectItem>
-                                <SelectItem value="nos" className="text-xs">nos (Numbers)</SelectItem>
-                                <SelectItem value="sets" className="text-xs">sets (Sets)</SelectItem>
-                                <SelectItem value="rolls" className="text-xs">rolls (Rolls / Labels)</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-
-                    {/* PM Card 3: Procurement & MOQ */}
-                    <Card>
-                      <CardHeader className="pb-3 border-b bg-muted/20">
-                        <CardTitle className="text-sm font-bold flex items-center gap-2">
-                          <DollarSign className="h-4 w-4 text-primary" />
-                          3. Procurement Cost & Supplier MOQ
-                        </CardTitle>
-                      </CardHeader>
-                      <CardContent className="pt-4 space-y-4">
-                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                          <div className="space-y-1.5">
-                            <Label className="text-xs font-medium">Unit Cost (₹/{pmUom}) *</Label>
-                            <Input
-                              value={pmCostRate}
-                              onChange={(e) => setPmCostRate(e.target.value)}
-                              placeholder="14.50"
-                              className="h-9 text-xs font-mono font-bold text-primary"
-                              required
-                            />
-                          </div>
-                          <div className="space-y-1.5">
-                            <Label className="text-xs font-medium">Supplier MOQ (Pcs)</Label>
-                            <Input
-                              value={pmMoq}
-                              onChange={(e) => setPmMoq(e.target.value)}
-                              placeholder="2500"
-                              className="h-9 text-xs font-mono font-semibold"
-                            />
-                          </div>
-                          <div className="space-y-1.5">
-                            <Label className="text-xs font-medium">GST Tax Rate</Label>
-                            <Select value={pmGst} onValueChange={setPmGst}>
-                              <SelectTrigger className="h-9 text-xs">
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {GST_OPTIONS.map((g) => (
-                                  <SelectItem key={g.value} value={g.value} className="text-xs">
-                                    {g.label}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          </div>
-                          <div className="space-y-1.5">
-                            <Label className="text-xs font-medium">Lead Time (Days)</Label>
-                            <Input
-                              type="number"
-                              value={pmLeadTimeDays}
-                              onChange={(e) => setPmLeadTimeDays(e.target.value)}
-                              placeholder="14"
-                              className="h-9 text-xs font-mono"
-                            />
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-
-                    {/* PM Card 4: Decoration Notes */}
-                    <Card>
-                      <CardHeader className="pb-3 border-b bg-muted/20">
-                        <CardTitle className="text-sm font-bold flex items-center gap-2">
-                          <Layers className="h-4 w-4 text-primary" />
-                          4. Printing, Decoration & Tooling Notes
-                        </CardTitle>
-                      </CardHeader>
-                      <CardContent className="pt-4">
-                        <Textarea
-                          value={description}
-                          onChange={(e) => setDescription(e.target.value)}
-                          placeholder="e.g. Silk-screen printing with gold foil hot-stamping. Matte UV outer varnish. Pipette with graduated markings at 0.5ml and 1.0ml."
-                          rows={3}
-                          className="text-xs leading-relaxed"
-                        />
-                      </CardContent>
-                    </Card>
-                  </>
-                )}
-
-                {/* 4. CATEGORY: BULK FORMULATION (SFG) */}
-                {invCategory === "bulk" && (
-                  <>
-                    {/* Bulk Card 1: Identity */}
-                    <Card>
-                      <CardHeader className="pb-3 border-b bg-muted/20">
-                        <CardTitle className="text-sm font-bold flex items-center gap-2">
-                          <Layers className="h-4 w-4 text-primary" />
-                          1. Bulk Formulation Identity
-                        </CardTitle>
-                        <CardDescription className="text-xs">
-                          Semi-finished compounded bulk liquid, cream, or serum prior to filling
-                        </CardDescription>
-                      </CardHeader>
-                      <CardContent className="pt-4 space-y-4">
-                        <div className="grid grid-cols-1 sm:grid-cols-12 gap-3">
-                          <div className="sm:col-span-8 space-y-1.5">
-                            <Label className="text-xs font-medium">Bulk Formulation Title *</Label>
-                            <Input
-                              value={title}
-                              onChange={(e) => setTitle(e.target.value)}
-                              placeholder="e.g. RD609-01 HA & Watermelon Capsule Cream Bulk / Niacinamide Serum Base"
-                              className="h-9 text-xs font-medium"
-                              required
-                            />
-                          </div>
-                          <div className="sm:col-span-4 space-y-1.5">
-                            <div className="flex items-center justify-between">
-                              <Label className="text-xs font-medium">Bulk Code / Batch ID</Label>
-                              <button
-                                type="button"
-                                onClick={handleAutoGenerateSku}
-                                className="text-[10px] text-primary hover:underline font-medium"
-                              >
-                                Auto-Gen
-                              </button>
-                            </div>
-                            <Input
-                              value={sku}
-                              onChange={(e) => setSku(e.target.value)}
-                              placeholder="e.g. SFG-RD609-01"
-                              className="h-9 text-xs font-mono"
-                            />
-                          </div>
-                        </div>
-
-                        <div className="space-y-1.5">
-                          <Label className="text-xs font-medium">Formulation Matrix</Label>
-                          <Select value={bulkMatrix} onValueChange={setBulkMatrix}>
-                            <SelectTrigger className="h-9 text-xs">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {BULK_FORMULATION_TYPES.map((f) => (
-                                <SelectItem key={f.value} value={f.value} className="text-xs">
-                                  {f.label}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      </CardContent>
-                    </Card>
-
-                    {/* Bulk Card 2: Compounding Sizing & Costing */}
-                    <Card>
-                      <CardHeader className="pb-3 border-b bg-muted/20">
-                        <CardTitle className="text-sm font-bold flex items-center gap-2">
-                          <DollarSign className="h-4 w-4 text-primary" />
-                          2. Compounding Batch Sizing & Cost Rate
-                        </CardTitle>
-                      </CardHeader>
-                      <CardContent className="pt-4 space-y-4">
-                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                          <div className="space-y-1.5">
-                            <Label className="text-xs font-medium">Compounding Size *</Label>
-                            <Input
-                              value={bulkBatchSize}
-                              onChange={(e) => setBulkBatchSize(e.target.value)}
-                              placeholder="100"
-                              className="h-9 text-xs font-mono font-bold"
-                              required
-                            />
-                          </div>
-                          <div className="space-y-1.5">
-                            <Label className="text-xs font-medium">Bulk Unit</Label>
-                            <Select value={bulkUom} onValueChange={setBulkUom}>
-                              <SelectTrigger className="h-9 text-xs font-bold">
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="kg" className="text-xs">kg (Kilograms)</SelectItem>
-                                <SelectItem value="l" className="text-xs">L (Liters)</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </div>
-                          <div className="space-y-1.5">
-                            <Label className="text-xs font-medium">Cost Rate (₹/{bulkUom}) *</Label>
-                            <Input
-                              value={bulkCostRate}
-                              onChange={(e) => setBulkCostRate(e.target.value)}
-                              placeholder="380"
-                              className="h-9 text-xs font-mono font-bold text-primary"
-                              required
-                            />
-                          </div>
-                          <div className="space-y-1.5">
-                            <Label className="text-xs font-medium">GST Tax Rate</Label>
-                            <Select value={bulkGst} onValueChange={setBulkGst}>
-                              <SelectTrigger className="h-9 text-xs">
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {GST_OPTIONS.map((g) => (
-                                  <SelectItem key={g.value} value={g.value} className="text-xs">
-                                    {g.label}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-
-                    {/* Bulk Card 3: Quality Control & Shelf Life */}
-                    <Card>
-                      <CardHeader className="pb-3 border-b bg-muted/20">
-                        <CardTitle className="text-sm font-bold flex items-center gap-2">
-                          <ShieldCheck className="h-4 w-4 text-primary" />
-                          3. Physical Quality Specs & Bulk Stability
-                        </CardTitle>
-                      </CardHeader>
-                      <CardContent className="pt-4 space-y-4">
-                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                          <div className="space-y-1.5">
-                            <Label className="text-xs font-medium">pH Target Range</Label>
-                            <Input
-                              value={bulkTargetPh}
-                              onChange={(e) => setBulkTargetPh(e.target.value)}
-                              placeholder="5.5 - 6.0"
-                              className="h-9 text-xs font-mono"
-                            />
-                          </div>
-                          <div className="space-y-1.5">
-                            <Label className="text-xs font-medium">Viscosity Spec</Label>
-                            <Input
-                              value={bulkViscosity}
-                              onChange={(e) => setBulkViscosity(e.target.value)}
-                              placeholder="12,000 - 15,000 cps"
-                              className="h-9 text-xs font-mono"
-                            />
-                          </div>
-                          <div className="space-y-1.5">
-                            <Label className="text-xs font-medium">Bulk Shelf Life</Label>
-                            <Select value={bulkShelfLife} onValueChange={setBulkShelfLife}>
-                              <SelectTrigger className="h-9 text-xs">
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {SHELF_LIFE_OPTIONS.map((sl) => (
-                                  <SelectItem key={sl} value={sl} className="text-xs">
-                                    {sl}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-
-                    {/* Bulk Card 4: Compounding Protocol */}
-                    <Card>
-                      <CardHeader className="pb-3 border-b bg-muted/20">
-                        <CardTitle className="text-sm font-bold flex items-center gap-2">
-                          <FlaskConical className="h-4 w-4 text-primary" />
-                          4. Compounding Protocol & Active Actives
-                        </CardTitle>
-                      </CardHeader>
-                      <CardContent className="pt-4">
-                        <Textarea
-                          value={description}
-                          onChange={(e) => setDescription(e.target.value)}
-                          placeholder="e.g. Phase A: Heat deionized water to 75°C. Disperse polymer under high-shear homogenizer for 15 mins. Cool to 40°C before adding heat-sensitive actives."
-                          rows={3}
-                          className="text-xs leading-relaxed"
-                        />
-                      </CardContent>
-                    </Card>
-                  </>
-                )}
-
-                {/* 5. CATEGORY: RESEARCH & DEVELOPMENT (R&D) */}
-                {invCategory === "rd" && (
-                  <>
-                    {/* RD Card 1: Identity */}
-                    <Card>
-                      <CardHeader className="pb-3 border-b bg-muted/20">
-                        <CardTitle className="text-sm font-bold flex items-center gap-2">
-                          <Sparkles className="h-4 w-4 text-primary" />
-                          1. R&D Trial Project & Lab Sample Identity
-                        </CardTitle>
-                        <CardDescription className="text-xs">
-                          Experimental lab formulations, stability trials, and client test samples
-                        </CardDescription>
-                      </CardHeader>
-                      <CardContent className="pt-4 space-y-4">
-                        <div className="grid grid-cols-1 sm:grid-cols-12 gap-3">
-                          <div className="sm:col-span-8 space-y-1.5">
-                            <Label className="text-xs font-medium">Trial Sample Title *</Label>
-                            <Input
-                              value={title}
-                              onChange={(e) => setTitle(e.target.value)}
-                              placeholder="e.g. RD600-01 Kojic Acid & Alpha Arbutin Cream / SPF 50 Trial Batch"
-                              className="h-9 text-xs font-medium"
-                              required
-                            />
-                          </div>
-                          <div className="sm:col-span-4 space-y-1.5">
-                            <div className="flex items-center justify-between">
-                              <Label className="text-xs font-medium">R&D Trial Code / Lab ID</Label>
-                              <button
-                                type="button"
-                                onClick={handleAutoGenerateSku}
-                                className="text-[10px] text-primary hover:underline font-medium"
-                              >
-                                Auto-Gen
-                              </button>
-                            </div>
-                            <Input
-                              value={sku}
-                              onChange={(e) => setSku(e.target.value)}
-                              placeholder="e.g. RD-600-01"
-                              className="h-9 text-xs font-mono"
-                            />
-                          </div>
-                        </div>
-
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                          <div className="space-y-1.5">
-                            <Label className="text-xs font-medium">Target Category</Label>
-                            <Select value={rdTargetCategory} onValueChange={setRdTargetCategory}>
-                              <SelectTrigger className="h-9 text-xs">
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {categoryOptions.map((opt) => (
-                                  <SelectItem key={opt.value} value={opt.value} className="text-xs">
-                                    {opt.label}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          </div>
-                          <div className="space-y-1.5">
-                            <Label className="text-xs font-medium">R&D Pipeline Stage</Label>
-                            <Select value={rdStage} onValueChange={setRdStage}>
-                              <SelectTrigger className="h-9 text-xs font-semibold">
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {RD_STAGES.map((s) => (
-                                  <SelectItem key={s.value} value={s.value} className="text-xs">
-                                    {s.label}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-
-                    {/* RD Card 2: Sample Specifications */}
-                    <Card>
-                      <CardHeader className="pb-3 border-b bg-muted/20">
-                        <CardTitle className="text-sm font-bold flex items-center gap-2">
-                          <FlaskConical className="h-4 w-4 text-primary" />
-                          2. Sample Parameters & Target Client
-                        </CardTitle>
-                      </CardHeader>
-                      <CardContent className="pt-4 space-y-4">
-                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                          <div className="space-y-1.5">
-                            <Label className="text-xs font-medium">Sample Volume / Size</Label>
-                            <Input
-                              value={rdSampleSize}
-                              onChange={(e) => setRdSampleSize(e.target.value)}
-                              placeholder="100"
-                              className="h-9 text-xs font-mono"
-                            />
-                          </div>
-                          <div className="space-y-1.5">
-                            <Label className="text-xs font-medium">Unit</Label>
-                            <Select value={rdSampleUom} onValueChange={setRdSampleUom}>
-                              <SelectTrigger className="h-9 text-xs">
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="gm" className="text-xs">gm (Grams)</SelectItem>
-                                <SelectItem value="ml" className="text-xs">ml (Milliliters)</SelectItem>
-                                <SelectItem value="pcs" className="text-xs">pcs (Pieces)</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </div>
-                          <div className="space-y-1.5">
-                            <Label className="text-xs font-medium">Target Prospect / Client</Label>
-                            <Input
-                              value={rdClientProspect}
-                              onChange={(e) => setRdClientProspect(e.target.value)}
-                              placeholder="e.g. Skin Theta"
-                              className="h-9 text-xs"
-                            />
-                          </div>
-                          <div className="space-y-1.5">
-                            <Label className="text-xs font-medium">Pilot Batch Cost (₹)</Label>
-                            <Input
-                              value={rdLabCost}
-                              onChange={(e) => setRdLabCost(e.target.value)}
-                              placeholder="500"
-                              className="h-9 text-xs font-mono font-bold"
-                            />
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-
-                    {/* RD Card 3: Key Target Actives & Stability */}
-                    <Card>
-                      <CardHeader className="pb-3 border-b bg-muted/20">
-                        <CardTitle className="text-sm font-bold flex items-center gap-2">
-                          <Layers className="h-4 w-4 text-primary" />
-                          3. Target Actives, Claims & Stability Observations
-                        </CardTitle>
-                      </CardHeader>
-                      <CardContent className="pt-4">
-                        <Textarea
-                          value={description}
-                          onChange={(e) => setDescription(e.target.value)}
-                          placeholder="e.g. Key Actives: Kojic Acid Dipalmitate 2%, Alpha Arbutin 1.5%, Niacinamide 3%. Target claim: Hyperpigmentation reduction. Passed 30-day stability test at 40°C."
-                          rows={3}
-                          className="text-xs leading-relaxed"
-                        />
-                      </CardContent>
-                    </Card>
-                  </>
-                )}
-
-              </div>
-
-              {/* Right Column: Live Context-Aware Preview Card (4 cols) */}
-              <div className="lg:col-span-4 sticky top-6 space-y-4">
-                <Card className="border-2 border-primary/20 shadow-md">
-                  <CardHeader className="bg-primary/5 border-b pb-3">
-                    <div className="flex items-center justify-between">
-                      <span className="text-[11px] font-semibold text-primary uppercase tracking-wider">
-                        Live Master Preview
-                      </span>
-                      <span className="text-[10px] bg-primary/10 text-primary px-2 py-0.5 rounded font-bold uppercase">
-                        {CATEGORY_TABS.find((t) => t.id === invCategory)?.label.split(" ")[0]}
-                      </span>
-                    </div>
-                    <CardTitle className="text-base font-bold truncate mt-1">
-                      {title.trim() || `Untitled ${CATEGORY_TABS.find((t) => t.id === invCategory)?.label.split(" ")[0]}`}
-                    </CardTitle>
-                    <div className="flex flex-wrap items-center gap-1.5 pt-1">
-                      {sku ? (
-                        <span className="font-mono text-[10px] bg-background border px-1.5 py-0.5 rounded text-foreground font-semibold">
-                          {sku}
-                        </span>
-                      ) : null}
-                      {invCategory === "fg" && clientBrand ? (
-                        <span className="text-[10px] text-muted-foreground font-medium">
-                          Brand: {clientBrand.trim()}
-                        </span>
-                      ) : null}
-                    </div>
-                  </CardHeader>
-
-                  <CardContent className="pt-4 space-y-3.5 text-xs">
-
-                    {/* FINISHED GOODS PREVIEW */}
-                    {invCategory === "fg" && (
-                      <>
-                        <div className="rounded-lg border bg-muted/30 p-3 space-y-2">
-                          <div className="flex items-center justify-between">
-                            <span className="text-muted-foreground">Standard Volume:</span>
-                            <strong className="font-mono">{fgPackSize || "50"} {fgUom}</strong>
-                          </div>
-                          <div className="flex items-center justify-between border-t pt-1.5">
-                            <span className="text-muted-foreground">Printed MRP:</span>
-                            <strong className="font-mono text-muted-foreground">₹{numFgMrp.toLocaleString("en-IN")}</strong>
-                          </div>
-                          <div className="flex items-center justify-between border-t pt-1.5">
-                            <span className="text-muted-foreground">Contract Rate:</span>
-                            <strong className="font-mono text-primary text-sm font-black">₹{numFgRate.toLocaleString("en-IN")}</strong>
-                          </div>
-                          <div className="flex items-center justify-between border-t pt-1.5">
-                            <span className="text-muted-foreground">Brand Margin %:</span>
-                            <span className="font-mono font-bold text-status-success-text">{fgMarginPercent}%</span>
-                          </div>
-                        </div>
-
-                        <div className="space-y-1.5 text-muted-foreground">
-                          <div className="text-[11px] font-semibold uppercase tracking-wider text-foreground">
-                            Batch Economics (MOQ {numFgMoq.toLocaleString("en-IN")} Units)
-                          </div>
-                          <div className="flex items-center justify-between">
-                            <span>Taxable Value:</span>
-                            <span className="font-mono text-foreground font-medium">₹{fgMoqBatchTaxable.toLocaleString("en-IN")}</span>
-                          </div>
-                          <div className="flex items-center justify-between">
-                            <span>GST ({fgGst}%):</span>
-                            <span className="font-mono text-foreground font-medium">₹{fgMoqBatchTax.toLocaleString("en-IN")}</span>
-                          </div>
-                          <div className="flex items-center justify-between border-t pt-1.5 font-bold text-foreground">
-                            <span>Total Batch Cost:</span>
-                            <span className="font-mono text-primary font-black text-sm">₹{fgMoqBatchTotal.toLocaleString("en-IN")}</span>
-                          </div>
-                        </div>
-
-                        <div className="border-t pt-3 space-y-1 text-[11px] text-muted-foreground">
-                          <div>• Shelf Life: <span className="text-foreground">{fgShelfLife}</span></div>
-                          <div>• Category: <span className="text-foreground">{fgCategory}</span></div>
-                        </div>
-                      </>
-                    )}
-
-                    {/* RAW MATERIALS PREVIEW */}
-                    {invCategory === "rm" && (
-                      <>
-                        <div className="rounded-lg border bg-muted/30 p-3 space-y-2">
-                          <div className="flex items-center justify-between">
-                            <span className="text-muted-foreground">Classification:</span>
-                            <strong className="font-medium text-foreground">{rmClassification}</strong>
-                          </div>
-                          <div className="flex items-center justify-between border-t pt-1.5">
-                            <span className="text-muted-foreground">Purchase Rate:</span>
-                            <strong className="font-mono text-primary text-sm font-black">
-                              ₹{numRmRate.toLocaleString("en-IN")} / {rmUom}
-                            </strong>
-                          </div>
-                          <div className="flex items-center justify-between border-t pt-1.5">
-                            <span className="text-muted-foreground">Reorder Safety Level:</span>
-                            <strong className="font-mono text-foreground">{rmReorderLevel || "0"} {rmUom}</strong>
-                          </div>
-                        </div>
-
-                        <div className="space-y-1.5 text-muted-foreground">
-                          <div className="text-[11px] font-semibold uppercase tracking-wider text-foreground">
-                            Safety Stock Value ({rmReorderLevel} {rmUom})
-                          </div>
-                          <div className="flex items-center justify-between">
-                            <span>Inventory Value:</span>
-                            <span className="font-mono text-foreground font-medium">₹{rmMinStockValue.toLocaleString("en-IN")}</span>
-                          </div>
-                          <div className="flex items-center justify-between">
-                            <span>Est. GST ({rmGst}%):</span>
-                            <span className="font-mono text-foreground font-medium">₹{rmMinStockTax.toLocaleString("en-IN")}</span>
-                          </div>
-                        </div>
-
-                        <div className="border-t pt-3 space-y-1 text-[11px] text-muted-foreground">
-                          <div>• Storage: <span className="text-foreground">{rmStorage}</span></div>
-                          <div>• Retest Period: <span className="text-foreground">{rmRetestPeriod}</span></div>
-                          <div>• Lead Time: <span className="text-foreground">{rmLeadTimeDays || "7"} Days</span></div>
-                        </div>
-                      </>
-                    )}
-
-                    {/* PACKAGING MATERIALS PREVIEW */}
-                    {invCategory === "pm" && (
-                      <>
-                        <div className="rounded-lg border bg-muted/30 p-3 space-y-2">
-                          <div className="flex items-center justify-between">
-                            <span className="text-muted-foreground">Packaging Type:</span>
-                            <strong className="font-medium text-foreground">{pmType}</strong>
-                          </div>
-                          <div className="flex items-center justify-between border-t pt-1.5">
-                            <span className="text-muted-foreground">Material:</span>
-                            <strong className="font-medium text-foreground">{pmMaterial}</strong>
-                          </div>
-                          <div className="flex items-center justify-between border-t pt-1.5">
-                            <span className="text-muted-foreground">Unit Cost:</span>
-                            <strong className="font-mono text-primary text-sm font-black">
-                              ₹{numPmRate.toLocaleString("en-IN")} / {pmUom}
-                            </strong>
-                          </div>
-                          <div className="flex items-center justify-between border-t pt-1.5">
-                            <span className="text-muted-foreground">Supplier MOQ:</span>
-                            <strong className="font-mono text-foreground">{numPmMoq.toLocaleString("en-IN")} {pmUom}</strong>
-                          </div>
-                        </div>
-
-                        <div className="space-y-1.5 text-muted-foreground">
-                          <div className="text-[11px] font-semibold uppercase tracking-wider text-foreground">
-                            MOQ Procurement Order Value
-                          </div>
-                          <div className="flex items-center justify-between">
-                            <span>Taxable Value:</span>
-                            <span className="font-mono text-foreground font-medium">₹{pmMoqBatchTaxable.toLocaleString("en-IN")}</span>
-                          </div>
-                          <div className="flex items-center justify-between">
-                            <span>GST ({pmGst}%):</span>
-                            <span className="font-mono text-foreground font-medium">₹{pmMoqBatchTax.toLocaleString("en-IN")}</span>
-                          </div>
-                          <div className="flex items-center justify-between border-t pt-1.5 font-bold text-foreground">
-                            <span>Total MOQ Value:</span>
-                            <span className="font-mono text-primary font-black text-sm">₹{pmMoqBatchTotal.toLocaleString("en-IN")}</span>
-                          </div>
-                        </div>
-
-                        <div className="border-t pt-3 space-y-1 text-[11px] text-muted-foreground">
-                          <div>• Volume / Neck: <span className="text-foreground">{pmVolume} • {pmNeckSize}</span></div>
-                          <div>• Lead Time: <span className="text-foreground">{pmLeadTimeDays || "14"} Days</span></div>
-                        </div>
-                      </>
-                    )}
-
-                    {/* BULK FORMULATION PREVIEW */}
-                    {invCategory === "bulk" && (
-                      <>
-                        <div className="rounded-lg border bg-muted/30 p-3 space-y-2">
-                          <div className="flex items-center justify-between">
-                            <span className="text-muted-foreground">Matrix:</span>
-                            <strong className="font-medium text-foreground">{bulkMatrix}</strong>
-                          </div>
-                          <div className="flex items-center justify-between border-t pt-1.5">
-                            <span className="text-muted-foreground">Batch Sizing:</span>
-                            <strong className="font-mono text-foreground">{bulkBatchSize || "100"} {bulkUom}</strong>
-                          </div>
-                          <div className="flex items-center justify-between border-t pt-1.5">
-                            <span className="text-muted-foreground">Compounding Rate:</span>
-                            <strong className="font-mono text-primary text-sm font-black">
-                              ₹{numBulkRate.toLocaleString("en-IN")} / {bulkUom}
-                            </strong>
-                          </div>
-                          <div className="flex items-center justify-between border-t pt-1.5">
-                            <span className="text-muted-foreground">Standard Batch Value:</span>
-                            <strong className="font-mono text-foreground">₹{bulkTotalBatchValue.toLocaleString("en-IN")}</strong>
-                          </div>
-                        </div>
-
-                        <div className="border-t pt-3 space-y-1 text-[11px] text-muted-foreground">
-                          <div>• Target pH: <span className="text-foreground">{bulkTargetPh}</span></div>
-                          <div>• Viscosity: <span className="text-foreground">{bulkViscosity}</span></div>
-                          <div>• Shelf Life: <span className="text-foreground">{bulkShelfLife}</span></div>
-                        </div>
-                      </>
-                    )}
-
-                    {/* R&D PREVIEW */}
-                    {invCategory === "rd" && (
-                      <>
-                        <div className="rounded-lg border bg-muted/30 p-3 space-y-2">
-                          <div className="flex items-center justify-between">
-                            <span className="text-muted-foreground">Target Category:</span>
-                            <strong className="font-medium text-foreground">{rdTargetCategory}</strong>
-                          </div>
-                          <div className="flex items-center justify-between border-t pt-1.5">
-                            <span className="text-muted-foreground">Pipeline Stage:</span>
-                            <span className="text-primary font-bold text-xs bg-primary/10 px-1.5 py-0.5 rounded">
-                              {rdStage}
-                            </span>
-                          </div>
-                          <div className="flex items-center justify-between border-t pt-1.5">
-                            <span className="text-muted-foreground">Sample Size:</span>
-                            <strong className="font-mono text-foreground">{rdSampleSize} {rdSampleUom}</strong>
-                          </div>
-                          <div className="flex items-center justify-between border-t pt-1.5">
-                            <span className="text-muted-foreground">Pilot Batch Cost:</span>
-                            <strong className="font-mono text-primary text-sm font-black">₹{rdLabCost}</strong>
-                          </div>
-                        </div>
-
-                        {rdClientProspect ? (
-                          <div className="border-t pt-2 text-[11px] text-muted-foreground">
-                            Target Client: <span className="text-foreground font-semibold">{rdClientProspect}</span>
-                          </div>
-                        ) : null}
-                      </>
-                    )}
-
-                    <div className="pt-2">
-                      <Button
-                        type="button"
-                        className="w-full font-bold"
-                        onClick={handleSubmit}
-                        disabled={submitting || !title.trim()}
-                      >
-                        {submitting ? "Saving Master Item..." : "Save Master Item"}
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
-            </div>
-          </form>
-        </div>
+              flash(
+                t("catalog.products.create.success", "Product created."),
+                "success",
+              );
+              if (inboxDraft) {
+                router.push(
+                  `/backend/inbox-ops/proposals/${encodeURIComponent(inboxDraft.proposalId)}`,
+                );
+              } else {
+                router.push(`/backend/catalog/products/${productId}`);
+              }
+            } catch (err) {
+              await cleanupFailedProduct(
+                cleanupState.productId,
+                cleanupState.variantIds,
+              );
+              throw err;
+            }
+          }}
+        />
       </PageBody>
     </Page>
-  )
+  );
+}
+
+async function cleanupFailedProduct(
+  productId: string | null,
+  variantIds: string[],
+): Promise<void> {
+  if (!productId && variantIds.length === 0) return;
+  if (variantIds.length) {
+    const variantDeletes = variantIds.map((variantId) =>
+      apiCall(`/api/catalog/variants?id=${encodeURIComponent(variantId)}`, {
+        method: "DELETE",
+      }).catch(() => null),
+    );
+    await Promise.allSettled(variantDeletes);
+  }
+  if (productId) {
+    await apiCall(`/api/catalog/products?id=${encodeURIComponent(productId)}`, {
+      method: "DELETE",
+    }).catch(() => null);
+  }
+}
+
+type ProductBuilderProps = {
+  values: ProductFormValues;
+  setValue: (id: string, value: unknown) => void;
+  errors: Record<string, string>;
+  priceKinds: PriceKindSummary[];
+  taxRates: TaxRateSummary[];
+  requiredFieldIds?: ReadonlySet<string>;
+};
+
+type ProductMetaSectionProps = {
+  values: ProductFormValues;
+  setValue: (id: string, value: unknown) => void;
+  errors: Record<string, string>;
+  taxRates: TaxRateSummary[];
+};
+
+type ProductDimensionsSectionProps = {
+  values: ProductFormValues;
+  setValue: (id: string, value: unknown) => void;
+};
+
+function ProductDimensionsFields({
+  values,
+  setValue,
+}: ProductDimensionsSectionProps) {
+  const t = useT();
+  const dimensionValues = normalizeProductDimensions(values.dimensions);
+  const weightValues = normalizeProductWeight(values.weight);
+
+  return (
+    <div className="space-y-4 rounded-lg border p-4">
+      <h3 className="text-sm font-semibold">
+        {t("catalog.products.edit.dimensions", "Dimensions & weight")}
+      </h3>
+      <div className="grid gap-4 md:grid-cols-2">
+        <div className="space-y-2">
+          <Label className="text-xs uppercase text-muted-foreground">
+            {t("catalog.products.edit.dimensions.width", "Width")}
+          </Label>
+          <Input
+            type="number"
+            value={dimensionValues?.width ?? ""}
+            onChange={(event) =>
+              setValue(
+                "dimensions",
+                updateDimensionValue(
+                  values.dimensions ?? null,
+                  "width",
+                  event.target.value,
+                ),
+              )
+            }
+            placeholder="0"
+          />
+        </div>
+        <div className="space-y-2">
+          <Label className="text-xs uppercase text-muted-foreground">
+            {t("catalog.products.edit.dimensions.height", "Height")}
+          </Label>
+          <Input
+            type="number"
+            value={dimensionValues?.height ?? ""}
+            onChange={(event) =>
+              setValue(
+                "dimensions",
+                updateDimensionValue(
+                  values.dimensions ?? null,
+                  "height",
+                  event.target.value,
+                ),
+              )
+            }
+            placeholder="0"
+          />
+        </div>
+        <div className="space-y-2">
+          <Label className="text-xs uppercase text-muted-foreground">
+            {t("catalog.products.edit.dimensions.depth", "Depth")}
+          </Label>
+          <Input
+            type="number"
+            value={dimensionValues?.depth ?? ""}
+            onChange={(event) =>
+              setValue(
+                "dimensions",
+                updateDimensionValue(
+                  values.dimensions ?? null,
+                  "depth",
+                  event.target.value,
+                ),
+              )
+            }
+            placeholder="0"
+          />
+        </div>
+        <div className="space-y-2">
+          <Label className="text-xs uppercase text-muted-foreground">
+            {t("catalog.products.edit.dimensions.unit", "Size unit")}
+          </Label>
+          <Input
+            value={dimensionValues?.unit ?? ""}
+            onChange={(event) =>
+              setValue(
+                "dimensions",
+                updateDimensionValue(
+                  values.dimensions ?? null,
+                  "unit",
+                  event.target.value,
+                ),
+              )
+            }
+            placeholder="cm"
+          />
+        </div>
+        <div className="space-y-2">
+          <Label className="text-xs uppercase text-muted-foreground">
+            {t("catalog.products.edit.weight.value", "Weight")}
+          </Label>
+          <Input
+            type="number"
+            value={weightValues?.value ?? ""}
+            onChange={(event) =>
+              setValue(
+                "weight",
+                updateWeightValue(
+                  values.weight ?? null,
+                  "value",
+                  event.target.value,
+                ),
+              )
+            }
+            placeholder="0"
+          />
+        </div>
+        <div className="space-y-2">
+          <Label className="text-xs uppercase text-muted-foreground">
+            {t("catalog.products.edit.weight.unit", "Weight unit")}
+          </Label>
+          <Input
+            value={weightValues?.unit ?? ""}
+            onChange={(event) =>
+              setValue(
+                "weight",
+                updateWeightValue(
+                  values.weight ?? null,
+                  "unit",
+                  event.target.value,
+                ),
+              )
+            }
+            placeholder="kg"
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ProductBuilder({
+  values,
+  setValue,
+  errors,
+  priceKinds,
+  taxRates,
+  requiredFieldIds,
+}: ProductBuilderProps) {
+  const t = useT();
+  const steps = PRODUCT_FORM_STEPS;
+  const [currentStep, setCurrentStep] = React.useState(0);
+  const defaultTaxRate = React.useMemo(
+    () =>
+      values.taxRateId
+        ? (taxRates.find((rate) => rate.id === values.taxRateId) ?? null)
+        : null,
+    [taxRates, values.taxRateId],
+  );
+  React.useEffect(() => {
+    if (values.taxRateId) return;
+    if (!taxRates.length) return;
+    const fallback = taxRates.find((rate) => rate.isDefault);
+    if (!fallback) return;
+    setValue("taxRateId", fallback.id);
+  }, [taxRates, setValue, values.taxRateId]);
+  const stepErrors = React.useMemo(() => {
+    const map = steps.reduce<Record<ProductFormStep, string[]>>(
+      (acc, step) => {
+        acc[step] = [];
+        return acc;
+      },
+      {} as Record<ProductFormStep, string[]>,
+    );
+    Object.entries(errors).forEach(([fieldId, message]) => {
+      const step = resolveStepForField(fieldId);
+      if (!step) return;
+      const text =
+        typeof message === "string" && message.trim().length
+          ? message.trim()
+          : null;
+      if (text) map[step] = [...map[step], text];
+    });
+    return map;
+  }, [errors, steps]);
+  const errorSignature = React.useMemo(
+    () => Object.keys(errors).sort((a, b) => a.localeCompare(b)).join("|"),
+    [errors],
+  );
+  const lastErrorSignatureRef = React.useRef<string | null>(null);
+  React.useEffect(() => {
+    if (!errorSignature || errorSignature === lastErrorSignatureRef.current)
+      return;
+    lastErrorSignatureRef.current = errorSignature;
+    const currentStepKey = steps[currentStep];
+    if (currentStepKey && stepErrors[currentStepKey]?.length) return;
+    const fallbackIndex = steps.findIndex(
+      (step) => (stepErrors[step] ?? []).length > 0,
+    );
+    if (fallbackIndex >= 0 && fallbackIndex !== currentStep) {
+      setCurrentStep(fallbackIndex);
+    }
+  }, [currentStep, errorSignature, setCurrentStep, stepErrors, steps]);
+  const defaultTaxRateLabel = defaultTaxRate
+    ? formatTaxRateLabel(defaultTaxRate)
+    : null;
+  const inventoryDisabledHint = t(
+    "catalog.products.create.variantsBuilder.inventoryDisabled",
+    "Inventory tracking controls are not available yet.",
+  );
+
+  React.useEffect(() => {
+    if (currentStep >= steps.length) setCurrentStep(0);
+  }, [currentStep, steps.length]);
+
+  const currentStepKey = steps[currentStep] ?? steps[0];
+
+  const mediaItems = React.useMemo(
+    () => (Array.isArray(values.mediaItems) ? values.mediaItems : []),
+    [values.mediaItems],
+  );
+
+  const handleMediaItemsChange = React.useCallback(
+    (nextItems: ProductMediaItem[]) => {
+      setValue("mediaItems", nextItems);
+      const hasCurrent = nextItems.some(
+        (item) => item.id === values.defaultMediaId,
+      );
+      if (!hasCurrent) {
+        const fallbackId = nextItems[0]?.id ?? null;
+        setValue("defaultMediaId", fallbackId);
+        if (fallbackId && nextItems[0]) {
+          setValue(
+            "defaultMediaUrl",
+            buildAttachmentImageUrl(fallbackId, {
+              slug: slugifyAttachmentFileName(nextItems[0].fileName),
+            }),
+          );
+        } else {
+          setValue("defaultMediaUrl", "");
+        }
+      }
+    },
+    [setValue, values.defaultMediaId],
+  );
+
+  const handleDefaultMediaChange = React.useCallback(
+    (attachmentId: string | null) => {
+      setValue("defaultMediaId", attachmentId);
+      if (!attachmentId) {
+        setValue("defaultMediaUrl", "");
+        return;
+      }
+      const target = mediaItems.find((item) => item.id === attachmentId);
+      if (target) {
+        setValue(
+          "defaultMediaUrl",
+          buildAttachmentImageUrl(target.id, {
+            slug: slugifyAttachmentFileName(target.fileName),
+          }),
+        );
+      }
+    },
+    [mediaItems, setValue],
+  );
+
+  const ensureVariants = React.useCallback(() => {
+    const optionDefinitions = Array.isArray(values.options)
+      ? values.options
+      : [];
+    if (!values.hasVariants || !optionDefinitions.length) {
+      if (!values.variants || !values.variants.length) {
+        setValue("variants", [
+          createVariantDraft(values.taxRateId ?? null, { isDefault: true }),
+        ]);
+      }
+      return;
+    }
+    const combos = buildVariantCombinations(optionDefinitions);
+    const existing = Array.isArray(values.variants) ? values.variants : [];
+    const existingByKey = new Map(
+      existing.map((variant) => [
+        buildOptionValuesKey(variant.optionValues),
+        variant,
+      ]),
+    );
+    let hasDefault = existing.some((variant) => variant.isDefault);
+    let changed = existing.length !== combos.length;
+    const nextVariants: VariantDraft[] = combos.map((combo, index) => {
+      const key = buildOptionValuesKey(combo);
+      const existingMatch = existingByKey.get(key);
+      if (existingMatch) {
+        if (existingMatch.isDefault) hasDefault = true;
+        if (!haveSameOptionValues(existingMatch.optionValues, combo)) {
+          changed = true;
+          return { ...existingMatch, optionValues: combo };
+        }
+        if (existing[index] !== existingMatch) {
+          changed = true;
+        }
+        return existingMatch;
+      }
+      changed = true;
+      return createVariantDraft(values.taxRateId ?? null, {
+        title: Object.values(combo).join(" / "),
+        optionValues: combo,
+      });
+    });
+    if (!nextVariants.length) return;
+    if (!hasDefault) {
+      changed = true;
+      nextVariants[0] = { ...nextVariants[0], isDefault: true };
+    }
+    if (changed) {
+      setValue("variants", nextVariants);
+    }
+  }, [
+    values.options,
+    values.variants,
+    values.hasVariants,
+    values.taxRateId,
+    setValue,
+  ]);
+
+  React.useEffect(() => {
+    ensureVariants();
+  }, [ensureVariants]);
+
+  React.useEffect(() => {
+    if (!values.taxRateId) return;
+    const variants = Array.isArray(values.variants) ? values.variants : [];
+    if (!variants.length) return;
+    let changed = false;
+    const nextVariants = variants.map((variant) => {
+      if (variant.taxRateId) return variant;
+      changed = true;
+      return { ...variant, taxRateId: values.taxRateId };
+    });
+    if (changed) {
+      setValue("variants", nextVariants);
+    }
+  }, [values.taxRateId, values.variants, setValue]);
+  const setVariantField = React.useCallback(
+    (variantId: string, field: keyof VariantDraft, value: unknown) => {
+      const next = (Array.isArray(values.variants) ? values.variants : []).map(
+        (variant) => {
+          if (variant.id !== variantId) return variant;
+          return { ...variant, [field]: value };
+        },
+      );
+      setValue("variants", next);
+    },
+    [values.variants, setValue],
+  );
+
+  const setVariantPrice = React.useCallback(
+    (variantId: string, priceKindId: string, amount: string) => {
+      if (amount.trim().startsWith("-")) return;
+      const next = (Array.isArray(values.variants) ? values.variants : []).map(
+        (variant) => {
+          if (variant.id !== variantId) return variant;
+          const nextPrices = { ...(variant.prices ?? {}) };
+          if (amount === "") {
+            delete nextPrices[priceKindId];
+          } else {
+            nextPrices[priceKindId] = { amount };
+          }
+          return {
+            ...variant,
+            prices: nextPrices,
+          };
+        },
+      );
+      setValue("variants", next);
+    },
+    [values.variants, setValue],
+  );
+
+  const markDefaultVariant = React.useCallback(
+    (variantId: string) => {
+      const next = (Array.isArray(values.variants) ? values.variants : []).map(
+        (variant) => ({
+          ...variant,
+          isDefault: variant.id === variantId,
+        }),
+      );
+      setValue("variants", next);
+    },
+    [values.variants, setValue],
+  );
+
+  const handleOptionTitleChange = React.useCallback(
+    (optionId: string, title: string) => {
+      const next = (Array.isArray(values.options) ? values.options : []).map(
+        (option) => {
+          if (option.id !== optionId) return option;
+          return { ...option, title };
+        },
+      );
+      setValue("options", next);
+    },
+    [values.options, setValue],
+  );
+
+  const setOptionValues = React.useCallback(
+    (optionId: string, labels: string[]) => {
+      const normalized = labels
+        .map((label) => label.trim())
+        .filter((label) => label.length);
+      const unique = Array.from(new Set(normalized));
+      const next = (Array.isArray(values.options) ? values.options : []).map(
+        (option) => {
+          if (option.id !== optionId) return option;
+          const existingByLabel = new Map(
+            option.values.map((value) => [value.label, value]),
+          );
+          const nextValues = unique.map(
+            (label) =>
+              existingByLabel.get(label) ?? { id: createLocalId(), label },
+          );
+          return {
+            ...option,
+            values: nextValues,
+          };
+        },
+      );
+      setValue("options", next);
+    },
+    [values.options, setValue],
+  );
+
+  const addOption = React.useCallback(() => {
+    const next = [
+      ...(Array.isArray(values.options) ? values.options : []),
+      { id: createLocalId(), title: "", values: [] },
+    ];
+    setValue("options", next);
+  }, [values.options, setValue]);
+
+  const removeOption = React.useCallback(
+    (optionId: string) => {
+      const next = (Array.isArray(values.options) ? values.options : []).filter(
+        (option) => option.id !== optionId,
+      );
+      setValue("options", next);
+    },
+    [values.options, setValue],
+  );
+
+  return (
+    <div className="space-y-6">
+      <nav className="flex gap-6 border-b pb-2 text-sm font-medium">
+        {steps.map((step, index) => (
+          <Button
+            key={step}
+            type="button"
+            variant="ghost"
+            size="sm"
+            className={cn(
+              "relative h-auto rounded-none px-0 py-1 pb-2 font-medium",
+              currentStep === index
+                ? "text-foreground"
+                : "text-muted-foreground hover:text-foreground",
+            )}
+            onClick={() => setCurrentStep(index)}
+          >
+            {step === "general" &&
+              t("catalog.products.create.steps.general", "General data")}
+            {step === "organize" &&
+              t("catalog.products.create.steps.organize", "Organize")}
+            {step === "uom" &&
+              t("catalog.products.uom.title", "Units of measure")}
+            {step === "compliance" &&
+              t("catalog.products.compliance.title", "Compliance & commerce")}
+            {step === "variants" &&
+              t("catalog.products.create.steps.variants", "Variants")}
+            {(stepErrors[step]?.length ?? 0) > 0 ? (
+              <span
+                className="absolute -right-2 top-0 h-2 w-2 rounded-full bg-destructive"
+                aria-hidden="true"
+              />
+            ) : null}
+            {currentStep === index ? (
+              <span className="absolute inset-x-0 -bottom-px h-0.5 bg-foreground rounded-full" />
+            ) : null}
+          </Button>
+        ))}
+      </nav>
+
+      {currentStepKey === "general" ? (
+        <div className="space-y-6">
+          <div className="space-y-2" data-crud-field-id="title">
+            <Label className="flex items-center gap-1">
+              {t("catalog.products.form.title", "Title")}
+              <span className="text-status-error-text">*</span>
+            </Label>
+            <Input
+              value={values.title}
+              onChange={(event) => setValue("title", event.target.value)}
+              placeholder={t(
+                "catalog.products.create.placeholders.title",
+                "e.g., Summer sneaker",
+              )}
+            />
+            {errors.title ? (
+              <p className="text-xs text-status-error-text">{errors.title}</p>
+            ) : null}
+          </div>
+
+          <div className="space-y-2" data-crud-field-id="description">
+            <div className="flex items-center justify-between">
+              <Label className="flex items-center gap-1">
+                {t("catalog.products.form.description", "Description")}
+                {requiredFieldIds?.has("description") ? (
+                  <span className="text-status-error-text">*</span>
+                ) : null}
+              </Label>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => setValue("useMarkdown", !values.useMarkdown)}
+                className="gap-2 text-xs"
+              >
+                {values.useMarkdown ? (
+                  <AlignLeft className="h-4 w-4" />
+                ) : (
+                  <FileText className="h-4 w-4" />
+                )}
+                {values.useMarkdown
+                  ? t(
+                      "catalog.products.create.actions.usePlain",
+                      "Use plain text",
+                    )
+                  : t(
+                      "catalog.products.create.actions.useMarkdown",
+                      "Use markdown",
+                    )}
+              </Button>
+            </div>
+            {values.useMarkdown ? (
+              <MarkdownField
+                value={values.description}
+                onChange={(val) => setValue("description", val ?? "")}
+              />
+            ) : (
+              <textarea
+                className="min-h-[180px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                value={values.description}
+                onChange={(event) =>
+                  setValue("description", event.target.value)
+                }
+                placeholder={t(
+                  "catalog.products.create.placeholders.description",
+                  "Describe the product...",
+                )}
+              />
+            )}
+            {errors.description ? (
+              <p className="text-xs text-status-error-text">{errors.description}</p>
+            ) : null}
+          </div>
+
+          <ProductMediaManager
+            entityId={E.catalog.catalog_product}
+            draftRecordId={values.mediaDraftId}
+            items={mediaItems}
+            defaultMediaId={values.defaultMediaId ?? null}
+            onItemsChange={handleMediaItemsChange}
+            onDefaultChange={handleDefaultMediaChange}
+          />
+
+          <ProductDimensionsFields
+            values={values as ProductFormValues}
+            setValue={setValue}
+          />
+        </div>
+      ) : null}
+
+      {currentStepKey === "organize" ? (
+        <ProductCategorizeSection
+          values={values as ProductFormValues}
+          setValue={setValue}
+          errors={errors}
+        />
+      ) : null}
+
+      {currentStepKey === "uom" ? (
+        <ProductUomSection
+          values={values as ProductFormValues}
+          setValue={setValue}
+          errors={errors}
+          embedded
+        />
+      ) : null}
+
+      {currentStepKey === "compliance" ? (
+        <ProductComplianceSection
+          values={values as ProductFormValues}
+          setValue={setValue}
+          errors={errors}
+          embedded
+        />
+      ) : null}
+
+      {currentStepKey === "variants" ? (
+        <div className="space-y-6">
+          <label className="flex items-center gap-2 text-sm font-medium">
+            <input
+              type="checkbox"
+              className="h-4 w-4 rounded border"
+              checked={values.hasVariants}
+              onChange={(event) => {
+                const checked = event.target.checked;
+                setValue("hasVariants", checked);
+                if (
+                  checked &&
+                  !isConfigurableProductType(
+                    values.productType || "simple",
+                  )
+                ) {
+                  setValue("productType", "configurable");
+                } else if (
+                  !checked &&
+                  isConfigurableProductType(
+                    values.productType || "simple",
+                  )
+                ) {
+                  setValue("productType", "simple");
+                }
+              }}
+            />
+            {t(
+              "catalog.products.create.variantsBuilder.toggle",
+              "Yes, this is a product with variants",
+            )}
+          </label>
+
+          {values.hasVariants ? (
+            <div className="space-y-4 rounded-lg border p-4">
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-semibold">
+                  {t(
+                    "catalog.products.create.optionsBuilder.title",
+                    "Product options",
+                  )}
+                </h3>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={addOption}
+                >
+                  <Plus className="mr-2 h-4 w-4" />
+                  {t(
+                    "catalog.products.create.optionsBuilder.add",
+                    "Add option",
+                  )}
+                </Button>
+              </div>
+              {(Array.isArray(values.options) ? values.options : []).map(
+                (option) => (
+                  <div key={option.id} className="rounded-md bg-muted/50 p-4">
+                    <div className="flex items-center gap-2">
+                      <Input
+                        value={option.title}
+                        onChange={(event) =>
+                          handleOptionTitleChange(option.id, event.target.value)
+                        }
+                        placeholder={t(
+                          "catalog.products.create.optionsBuilder.placeholder",
+                          "e.g., Color",
+                        )}
+                        className="flex-1"
+                      />
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        type="button"
+                        onClick={() => removeOption(option.id)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                    <div className="mt-3 space-y-2">
+                      <Label className="text-xs uppercase text-muted-foreground">
+                        {t(
+                          "catalog.products.create.optionsBuilder.values",
+                          "Values",
+                        )}
+                      </Label>
+                      <TagsInput
+                        value={option.values.map((value) => value.label)}
+                        onChange={(labels) =>
+                          setOptionValues(option.id, labels)
+                        }
+                        placeholder={t(
+                          "catalog.products.create.optionsBuilder.valuePlaceholder",
+                          "Type a value and press Enter",
+                        )}
+                      />
+                    </div>
+                  </div>
+                ),
+              )}
+              {!values.options?.length ? (
+                <p className="text-sm text-muted-foreground">
+                  {t(
+                    "catalog.products.create.optionsBuilder.empty",
+                    "No options yet. Add your first option to generate variants.",
+                  )}
+                </p>
+              ) : null}
+            </div>
+          ) : null}
+
+          <div className="rounded-lg border">
+            <RadioGroup
+              className="contents"
+              name="defaultVariant"
+              value={(Array.isArray(values.variants) ? values.variants : []).find((v) => v.isDefault)?.id ?? ''}
+              onValueChange={(next) => markDefaultVariant(next)}
+            >
+            <div className="w-full overflow-x-auto">
+              <table className="w-full min-w-[900px] table-fixed border-collapse text-sm">
+                <thead className="bg-muted/50">
+                  <tr>
+                    <th className="px-3 py-2 text-left">
+                      {t(
+                        "catalog.products.create.variantsBuilder.defaultOption",
+                        "Default option",
+                      )}
+                    </th>
+                    <th className="px-3 py-2 text-left">
+                      {t("catalog.products.form.variants", "Variant title")}
+                    </th>
+                    <th className="px-3 py-2 text-left">
+                      {t("catalog.products.create.variantsBuilder.sku", "SKU")}
+                    </th>
+                    <th className="px-3 py-2 text-left">
+                      {t(
+                        "catalog.products.create.variantsBuilder.vatColumn",
+                        "Tax class",
+                      )}
+                    </th>
+                    {priceKinds.map((kind) => (
+                      <th key={kind.id} className="px-3 py-2 text-left">
+                        <div className="flex flex-col gap-1">
+                          <div className="flex items-center gap-1">
+                            <span>
+                              {t(
+                                "catalog.products.create.variantsBuilder.priceColumn",
+                                "Price {{title}}",
+                              ).replace("{{title}}", kind.title)}
+                            </span>
+                            <small
+                              title={
+                                kind.displayMode === "including-tax"
+                                  ? t(
+                                      "catalog.priceKinds.form.displayMode.include",
+                                      "Including tax",
+                                    )
+                                  : t(
+                                      "catalog.priceKinds.form.displayMode.exclude",
+                                      "Excluding tax",
+                                    )
+                              }
+                              className="text-xs text-muted-foreground"
+                            >
+                              {kind.displayMode === "including-tax" ? "Ⓣ" : "Ⓝ"}
+                            </small>
+                          </div>
+                          <span className="text-xs text-muted-foreground">
+                            {kind.currencyCode?.toUpperCase() ??
+                              t(
+                                "catalog.products.create.variantsBuilder.currencyMissing",
+                                "Currency missing",
+                              )}
+                          </span>
+                        </div>
+                      </th>
+                    ))}
+                    <th className="px-3 py-2 text-center">
+                      {t(
+                        "catalog.products.create.variantsBuilder.manageInventory",
+                        "Managed inventory",
+                      )}
+                    </th>
+                    <th className="px-3 py-2 text-center">
+                      {t(
+                        "catalog.products.create.variantsBuilder.allowBackorder",
+                        "Allow backorder",
+                      )}
+                    </th>
+                    <th className="px-3 py-2 text-center">
+                      {t(
+                        "catalog.products.create.variantsBuilder.inventoryKit",
+                        "Has inventory kit",
+                      )}
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(Array.isArray(values.variants) && values.variants.length
+                    ? values.variants
+                    : [
+                        createVariantDraft(values.taxRateId ?? null, {
+                          isDefault: true,
+                        }),
+                      ]
+                  ).map((variant) => (
+                    <tr key={variant.id} className="border-t">
+                      <td className="px-3 py-2">
+                        <label className="inline-flex items-center gap-1 text-xs">
+                          <Radio value={variant.id} />
+                          {variant.isDefault
+                            ? t(
+                                "catalog.products.create.variantsBuilder.defaultLabel",
+                                "Default option value",
+                              )
+                            : t(
+                                "catalog.products.create.variantsBuilder.makeDefault",
+                                "Set as default",
+                              )}
+                        </label>
+                        {values.hasVariants && variant.optionValues ? (
+                          <p className="text-xs text-muted-foreground">
+                            {Object.values(variant.optionValues).join(" / ")}
+                          </p>
+                        ) : null}
+                      </td>
+                      <td className="px-3 py-2">
+                        <Input
+                          value={variant.title}
+                          onChange={(event) =>
+                            setVariantField(
+                              variant.id,
+                              "title",
+                              event.target.value,
+                            )
+                          }
+                          placeholder={t(
+                            "catalog.products.create.variantsBuilder.titlePlaceholder",
+                            "Variant title",
+                          )}
+                        />
+                      </td>
+                      <td className="px-3 py-2">
+                        <Input
+                          value={variant.sku}
+                          onChange={(event) =>
+                            setVariantField(
+                              variant.id,
+                              "sku",
+                              event.target.value,
+                            )
+                          }
+                          placeholder={t(
+                            "catalog.products.create.variantsBuilder.skuPlaceholder",
+                            "e.g., SKU-001",
+                          )}
+                        />
+                      </td>
+                      <td className="px-3 py-2">
+                        <Select
+                          value={variant.taxRateId || undefined}
+                          onValueChange={(value) =>
+                            setVariantField(variant.id, "taxRateId", value || null)
+                          }
+                          disabled={!taxRates.length}
+                        >
+                          <SelectTrigger>
+                            <SelectValue
+                              placeholder={
+                                defaultTaxRateLabel
+                                  ? t(
+                                      "catalog.products.create.variantsBuilder.vatOptionDefault",
+                                      "Use product tax class ({{label}})",
+                                    ).replace("{{label}}", defaultTaxRateLabel)
+                                  : t(
+                                      "catalog.products.create.variantsBuilder.vatOptionNone",
+                                      "No tax class",
+                                    )
+                              }
+                            />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {taxRates.map((rate) => (
+                              <SelectItem key={rate.id} value={rate.id}>
+                                {formatTaxRateLabel(rate)}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </td>
+                      {priceKinds.map((kind) => (
+                        <td key={kind.id} className="px-3 py-2">
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs text-muted-foreground">
+                              {kind.currencyCode ?? "—"}
+                            </span>
+                            <Input
+                              type="number"
+                              value={variant.prices?.[kind.id]?.amount ?? ""}
+                              onChange={(event) =>
+                                setVariantPrice(
+                                  variant.id,
+                                  kind.id,
+                                  event.target.value,
+                                )
+                              }
+                              placeholder="0.00"
+                              min={0}
+                            />
+                          </div>
+                        </td>
+                      ))}
+                      <td className="px-3 py-2 text-center">
+                        <input
+                          type="checkbox"
+                          className="h-4 w-4 rounded border disabled:cursor-not-allowed disabled:opacity-50"
+                          checked={variant.manageInventory}
+                          onChange={(event) =>
+                            setVariantField(
+                              variant.id,
+                              "manageInventory",
+                              event.target.checked,
+                            )
+                          }
+                          disabled
+                          title={inventoryDisabledHint}
+                        />
+                      </td>
+                      <td className="px-3 py-2 text-center">
+                        <input
+                          type="checkbox"
+                          className="h-4 w-4 rounded border disabled:cursor-not-allowed disabled:opacity-50"
+                          checked={variant.allowBackorder}
+                          onChange={(event) =>
+                            setVariantField(
+                              variant.id,
+                              "allowBackorder",
+                              event.target.checked,
+                            )
+                          }
+                          disabled
+                          title={inventoryDisabledHint}
+                        />
+                      </td>
+                      <td className="px-3 py-2 text-center">
+                        <input
+                          type="checkbox"
+                          className="h-4 w-4 rounded border disabled:cursor-not-allowed disabled:opacity-50"
+                          checked={variant.hasInventoryKit}
+                          onChange={(event) =>
+                            setVariantField(
+                              variant.id,
+                              "hasInventoryKit",
+                              event.target.checked,
+                            )
+                          }
+                          disabled
+                          title={inventoryDisabledHint}
+                        />
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            </RadioGroup>
+            {!priceKinds.length ? (
+              <div className="flex items-center gap-2 border-t px-4 py-3 text-sm text-muted-foreground">
+                <AlertCircle className="h-4 w-4" />
+                {t(
+                  "catalog.products.create.variantsBuilder.noPriceKinds",
+                  "Configure price kinds in Catalog settings to add price columns.",
+                )}
+              </div>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
+
+      <div className="flex justify-between border-t pt-4">
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={() => setCurrentStep(Math.max(0, currentStep - 1))}
+          disabled={currentStep === 0}
+          className="gap-2"
+        >
+          <ChevronLeft className="h-4 w-4" />
+          {t("catalog.products.create.steps.previous", "Previous")}
+        </Button>
+        {currentStepKey !== "variants" ? (
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() =>
+              setCurrentStep(Math.min(steps.length - 1, currentStep + 1))
+            }
+            className="gap-2"
+          >
+            {t("catalog.products.create.steps.continue", "Continue")}
+            <ChevronRight className="h-4 w-4" />
+          </Button>
+        ) : (
+          <span />
+        )}
+      </div>
+    </div>
+  );
+}
+
+function ProductMetaSection({
+  values,
+  setValue,
+  errors,
+  taxRates,
+}: ProductMetaSectionProps) {
+  const t = useT();
+  const handleValue = typeof values.handle === "string" ? values.handle : "";
+  const titleSource = typeof values.title === "string" ? values.title : "";
+  const autoHandleEnabledRef = React.useRef(handleValue.trim().length === 0);
+
+  React.useEffect(() => {
+    if (!autoHandleEnabledRef.current) return;
+    const normalizedTitle = titleSource.trim();
+    if (!normalizedTitle) {
+      if (handleValue) {
+        setValue("handle", "");
+      }
+      return;
+    }
+    const nextHandle = slugify(normalizedTitle);
+    if (nextHandle !== handleValue) {
+      setValue("handle", nextHandle);
+    }
+  }, [titleSource, handleValue, setValue]);
+
+  const handleHandleInputChange = React.useCallback(
+    (event: React.ChangeEvent<HTMLInputElement>) => {
+      const nextValue = event.target.value;
+      autoHandleEnabledRef.current = nextValue.trim().length === 0;
+      setValue("handle", nextValue);
+    },
+    [setValue],
+  );
+
+  const handleGenerateHandle = React.useCallback(() => {
+    const slug = slugify(titleSource);
+    autoHandleEnabledRef.current = true;
+    setValue("handle", slug);
+  }, [titleSource, setValue]);
+
+  return (
+    <div className="space-y-4">
+      <div className="space-y-2">
+        <Label>{t("catalog.products.form.subtitle", "Subtitle")}</Label>
+        <Input
+          value={typeof values.subtitle === "string" ? values.subtitle : ""}
+          onChange={(event) => setValue("subtitle", event.target.value)}
+          placeholder={t(
+            "catalog.products.create.placeholders.subtitle",
+            "Optional subtitle",
+          )}
+        />
+        {errors.subtitle ? (
+          <p className="text-xs text-status-error-text">{errors.subtitle}</p>
+        ) : null}
+      </div>
+
+      <div className="space-y-2">
+        <Label>{t("catalog.products.form.handle", "Handle")}</Label>
+        <div className="flex gap-2">
+          <Input
+            value={handleValue}
+            onChange={handleHandleInputChange}
+            placeholder={t(
+              "catalog.products.create.placeholders.handle",
+              "e.g., summer-sneaker",
+            )}
+            className="font-mono lowercase"
+          />
+          <Button
+            type="button"
+            variant="outline"
+            onClick={handleGenerateHandle}
+          >
+            {t("catalog.products.create.actions.generateHandle", "Generate")}
+          </Button>
+        </div>
+        <p className="text-xs text-muted-foreground">
+          {t(
+            "catalog.products.create.handleHelp",
+            "Handle is used for URLs and must be unique.",
+          )}
+        </p>
+        {errors.handle ? (
+          <p className="text-xs text-status-error-text">{errors.handle}</p>
+        ) : null}
+      </div>
+
+      <div className="space-y-2">
+        <Label>{t("catalog.products.form.sku", "SKU")}</Label>
+        <Input
+          value={values.sku}
+          onChange={(event) => setValue("sku", event.target.value)}
+          placeholder={t(
+            "catalog.products.create.placeholders.sku",
+            "e.g., PROD-001",
+          )}
+          className="font-mono"
+        />
+        <p className="text-xs text-muted-foreground">
+          {t(
+            "catalog.products.create.skuHelp",
+            "Unique product identifier. Letters, numbers, hyphens, underscores, periods.",
+          )}
+        </p>
+        {errors.sku ? (
+          <p className="text-xs text-status-error-text">{errors.sku}</p>
+        ) : null}
+      </div>
+
+      <div className="space-y-2">
+        <Label>
+          {t("catalog.products.form.productType", "Product type")}
+        </Label>
+        <Select
+          value={values.productType || "simple"}
+          onValueChange={(value) => {
+            const nextType = value;
+            setValue("productType", nextType);
+            const nextIsConfigurable = isConfigurableProductType(nextType);
+            if (nextIsConfigurable && !values.hasVariants) {
+              setValue("hasVariants", true);
+            } else if (!nextIsConfigurable && values.hasVariants) {
+              setValue("hasVariants", false);
+            }
+          }}
+        >
+          <SelectTrigger>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {CATALOG_PRODUCT_TYPES.map((type) => {
+              const isDisabled = type === "bundle" || type === "grouped";
+              return (
+                <SelectItem key={type} value={type} disabled={isDisabled}>
+                  {t(`catalog.products.types.${type}`, type)}
+                  {isDisabled ? ` (${t("common.comingSoon", "Coming soon")})` : ""}
+                </SelectItem>
+              );
+            })}
+          </SelectContent>
+        </Select>
+        {errors.productType ? (
+          <p className="text-xs text-status-error-text">
+            {errors.productType}
+          </p>
+        ) : null}
+      </div>
+
+      <div className="space-y-2">
+        <div className="flex items-center justify-between gap-2">
+          <Label>
+            {t("catalog.products.create.taxRates.label", "Tax class")}
+          </Label>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            onClick={() => {
+              if (typeof window !== "undefined") {
+                window.open(
+                  "/backend/config/sales?section=tax-rates",
+                  "_blank",
+                  "noopener,noreferrer",
+                );
+              }
+            }}
+            title={t(
+              "catalog.products.create.taxRates.manage",
+              "Manage tax classes",
+            )}
+            className="text-muted-foreground hover:text-foreground"
+          >
+            <Settings className="h-4 w-4" />
+            <span className="sr-only">
+              {t(
+                "catalog.products.create.taxRates.manage",
+                "Manage tax classes",
+              )}
+            </span>
+          </Button>
+        </div>
+        <Select
+          value={values.taxRateId || undefined}
+          onValueChange={(value) => setValue("taxRateId", value || null)}
+          disabled={!taxRates.length}
+        >
+          <SelectTrigger>
+            <SelectValue
+              placeholder={
+                taxRates.length
+                  ? t("catalog.products.create.taxRates.noneSelected", "No tax class selected")
+                  : t("catalog.products.create.taxRates.emptyOption", "No tax classes available")
+              }
+            />
+          </SelectTrigger>
+          <SelectContent>
+            {taxRates.map((rate) => (
+              <SelectItem key={rate.id} value={rate.id}>
+                {formatTaxRateLabel(rate)}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <p className="text-xs text-muted-foreground">
+          {taxRates.length
+            ? t(
+                "catalog.products.create.taxRates.help",
+                "Applied to new prices unless overridden per variant.",
+              )
+            : t(
+                "catalog.products.create.taxRates.empty",
+                "Define tax classes under Sales → Configuration.",
+              )}
+        </p>
+        {errors.taxRateId ? (
+          <p className="text-xs text-status-error-text">{errors.taxRateId}</p>
+        ) : null}
+      </div>
+    </div>
+  );
 }

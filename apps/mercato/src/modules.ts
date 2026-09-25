@@ -102,7 +102,7 @@ export const enabledModules: ModuleEntry[] = [
   { id: 'attachments', from: '@open-mercato/core' },
   { id: 'catalog', from: '@open-mercato/core' },
   { id: 'sales', from: '@open-mercato/core' },
-  { id: 'payment_gateways', from: '@open-mercato/core' },
+  // payment_gateways: disabled for Dermat (no online card payments).
   // wms: disabled for now per request — re-add the entry above to bring
   // Inventory/Warehouses/Zones/Locations/Lots/Movements/Reservations back.
   { id: 'api_keys', from: '@open-mercato/core' },
@@ -117,9 +117,8 @@ export const enabledModules: ModuleEntry[] = [
   // Removed for Dermat (not just hidden): devices, content, api_docs, messages,
   // ai_assistant, scheduler, inbox_ops, integrations, workflows.
   // Dermat India custom modules — app-local (@app), not part of upstream core.
-  { id: 'dermat_rm_master', from: '@app' },
-  { id: 'dermat_pm_master', from: '@app' },
-  { id: 'dermat_bom', from: '@app' },
+  // Rebuild in progress: only the modules that survive the 2026-09-25 cleanup
+  // are listed here (departments, vendors, customer profile fields).
   {
     id: 'dermat_departments',
     from: '@app',
@@ -127,71 +126,64 @@ export const enabledModules: ModuleEntry[] = [
       nav: { groupOrder: dermatSidebarGroupOrder },
     },
   },
-  // dermat_production (old batch register, 0 rows) is replaced by dermat_workflow's
-  // per-product Manufacturing / Filling / Packing stages.
-  { id: 'dermat_qc', from: '@app' },
   {
-    id: 'dermat_sales_flow',
+    id: 'dermat_customers',
     from: '@app',
-    // The generic Open Mercato "Orders" list/detail pages (previously at
-    // packages/core/src/modules/sales/backend/sales/orders) were deleted
-    // outright — superseded by our own order-book pages at
-    // /backend/sales/order-book, which carry the Dermat fields (GST, advance,
-    // proforma, etc) the generic pages never had.
     overrides: {
-      // Customer capture lives inside the Order flow, not as its own
-      // sidebar section. Dermat customers are businesses, not individuals,
-      // so "Companies" is the one kept — relabeled "Customer" and folded
-      // into the same sidebar group as Orders. "People" is hidden from nav
-      // (route/data untouched, just not listed) since it doesn't apply here.
       routes: {
         pages: {
           '/backend/customers/companies': {
             metadata: {
               pageTitle: 'Customer',
-              pageTitleKey: 'dermat_sales_flow.nav.customer',
+              pageTitleKey: 'dermat_customers.nav.customer',
               pageGroup: 'Sales',
               pageGroupKey: 'dermat-01-sales.nav.group',
               pagePriority: 10,
               pageOrder: 20,
-              breadcrumb: [{ label: 'Customer', labelKey: 'dermat_sales_flow.nav.customer' }],
+              breadcrumb: [{ label: 'Customer', labelKey: 'dermat_customers.nav.customer' }],
             },
           },
-          // Generic CRM/commerce pages not used by Dermat's order-driven
-          // flow — hidden from nav, routes/data untouched. (People, Deals,
-          // Customer tasks, Calendar, and Create sales document were
-          // deleted outright — see the removed page directories under
-          // packages/core/src/modules/customers/backend and
-          // packages/core/src/modules/sales/backend; no override needed
-          // for a route that no longer exists.)
-          // Generic platform pages Dermat never uses — removed as routes
-          // (null), not merely hidden from the sidebar.
+          '/backend/customers/companies/create': {
+            metadata: {
+              pageTitle: 'Create Customer',
+              pageTitleKey: 'dermat_customers.create.title',
+              pageGroup: 'Sales',
+              pageGroupKey: 'dermat-01-sales.nav.group',
+              navHidden: true,
+              breadcrumb: [
+                { label: 'Customer', labelKey: 'dermat_customers.nav.customer', href: '/backend/customers/companies' },
+                { label: 'Create', labelKey: 'dermat_customers.create.title' },
+              ],
+            },
+          },
           '/backend/sales/quotes': null,
           '/backend/config/system-status': null,
           '/backend/config/cache': null,
           '/backend/config/module-telemetry': null,
           '/backend/entities/system': null,
+          '/backend/entities/user/create': null,
+          '/backend/entities/user/[entityId]/records': null,
           '/backend/config/encryption': null,
           '/backend/query-indexes': null,
           '/backend/data-sync': null,
           '/backend/feature-toggles/global': null,
           '/backend/feature-toggles/overrides': null,
           '/backend/config/translations': null,
-          '/backend/payment-gateways': null,
           '/backend/config/search': null,
           '/backend/webhooks': null,
           '/backend/config/sales': null,
           '/backend/config/customers/deals': null,
           '/backend/config/customers/pipeline-stages': null,
-          // Open Mercato's category tree is unused — a Dermat product's
-          // category is its fieldset (Raw Material, Packing Material, …),
-          // shown as tabs on the Products page.
+          '/backend/currencies': null,
+          '/backend/currencies/create': null,
+          '/backend/currencies/[id]': null,
+          '/backend/exchange-rates': null,
+          '/backend/exchange-rates/create': null,
+          '/backend/exchange-rates/[id]': null,
+          '/backend/config/currency-fetching': null,
           '/backend/catalog/categories': null,
           '/backend/catalog/categories/create': null,
-          // Reached from the Products page's "Add product" button, not the sidebar.
           '/backend/catalog/products/create': { metadata: { navHidden: true } },
-          // Admin tools Dermat does need (custom fields, dropdown lists,
-          // attachment settings) stay reachable from Settings, off the main nav.
           '/backend/entities/user': { metadata: { navHidden: true } },
           '/backend/config/settings': { metadata: { navHidden: true } },
           '/backend/config/dictionaries': { metadata: { navHidden: true } },
@@ -200,12 +192,7 @@ export const enabledModules: ModuleEntry[] = [
       },
     },
   },
-  { id: 'dermat_sampling', from: '@app' },
   { id: 'dermat_vendors', from: '@app' },
-  // No sidebar entry — a Purchase Order is created and viewed from the BOM page,
-  // not as a standalone navigable section (matches Procuzy: BOM and PO are one screen).
-  { id: 'dermat_purchase_orders', from: '@app' },
-  { id: 'dermat_workflow', from: '@app' },
   { id: 'ratelimit_probe', from: '@app' },
 ]
 

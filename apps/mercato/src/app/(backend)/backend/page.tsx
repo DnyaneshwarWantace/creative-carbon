@@ -5,8 +5,6 @@ import { createRequestContainer } from '@open-mercato/shared/lib/di/container'
 import { resolvePageMiddlewareRedirect } from '@open-mercato/shared/lib/middleware/page-executor'
 import { backendMiddlewareEntries } from '@/.mercato/generated/backend-middleware.generated'
 
-import DermatExecutiveDashboard from '@/components/DermatExecutiveDashboard'
-
 export default async function BackendIndex() {
   const auth = await getAuthFromCookies()
   if (!auth) redirect('/api/auth/session/refresh?redirect=/backend')
@@ -29,8 +27,8 @@ export default async function BackendIndex() {
   })
   if (middlewareRedirect) redirect(middlewareRedirect)
   return (
-    <div className="p-4 sm:p-6">
-      <DermatExecutiveDashboard />
+    <div className="p-6 space-y-6">
+      <DashboardScreen />
     </div>
   )
 }

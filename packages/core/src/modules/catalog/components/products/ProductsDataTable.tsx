@@ -13,38 +13,73 @@ import { apiCall, readApiResultOrThrow, withScopedApiRequestHeaders } from '@ope
 import { flash } from '@open-mercato/ui/backend/FlashMessages'
 import { deleteCrud, buildCrudExportUrl } from '@open-mercato/ui/backend/utils/crud'
 import { buildOptimisticLockHeader } from '@open-mercato/ui/backend/utils/optimisticLock'
-import {
-  fetchCustomFieldDefinitionsPayload,
-  useCustomFieldDefs,
-  type CustomFieldDefDto,
-  type CustomFieldsetDto,
-} from '@open-mercato/ui/backend/utils/customFieldDefs'
-import { SegmentedControl, SegmentedControlItem } from '@open-mercato/ui/primitives/segmented-control'
-import { Tag } from '@open-mercato/ui/primitives/tag'
+import { useCustomFieldDefs } from '@open-mercato/ui/backend/utils/customFieldDefs'
+import { applyCustomFieldVisibility } from '@open-mercato/ui/backend/utils/customFieldColumns'
 import type { FilterDef, FilterValues } from '@open-mercato/ui/backend/FilterBar'
 import type { FilterOption } from '@open-mercato/ui/backend/FilterOverlay'
 import { BooleanIcon } from '@open-mercato/ui/backend/ValueIcons'
+import { markdownToPlainText } from '@open-mercato/ui/backend/markdown/markdownToPlainText'
 import { useOrganizationScopeVersion } from '@open-mercato/shared/lib/frontend/useOrganizationScope'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { useConfirmDialog } from '@open-mercato/ui/backend/confirm-dialog'
 import { useAppEvent } from '@open-mercato/ui/backend/injection/useAppEvent'
 import { E } from '#generated/entities.ids.generated'
-import { productListFields } from './productCategoryFields'
+import { ProductImageCell } from './ProductImageCell'
+
+type PricingScope = {
+  variant_id?: string | null
+  offer_id?: string | null
+  channel_id?: string | null
+  user_id?: string | null
+  user_group_id?: string | null
+  customer_id?: string | null
+  customer_group_id?: string | null
+}
+
+type PricingInfo = {
+  kind?: string | null
+  price_kind_id?: string | null
+  price_kind_code?: string | null
+  currency_code?: string | null
+  unit_price_net?: string | null
+  unit_price_gross?: string | null
+  min_quantity?: number | null
+  max_quantity?: number | null
+  tax_rate?: string | null
+  scope?: PricingScope | null
+} | null
+
+type OfferInfo = {
+  id: string
+  channelId: string
+  channelName?: string | null
+  channelCode?: string | null
+  title: string
+  description?: string | null
+  isActive: boolean
+}
 
 export type ProductRow = {
   id: string
   title: string
+  subtitle?: string | null
   description?: string | null
   sku?: string | null
+  handle?: string | null
+  product_type?: string | null
+  status_entry_id?: string | null
+  primary_currency_code?: string | null
+  default_unit?: string | null
   default_media_id?: string | null
   default_media_url?: string | null
+  is_configurable?: boolean
   is_active?: boolean
   metadata?: Record<string, unknown> | null
   custom_fieldset_code?: string | null
   created_at?: string
   updated_at?: string
-  variants?: Array<Record<string, any>>
-  variant_count?: number
+  offers?: OfferInfo[]
+  pricing?: PricingInfo
 } & Record<string, unknown>
 
 type ProductsResponse = {
@@ -63,6 +98,53 @@ function formatDate(value?: string): string {
   return date.toLocaleDateString()
 }
 
+function renderOffers(offers: OfferInfo[] | undefined): React.ReactNode {
+  if (!offers || offers.length === 0) return <span className="text-xs text-muted-foreground">—</span>
+  const visible = offers.slice(0, 3)
+  return (
+    <div className="flex flex-wrap gap-1">
+      {visible.map((offer) => {
+        const label =
+          typeof offer.channelName === 'string' && offer.channelName.trim().length
+            ? offer.channelName.trim()
+            : typeof offer.title === 'string' && offer.title.trim().length
+              ? offer.title.trim()
+              : offer.channelId
+        const badgeTitle =
+          typeof offer.channelCode === 'string' && offer.channelCode.trim().length ? offer.channelCode : undefined
+        return (
+          <span
+            key={offer.id}
+            className={`inline-flex items-center rounded-full border px-2 py-0.5 text-xs ${
+              offer.isActive ? 'bg-secondary/80 text-secondary-foreground' : 'bg-muted text-muted-foreground'
+            }`}
+            title={badgeTitle}
+          >
+            {label}
+          </span>
+        )
+      })}
+      {offers.length > visible.length ? (
+        <span className="text-xs text-muted-foreground">+{offers.length - visible.length}</span>
+      ) : null}
+    </div>
+  )
+}
+
+function renderPrice(pricing: PricingInfo | undefined, currency?: string | null, fallback = '—'): React.ReactNode {
+  if (!pricing) return <span className="text-xs text-muted-foreground">{fallback}</span>
+  const unit = pricing.unit_price_net ?? pricing.unit_price_gross
+  if (unit == null) return <span className="text-xs text-muted-foreground">{fallback}</span>
+  const formatted = `${currency ?? pricing.currency_code ?? ''} ${unit}`
+  const kind = pricing.kind ?? 'list'
+  return (
+    <div className="flex flex-col">
+      <span className="font-medium">{formatted.trim()}</span>
+      <span className="text-xs text-muted-foreground">{kind}</span>
+    </div>
+  )
+}
+
 export type ProductsDataTableSnapshot = {
   search: string
   filterValues: FilterValues
@@ -70,41 +152,23 @@ export type ProductsDataTableSnapshot = {
 }
 
 export type ProductsDataTableProps = {
-  extraActions?: React.ReactNode
-  onSnapshotChange?: (snapshot: ProductsDataTableSnapshot) => void
   /**
-   * Locks the list to a single `cf_product_category_group` value — the clean
-   * enum (`raw_material` / `packing_material` / `finished_goods` / `bulk`)
-   * that drives the Dermat category pages and the fieldset-follows-category
-   * mechanism. Distinct from `cf_category`, which stays a free-text/rich
-   * classification label. When set:
-   *  - `cf_product_category_group` is force-merged into the query params on
-   *    every request — it wins over any value in `filterValues`, so the
-   *    fixed scope can never be widened from the filter UI.
-   *  - The "Create" button/empty-state link default to `?category=<value>`
-   *    so the create form pre-selects this page's category.
-   * All four category views (and the unfiltered All Products page) still
-   * read/write the exact same `catalog_product` table/API — this prop only
-   * narrows what the list shows and what the create link pre-fills.
+   * Extra actions rendered alongside the built-in Create button in the
+   * DataTable header. Used by the Step 4.9 AI merchandising sheet
+   * trigger without coupling DataTable to the AI module.
    */
-  fixedCategoryFilter?: string
-  /** Overrides the default create-product href; defaults to
-   * `/backend/catalog/products/create`, optionally suffixed with
-   * `?category=<fixedCategoryFilter>` when that prop is set. */
-  createHref?: string
-  /** Overrides the DataTable's perspective/extension tableId + injection spot
-   * so each fixed-category view gets its own saved-column/perspective scope
-   * instead of colliding with the All Products table. Defaults to the shared
-   * catalog products table id. */
-  tableId?: string
+  extraActions?: React.ReactNode
+  /**
+   * Optional callback invoked whenever the table's search / filter /
+   * total-matching snapshot changes. Used by the Step 4.9 AI merchandising
+   * sheet to form a selection-aware pageContext per spec §10.1.
+   */
+  onSnapshotChange?: (snapshot: ProductsDataTableSnapshot) => void
 }
 
 export default function ProductsDataTable({
   extraActions,
   onSnapshotChange,
-  fixedCategoryFilter,
-  createHref,
-  tableId,
 }: ProductsDataTableProps = {}) {
   const t = useT()
   const { confirm, ConfirmDialogElement } = useConfirmDialog()
@@ -132,28 +196,9 @@ export default function ProductsDataTable({
   const { data: customFieldDefs = [] } = useCustomFieldDefs(ENTITY_ID, {
     keyExtras: [scopeVersion, reloadToken],
   })
-  const [activeCategory, setActiveCategory] = React.useState<string | null>(
-    typeof fixedCategoryFilter === 'string' && fixedCategoryFilter.trim().length ? fixedCategoryFilter.trim() : null,
-  )
-  const [categories, setCategories] = React.useState<CustomFieldsetDto[]>([])
-  React.useEffect(() => {
-    let cancelled = false
-    void fetchCustomFieldDefinitionsPayload([ENTITY_ID])
-      .then((payload) => {
-        if (!cancelled) setCategories(payload.fieldsetsByEntity?.[ENTITY_ID] ?? [])
-      })
-      .catch(() => {
-        if (!cancelled) setCategories([])
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [scopeVersion, reloadToken])
-  const categoryLabels = React.useMemo(
-    () => new Map(categories.map((category) => [category.code, category.label ?? category.code])),
-    [categories],
-  )
+  const [channelOptionsCache, setChannelOptionsCache] = React.useState<Record<string, FilterOption>>({})
   const [categoryOptionsCache, setCategoryOptionsCache] = React.useState<Record<string, FilterOption>>({})
+  const [tagOptionsCache, setTagOptionsCache] = React.useState<Record<string, FilterOption>>({})
 
   const registerOptions = React.useCallback(
     (
@@ -171,12 +216,55 @@ export default function ProductsDataTable({
     []
   )
 
+  const registerChannelOptions = React.useCallback(
+    (options: FilterOption[]) => registerOptions(setChannelOptionsCache, options),
+    [registerOptions]
+  )
   const registerCategoryOptions = React.useCallback(
     (options: FilterOption[]) => registerOptions(setCategoryOptionsCache, options),
     [registerOptions]
   )
+  const registerTagOptions = React.useCallback(
+    (options: FilterOption[]) => registerOptions(setTagOptionsCache, options),
+    [registerOptions]
+  )
 
+  const channelOptions = React.useMemo(() => Object.values(channelOptionsCache), [channelOptionsCache])
   const categoryOptions = React.useMemo(() => Object.values(categoryOptionsCache), [categoryOptionsCache])
+  const tagOptions = React.useMemo(() => Object.values(tagOptionsCache), [tagOptionsCache])
+
+  const loadChannelOptions = React.useCallback(
+    async (term?: string): Promise<FilterOption[]> => {
+      try {
+        const params = new URLSearchParams({ pageSize: '100', isActive: 'true' })
+        if (term && term.trim().length) params.set('search', term.trim())
+        const payload = await readApiResultOrThrow<{ items?: Array<{ id?: string; name?: string; code?: string }> }>(
+          `/api/sales/channels?${params.toString()}`,
+          undefined,
+          { errorMessage: t('catalog.products.filters.channelsLoadError', 'Failed to load channels') },
+        )
+        const items = Array.isArray(payload?.items) ? payload.items : []
+        const options = items
+          .map((entry) => {
+            const value = typeof entry.id === 'string' ? entry.id : null
+            if (!value) return null
+            const label =
+              typeof entry.name === 'string'
+                ? entry.name
+                : typeof entry.code === 'string'
+                  ? entry.code
+                  : value
+            return { value, label, description: typeof entry.code === 'string' ? entry.code : undefined }
+          })
+          .filter((option) => !!option) as FilterOption[]
+        registerChannelOptions(options)
+        return options
+      } catch {
+        return []
+      }
+    },
+    [registerChannelOptions, t],
+  )
 
   const loadCategoryOptions = React.useCallback(
     async (term?: string): Promise<FilterOption[]> => {
@@ -208,68 +296,180 @@ export default function ProductsDataTable({
     [registerCategoryOptions, t],
   )
 
+  const loadTagOptions = React.useCallback(
+    async (term?: string): Promise<FilterOption[]> => {
+      try {
+        const params = new URLSearchParams({ pageSize: '100' })
+        if (term && term.trim().length) params.set('search', term.trim())
+        const payload = await readApiResultOrThrow<{ items?: Array<{ id?: string; label?: string }> }>(
+          `/api/catalog/tags?${params.toString()}`,
+          undefined,
+          { errorMessage: t('catalog.products.filters.tagsLoadError', 'Failed to load tags') },
+        )
+        const items = Array.isArray(payload?.items) ? payload.items : []
+        const options = items
+          .map((entry) => {
+            const value = typeof entry.id === 'string' ? entry.id : null
+            if (!value) return null
+            const label = typeof entry.label === 'string' && entry.label.trim().length ? entry.label : value
+            return { value, label }
+          })
+          .filter((option) => !!option) as FilterOption[]
+        registerTagOptions(options)
+        return options
+      } catch {
+        return []
+      }
+    },
+    [registerTagOptions, t],
+  )
+
+  const productTypeOptions = React.useMemo<FilterOption[]>(() => [
+    { value: 'simple', label: t('catalog.products.types.simple', 'Simple') },
+    { value: 'configurable', label: t('catalog.products.types.configurable', 'Configurable') },
+    { value: 'virtual', label: t('catalog.products.types.virtual', 'Virtual') },
+    { value: 'downloadable', label: t('catalog.products.types.downloadable', 'Downloadable') },
+    {
+      value: 'bundle',
+      label: `${t('catalog.products.types.bundle', 'Bundle')} (${t('common.comingSoon', 'Coming soon')})`,
+    },
+    {
+      value: 'grouped',
+      label: `${t('catalog.products.types.grouped', 'Grouped')} (${t('common.comingSoon', 'Coming soon')})`,
+    },
+  ], [t])
+
+  const productTypeLabelMap = React.useMemo(() => {
+    const map = new Map<string, string>()
+    productTypeOptions.forEach((opt) => map.set(opt.value, opt.label))
+    return map
+  }, [productTypeOptions])
+
   const filters = React.useMemo<FilterDef[]>(() => [
+    { id: 'status', label: t('catalog.products.filters.status'), type: 'text' },
     { id: 'isActive', label: t('catalog.products.filters.active'), type: 'checkbox' },
+    { id: 'configurable', label: t('catalog.products.filters.configurable'), type: 'checkbox' },
+    { id: 'productType', label: t('catalog.products.filters.productType', 'Type'), type: 'select', options: productTypeOptions },
+    {
+      id: 'channelIds',
+      label: t('catalog.products.filters.channels'),
+      type: 'tags',
+      loadOptions: loadChannelOptions,
+      options: channelOptions,
+      formatValue: (val) => channelOptionsCache[val]?.label ?? val,
+      formatDescription: (val) => channelOptionsCache[val]?.description ?? null,
+    },
+    {
+      id: 'categoryIds',
+      label: t('catalog.products.filters.categories', 'Categories'),
+      type: 'tags',
+      loadOptions: loadCategoryOptions,
+      options: categoryOptions,
+      formatValue: (val) => categoryOptionsCache[val]?.label ?? val,
+      formatDescription: (val) => categoryOptionsCache[val]?.description ?? null,
+    },
+    {
+      id: 'tagIds',
+      label: t('catalog.products.filters.tags', 'Tags'),
+      type: 'tags',
+      loadOptions: loadTagOptions,
+      options: tagOptions,
+      formatValue: (val) => tagOptionsCache[val]?.label ?? val,
+    },
   ], [
     categoryOptions,
     categoryOptionsCache,
+    channelOptions,
+    channelOptionsCache,
     loadCategoryOptions,
+    loadChannelOptions,
+    loadTagOptions,
+    productTypeOptions,
+    tagOptions,
+    tagOptionsCache,
     t,
   ])
 
   const columns = React.useMemo<ColumnDef<ProductRow>[]>(() => {
-    const noValue = <span className="text-xs text-muted-foreground">—</span>
-    const renderValue = (def: CustomFieldDefDto, raw: unknown) => {
-      if (raw === null || raw === undefined || raw === '') return noValue
-      if (Array.isArray(raw)) return raw.length ? <span className="text-sm">{raw.map(String).join(', ')}</span> : noValue
-      if (typeof raw === 'boolean') {
-        return <span className="text-sm">{raw ? t('catalog.products.table.yes', 'Yes') : t('catalog.products.table.no', 'No')}</span>
-      }
-      const option = (def.options ?? []).find((entry) => String(entry.value) === String(raw))
-      return <span className="text-sm">{option?.label ?? String(raw)}</span>
-    }
-    const categoryOf = (row: ProductRow): string | null => {
-      const code = row.custom_fieldset_code ?? (typeof row.cf_product_category_group === 'string' ? row.cf_product_category_group : null)
-      return typeof code === 'string' && code.length ? code : null
-    }
     const base: ColumnDef<ProductRow>[] = [
       {
-        accessorKey: 'title',
-        header: t('catalog.products.table.title', 'Product name'),
-        meta: { sticky: true, maxWidth: '320px' },
+        id: 'media',
+        header: '',
+        size: 80,
         cell: ({ row }) => (
-          <div className="flex min-w-0 flex-col py-1">
-            <span className="truncate font-medium">{row.original.title || '—'}</span>
-            {row.original.sku ? <span className="font-mono text-xs text-muted-foreground">{row.original.sku}</span> : null}
+          <ProductImageCell
+            mediaId={row.original.default_media_id}
+            mediaUrl={row.original.default_media_url}
+            title={row.original.title}
+            cropType="contain"
+          />
+        ),
+        meta: { sticky: true },
+      },
+      {
+        accessorKey: 'title',
+        header: t('catalog.products.table.title', 'Title'),
+        cell: ({ row }) => (
+          <div className="flex flex-col">
+            <span className="font-medium">{row.original.title || '—'}</span>
+            {row.original.subtitle ? (
+              <span className="text-xs text-muted-foreground">{row.original.subtitle}</span>
+            ) : null}
+            {row.original.handle ? (
+              <span className="text-xs text-muted-foreground">/{row.original.handle}</span>
+            ) : null}
+            {row.original.description ? (
+              <span className="text-xs text-muted-foreground">{markdownToPlainText(row.original.description)}</span>
+            ) : null}
           </div>
         ),
+        meta: { sticky: true },
       },
-    ]
-    if (!activeCategory) {
-      base.push({
-        id: 'category',
-        header: t('catalog.products.table.category', 'Category'),
-        cell: ({ row }) => {
-          const code = categoryOf(row.original)
-          return code ? <Tag variant="neutral">{categoryLabels.get(code) ?? code}</Tag> : noValue
+      {
+        accessorKey: 'sku',
+        header: t('catalog.products.table.sku', 'SKU'),
+        cell: ({ getValue }) => {
+          const value = getValue()
+          return value ? <span className="font-mono text-xs">{String(value)}</span> : <span className="text-xs text-muted-foreground">—</span>
         },
-      })
-    }
-    const fieldColumns = productListFields(customFieldDefs, activeCategory).map<ColumnDef<ProductRow>>((def) => ({
-      accessorKey: `cf_${def.key}`,
-      header: def.label || def.key,
-      meta: { maxWidth: '220px', truncate: true },
-      cell: ({ row }) => renderValue(def, row.original[`cf_${def.key}`]),
-    }))
-    const trailing: ColumnDef<ProductRow>[] = [
+      },
+      {
+        accessorKey: 'product_type',
+        header: t('catalog.products.table.type'),
+        cell: ({ row }) => {
+          const type = typeof row.original.product_type === 'string' ? row.original.product_type : 'simple'
+          const label = productTypeLabelMap.get(type) ?? type
+          return <span className="text-xs text-muted-foreground">{label}</span>
+        },
+      },
+      {
+        accessorKey: 'is_configurable',
+        header: t('catalog.products.table.configurable'),
+        cell: ({ row }) => <BooleanIcon value={!!row.original.is_configurable} />,
+      },
       {
         accessorKey: 'is_active',
         header: t('catalog.products.table.active'),
         cell: ({ row }) => <BooleanIcon value={!!row.original.is_active} />,
       },
+      {
+        accessorKey: 'pricing',
+        header: t('catalog.products.table.price'),
+        cell: ({ row }) => renderPrice(row.original.pricing, row.original.primary_currency_code),
+      },
+      {
+        accessorKey: 'offers',
+        header: t('catalog.products.table.channels'),
+        cell: ({ row }) => renderOffers(row.original.offers),
+      },
+      {
+        accessorKey: 'updated_at',
+        header: t('catalog.products.table.updatedAt'),
+        cell: ({ row }) => <span className="text-xs text-muted-foreground">{formatDate(row.original.updated_at)}</span>,
+      },
     ]
-    return [...base, ...fieldColumns, ...trailing]
-  }, [activeCategory, categoryLabels, customFieldDefs, t])
+    return applyCustomFieldVisibility(base, customFieldDefs)
+  }, [customFieldDefs, productTypeLabelMap, t])
 
   const handleSearchChange = React.useCallback((value: string) => {
     setSearch(value)
@@ -318,8 +518,35 @@ export default function ProductsDataTable({
       params.set('sortField', sort.id)
       params.set('sortDir', sort.desc ? 'desc' : 'asc')
     }
+    const status = filterValues.status
+    if (typeof status === 'string' && status.trim()) {
+      params.set('status', status.trim())
+    }
     if (filterValues.isActive === true) params.set('isActive', 'true')
     if (filterValues.isActive === false) params.set('isActive', 'false')
+    if (filterValues.configurable === true) params.set('configurable', 'true')
+    if (filterValues.configurable === false) params.set('configurable', 'false')
+    if (typeof filterValues.productType === 'string' && filterValues.productType.trim()) {
+      params.set('productType', filterValues.productType.trim())
+    }
+    if (Array.isArray(filterValues.channelIds) && filterValues.channelIds.length) {
+      const values = filterValues.channelIds
+        .map((value) => (typeof value === 'string' ? value : null))
+        .filter((value): value is string => !!value)
+      if (values.length) params.set('channelIds', values.join(','))
+    }
+    if (Array.isArray(filterValues.categoryIds) && filterValues.categoryIds.length) {
+      const values = filterValues.categoryIds
+        .map((value) => (typeof value === 'string' ? value : null))
+        .filter((value): value is string => !!value)
+      if (values.length) params.set('categoryIds', values.join(','))
+    }
+    if (Array.isArray(filterValues.tagIds) && filterValues.tagIds.length) {
+      const values = filterValues.tagIds
+        .map((value) => (typeof value === 'string' ? value : null))
+        .filter((value): value is string => !!value)
+      if (values.length) params.set('tagIds', values.join(','))
+    }
     Object.entries(filterValues).forEach(([key, value]) => {
       if (!key.startsWith('cf_') || value == null) return
       if (Array.isArray(value)) {
@@ -342,9 +569,8 @@ export default function ProductsDataTable({
     if (typeof customFieldsetFilter === 'string' && customFieldsetFilter.trim().length > 0) {
       params.set('customFieldset', customFieldsetFilter.trim())
     }
-    if (activeCategory) params.set('cf_product_category_group', activeCategory)
     return params.toString()
-  }, [activeCategory, customFieldsetFilter, filterValues, page, search, sorting])
+  }, [customFieldsetFilter, filterValues, page, search, sorting])
 
   React.useEffect(() => {
     let cancelled = false
@@ -433,41 +659,10 @@ export default function ProductsDataTable({
     },
   }), [currentParams])
 
-  const resolvedCreateHref = React.useMemo(() => {
-    if (createHref) return createHref
-    const base = '/backend/catalog/products/create'
-    return activeCategory ? `${base}?category=${encodeURIComponent(activeCategory)}` : base
-  }, [activeCategory, createHref])
-
-  const resolvedTableId = tableId ?? extensionPoints.hosts.productsTable.tableId
-  const resolvedInjectionSpotId = tableId
-    ? `data-table:${tableId}`
-    : extensionPoints.hosts.productsTable.baseSpotId
-
-  const showCategoryTabs = !fixedCategoryFilter && categories.length > 0
-
   return (
     <>
-      {showCategoryTabs ? (
-        <SegmentedControl
-          className="mb-4"
-          value={activeCategory ?? 'all'}
-          onValueChange={(value) => {
-            setActiveCategory(value === 'all' ? null : value)
-            setPage(1)
-          }}
-          aria-label={t('catalog.products.tabs.label', 'Product category')}
-        >
-          <SegmentedControlItem value="all">{t('catalog.products.tabs.all', 'All')}</SegmentedControlItem>
-          {categories.map((category) => (
-            <SegmentedControlItem key={category.code} value={category.code}>
-              {category.label ?? category.code}
-            </SegmentedControlItem>
-          ))}
-        </SegmentedControl>
-      ) : null}
       <DataTable<ProductRow>
-        title={t('catalog.products.page.title', 'Products')}
+        title={t('catalog.products.page.title', 'Products & services')}
         entityId={ENTITY_ID}
         customFieldFilterKeyExtras={[scopeVersion, reloadToken]}
         refreshButton={{
@@ -479,8 +674,8 @@ export default function ProductsDataTable({
           <div className="flex items-center gap-2">
             {extraActions}
             <Button asChild>
-              <Link href={resolvedCreateHref}>
-                {t('catalog.products.actions.addProduct', 'Add product')}
+              <Link href="/backend/catalog/products/create">
+                {t('catalog.products.actions.create', 'Create')}
               </Link>
             </Button>
           </div>
@@ -489,8 +684,8 @@ export default function ProductsDataTable({
         data={rows}
         emptyState={(
           <ListEmptyState
-            entityName={t('catalog.products.page.title', 'Products')}
-            createHref={resolvedCreateHref}
+            entityName={t('catalog.products.page.title', 'Products & services')}
+            createHref="/backend/catalog/products/create"
             createLabel={t('catalog.products.actions.create', 'Create')}
           />
         )}
@@ -503,7 +698,7 @@ export default function ProductsDataTable({
         onCustomFieldFilterFieldsetChange={handleCustomFieldsetFilterChange}
         sorting={sorting}
         onSortingChange={setSorting}
-        injectionSpotId={resolvedInjectionSpotId}
+        injectionSpotId={extensionPoints.hosts.productsTable.baseSpotId}
         injectionContext={{
           search,
           filters: filterValues,
@@ -528,7 +723,7 @@ export default function ProductsDataTable({
         }}
         exporter={exportConfig}
         isLoading={isLoading}
-        perspective={{ tableId: activeCategory ? `${resolvedTableId}:${activeCategory}` : resolvedTableId }}
+        perspective={{ tableId: extensionPoints.hosts.productsTable.tableId }}
         stickyActionsColumn
         rowActions={(row) => (
           <RowActions
