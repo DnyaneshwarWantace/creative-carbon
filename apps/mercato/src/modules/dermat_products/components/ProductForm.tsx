@@ -1,8 +1,9 @@
 "use client"
 
 import * as React from 'react'
+import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { ArrowLeft, Boxes, FlaskConical, IndianRupee, Layers, Package, Receipt, Settings2, Sparkles, Tag } from 'lucide-react'
+import { ArrowLeft, Boxes, FileStack, FlaskConical, IndianRupee, Layers, Package, Receipt, Settings2, Sparkles, Tag } from 'lucide-react'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { cn } from '@open-mercato/shared/lib/utils'
 import { Page, PageBody } from '@open-mercato/ui/backend/Page'
@@ -25,6 +26,8 @@ import { FieldsPanel, type PanelField } from './FieldsPanel'
 type Row = Record<string, unknown>
 type ListResponse<T> = { items?: T[] }
 type TaxOption = { value: string; label: string }
+
+const BOM_PRODUCT_KINDS = new Set<ProductKind>(['bulk', 'rnd', 'finished_goods'])
 
 type FormState = {
   title: string
@@ -415,6 +418,14 @@ export function ProductForm({ kind, productId }: { kind: ProductKind; productId?
               <p className="ml-11 text-xs text-muted-foreground">{config.hint}</p>
             </div>
             <div className="flex items-center gap-2">
+              {productId && BOM_PRODUCT_KINDS.has(kind) ? (
+                <Button asChild variant="outline">
+                  <Link href={`/backend/boms/new?productId=${productId}`}>
+                    <FileStack className="mr-2 h-4 w-4" />
+                    {t('dermat_products.form.bom', 'BOM')}
+                  </Link>
+                </Button>
+              ) : null}
               <Button type="button" variant="ghost" onClick={() => setPanelOpen(true)}>
                 <Settings2 className="mr-2 h-4 w-4" />
                 {t('dermat_products.form.customize', 'Customize fields')}

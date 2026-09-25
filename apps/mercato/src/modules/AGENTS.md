@@ -16,7 +16,7 @@ This app is **Dermat India's ERP** (cosmetics contract manufacturer) built on Op
 - Never assume a core screen you find in `packages/core` is what the client uses. Check the route table below.
 - Never add a second product, stock or unit table. There is exactly one product master (catalog products) and one stock system (`wms`).
 - Never leave a core page reachable just by hiding it from the sidebar. Replace it or remove the route (`null`) in `apps/mercato/src/modules.ts`.
-- Never bring back the deleted modules (`dermat_rm_master`, `dermat_pm_master`, `dermat_bom`, `dermat_purchase_orders`, `dermat_qc`, `dermat_sampling`, `dermat_production`, `dermat_sales_flow`, `dermat_workflow`, core `manufacturing`, core `purchasing`). The last state before the cleanup is on branch `snapshot/pre-cleanup-2026-09-25` for reference only.
+- Never bring back the deleted modules (`dermat_rm_master`, `dermat_pm_master`, `dermat_bom` (replaced by `dermat_boms`), `dermat_purchase_orders`, `dermat_qc`, `dermat_sampling`, `dermat_production`, `dermat_sales_flow`, `dermat_workflow`, core `manufacturing`, core `purchasing`). The last state before the cleanup is on branch `snapshot/pre-cleanup-2026-09-25` for reference only.
 
 ## Route table: what the client actually sees
 
@@ -27,7 +27,8 @@ This app is **Dermat India's ERP** (cosmetics contract manufacturer) built on Op
 | Customers | `/backend/customers/companies` (relabelled "Customer", Sales group) | core customers + `dermat_customers` fields | people, deals, pipelines removed |
 | Stock | Store → Stock, Batches, Stock Ledger; Planning → Reservations; Masters → Stores | core `wms` (relabelled) | warehouses, zones, WMS config removed |
 | Departments, Vendors | Masters / Purchase | `dermat_departments`, `dermat_vendors` | — |
-| Orders, BOM, Planning, Purchase, QC, Production | not rebuilt yet | — | build as new `dermat_*` modules following the rebuild steps in the spec |
+| BOM (bulk formulas in RM %, FG pack BOMs per piece) | R&D → BOM `/backend/boms`, `/backend/boms/new?productId=`, `/backend/boms/<id>`; "BOM" button on Bulk/R&D/FG product pages | `dermat_boms` (spec `.ai/specs/2026-09-25-dermat-boms.md`) | — (old `dermat_boms`/`dermat_bom_lines` tables are dead demo data) |
+| Orders, Planning, Purchase, QC, Production | not rebuilt yet | — | build as new `dermat_*` modules following the rebuild steps in the spec |
 
 Every route override lives in `apps/mercato/src/modules.ts` under the `dermat_customers` entry. Add new ones there.
 
@@ -39,6 +40,9 @@ Every route override lives in `apps/mercato/src/modules.ts` under the `dermat_cu
 - **Dropdowns**: every dropdown list lives in Masters → Dropdown Options (core dictionaries) so the client edits them without a developer. Add new lists there, never hardcode option arrays in a form.
 - **Stock**: `wms` — one warehouse "Dermat India", stores `RM-STORE`, `PM-STORE`, `PRODUCTION`, `FG-STORE`. Min floor qty = inventory profile `reorder_point`. Pending QC = lot status `quarantine`.
 - **Tax**: GST rates `gst-0/5/12/18/28` (18% default).
+
+- **BOM**: one document per product version (`dermat_bom_headers` + `dermat_bom_items`), saved whole. Draft → Approved (locked) → Superseded when a newer version is approved; one draft per product. Formula lines store RM % (must total 100), pack lines store qty per piece. Components are catalog products (no copies).
+- **Custom write routes**: use `runRouteMutationGuards` plus `enforceCommandOptimisticLock` (see `dermat_boms/lib/guard.ts`). `validateCrudMutationGuard` is deprecated and does not enforce optimistic locking.
 
 ## Seeding an existing tenant
 

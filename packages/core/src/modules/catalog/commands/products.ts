@@ -1384,7 +1384,9 @@ const AUTO_SKU_PAD = 5;
 // one. The prefix is configurable (client ask: "change the prefix any time, next product
 // follows the new rule") via ModuleConfigService — changing it does not renumber existing
 // products, it only changes what new ones get; numbering restarts under the new prefix since
-// the lookup only scans SKUs matching the *current* prefix.
+// the lookup only scans SKUs matching the *current* prefix. Soft-deleted products are
+// included so a deleted product's number is never handed out again (the unique index on
+// (organization_id, tenant_id, sku) still covers deleted rows).
 async function resolveAutoSkuPrefix(
   ctx: CommandRuntimeContext,
   organizationId: string,
@@ -1415,7 +1417,7 @@ async function generateNextProductSku(
   const prefix = await resolveAutoSkuPrefix(ctx, organizationId, tenantId);
   const rows = await em.getConnection().execute<Array<{ sku: string | null }>>(
     `select sku from catalog_products
-     where organization_id = ? and tenant_id = ? and sku like ? and deleted_at is null
+     where organization_id = ? and tenant_id = ? and sku like ?
      order by sku desc
      limit 1`,
     [organizationId, tenantId, `${prefix}%`],
