@@ -28,7 +28,8 @@ This app is **Dermat India's ERP** (cosmetics contract manufacturer) built on Op
 | Stock | Store → Stock, Batches, Stock Ledger; Planning → Reservations; Masters → Stores | core `wms` (relabelled) | warehouses, zones, WMS config removed |
 | Departments, Vendors | Masters / Purchase | `dermat_departments`, `dermat_vendors` | — |
 | BOM (bulk formulas in RM %, FG pack BOMs per piece) | R&D → BOM `/backend/boms`, `/backend/boms/new?productId=`, `/backend/boms/<id>`; "BOM" button on Bulk/R&D/FG product pages | `dermat_boms` (spec `.ai/specs/2026-09-25-dermat-boms.md`) | — (old `dermat_boms`/`dermat_bom_lines` tables are dead demo data) |
-| Orders, Planning, Purchase, QC, Production | not rebuilt yet | — | build as new `dermat_*` modules following the rebuild steps in the spec |
+| Orders (one-page order + 11 stages, stage work pages per department) | Sales → Orders `/backend/orders`, `/backend/orders/new` (`?copyFrom=` repeat), `/backend/orders/<id>`; department groups → `/backend/work/<stage>` | `dermat_orders` (spec `.ai/specs/2026-09-25-dermat-orders.md`) | core sales documents not used |
+| Planning reservations, Purchase / GRN, inward QC, production batches | not rebuilt yet — plug into the order stages (planning, manufacturing…) | — | build as new `dermat_*` modules |
 
 Every route override lives in `apps/mercato/src/modules.ts` under the `dermat_customers` entry. Add new ones there.
 
@@ -45,6 +46,8 @@ Every route override lives in `apps/mercato/src/modules.ts` under the `dermat_cu
 
 - **BOM**: one document per product version (`dermat_bom_headers` + `dermat_bom_items`), saved whole. Draft → Approved (locked) → Superseded when a newer version is approved; one draft per product. Formula lines store RM % (must total 100), pack lines store qty per piece. Components are catalog products (no copies).
 - **Custom write routes**: use `runRouteMutationGuards` plus `enforceCommandOptimisticLock` (see `dermat_boms/lib/guard.ts`). `validateCrudMutationGuard` is deprecated and does not enforce optimistic locking.
+
+- **Orders**: `dermat_orders` owns orders, lines, stages and history. Stage list, sub-steps and fields live in `dermat_orders/lib/stages.ts`; the client's order-form specs in `lib/specs.ts`. Customer names are encrypted — always read them through `findWithDecryption` (`lib/server.ts#loadCustomers`), never copy them into Dermat tables. A stage is completed only through `POST /api/dermat_orders/orders/stage` (same call from the order page and the stage work pages).
 
 ## Seeding an existing tenant
 

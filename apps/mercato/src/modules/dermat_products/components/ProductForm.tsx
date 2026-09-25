@@ -23,6 +23,7 @@ import { KIND_CONFIG, unitsForKind, type KindConfig } from '../lib/kindConfig'
 import { fieldsForKind, isNumericField, loadProductFieldDefs, type ProductFieldDef } from '../lib/fieldDefs'
 import { FieldsPanel, type PanelField } from './FieldsPanel'
 import { PackingItemsCard } from './PackingItemsCard'
+import { ProductOrdersCard } from './ProductOrdersCard'
 
 type Row = Record<string, unknown>
 type ListResponse<T> = { items?: T[] }
@@ -619,6 +620,7 @@ export function ProductForm({ kind, productId }: { kind: ProductKind; productId?
               {kind === 'finished_goods' ? (
                 <PackingItemsCard productId={productId} productTitle={state.title} selected={packTypes} onChange={setPackTypes} />
               ) : null}
+              {kind === 'finished_goods' && productId ? <ProductOrdersCard productId={productId} /> : null}
             </div>
 
             <div className="space-y-6 lg:col-span-4">
