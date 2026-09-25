@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 import Link from 'next/link'
-import { Check, CheckCircle2, CirclePause, CirclePlay, FileStack, RotateCcw, SkipForward } from 'lucide-react'
+import { Check, CheckCircle2, CirclePause, CirclePlay, FileStack, PackagePlus, RotateCcw, SkipForward } from 'lucide-react'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { Button } from '@open-mercato/ui/primitives/button'
 import { Input } from '@open-mercato/ui/primitives/input'
@@ -36,6 +36,10 @@ type StageWorkAreaProps = {
   onAction: (stage: Stage, request: StageActionRequest) => Promise<boolean>
   variant?: 'sheet' | 'page'
 }
+
+const STORE_STAGES = ['manufacturing', 'filling', 'packing']
+const STORE_VARIANT = { requested: 'warning', partly_issued: 'info', issued: 'info', received: 'success', used: 'neutral', cancelled: 'error' } as const
+const STORE_LABEL = { requested: 'Requested', partly_issued: 'Partly issued', issued: 'Issued', received: 'Received', used: 'Used', cancelled: 'Cancelled' } as const
 
 const QC_PART_VARIANT = { pending: 'warning', pass: 'success', fail: 'error', na: 'neutral' } as const
 
@@ -238,6 +242,47 @@ export function StageWorkArea({ order, stage, people, canWork, busy, shortCount,
               ? t('dermat_orders.sheet.short', '{count} materials are short for this order — see Materials below.', { count: shortCount })
               : t('dermat_orders.sheet.allStock', 'All materials for this order are in stock.')}
           </p>
+        ) : null}
+
+        {STORE_STAGES.includes(stage.key) ? (
+          <div className="space-y-2">
+            <div className="flex items-center justify-between gap-2">
+              <Label className="text-xs text-muted-foreground">{t('dermat_orders.sheet.store', 'Material from the store')}</Label>
+              {editable ? (
+                <Link
+                  href={`/backend/store/requests/new?orderId=${order.id}&stageKey=${stage.key}`}
+                  className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
+                >
+                  <PackagePlus className="h-3.5 w-3.5" aria-hidden="true" />
+                  {t('dermat_orders.sheet.askStore', 'Ask the store')}
+                </Link>
+              ) : null}
+            </div>
+            {order.store?.[stage.key]?.length ? (
+              <ul className="divide-y rounded-md border text-sm">
+                {order.store[stage.key].map((request) => (
+                  <li key={request.id}>
+                    <Link href={`/backend/store/requests/${request.id}`} className="flex items-center justify-between gap-2 px-3 py-2 hover:bg-muted/40">
+                      <span className="min-w-0">
+                        <span className="block font-mono text-xs font-semibold">{request.code}</span>
+                        <span className="block text-xs text-muted-foreground">
+                          {request.store === 'rm' ? t('dermat_orders.sheet.rmStore', 'RM store') : t('dermat_orders.sheet.pmStore', 'PM store')} ·{' '}
+                          {t('dermat_orders.sheet.linesIssued', '{done}/{total} lines issued', { done: request.issuedLines, total: request.lineCount })}
+                        </span>
+                      </span>
+                      <StatusBadge variant={STORE_VARIANT[request.status]}>
+                        {request.awaitingReceipt && request.status !== 'requested' ? t('dermat_orders.sheet.storeAwaiting', 'Sent · confirm receipt') : STORE_LABEL[request.status]}
+                      </StatusBadge>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="rounded-md border border-dashed p-3 text-xs text-muted-foreground">
+                {t('dermat_orders.sheet.storeEmpty', 'Nothing asked yet. This stage can be completed only after the material is received.')}
+              </p>
+            )}
+          </div>
         ) : null}
 
         {order.qc?.[stage.key]?.length ? (

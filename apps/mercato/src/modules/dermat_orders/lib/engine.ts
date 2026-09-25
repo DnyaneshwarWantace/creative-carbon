@@ -2,6 +2,7 @@ import { DermatOrder, DermatOrderEvent, DermatOrderLine, DermatOrderStage } from
 import type { StageActionInput } from '../data/validators'
 import { STAGES, isFinished, missingRequired, missingSteps, stageDef, stepStates } from './stages'
 import { blockingChecks, checksForOrder, ensureChecksForStage, type StageQcSummary } from '../../dermat_quality/lib/service'
+import { requestsForOrder, storeBlocking } from '../../dermat_store/lib/service'
 import {
   OrderError,
   approvedPackBoms,
@@ -155,6 +156,8 @@ export async function applyStageAction(ctx: OrderContext, order: DermatOrder, in
       if (missing.length) throw new OrderError(`Fill in: ${missing.join(', ')}`, 400, { missing })
       const openSteps = missingSteps(def, stage.data)
       if (openSteps.length) throw new OrderError(`Tick these steps first: ${openSteps.join(', ')}`, 400, { steps: openSteps })
+      const storeBlock = await storeBlocking(ctx, order.id, def.key)
+      if (storeBlock) throw new OrderError(storeBlock, 400, { store: true })
       const qcBlocking = await blockingChecks(ctx, order.id, def.key)
       if (qcBlocking.length) {
         throw new OrderError(`QC has not passed yet: ${qcBlocking.map((check) => `${check.code} (${check.status})`).join(', ')}`, 400, { qc: qcBlocking.map((check) => check.id) })
@@ -285,11 +288,12 @@ export async function serializeOrder(ctx: OrderContext, order: DermatOrder) {
     ctx.em.find(DermatOrderEvent, { orderId: order.id }, { orderBy: { createdAt: 'desc' }, limit: 200 }),
   ])
   const productIds = lines.map((line) => line.productId)
-  const [customers, products, boms, qc] = await Promise.all([
+  const [customers, products, boms, qc, store] = await Promise.all([
     loadCustomers(ctx, [order.customerId]),
     loadProducts(ctx, productIds),
     approvedPackBoms(ctx, productIds),
     checksForOrder(ctx, order.id),
+    requestsForOrder(ctx, order.id),
   ])
   const qcOnly = Object.values(qc).flat().map((check) => check.productId).filter((id) => !products.has(id))
   if (qcOnly.length) for (const [id, product] of await loadProducts(ctx, qcOnly)) products.set(id, product)
@@ -337,6 +341,7 @@ export async function serializeOrder(ctx: OrderContext, order: DermatOrder) {
         list.map((check: StageQcSummary) => ({ ...check, productTitle: products.get(check.productId)?.title ?? '' })),
       ]),
     ),
+    store,
     events: events.map((event) => ({
       id: event.id,
       stageKey: event.stageKey ?? null,

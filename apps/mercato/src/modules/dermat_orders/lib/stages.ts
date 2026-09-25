@@ -134,10 +134,9 @@ export const STAGES: StageDef[] = [
     label: 'Manufacturing',
     department: 'Production',
     group: 'production',
-    hint: 'Bulk made in the vessel. Unit: kg / ml. Starts only when both arms are ready. The QC team tests the bulk (chemical and micro) before this can be done.',
+    hint: 'Bulk made in the vessel. Unit: kg / ml. Starts only when both arms are ready. Ask the RM store for the material and confirm you received it; the QC team tests the bulk (chemical and micro) before this can be done.',
     after: ['planning', 'artwork'],
     steps: [
-      { key: 'store_requirement', label: 'Requirement given to store (material issued)' },
       { key: 'manufactured', label: 'Manufacturing done' },
     ],
     fields: [
@@ -154,10 +153,9 @@ export const STAGES: StageDef[] = [
     label: 'Filling',
     department: 'Production',
     group: 'production',
-    hint: 'Bulk filled into bottles / tubes / jars. Unit: bottles / gm / ml. QC after filling only if its QC rule is switched on.',
+    hint: 'Bulk filled into bottles / tubes / jars. Unit: bottles / gm / ml. Ask the PM store for bottles, tubes and caps and confirm you received them. QC after filling only if its QC rule is switched on.',
     after: ['manufacturing'],
     steps: [
-      { key: 'bottle_requirement', label: 'Bottle / tube requirement given' },
       { key: 'filled', label: 'Filling done' },
     ],
     fields: [
@@ -171,7 +169,7 @@ export const STAGES: StageDef[] = [
     label: 'Packing',
     department: 'Production',
     group: 'production',
-    hint: 'Finished goods packed. Unit: pieces. The QC team does the final QC before this can be done.',
+    hint: 'Finished goods packed. Unit: pieces. Ask the PM store for cartons, labels and the sample kit and confirm you received them. The QC team does the final QC before this can be done.',
     after: ['filling'],
     steps: [
       { key: 'sample', label: 'Sample of the finished good made' },

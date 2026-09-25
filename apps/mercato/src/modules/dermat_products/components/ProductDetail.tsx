@@ -51,6 +51,20 @@ type OrderRow = {
   current: Array<{ label: string; status: string; responsibleName: string | null }>
 }
 type Packing = { id: string; title: string; type: string; sku: string | null }
+type StoreRequestRow = {
+  id: string
+  code: string
+  orderId: string
+  orderNo: string
+  stageLabel: string
+  status: 'requested' | 'partly_issued' | 'issued' | 'received' | 'used' | 'cancelled'
+  awaitingReceipt: boolean
+  createdAt: string
+  product: { required: number; issued: number; received: number; used: number; returned: number; unit: string } | null
+}
+
+const REQUEST_VARIANT: Record<StoreRequestRow['status'], StatusBadgeVariant> = { requested: 'warning', partly_issued: 'info', issued: 'info', received: 'success', used: 'neutral', cancelled: 'error' }
+const REQUEST_LABEL: Record<StoreRequestRow['status'], string> = { requested: 'Requested', partly_issued: 'Partly issued', issued: 'Issued', received: 'Received', used: 'Used', cancelled: 'Cancelled' }
 
 const ORDER_VARIANT: Record<string, StatusBadgeVariant> = { booked: 'info', confirmed: 'warning', completed: 'success', cancelled: 'neutral' }
 const KIND_SHORT: Record<string, string> = { raw_material: 'RM', packing_material: 'PM', bulk: 'Bulk', finished_goods: 'FG', rnd: 'R&D' }
@@ -124,6 +138,7 @@ export function ProductDetail({ productId }: { productId: string }) {
   const [bom, setBom] = React.useState<BomView | null | undefined>(undefined)
   const [orders, setOrders] = React.useState<OrderRow[] | null>(null)
   const [packing, setPacking] = React.useState<Packing[]>([])
+  const [requests, setRequests] = React.useState<StoreRequestRow[] | null>(null)
   const [parent, setParent] = React.useState<{ id: string; title: string } | null>(null)
 
   const kind = (text(read(product, 'custom_fieldset_code')) as ProductKind) || null
@@ -151,6 +166,11 @@ export function ProductDetail({ productId }: { productId: string }) {
       setDefs(kindConfig ? fieldsForKind(allDefs, itemKind as ProductKind, kindConfig.fields.map((field) => field.key)) : [])
       setProfile(profileCall.result?.items?.[0] ?? null)
       setStock(stockCall.result ?? { stores: [], batches: [], movements: [] })
+      if (itemKind === 'raw_material' || itemKind === 'packing_material') {
+        apiCall<{ items?: StoreRequestRow[] }>(`/api/dermat_store/requests?productId=${encodeURIComponent(productId)}&pageSize=20`, undefined, { fallback: { items: [] } }).then((call) => {
+          if (!cancelled) setRequests(call.result?.items ?? [])
+        })
+      }
 
       if (itemKind === 'bulk' || itemKind === 'rnd' || itemKind === 'finished_goods') {
         const list = await apiCall<{ items?: Array<{ id: string; status: string }> }>(`/api/dermat_boms/boms?productId=${encodeURIComponent(productId)}&pageSize=20`, undefined, { fallback: { items: [] } })
@@ -409,6 +429,47 @@ export function ProductDetail({ productId }: { productId: string }) {
                   <Empty>{t('dermat_products.detail.noMovements', 'No stock movements yet.')}</Empty>
                 )}
               </Section>
+
+              {requests ? (
+                <Section
+                  icon={ClipboardList}
+                  title={t('dermat_products.detail.storeRequests', 'Store requests')}
+                  description={t('dermat_products.detail.storeRequestsHint', 'Asked by production, issued by the store, received and used')}
+                  flush
+                >
+                  {requests.length ? (
+                    <ul className="divide-y text-sm">
+                      {requests.map((request) => (
+                        <li key={request.id}>
+                          <Link href={`/backend/store/requests/${request.id}`} className="flex items-center justify-between gap-3 px-4 py-2.5 hover:bg-muted/40">
+                            <span className="min-w-0">
+                              <span className="block font-mono text-xs font-semibold">{request.code}</span>
+                              <span className="block truncate text-xs text-muted-foreground">
+                                {request.orderNo} · {request.stageLabel} · {date(request.createdAt)}
+                              </span>
+                            </span>
+                            <span className="flex shrink-0 items-center gap-3">
+                              {request.product ? (
+                                <span className="text-right text-xs tabular-nums text-muted-foreground">
+                                  <span className="block font-mono text-foreground">
+                                    {qty(request.product.issued)} / {qty(request.product.required)} {request.product.unit}
+                                  </span>
+                                  {request.product.used ? `${qty(request.product.used)} used` : request.product.received ? `${qty(request.product.received)} received` : t('dermat_products.detail.issuedOfNeeded', 'issued of needed')}
+                                </span>
+                              ) : null}
+                              <StatusBadge variant={REQUEST_VARIANT[request.status]}>
+                                {request.awaitingReceipt && request.status !== 'requested' ? t('dermat_products.detail.sentNotReceived', 'Sent · not received') : REQUEST_LABEL[request.status]}
+                              </StatusBadge>
+                            </span>
+                          </Link>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <Empty>{t('dermat_products.detail.noStoreRequests', 'Production has not asked the store for this yet.')}</Empty>
+                  )}
+                </Section>
+              ) : null}
             </div>
 
             <div className="space-y-5 lg:col-span-5">

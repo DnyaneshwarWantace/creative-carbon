@@ -31,7 +31,8 @@ This app is **Dermat India's ERP** (cosmetics contract manufacturer) built on Op
 | Orders (one-page order + 11 stages, stage work pages per department) | Sales → Orders `/backend/orders`, `/backend/orders/new` (`?copyFrom=` repeat, `?customerId=`), `/backend/orders/<id>`, `/backend/orders/<id>/stages/<stage>` (stage detail page); department groups → `/backend/work/<stage>` | `dermat_orders` (spec `.ai/specs/2026-09-25-dermat-orders.md`) | core sales documents not used |
 | QC (rules per operation/product, checks with chemical + micro approvals; blocks manufacturing/filling/packing completion) | QC → QC checks `/backend/qc/checks`, `/backend/qc/checks/<id>`; QC rules `/backend/qc/rules`, `/backend/qc/rules/<id>`, `/backend/qc/rules/new` | `dermat_quality` (spec `.ai/specs/2026-09-26-dermat-quality.md`) | old `dermat_qc` is dead; its migration table blocks reuse of the name |
 | Artwork & PM | own sidebar group `dermat-03b-artwork.nav.group` → `/backend/work/artwork` | `dermat_orders` | — |
-| Planning reservations, Purchase / GRN, inward QC checks from GRN, production batches | not rebuilt yet — plug into the order stages (planning, manufacturing…) | — | build as new `dermat_*` modules |
+| Store requests (production asks RM / PM store, issue by batch, receive, use, return) | Store → Store requests `/backend/store/requests`, `/backend/store/requests/<id>`, `/backend/store/requests/new?orderId&stageKey`; Production → Material from store `/backend/production/material` | `dermat_store` (spec `.ai/specs/2026-09-26-dermat-store-requests.md`); stock helpers `dermat_products/lib/stock.ts` | stock moves only through wms commands |
+| Planning reservations (multi-order / multi-BOM planning page), Purchase / GRN, inward QC checks from GRN, production batches | not rebuilt yet | — | build as new `dermat_*` modules |
 
 Every route override lives in `apps/mercato/src/modules.ts` under the `dermat_customers` entry. Add new ones there.
 

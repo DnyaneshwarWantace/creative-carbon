@@ -68,6 +68,16 @@ export type OrderQcCheck = {
   batchNo: string | null
 }
 
+export type OrderStoreRequest = {
+  id: string
+  code: string
+  store: 'rm' | 'pm'
+  status: 'requested' | 'partly_issued' | 'issued' | 'received' | 'used' | 'cancelled'
+  awaitingReceipt: boolean
+  lineCount: number
+  issuedLines: number
+}
+
 export type Order = {
   id: string
   orderNo: string
@@ -93,6 +103,7 @@ export type Order = {
   lines: OrderLine[]
   stages: Stage[]
   qc: Record<string, OrderQcCheck[]>
+  store: Record<string, OrderStoreRequest[]>
   events: OrderEvent[]
 }
 
