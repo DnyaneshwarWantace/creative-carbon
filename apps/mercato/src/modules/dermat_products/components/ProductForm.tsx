@@ -22,6 +22,7 @@ import { PRODUCT_KINDS, type ProductKind } from '../lib/kinds'
 import { KIND_CONFIG, unitsForKind, type KindConfig } from '../lib/kindConfig'
 import { fieldsForKind, isNumericField, loadProductFieldDefs, type ProductFieldDef } from '../lib/fieldDefs'
 import { FieldsPanel, type PanelField } from './FieldsPanel'
+import { PackingItemsCard } from './PackingItemsCard'
 
 type Row = Record<string, unknown>
 type ListResponse<T> = { items?: T[] }
@@ -54,6 +55,8 @@ type Loaded = {
   listOptions: Record<string, TaxOption[]>
   profileId: string | null
   updatedAt: string | null
+  parentProductId: string | null
+  sku: string | null
 }
 
 const STRATEGY_OPTIONS = [
@@ -169,6 +172,8 @@ async function load(config: KindConfig, productId?: string): Promise<Loaded> {
     units: unitsForKind(config, (unitCall.result?.entries ?? []).map((entry) => ({ value: entry.value, label: entry.label }))),
     profileId: profile ? text(read(profile, 'id')) : null,
     updatedAt: text(read(product, 'updated_at', 'updatedAt')) || null,
+    parentProductId: text(read(product, 'cf_parent_product_id')) || null,
+    sku: text(read(product, 'sku')) || null,
   }
 }
 
@@ -199,6 +204,7 @@ export function ProductForm({ kind, productId }: { kind: ProductKind; productId?
   const [hidden, setHidden] = React.useState<Set<string>>(new Set())
   const [defs, setDefs] = React.useState<ProductFieldDef[]>([])
   const [listOptions, setListOptions] = React.useState<Record<string, TaxOption[]>>({})
+  const [packTypes, setPackTypes] = React.useState<string[]>([])
   const [stock, setStock] = React.useState<{ onHand: number; reserved: number; available: number } | null>(null)
 
   React.useEffect(() => {
@@ -338,6 +344,14 @@ export function ProductForm({ kind, productId }: { kind: ProductKind; productId?
           }
           if (loaded.profileId) await updateCrud('wms/inventory-profiles', { id: loaded.profileId, ...profilePayload })
           else await createCrud('wms/inventory-profiles', { catalogProductId: id, ...profilePayload })
+          if (kind === 'finished_goods' && (packTypes.length || productId)) {
+            const packing = await apiCall('/api/dermat_products/packing', {
+              method: 'POST',
+              headers: { 'content-type': 'application/json' },
+              body: JSON.stringify({ productId: id, types: packTypes }),
+            })
+            if (!packing.ok) throw new Error('[internal] packing items not saved')
+          }
         },
       })
       flash(t('dermat_products.flash.saved', '{kind} saved', { kind: config.singular }), 'success')
@@ -444,6 +458,16 @@ export function ProductForm({ kind, productId }: { kind: ProductKind; productId?
               </Button>
             </div>
           </div>
+
+          {loaded.parentProductId ? (
+            <div className="flex flex-wrap items-center gap-2 rounded-lg border bg-muted/20 px-3 py-2 text-sm">
+              <span className="text-muted-foreground">{t('dermat_products.packing.madeFor', 'Packing item of')}</span>
+              <Link href={`/backend/products/${loaded.parentProductId}`} className="font-medium text-primary hover:underline">
+                {t('dermat_products.packing.openParent', 'the Finished Good')}
+              </Link>
+              {loaded.sku ? <span className="font-mono text-xs text-muted-foreground">· {loaded.sku}</span> : null}
+            </div>
+          ) : null}
 
           <div className="rounded-xl border bg-muted/30 p-1.5">
             <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-5">
@@ -591,6 +615,9 @@ export function ProductForm({ kind, productId }: { kind: ProductKind; productId?
                       })}
                   </CardContent>
                 </Card>
+              ) : null}
+              {kind === 'finished_goods' ? (
+                <PackingItemsCard productId={productId} productTitle={state.title} selected={packTypes} onChange={setPackTypes} />
               ) : null}
             </div>
 

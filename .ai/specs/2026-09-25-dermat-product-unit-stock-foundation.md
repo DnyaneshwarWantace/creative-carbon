@@ -137,3 +137,4 @@ Not done / pending: drop the legacy `dermat_*` tables (needs a migration), clien
 - 2026-09-25: Spec created after cleanup of the previous Dermat modules.
 - 2026-09-25: Simplified per client feedback (see Revision section).
 - 2026-09-25: Phases 1–4 implemented; CSV import sheet, stock tiles, legacy RM migration.
+- 2026-09-25: Search by internal ID (spaces/dashes ignored) or name via `/api/dermat_products/search`; Finished Good packing items (`/api/dermat_products/packing`) created under the main SKU; Specific Gravity field on Bulk / R&D / Raw Material; shared `createProductWithStockSetup` helper.

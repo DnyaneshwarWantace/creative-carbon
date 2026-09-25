@@ -96,27 +96,43 @@ export function ProductsPage() {
         sortDir: 'asc',
       })
       const term = search.trim()
-      const byName = new URLSearchParams(params)
-      if (term) byName.set('search', term)
-      const byCode = new URLSearchParams(params)
-      byCode.set('cf_item_code', term)
       const fallback: ProductsResponse = { items: [], total: 0, totalPages: 1 }
-      const [call, codeCall] = await Promise.all([
-        apiCall<ProductsResponse>(`/api/catalog/products?${byName.toString()}`, undefined, { fallback }),
-        term ? apiCall<ProductsResponse>(`/api/catalog/products?${byCode.toString()}`, undefined, { fallback }) : null,
-      ])
-      if (cancelled) return
-      if (!call.ok) {
-        flash(t('dermat_products.list.loadError', 'Failed to load products'), 'error')
-        setIsLoading(false)
-        return
+      let items: Row[] = []
+      if (term) {
+        const found = await apiCall<{ items?: Array<{ id: string }> }>(
+          `/api/dermat_products/search?kinds=${kind}&q=${encodeURIComponent(term)}&limit=100`,
+          undefined,
+          { fallback: { items: [] } },
+        )
+        if (cancelled) return
+        const orderedIds = (found.result?.items ?? []).map((item) => item.id)
+        if (orderedIds.length) {
+          const byIds = new URLSearchParams({ page: '1', pageSize: '100', categoryIds: ids.join(','), ids: orderedIds.join(',') })
+          const call = await apiCall<ProductsResponse>(`/api/catalog/products?${byIds.toString()}`, undefined, { fallback })
+          if (cancelled) return
+          if (!call.ok) {
+            flash(t('dermat_products.list.loadError', 'Failed to load products'), 'error')
+            setIsLoading(false)
+            return
+          }
+          const rank = new Map(orderedIds.map((id, index) => [id, index]))
+          items = [...(call.result?.items ?? [])].sort((left, right) => (rank.get(left.id) ?? 0) - (rank.get(right.id) ?? 0))
+        }
+        setTotal(items.length)
+        setTotalPages(1)
+      } else {
+        const call = await apiCall<ProductsResponse>(`/api/catalog/products?${params.toString()}`, undefined, { fallback })
+        if (cancelled) return
+        if (!call.ok) {
+          flash(t('dermat_products.list.loadError', 'Failed to load products'), 'error')
+          setIsLoading(false)
+          return
+        }
+        items = call.result?.items ?? []
+        setTotal(call.result?.total ?? items.length)
+        setTotalPages(call.result?.totalPages ?? 1)
       }
-      const codeMatches = codeCall?.result?.items ?? []
-      const seen = new Set(codeMatches.map((item) => item.id))
-      const items = [...codeMatches, ...(call.result?.items ?? []).filter((item) => !seen.has(item.id))]
       setRows(items)
-      setTotal(term ? items.length : call.result?.total ?? items.length)
-      setTotalPages(term ? 1 : call.result?.totalPages ?? 1)
       setIsLoading(false)
       if (items.length) {
         const stockCall = await apiCall<{ items?: Record<string, Stock> }>(
@@ -188,7 +204,7 @@ export function ProductsPage() {
             setSearch(value)
             setPage(1)
           }}
-          searchPlaceholder={t('dermat_products.list.search', 'Search by name, SKU or exact {label}', { label: config.codeLabel })}
+          searchPlaceholder={t('dermat_products.list.search', 'Search by {label} or name (e.g. AP 293)', { label: config.codeLabel })}
           actions={
             <div className="flex gap-2">
               <Button asChild variant="outline">

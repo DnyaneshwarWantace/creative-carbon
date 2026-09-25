@@ -93,7 +93,7 @@ function NodeRow({ node, depth, parentKind, collapsed, toggle }: {
             </span>
             {node.bom && depth > 0 ? (
               <Link href={`/backend/boms/${node.bom.id}`} className="ml-1 rounded border px-1.5 py-0.5 font-mono text-xs font-normal text-primary hover:bg-muted">
-                {node.bom.code} v{node.bom.version}
+                {t('dermat_boms.tree.bomLink', 'BOM v{version}', { version: node.bom.version })}
                 {node.bom.status === 'draft' ? ` · ${t('dermat_boms.status.draft', 'draft')}` : ''}
               </Link>
             ) : null}

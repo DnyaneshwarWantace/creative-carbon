@@ -21,7 +21,6 @@ export type ProductSummary = {
   unit: string | null
   sku: string | null
   code: string | null
-  cost: number | null
   specificGravity: number | null
   packSize: string | null
 }
@@ -54,7 +53,6 @@ export async function loadProducts(ctx: BomRequestContext, ids: string[]): Promi
       default_unit: string | null
       sku: string | null
       item_code: string | null
-      cost_price: string | null
       specific_gravity: string | null
       pack_size: string | null
     }>
@@ -64,10 +62,6 @@ export async function loadProducts(ctx: BomRequestContext, ids: string[]): Promi
               where v.entity_id = 'catalog:catalog_product' and v.record_id = p.id::text and v.field_key = 'item_code'
                 and v.deleted_at is null and coalesce(v.value_text, '') <> ''
               order by v.created_at desc limit 1) as item_code,
-            (select coalesce(v.value_float::numeric, v.value_int::numeric, nullif(regexp_replace(coalesce(v.value_text, ''), '[^0-9.]', '', 'g'), '')::numeric)
-               from custom_field_values v
-              where v.entity_id = 'catalog:catalog_product' and v.record_id = p.id::text and v.field_key = 'cost_price' and v.deleted_at is null
-              order by v.created_at desc limit 1) as cost_price,
             (select coalesce(v.value_float::numeric, v.value_int::numeric, nullif(regexp_replace(coalesce(v.value_text, ''), '[^0-9.]', '', 'g'), '')::numeric)
                from custom_field_values v
               where v.entity_id = 'catalog:catalog_product' and v.record_id = p.id::text and v.field_key = 'specific_gravity' and v.deleted_at is null
@@ -87,7 +81,6 @@ export async function loadProducts(ctx: BomRequestContext, ids: string[]): Promi
       unit: row.default_unit,
       sku: row.sku,
       code: row.item_code,
-      cost: row.cost_price == null ? null : Number(row.cost_price),
       specificGravity: row.specific_gravity == null ? null : Number(row.specific_gravity),
       packSize: row.pack_size,
     })
@@ -141,5 +134,5 @@ export async function nextBomCode(ctx: BomRequestContext): Promise<string> {
     [ctx.tenantId, ctx.organizationId],
   )
   const next = Number(row?.max ?? 0) + 1
-  return `BOM-${String(next).padStart(5, '0')}`
+  return `BOM${String(next).padStart(5, '0')}`
 }

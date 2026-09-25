@@ -14,9 +14,6 @@ export type TreeNode = {
   bom: { id: string; code: string; version: number; status: string } | null
   children: TreeNode[]
   cycle?: boolean
-  rate: number | null
-  amount: number | null
-  missingRate: boolean
   fill: { qty: number; unit: string; specificGravity: number | null } | null
 }
 
@@ -29,18 +26,12 @@ export type Requirement = {
   quantity: number
   onHand: number
   shortage: number
-  rate: number | null
-  amount: number | null
 }
 
 const MAX_DEPTH = 6
 
 function round(value: number): number {
   return Math.round(value * 10000) / 10000
-}
-
-function money(value: number): number {
-  return Math.round(value * 100) / 100
 }
 
 async function currentBomFor(ctx: BomRequestContext, productId: string): Promise<BomHeader | null> {
@@ -99,17 +90,10 @@ export async function explodeBom(ctx: BomRequestContext, root: BomHeader, quanti
       onHand: stock.get(productId)?.onHand ?? 0,
       bom: header ? { id: header.id, code: header.code, version: header.version, status: header.status } : null,
       children: [],
-      rate: null,
-      amount: null,
-      missingRate: false,
       fill,
     }
     if (path.has(productId)) node.cycle = true
     if (!header || node.cycle || depth > MAX_DEPTH) {
-      const rate = product?.cost ?? null
-      node.rate = rate
-      node.amount = rate == null ? null : money(qty * rate)
-      node.missingRate = rate == null
       if (depth > 0) {
         const existing = requirements.get(productId)
         const total = (existing?.quantity ?? 0) + qty
@@ -122,8 +106,6 @@ export async function explodeBom(ctx: BomRequestContext, root: BomHeader, quanti
           quantity: round(total),
           onHand: node.onHand,
           shortage: round(Math.max(0, total - node.onHand)),
-          rate,
-          amount: rate == null ? null : money(total * rate),
         })
       }
       return node
@@ -145,24 +127,10 @@ export async function explodeBom(ctx: BomRequestContext, root: BomHeader, quanti
           : null
       node.children.push(build(item.componentProductId, childQty, value, new Set([...path, productId]), depth + 1, childFill))
     }
-    const priced = node.children.filter((child) => child.amount != null)
-    node.missingRate = node.children.some((child) => child.missingRate)
-    if (priced.length) {
-      node.amount = money(priced.reduce((sum, child) => sum + (child.amount ?? 0), 0))
-      node.rate = qty > 0 ? node.amount / qty : null
-    } else if (product?.cost != null) {
-      node.rate = product.cost
-      node.amount = money(qty * product.cost)
-    }
     return node
   }
 
   const tree = build(root.productId, quantity, null, new Set(), 0)
   const list = Array.from(requirements.values()).sort((a, b) => (a.kind ?? '').localeCompare(b.kind ?? '') || a.name.localeCompare(b.name))
-  const missingRates = list.filter((row) => row.rate == null).length
-  return {
-    tree,
-    requirements: list,
-    cost: { total: tree.amount, perUnit: tree.rate, unit: products.get(root.productId)?.unit ?? null, missingRates },
-  }
+  return { tree, requirements: list }
 }

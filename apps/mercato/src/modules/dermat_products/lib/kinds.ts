@@ -44,3 +44,7 @@ export const DERMAT_UNITS: UnitDefinition[] = [
 export const DERMAT_WAREHOUSE = { code: 'DERMAT', name: 'Dermat India' }
 
 export const DERMAT_STORES = ['RM-STORE', 'PM-STORE', 'PRODUCTION', 'FG-STORE'] as const
+
+export const PACKING_ITEM_DICTIONARY = 'packing_item_type'
+
+export const PACKING_ITEM_TYPES = ['Carton', 'Label', 'Tube', 'Bottle', 'Bottle Set', 'Jar', 'Cap', 'Pump', 'Dropper', 'Leaflet', 'Tray', 'Shipper'] as const

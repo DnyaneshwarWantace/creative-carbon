@@ -35,7 +35,9 @@ Every route override lives in `apps/mercato/src/modules.ts` under the `dermat_cu
 ## Data model decisions (do not re-decide)
 
 - **Product** = `catalog_products` row. Type = top-level category (Raw Material, Packing Material, Bulk, Finished Goods, R&D), stored in `custom_fieldset_code` (`raw_material`, `packing_material`, `bulk`, `finished_goods`, `rnd`). Type-specific fields are custom fields with that fieldset (`dermat_products/ce.ts`).
-- **Codes**: `sku` is auto-generated. The client's own code (AP-070, EP-181, FC-005, CP-001…) is custom field `item_code` and is never generated.
+- **Codes**: `sku` is auto-generated. The client's own code (AP-070, EP-181, FC-005, CP-001…) is custom field `item_code` (shown as "Internal Reference ID" on Finished Goods) and is never generated. Search everywhere goes through `dermat_products/lib/productSearch.ts`: internal ID with spaces/dashes ignored ("AP 293" = "AP-293"), name, or SKU.
+- **One ID through every stage**: a Finished Good's packing items (Carton, Label, Tube…) are created from the FG form ("Packing for this product", list `packing_item_type` in Dropdown Options) as packing materials named `<Type> - <FG name>` with SKU `<FG sku>-<TYPE>` and hidden fields `parent_product_id` / `packing_item_type` — never a new SKU number (Dermat India 4, 6:36–7:38). Renaming the FG renames them.
+- **BOM number** is internal only — never show it (Dermat India 4, 6:14–6:27).
 - **Units**: one unit per product (`default_unit`), picked from the `unit` dropdown list. No unit-conversion table — the client rejected it as too complex. Each type offers only its units (RM/Bulk/R&D: kg, g, l, ml; PM/FG: nos, pc) — see `dermat_products/lib/kindConfig.ts`.
 - **Dropdowns**: every dropdown list lives in Masters → Dropdown Options (core dictionaries) so the client edits them without a developer. Add new lists there, never hardcode option arrays in a form.
 - **Stock**: `wms` — one warehouse "Dermat India", stores `RM-STORE`, `PM-STORE`, `PRODUCTION`, `FG-STORE`. Min floor qty = inventory profile `reorder_point`. Pending QC = lot status `quarantine`.

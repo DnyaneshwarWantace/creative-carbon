@@ -16,7 +16,6 @@ export type PrintSheetInput = {
   kind: BomKind
   productName: string
   productCode: string | null
-  bomCode: string | null
   version: number
   status: string
   batchSize: number
@@ -115,11 +114,11 @@ export function buildPrintSheetHtml(input: PrintSheetInput): string {
   const infoRows: Array<[string, string]> = [
     [labels.productName, input.productName],
     [labels.productCode, input.productCode ?? '—'],
-    [labels.bomNo, `${input.bomCode ?? '—'}  ·  v${input.version}`],
+    [labels.version, `v${input.version}`],
     [labels.quantity, `${formatNumber(input.batchSize, 3)} ${input.batchUnit.toUpperCase()}`],
   ]
   return `<!doctype html>
-<html><head><meta charset="utf-8"><title>${escapeHtml(`${input.bomCode ?? 'BOM'} - ${input.productName}`)}</title>
+<html><head><meta charset="utf-8"><title>${escapeHtml(`BOM - ${input.productName} v${input.version}`)}</title>
 <style>
   @page { size: A4; margin: 12mm; }
   * { box-sizing: border-box; }
@@ -151,10 +150,6 @@ export function buildPrintSheetHtml(input: PrintSheetInput): string {
   .mono { font-family: "SFMono-Regular", Menlo, Consolas, monospace; }
   .remark { margin-top: 2px; font-size: 9.5px; color: #64748b; font-weight: 400; }
   .short { color: #b91c1c; font-weight: 700; }
-  .summary { display: flex; gap: 10px; margin-top: 14px; }
-  .summary div { flex: 1; border: 1px solid #cbd5e1; border-radius: 6px; padding: 7px 9px; }
-  .summary span { display: block; font-size: 9px; text-transform: uppercase; letter-spacing: 0.05em; color: #64748b; }
-  .summary b { font-size: 13px; }
   .notes { margin-top: 18px; border: 1px solid #cbd5e1; border-radius: 6px; padding: 9px 10px; min-height: 52px; white-space: pre-wrap; }
   .notes span { display: block; font-size: 9px; text-transform: uppercase; letter-spacing: 0.05em; color: #64748b; margin-bottom: 4px; }
   .stamps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; margin-top: 34px; }
@@ -181,20 +176,6 @@ export function buildPrintSheetHtml(input: PrintSheetInput): string {
     </div>
   </div>
 
-  <div class="summary">
-    <div><span>${escapeHtml(labels.components)}</span><b>${input.lines.length}</b></div>
-    ${
-      formula
-        ? `<div><span>${escapeHtml(labels.totalPercent)}</span><b>${formatNumber(input.lines.reduce((sum, line) => sum + line.value, 0), 4)} %</b></div>`
-        : `<div><span>${escapeHtml(labels.bulkPerPiece)}</span><b>${formatNumber(
-            input.lines.filter((line) => line.kind === 'bulk').reduce((sum, line) => sum + line.value, 0),
-            5,
-          )}</b></div>`
-    }
-    <div><span>${escapeHtml(labels.batch)}</span><b>${formatNumber(input.batchSize, 3)} ${escapeHtml(input.batchUnit.toUpperCase())}</b></div>
-    <div><span>${escapeHtml(labels.shortItems)}</span><b>${input.lines.filter((line) => line.quantity > line.onHand).length}</b></div>
-  </div>
-
   ${sections.map((section) => sectionTable(section, input)).join('')}
 
   <div class="notes"><span>${escapeHtml(labels.notes)}</span>${escapeHtml(input.notes || '—')}</div>
@@ -203,7 +184,7 @@ export function buildPrintSheetHtml(input: PrintSheetInput): string {
     <div><span>${escapeHtml(labels.approvedBy)}</span>${approved ? escapeHtml(input.approvedByName ?? '') : ''}</div>
     <div><span>${escapeHtml(labels.issuedTo)}</span></div>
   </div>
-  <div class="foot"><span>${escapeHtml(labels.printed)} ${escapeHtml(formatDate(new Date().toISOString()))}</span><span>${escapeHtml(input.bomCode ?? '')} · v${input.version}</span></div>
+  <div class="foot"><span>${escapeHtml(labels.printed)} ${escapeHtml(formatDate(new Date().toISOString()))}</span><span>${escapeHtml(input.productName)} · v${input.version}</span></div>
   <script>window.addEventListener('load', function () { setTimeout(function () { window.print() }, 200) })</script>
 </body></html>`
 }

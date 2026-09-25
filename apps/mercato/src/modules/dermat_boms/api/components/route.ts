@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { z } from 'zod'
 import type { OpenApiRouteDoc } from '@open-mercato/shared/lib/openapi'
 import { PRODUCT_KINDS, type ProductKind } from '../../../dermat_products/lib/kinds'
+import { searchProducts } from '../../../dermat_products/lib/productSearch'
 import { loadProducts, loadStock, resolveBomContext } from '../../lib/server'
 
 export const metadata = {
@@ -37,33 +38,14 @@ async function GET(req: Request) {
   const parsed = querySchema.safeParse(Object.fromEntries(new URL(req.url).searchParams))
   if (!parsed.success) return NextResponse.json({ error: 'Invalid query' }, { status: 400 })
   const { kinds, search, limit } = parsed.data
-  const params: unknown[] = [ctx.tenantId, ctx.organizationId, `{${kinds.join(',')}}`]
-  let filter = ''
-  let order = 'p.title asc'
-  if (search) {
-    const escaped = search.replace(/[\\%_]/g, (char) => `\\${char}`)
-    filter = 'and (p.title ilike ? or code.value_text ilike ? or p.sku ilike ?)'
-    params.push(`%${escaped}%`, `%${escaped}%`, `%${escaped}%`)
-    order = `case when lower(code.value_text) = lower(?) then 0 when code.value_text ilike ? then 1 when p.title ilike ? then 2 else 3 end, p.title asc`
-  }
-  const rankParams = search ? [search, `${search.replace(/[\\%_]/g, (char) => `\\${char}`)}%`, `${search.replace(/[\\%_]/g, (char) => `\\${char}`)}%`] : []
-  const rows = await ctx.em.getConnection().execute<
-    Array<{ id: string; title: string; code: string | null; sku: string | null; kind: string; unit: string | null }>
-  >(
-    `select p.id, p.title, code.value_text as code, p.sku, p.custom_fieldset_code as kind, p.default_unit as unit
-       from catalog_products p
-       left join lateral (
-         select v.value_text from custom_field_values v
-          where v.entity_id = 'catalog:catalog_product' and v.record_id = p.id::text and v.field_key = 'item_code'
-            and v.deleted_at is null and coalesce(v.value_text, '') <> ''
-          order by v.created_at desc limit 1
-       ) code on true
-      where p.tenant_id = ? and p.organization_id = ? and p.deleted_at is null and p.is_active = true
-        and p.custom_fieldset_code = any(?::text[]) ${filter}
-      order by ${order}
-      limit ?`,
-    [...params, ...rankParams, limit],
-  )
+  const rows = await searchProducts(ctx.em, {
+    tenantId: ctx.tenantId,
+    organizationId: ctx.organizationId,
+    kinds,
+    query: search,
+    limit,
+    activeOnly: true,
+  })
   const ids = rows.map((row) => row.id)
   const [stock, details] = await Promise.all([loadStock(ctx, ids), loadProducts(ctx, ids)])
   return NextResponse.json({

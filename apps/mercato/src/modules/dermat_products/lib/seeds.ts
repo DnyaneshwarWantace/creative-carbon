@@ -12,6 +12,8 @@ import {
   DERMAT_WAREHOUSE,
   KIND_SUBCATEGORIES,
   PRODUCT_KINDS,
+  PACKING_ITEM_DICTIONARY,
+  PACKING_ITEM_TYPES,
 } from './kinds'
 
 export type DermatSeedScope = { tenantId: string; organizationId: string }
@@ -200,13 +202,17 @@ export async function seedDermatGstRates(em: EntityManager, scope: DermatSeedSco
 
 const PRODUCT_TYPES = ['Storable', 'Consumable']
 
-export async function seedDermatProductTypes(em: EntityManager, scope: DermatSeedScope) {
-  let dictionary = await em.findOne(Dictionary, { ...scope, key: 'product_type', deletedAt: null })
+async function seedDictionary(
+  em: EntityManager,
+  scope: DermatSeedScope,
+  definition: { key: string; name: string; description: string; values: readonly string[] },
+) {
+  let dictionary = await em.findOne(Dictionary, { ...scope, key: definition.key, deletedAt: null })
   if (!dictionary) {
     dictionary = em.create(Dictionary, {
-      key: 'product_type',
-      name: 'Product type',
-      description: 'How a product is stocked (Storable, Consumable).',
+      key: definition.key,
+      name: definition.name,
+      description: definition.description,
       ...scope,
       isSystem: false,
       isActive: true,
@@ -219,7 +225,7 @@ export async function seedDermatProductTypes(em: EntityManager, scope: DermatSee
   }
   const existing = await em.find(DictionaryEntry, { dictionary, ...scope })
   const present = new Set(existing.map((entry) => entry.normalizedValue))
-  PRODUCT_TYPES.forEach((value, index) => {
+  definition.values.forEach((value, index) => {
     const normalized = value.toLowerCase()
     if (present.has(normalized)) return
     em.persist(
@@ -240,9 +246,28 @@ export async function seedDermatProductTypes(em: EntityManager, scope: DermatSee
   await em.flush()
 }
 
+export async function seedDermatProductTypes(em: EntityManager, scope: DermatSeedScope) {
+  await seedDictionary(em, scope, {
+    key: 'product_type',
+    name: 'Product type',
+    description: 'How a product is stocked (Storable, Consumable).',
+    values: PRODUCT_TYPES,
+  })
+}
+
+export async function seedDermatPackingItemTypes(em: EntityManager, scope: DermatSeedScope) {
+  await seedDictionary(em, scope, {
+    key: PACKING_ITEM_DICTIONARY,
+    name: 'Packing item type',
+    description: 'Packing items that can be created for a Finished Good (Carton, Label, Tube…). Each one becomes "<Type> - <product name>".',
+    values: PACKING_ITEM_TYPES,
+  })
+}
+
 export async function seedDermatProducts(em: EntityManager, scope: DermatSeedScope) {
   await seedDermatUnits(em, scope)
   await seedDermatProductTypes(em, scope)
+  await seedDermatPackingItemTypes(em, scope)
   await seedDermatGstRates(em, scope)
   await seedDermatProductKinds(em, scope)
   await seedDermatCategories(em, scope)

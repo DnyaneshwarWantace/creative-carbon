@@ -70,7 +70,6 @@ export function BomsPage() {
           </span>
         ),
       },
-      { id: 'code', header: t('dermat_boms.list.code', 'BOM No.'), cell: ({ row }) => <span className="font-mono text-xs">{row.original.code}</span> },
       { id: 'version', header: t('dermat_boms.list.version', 'Version'), cell: ({ row }) => `v${row.original.version}` },
       {
         id: 'status',
@@ -139,7 +138,7 @@ export function BomsPage() {
             setSearch(value)
             setPage(1)
           }}
-          searchPlaceholder={t('dermat_boms.list.search', 'Search by product, code or BOM No.')}
+          searchPlaceholder={t('dermat_boms.list.search', 'Search by product name or internal ID')}
           actions={
             <Button asChild>
               <Link href="/backend/boms/new">

@@ -23,6 +23,8 @@ const systemEntities: CustomEntitySpec[] = [
       cf.text('capacity', { label: 'Size / Capacity', fieldset: 'packing_material' }),
       cf.text('cap_colour', { label: 'Cap Colour', fieldset: 'packing_material' }),
       cf.text('body_colour', { label: 'Body Colour', fieldset: 'packing_material' }),
+      cf.text('parent_product_id', { label: 'Made for product', fieldset: 'packing_material', formEditable: false }),
+      cf.text('packing_item_type', { label: 'Packing item type', fieldset: 'packing_material', formEditable: false }),
 
       cf.text('brand_name', { label: 'Brand Name', fieldsets: ['finished_goods', 'rnd'] }),
       cf.text('pack_size', { label: 'Pack Size', fieldset: 'finished_goods' }),

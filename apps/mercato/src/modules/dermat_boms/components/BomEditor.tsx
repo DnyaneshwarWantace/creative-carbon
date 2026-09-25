@@ -294,6 +294,41 @@ export function BomEditor({ bomId, productId }: { bomId?: string; productId?: st
     setDirty(true)
   }
 
+  const addOwnPacking = async () => {
+    if (!state) return
+    const linked = await apiCall<{ items?: Array<{ id: string; title: string; sku: string | null; unit: string | null }> }>(
+      `/api/dermat_products/packing?productId=${encodeURIComponent(state.product.id)}`,
+      undefined,
+      { fallback: { items: [] } },
+    )
+    const present = new Set(state.rows.map((row) => row.componentProductId))
+    const missing = (linked.result?.items ?? []).filter((item) => !present.has(item.id))
+    if (!missing.length) {
+      flash(
+        linked.result?.items?.length
+          ? t('dermat_boms.packing.allAdded', 'All packing items of this product are already in the BOM.')
+          : t('dermat_boms.packing.none', 'This product has no packing items yet. Tick them on the product page under "Packing for this product".'),
+        'info',
+      )
+      return
+    }
+    const stock = await apiCall<{ items?: Record<string, { onHand: number }> }>(
+      `/api/dermat_products/stock?productIds=${missing.map((item) => item.id).join(',')}`,
+      undefined,
+      { fallback: { items: {} } },
+    )
+    const rows = missing.map((item) => ({
+      ...rowFromOption(
+        { id: item.id, title: item.title, code: null, sku: item.sku, kind: 'packing_material', unit: item.unit, onHand: stock.result?.items?.[item.id]?.onHand ?? 0 },
+        state.kind,
+        null,
+      ),
+      value: '1',
+    }))
+    setState((prev) => (prev ? { ...prev, rows: [...prev.rows, ...rows] } : prev))
+    setDirty(true)
+  }
+
   const selectProduct = (option: ComponentOption) => router.replace(`/backend/boms/new?productId=${option.id}`)
 
   const save = async (): Promise<SaveResult> => {
@@ -468,7 +503,6 @@ export function BomEditor({ bomId, productId }: { bomId?: string; productId?: st
       kind: state.kind,
       productName: state.product.title,
       productCode: state.product.code,
-      bomCode: state.bom?.code ?? null,
       version: state.bom?.version ?? 1,
       status: state.bom?.status ?? 'draft',
       batchSize: size,
@@ -503,15 +537,10 @@ export function BomEditor({ bomId, productId }: { bomId?: string; productId?: st
         status_superseded: t('dermat_boms.status.superseded', 'Superseded'),
         productName: t('dermat_boms.print.productName', 'Product Name'),
         productCode: t('dermat_boms.print.productCode', 'Product Code'),
-        bomNo: t('dermat_boms.print.bomNo', 'BOM No.'),
+        version: t('dermat_boms.print.version', 'Version'),
         quantity: t('dermat_boms.print.quantity', 'Quantity'),
         createdOn: t('dermat_boms.print.createdOn', 'Created on'),
         approvedOn: t('dermat_boms.print.approvedOn', 'Approved on'),
-        components: t('dermat_boms.print.components', 'Components'),
-        totalPercent: t('dermat_boms.tile.total', 'Total RM %'),
-        bulkPerPiece: t('dermat_boms.tile.bulkPerPiece', 'Bulk per piece'),
-        batch: t('dermat_boms.print.batch', 'Batch size'),
-        shortItems: t('dermat_boms.print.shortItems', 'Short in stock'),
         sectionRm: t('dermat_boms.print.sectionRm', 'Raw Material'),
         sectionBulk: t('dermat_boms.print.sectionBulk', 'Bulk'),
         sectionPm: t('dermat_boms.print.sectionPm', 'Packing Material'),
@@ -618,7 +647,6 @@ export function BomEditor({ bomId, productId }: { bomId?: string; productId?: st
                 {[
                   state.product.code,
                   state.kind === 'formula' ? t('dermat_boms.kind.formula', 'Formula') : t('dermat_boms.kind.pack', 'Pack BOM'),
-                  state.bom?.code,
                   state.bom?.createdByName ? t('dermat_boms.createdBy', 'Made by {name}', { name: state.bom.createdByName }) : null,
                   state.bom?.approvedByName && state.bom.approvedAt
                     ? t('dermat_boms.approvedBy', 'Approved by {name} on {date}', {
@@ -990,6 +1018,12 @@ export function BomEditor({ bomId, productId }: { bomId?: string; productId?: st
                         onSelect={addRow}
                         label={t('dermat_boms.table.add', 'Add material')}
                       />
+                      {state.kind === 'pack' ? (
+                        <Button type="button" variant="outline" size="sm" onClick={addOwnPacking}>
+                          <Package className="mr-1.5 h-4 w-4" />
+                          {t('dermat_boms.packing.add', 'Add packing of this product')}
+                        </Button>
+                      ) : null}
                       <span className="text-xs text-muted-foreground">
                         {state.kind === 'formula'
                           ? t('dermat_boms.table.addFormulaHint', 'Raw materials, or another Bulk as a sub-formula')

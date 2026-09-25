@@ -23,6 +23,13 @@ The BOM is edited as one document (header + all lines, saved together), Draft �
 - One recipe scales to any pack size (42:46), and one bulk batch is split across pack sizes (43:02–43:53): the **Fill plan** on the bulk formula shows kg needed per pack size, used vs batch, left over, and max pieces from what is left.
 - Procuzy makes every BOM as a 100 Kgs formula on the Bulk product with the pack size only in the name; pieces→kg was done by hand in Excel.
 
+## IDs and what is shown (Dermat India 4, 5:22–7:38; Standard recording 8:10–8:59)
+
+- BOM code is generated (`BOM00001`) and kept internal — never shown on the list, page or print.
+- Materials are shown and searched by the client's internal ID first, then name ("AP 293" or "Niacinamide").
+- Finished Good packing items share the main SKU (`<sku>-CARTON`); the pack BOM can add them in one click ("Add packing of this product").
+- Not shown / not built because the client did not ask: wastage, total qty, Procuzy product-code column, costing, company address on the sheet (comes later from the customer linked to the product).
+
 ## Data model
 
 `dermat_bom_headers`: id, organization_id, tenant_id, code (auto `BOM-00001`, per org), product_id (catalog product, FK by id), product_kind snapshot, version int, status (`draft` | `approved` | `superseded`), batch_size numeric, batch_unit text, notes, created_by_name, approved_by_name, approved_at, created_at, updated_at, deleted_at.
@@ -71,3 +78,4 @@ Not done yet: order-specific BOM copies (with the order page).
 - 2026-09-25: Implemented API, screens, product-page link.
 - 2026-09-25: Tree & needs view, print/PDF sheet, product-in-use delete guard; custom routes moved to runRouteMutationGuards.
 - 2026-09-25: Fill size + specific gravity for pieces → kg, unit-aware formula quantities, fill plan, costing roll-up in the explosion engine (API only), print sheet in the old sectioned style.
+- 2026-09-25: BOM number hidden, costing removed, print trimmed; ID-or-name search shared with products; own packing items button on pack BOM.

@@ -8,11 +8,11 @@ import { getAuthFromRequest } from '@open-mercato/shared/lib/auth/server'
 import { resolveOrganizationScopeForRequest } from '@open-mercato/core/modules/directory/utils/organizationScope'
 import type { CommandBus, CommandRuntimeContext } from '@open-mercato/shared/lib/commands'
 import { runRouteMutationGuards } from '@open-mercato/shared/lib/crud/route-mutation-guard'
-import { productCreateSchema, productUpdateSchema, variantCreateSchema } from '@open-mercato/core/modules/catalog/data/validators'
-import { productInventoryProfileCreateSchema } from '@open-mercato/core/modules/wms/data/validators'
+import { productUpdateSchema } from '@open-mercato/core/modules/catalog/data/validators'
 import { splitCustomFieldPayload } from '@open-mercato/shared/lib/crud/custom-fields'
 import { PRODUCT_KINDS, DERMAT_WAREHOUSE, type ProductKind } from '../../lib/kinds'
 import { KIND_CONFIG } from '../../lib/kindConfig'
+import { createProductWithStockSetup } from '../../lib/createProduct'
 
 export const metadata = {
   POST: {
@@ -222,57 +222,15 @@ async function POST(req: Request) {
         continue
       }
 
-      const createSplit = splitCustomFieldPayload({ ...custom, cf_product_type: 'Storable' })
-      const createInput = productCreateSchema.parse({
+      const { productId, variantId } = await createProductWithStockSetup(commandBus, ctx, connection, {
         title: name,
-        defaultUnit: unit,
-        defaultSalesUnit: unit,
-        uomRoundingScale: 3,
-        customFieldsetCode: kind,
-        categoryIds: rootCategory ? [rootCategory.id] : [],
+        kind,
+        unit,
+        categoryId: rootCategory?.id ?? null,
         taxRateId: defaultTax?.id ?? null,
-        isActive: true,
+        custom,
         tenantId,
         organizationId,
-      })
-      const { result: product } = await commandBus.execute<Record<string, unknown>, { productId?: string; id?: string }>(
-        'catalog.products.create',
-        { input: { ...createInput, customFields: createSplit.custom }, ctx },
-      )
-      const productId = product?.productId ?? product?.id
-      if (!productId) throw new Error('Product was not created')
-
-      const [createdProduct] = await connection.execute<Array<{ sku: string | null }>>(`select sku from catalog_products where id = ?`, [
-        productId,
-      ])
-      const variantInput = variantCreateSchema.parse({
-        productId,
-        name,
-        sku: createdProduct?.sku ?? undefined,
-        isDefault: true,
-        isActive: true,
-        tenantId,
-        organizationId,
-      })
-      const { result: variant } = await commandBus.execute<Record<string, unknown>, { variantId?: string; id?: string }>(
-        'catalog.variants.create',
-        { input: variantInput, ctx },
-      )
-      const variantId = variant?.variantId ?? variant?.id
-      if (!variantId) throw new Error('Variant was not created')
-
-      const profileInput = productInventoryProfileCreateSchema.parse({
-        catalogProductId: productId,
-        defaultUom: unit,
-        defaultStrategy: 'fifo',
-        trackLot: true,
-        reorderPoint: 0,
-        tenantId,
-        organizationId,
-      })
-      await commandBus.execute('wms.inventoryProfiles.create', {
-        input: profileInput,
-        ctx,
       })
 
       const stock = numberOrNull(row.stock)

@@ -28,11 +28,11 @@ const productInUseGuard: MutationGuard = {
       [input.resourceId, input.tenantId, input.resourceId, input.tenantId],
     )
     if (!rows.length) return { ok: true }
-    const used = rows.filter((row) => row.relation === 'component').map((row) => `${row.title} (${row.code} v${row.version})`)
-    const owned = rows.filter((row) => row.relation === 'owner').map((row) => `${row.code} v${row.version}`)
+    const used = rows.filter((row) => row.relation === 'component').map((row) => `${row.title} (v${row.version})`)
+    const owned = rows.filter((row) => row.relation === 'owner').map((row) => `v${row.version}`)
     const parts = [
       used.length ? `it is used in the BOM of ${used.join(', ')}` : null,
-      owned.length ? `it has its own BOM ${owned.join(', ')}` : null,
+      owned.length ? `it has its own BOM (${owned.join(', ')})` : null,
     ].filter(Boolean)
     const message = `This product cannot be deleted because ${parts.join(' and ')}. Remove it from those BOMs first, or mark the product inactive.`
     return { ok: false, status: 409, body: { error: message, code: 'dermat_boms.product_in_use' } }
