@@ -1,8 +1,8 @@
 "use client"
 
 import * as React from 'react'
-import { EditProduct } from '../../../components/EditProduct'
+import { ProductDetail } from '../../../components/ProductDetail'
 
-export default function EditDermatProductPage({ params }: { params?: { id?: string } }) {
-  return <EditProduct productId={params?.id ?? ''} />
+export default function DermatProductDetailPage({ params }: { params?: { id?: string } }) {
+  return <ProductDetail key={params?.id} productId={params?.id ?? ''} />
 }

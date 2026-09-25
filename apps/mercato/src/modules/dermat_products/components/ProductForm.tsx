@@ -23,7 +23,6 @@ import { KIND_CONFIG, unitsForKind, type KindConfig } from '../lib/kindConfig'
 import { fieldsForKind, isNumericField, loadProductFieldDefs, type ProductFieldDef } from '../lib/fieldDefs'
 import { FieldsPanel, type PanelField } from './FieldsPanel'
 import { PackingItemsCard } from './PackingItemsCard'
-import { ProductOrdersCard } from './ProductOrdersCard'
 
 type Row = Record<string, unknown>
 type ListResponse<T> = { items?: T[] }
@@ -195,6 +194,7 @@ export function ProductForm({ kind, productId }: { kind: ProductKind; productId?
   const router = useRouter()
   const config = KIND_CONFIG[kind]
   const listHref = `/backend/products?tab=${config.slug}`
+  const backHref = productId ? `/backend/products/${productId}` : listHref
   const { runMutation } = useGuardedMutation({ contextId: `dermat-product-${productId ?? 'new'}` })
 
   const [loaded, setLoaded] = React.useState<Loaded | null>(null)
@@ -325,6 +325,7 @@ export function ProductForm({ kind, productId }: { kind: ProductKind; productId?
       reorderPoint: numberOrNull(state.minStock) ?? 0,
     }
     setSaving(true)
+    let savedId: string | null = productId ?? null
     try {
       await runMutation({
         context: { kind, productId: productId ?? null },
@@ -339,6 +340,7 @@ export function ProductForm({ kind, productId }: { kind: ProductKind; productId?
             const created = await createCrud<{ id?: string }>('catalog/products', productPayload)
             id = created.result?.id ?? null
             if (!id) throw new Error('[internal] product id missing after create')
+            savedId = id
             const createdCall = await apiCall<{ items?: Row[] }>(`/api/catalog/products?id=${encodeURIComponent(id)}&pageSize=1`)
             const productSku = text(read(createdCall.result?.items?.[0], 'sku')) || undefined
             await createCrud('catalog/variants', { productId: id, name: title, sku: productSku, isDefault: true, isActive: true })
@@ -356,7 +358,7 @@ export function ProductForm({ kind, productId }: { kind: ProductKind; productId?
         },
       })
       flash(t('dermat_products.flash.saved', '{kind} saved', { kind: config.singular }), 'success')
-      router.push(listHref)
+      router.push(savedId ? `/backend/products/${savedId}` : listHref)
     } catch {
       flash(t('dermat_products.flash.saveFailed', 'Could not save. Check the fields and try again.'), 'error')
     } finally {
@@ -416,13 +418,13 @@ export function ProductForm({ kind, productId }: { kind: ProductKind; productId?
               event.preventDefault()
               void handleSave()
             }
-            if (event.key === 'Escape') router.push(listHref)
+            if (event.key === 'Escape') router.push(backHref)
           }}
         >
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
               <div className="flex items-center gap-2">
-                <Button type="button" variant="ghost" size="icon" onClick={() => router.push(listHref)} aria-label={t('common.back', 'Back')}>
+                <Button type="button" variant="ghost" size="icon" onClick={() => router.push(backHref)} aria-label={t('common.back', 'Back')}>
                   <ArrowLeft className="h-4 w-4" />
                 </Button>
                 <h1 className="text-2xl font-bold tracking-tight">
@@ -451,7 +453,7 @@ export function ProductForm({ kind, productId }: { kind: ProductKind; productId?
                   {t('common.delete', 'Delete')}
                 </Button>
               ) : null}
-              <Button type="button" variant="outline" onClick={() => router.push(listHref)} disabled={saving}>
+              <Button type="button" variant="outline" onClick={() => router.push(backHref)} disabled={saving}>
                 {t('common.cancel', 'Cancel')}
               </Button>
               <Button type="submit" disabled={saving}>
@@ -620,7 +622,6 @@ export function ProductForm({ kind, productId }: { kind: ProductKind; productId?
               {kind === 'finished_goods' ? (
                 <PackingItemsCard productId={productId} productTitle={state.title} selected={packTypes} onChange={setPackTypes} />
               ) : null}
-              {kind === 'finished_goods' && productId ? <ProductOrdersCard productId={productId} /> : null}
             </div>
 
             <div className="space-y-6 lg:col-span-4">
