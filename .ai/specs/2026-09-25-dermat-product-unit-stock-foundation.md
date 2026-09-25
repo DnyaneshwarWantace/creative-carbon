@@ -119,7 +119,21 @@ The client rejected the Procuzy-style unit table and long forms. Current design:
 - Any optional field can be hidden per product type from "Customize fields" on the form (stored in module config `dermat_products.hiddenFields`, API `/api/dermat_products/field-settings`).
 - The "Fields per kind" and "Unit set / templates" tables above are superseded by this revision.
 
+## Status (2026-09-25)
+
+| Phase | Status | Notes |
+|---|---|---|
+| 1. Seed & wiring | Done | Units, GST rates, `product_type` list, type categories, custom fields, warehouse "Dermat India" with RM-STORE / PM-STORE / PRODUCTION / FG-STORE. `dermat_products seed` CLI + `seedDefaults`. |
+| 2. Product form | Done | Revised form (see Revision). Customize-fields sheet: hide/show, reuse fields from other types, create Text / Number / Choose-from-list fields. |
+| 3. List + detail | Done | Products page with type tabs, name + exact code search, Stock column; edit page shows On hand / Reserved / Free to use / Min stock tiles. Stock ledger tab on the detail page is not built — use Store → Stock Ledger. |
+| 4. Import | Done (CSV) | `POST /api/dermat_products/import` (≤100 rows per call, update by `item_code`, opening stock as batch `OPENING` into the type's store). "Import" sheet on the Products page: CSV upload, auto column matching, per-row result. `.xlsx` needs a parser dependency — not added (Excel → Save As CSV). |
+
+Verification: API flow test 29/29 (create, read back, edit, list, search by name/code, stock API, hide/reuse/create field). Import tested with a PM CSV (quoted commas, unit aliases, empty row skipped, re-import updates without doubling stock). Legacy `dermat_rm_master` migrated: 40 RMs, RM-STORE on hand 33165.415 = legacy total. Old demo products assigned to their type tab and their SKU copied to `item_code`.
+
+Not done / pending: drop the legacy `dermat_*` tables (needs a migration), client answer on FG Brand / Pack size / MRP per product vs. per order line.
+
 ## Changelog
 
 - 2026-09-25: Spec created after cleanup of the previous Dermat modules.
 - 2026-09-25: Simplified per client feedback (see Revision section).
+- 2026-09-25: Phases 1–4 implemented; CSV import sheet, stock tiles, legacy RM migration.

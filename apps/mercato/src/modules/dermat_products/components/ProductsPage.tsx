@@ -4,7 +4,7 @@ import * as React from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import type { LegacyColumnDef as ColumnDef } from '@tanstack/react-table/legacy'
-import { FolderTree, Plus } from 'lucide-react'
+import { FileUp, FolderTree, Plus } from 'lucide-react'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { Page, PageBody } from '@open-mercato/ui/backend/Page'
 import { DataTable } from '@open-mercato/ui/backend/DataTable'
@@ -14,6 +14,7 @@ import { apiCall } from '@open-mercato/ui/backend/utils/apiCall'
 import { flash } from '@open-mercato/ui/backend/FlashMessages'
 import { PRODUCT_KINDS, type ProductKind } from '../lib/kinds'
 import { KIND_CONFIG, kindFromSlug } from '../lib/kindConfig'
+import { ImportPanel } from './ImportPanel'
 
 type Row = Record<string, unknown> & { id: string }
 type CategoryNode = { id: string; name: string; children?: CategoryNode[]; descendantIds?: string[] }
@@ -49,6 +50,8 @@ export function ProductsPage() {
   const [total, setTotal] = React.useState(0)
   const [totalPages, setTotalPages] = React.useState(1)
   const [isLoading, setIsLoading] = React.useState(true)
+  const [importOpen, setImportOpen] = React.useState(false)
+  const [reloadToken, setReloadToken] = React.useState(0)
 
   React.useEffect(() => {
     let cancelled = false
@@ -128,7 +131,7 @@ export function ProductsPage() {
     return () => {
       cancelled = true
     }
-  }, [categoryIds, kind, page, search, t])
+  }, [categoryIds, kind, page, search, reloadToken, t])
 
   const columns = React.useMemo<ColumnDef<Row>[]>(() => {
     const base: ColumnDef<Row>[] = [
@@ -194,6 +197,10 @@ export function ProductsPage() {
                   {t('dermat_products.list.categories', 'Manage categories')}
                 </Link>
               </Button>
+              <Button type="button" variant="outline" onClick={() => setImportOpen(true)}>
+                <FileUp className="mr-2 h-4 w-4" />
+                {t('dermat_products.list.import', 'Import')}
+              </Button>
               <Button asChild>
                 <Link href={createHref}>
                   <Plus className="mr-2 h-4 w-4" />
@@ -205,6 +212,7 @@ export function ProductsPage() {
           pagination={{ page, pageSize: PAGE_SIZE, total, totalPages, onPageChange: setPage }}
           isLoading={isLoading}
         />
+        <ImportPanel open={importOpen} onOpenChange={setImportOpen} kind={kind} onImported={() => setReloadToken((value) => value + 1)} />
       </PageBody>
     </Page>
   )

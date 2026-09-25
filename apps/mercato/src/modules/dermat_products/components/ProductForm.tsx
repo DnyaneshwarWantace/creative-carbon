@@ -196,6 +196,7 @@ export function ProductForm({ kind, productId }: { kind: ProductKind; productId?
   const [hidden, setHidden] = React.useState<Set<string>>(new Set())
   const [defs, setDefs] = React.useState<ProductFieldDef[]>([])
   const [listOptions, setListOptions] = React.useState<Record<string, TaxOption[]>>({})
+  const [stock, setStock] = React.useState<{ onHand: number; reserved: number; available: number } | null>(null)
 
   React.useEffect(() => {
     if (!loaded) return
@@ -251,6 +252,21 @@ export function ProductForm({ kind, productId }: { kind: ProductKind; productId?
       cancelled = true
     }
   }, [config, productId, t])
+
+  React.useEffect(() => {
+    if (!productId) return
+    let cancelled = false
+    apiCall<{ items?: Record<string, { onHand: number; reserved: number; available: number }> }>(
+      `/api/dermat_products/stock?productIds=${encodeURIComponent(productId)}`,
+      undefined,
+      { fallback: { items: {} } },
+    ).then((call) => {
+      if (!cancelled) setStock(call.result?.items?.[productId] ?? { onHand: 0, reserved: 0, available: 0 })
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [productId])
 
   const update = (patch: Partial<FormState>) => setState((prev) => (prev ? { ...prev, ...patch } : prev))
   const updateDetail = (key: string, value: string) =>
@@ -313,7 +329,9 @@ export function ProductForm({ kind, productId }: { kind: ProductKind; productId?
             const created = await createCrud<{ id?: string }>('catalog/products', productPayload)
             id = created.result?.id ?? null
             if (!id) throw new Error('[internal] product id missing after create')
-            await createCrud('catalog/variants', { productId: id, name: title, isDefault: true, isActive: true })
+            const createdCall = await apiCall<{ items?: Row[] }>(`/api/catalog/products?id=${encodeURIComponent(id)}&pageSize=1`)
+            const productSku = text(read(createdCall.result?.items?.[0], 'sku')) || undefined
+            await createCrud('catalog/variants', { productId: id, name: title, sku: productSku, isDefault: true, isActive: true })
           }
           if (loaded.profileId) await updateCrud('wms/inventory-profiles', { id: loaded.profileId, ...profilePayload })
           else await createCrud('wms/inventory-profiles', { catalogProductId: id, ...profilePayload })
@@ -447,6 +465,34 @@ export function ProductForm({ kind, productId }: { kind: ProductKind; productId?
               })}
             </div>
           </div>
+
+          {productId && stock ? (
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-4">
+              {[
+                { key: 'onHand', label: t('dermat_products.stock.onHand', 'On hand'), value: stock.onHand },
+                { key: 'reserved', label: t('dermat_products.stock.reserved', 'Reserved for orders'), value: stock.reserved },
+                { key: 'available', label: t('dermat_products.stock.available', 'Free to use'), value: stock.available },
+              ].map((tile) => (
+                <div key={tile.key} className="rounded-lg border bg-background p-3">
+                  <div className="text-xs text-muted-foreground">{tile.label}</div>
+                  <div className="text-lg font-semibold">
+                    {new Intl.NumberFormat('en-IN', { maximumFractionDigits: 3 }).format(tile.value)} {state.unit}
+                  </div>
+                </div>
+              ))}
+              <div className="rounded-lg border bg-background p-3">
+                <div className="text-xs text-muted-foreground">{t('dermat_products.stock.minStock', 'Min stock')}</div>
+                <div
+                  className={cn(
+                    'text-lg font-semibold',
+                    state.minStock && stock.available < Number(state.minStock) ? 'text-status-error-text' : '',
+                  )}
+                >
+                  {state.minStock ? `${state.minStock} ${state.unit}` : '—'}
+                </div>
+              </div>
+            </div>
+          ) : null}
 
           <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-12">
             <div className="space-y-6 lg:col-span-8">
