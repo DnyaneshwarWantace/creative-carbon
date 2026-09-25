@@ -4,14 +4,8 @@ import { approvedPackBoms, currentUserName, loadProducts, type OrderContext } fr
 import { financialYear, stageDef } from '../../dermat_orders/lib/stages'
 import { BomHeader } from '../../dermat_boms/data/entities'
 import { explodeBom } from '../../dermat_boms/lib/explode'
-import {
-  LOCATION_CODES,
-  dermatWarehouse,
-  lotsAtLocation,
-  orderReservations,
-  variantsForProducts,
-  type StockScope,
-} from '../../dermat_products/lib/stock'
+import { LOCATION_CODES, dermatWarehouse, lotsAtLocation, variantsForProducts, type StockScope } from '../../dermat_products/lib/stock'
+import { consumeReservation, freeFor, reservationsFor } from '../../dermat_planning/lib/service'
 import { StoreRequest, StoreRequestLine, type LineIssue, type RequestStatus, type StoreKey } from '../data/entities'
 import type { IssueInput, RequestCreateInput, ReturnInput } from '../data/validators'
 import { StoreError, performerId, runCommand, type StoreContext } from './server'
@@ -153,7 +147,7 @@ export async function suggestLines(ctx: StoreContext, orderId: string, stageKey:
   const scope = scopeOf(ctx)
   const [warehouse, variants] = await Promise.all([dermatWarehouse(scope), variantsForProducts(scope, wanted)])
   const variantIds = Array.from(variants.values())
-  const reservations = await orderReservations(scope, { orderIds: [orderId], variantIds })
+  const reservations = await reservationsFor(ctx, { orderIds: [orderId], productIds: wanted })
   const stockRows = warehouse
     ? [
         ...(await lotsAtLocation(scope, variantIds, warehouse.locations.get(LOCATION_CODES.rm) ?? '')),
@@ -176,7 +170,7 @@ export async function suggestLines(ctx: StoreContext, orderId: string, stageKey:
       requested: already,
       suggested: round(Math.max(0, required - already)),
       inStore: round(stockRows.filter((entry) => entry.variantId === variantId).reduce((sum, entry) => sum + entry.onHand, 0)),
-      reservedForOrder: round(reservations.filter((entry) => entry.variantId === variantId).reduce((sum, entry) => sum + entry.quantity, 0)),
+      reservedForOrder: round(reservations.filter((entry) => entry.productId === productId).reduce((sum, entry) => sum + num(entry.quantity), 0)),
     }
   })
   rows.sort((a, b) => a.title.localeCompare(b.title))
@@ -255,34 +249,6 @@ function storeLocation(locations: Map<string, string>, store: StoreKey): string 
   return id
 }
 
-async function releaseOrderReservations(ctx: StoreContext, orderId: string, variantId: string): Promise<{ total: number; metadata: Record<string, unknown> }> {
-  const reservations = await orderReservations(scopeOf(ctx), { orderIds: [orderId], variantIds: [variantId] })
-  for (const reservation of reservations) {
-    await runCommand(ctx, 'wms.inventory.release', { reservationId: reservation.id, reason: 'Issued to production' })
-  }
-  const metadata = { ...(reservations[0]?.metadata ?? {}) }
-  delete metadata.allocatedBuckets
-  delete metadata.allocationState
-  delete metadata.strategy
-  return { total: reservations.reduce((sum, reservation) => sum + reservation.quantity, 0), metadata }
-}
-
-async function reserveAgain(ctx: StoreContext, warehouseId: string, orderId: string, variantId: string, quantity: number, metadata: Record<string, unknown>) {
-  if (quantity <= EPSILON) return
-  try {
-    await runCommand(ctx, 'wms.inventory.reserve', {
-      warehouseId,
-      catalogVariantId: variantId,
-      quantity: round(quantity),
-      sourceType: 'order',
-      sourceId: orderId,
-      metadata,
-    })
-  } catch {
-    return
-  }
-}
-
 export async function issueMaterial(ctx: StoreContext, request: StoreRequest, input: IssueInput): Promise<void> {
   if (request.status === 'cancelled' || request.status === 'used') throw new StoreError('This request is closed', 409)
   const lines = await loadLines(ctx, request.id)
@@ -295,9 +261,17 @@ export async function issueMaterial(ctx: StoreContext, request: StoreRequest, in
     if (!line) throw new StoreError('A line of this request was not found', 404)
     const open = num(line.requiredQty) - num(line.issuedQty)
     if (entry.quantity > open + EPSILON) throw new StoreError(`Only ${round(open)} ${line.unit} is still needed on this line`)
-    const lots = (await lotsAtLocation(scopeOf(ctx), [line.variantId], from)).filter((lot) => !entry.lotId || lot.lotId === entry.lotId)
-    const { total: reserved, metadata } = await releaseOrderReservations(ctx, request.orderId, line.variantId)
-    const refreshed = (await lotsAtLocation(scopeOf(ctx), [line.variantId], from)).filter((lot) => lots.some((candidate) => candidate.lotId === lot.lotId))
+    const { free, holders } = await freeFor(ctx, line.productId, request.orderId)
+    if (entry.quantity > free + EPSILON) {
+      const others = holders.map((holder) => `${holder.orderNo} (${round(num(holder.quantity))} ${line.unit})`).join(', ')
+      throw new StoreError(
+        others
+          ? `Only ${round(free)} ${line.unit} is free: the rest is reserved for ${others}. Move that reservation to ${request.orderNo} in Planning first.`
+          : `Only ${round(free)} ${line.unit} is in the ${STORE_LABEL[request.store]}`,
+        409,
+      )
+    }
+    const refreshed = (await lotsAtLocation(scopeOf(ctx), [line.variantId], from)).filter((lot) => !entry.lotId || lot.lotId === entry.lotId)
     let remaining = entry.quantity
     const issued: LineIssue[] = []
     try {
@@ -340,10 +314,9 @@ export async function issueMaterial(ctx: StoreContext, request: StoreRequest, in
           performedBy: performerId(ctx),
         })
       }
-      await reserveAgain(ctx, warehouseId, request.orderId, line.variantId, reserved, metadata)
       throw error
     }
-    await reserveAgain(ctx, warehouseId, request.orderId, line.variantId, reserved - entry.quantity, metadata)
+    await consumeReservation({ ...scopeOf(ctx), userName: byName }, request.orderId, line.productId, entry.quantity, request.code)
     line.issuedQty = String(round(num(line.issuedQty) + entry.quantity))
     line.issues = [...(line.issues ?? []), ...issued]
     notes.push(`${round(entry.quantity)} ${line.unit}${issued.length ? ` (batch ${issued.map((item) => item.lotNumber ?? '—').join(', ')})` : ''}`)
@@ -513,14 +486,16 @@ export async function requestView(ctx: StoreContext, request: StoreRequest, with
   const lines = await loadLines(ctx, request.id)
   const products = await loadProducts(ctx, lines.map((line) => line.productId))
   let stock: Awaited<ReturnType<typeof lotsAtLocation>> = []
-  let reservations: Awaited<ReturnType<typeof orderReservations>> = []
+  let reservations: Awaited<ReturnType<typeof reservationsFor>> = []
   if (withStock) {
     const warehouse = await dermatWarehouse(scopeOf(ctx))
     const location = warehouse?.locations.get(LOCATION_CODES[request.store])
     const variantIds = lines.map((line) => line.variantId)
     if (location) stock = await lotsAtLocation(scopeOf(ctx), variantIds, location)
-    reservations = await orderReservations(scopeOf(ctx), { orderIds: [request.orderId], variantIds })
+    reservations = await reservationsFor(ctx, { orderIds: [request.orderId], productIds: lines.map((line) => line.productId) })
   }
+  const freeByProduct = new Map<string, Awaited<ReturnType<typeof freeFor>>>()
+  if (withStock) for (const line of lines) freeByProduct.set(line.productId, await freeFor(ctx, line.productId, request.orderId))
   return {
     id: request.id,
     code: request.code,
@@ -542,7 +517,7 @@ export async function requestView(ctx: StoreContext, request: StoreRequest, with
     updatedAt: request.updatedAt.toISOString(),
     lines: lines.map((line) => {
       const product = products.get(line.productId)
-      const reservedForOrder = reservations.filter((entry) => entry.variantId === line.variantId).reduce((sum, entry) => sum + entry.quantity, 0)
+      const reservedForOrder = reservations.filter((entry) => entry.productId === line.productId).reduce((sum, entry) => sum + num(entry.quantity), 0)
       const lots = stock.filter((entry) => entry.variantId === line.variantId)
       return {
         id: line.id,
@@ -560,6 +535,8 @@ export async function requestView(ctx: StoreContext, request: StoreRequest, with
         reservedForOrder: round(reservedForOrder),
         lots: lots.map((lot) => ({ lotId: lot.lotId, lotNumber: lot.lotNumber, onHand: lot.onHand, free: round(lot.free), expiresAt: lot.expiresAt })),
         inStore: round(lots.reduce((sum, lot) => sum + lot.onHand, 0)),
+        free: round(freeByProduct.get(line.productId)?.free ?? 0),
+        heldByOthers: (freeByProduct.get(line.productId)?.holders ?? []).map((holder) => ({ orderId: holder.orderId, orderNo: holder.orderNo, quantity: round(num(holder.quantity)) })),
       }
     }),
   }

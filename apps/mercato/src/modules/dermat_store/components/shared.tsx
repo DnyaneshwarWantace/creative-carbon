@@ -27,6 +27,8 @@ export type LineView = {
   reservedForOrder: number
   lots: LotView[]
   inStore: number
+  free: number
+  heldByOthers: Array<{ orderId: string; orderNo: string; quantity: number }>
 }
 export type RequestView = {
   id: string

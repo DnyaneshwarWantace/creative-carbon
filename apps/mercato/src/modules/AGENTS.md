@@ -32,7 +32,8 @@ This app is **Dermat India's ERP** (cosmetics contract manufacturer) built on Op
 | QC (rules per operation/product, checks with chemical + micro approvals; blocks manufacturing/filling/packing completion) | QC → QC checks `/backend/qc/checks`, `/backend/qc/checks/<id>`; QC rules `/backend/qc/rules`, `/backend/qc/rules/<id>`, `/backend/qc/rules/new` | `dermat_quality` (spec `.ai/specs/2026-09-26-dermat-quality.md`) | old `dermat_qc` is dead; its migration table blocks reuse of the name |
 | Artwork & PM | own sidebar group `dermat-03b-artwork.nav.group` → `/backend/work/artwork` | `dermat_orders` | — |
 | Store requests (production asks RM / PM store, issue by batch, receive, use, return) | Store → Store requests `/backend/store/requests`, `/backend/store/requests/<id>`, `/backend/store/requests/new?orderId&stageKey`; Production → Material from store `/backend/production/material` | `dermat_store` (spec `.ai/specs/2026-09-26-dermat-store-requests.md`); stock helpers `dermat_products/lib/stock.ts` | stock moves only through wms commands |
-| Planning reservations (multi-order / multi-BOM planning page), Purchase / GRN, inward QC checks from GRN, production batches | not rebuilt yet | — | build as new `dermat_*` modules |
+| Planning board and reserved stock (several orders / BOMs → one total; reserve, clear, move; never expires) | Planning → Planning board `/backend/planning` (`?orders=`), Reserved stock `/backend/planning/reservations` | `dermat_planning` (spec `.ai/specs/2026-09-26-dermat-planning.md`) | core `/backend/wms/reservations` nulled; reservations are Dermat rows, not wms reservations |
+| Purchase / GRN, inward QC checks from GRN, production batches | not rebuilt yet | — | build as new `dermat_*` modules |
 
 Every route override lives in `apps/mercato/src/modules.ts` under the `dermat_customers` entry. Add new ones there.
 

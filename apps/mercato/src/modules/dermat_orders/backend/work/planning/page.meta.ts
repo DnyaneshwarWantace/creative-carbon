@@ -5,7 +5,7 @@ export const metadata = {
   pageTitleKey: 'dermat_orders.nav.work.planning',
   pageGroup: 'Planning',
   pageGroupKey: 'dermat-04-planning.nav.group',
-  pageOrder: 1,
+  pageOrder: 3,
   icon: 'calendar-range',
   breadcrumb: [{ label: 'Material planning', labelKey: 'dermat_orders.nav.work.planning' }],
 }

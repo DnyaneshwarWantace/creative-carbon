@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 import Link from 'next/link'
-import { Check, CheckCircle2, CirclePause, CirclePlay, FileStack, PackagePlus, RotateCcw, SkipForward } from 'lucide-react'
+import { Check, CheckCircle2, CirclePause, CirclePlay, FileStack, Lock, PackagePlus, RotateCcw, SkipForward } from 'lucide-react'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { Button } from '@open-mercato/ui/primitives/button'
 import { Input } from '@open-mercato/ui/primitives/input'
@@ -242,6 +242,35 @@ export function StageWorkArea({ order, stage, people, canWork, busy, shortCount,
               ? t('dermat_orders.sheet.short', '{count} materials are short for this order — see Materials below.', { count: shortCount })
               : t('dermat_orders.sheet.allStock', 'All materials for this order are in stock.')}
           </p>
+        ) : null}
+
+        {stage.key === 'planning' ? (
+          <div className="space-y-2">
+            <div className="flex items-center justify-between gap-2">
+              <Label className="text-xs text-muted-foreground">{t('dermat_orders.sheet.reserved', 'Stock reserved for this order')}</Label>
+              <Link href={`/backend/planning?orders=${order.id}`} className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline">
+                <Lock className="h-3.5 w-3.5" aria-hidden="true" />
+                {t('dermat_orders.sheet.openBoard', 'Plan and reserve')}
+              </Link>
+            </div>
+            {order.reservations?.length ? (
+              <ul className="divide-y rounded-md border text-sm">
+                {order.reservations.map((entry) => (
+                  <li key={entry.productId} className="flex items-center justify-between gap-2 px-3 py-2">
+                    <span className="min-w-0 truncate">{entry.title}</span>
+                    <span className="shrink-0 text-right text-xs tabular-nums">
+                      <span className="block font-medium">{formatQty(entry.quantity)} {entry.unit ?? ''}</span>
+                      <span className="text-muted-foreground">{t('dermat_orders.sheet.since', 'since {date}', { date: formatDate(entry.since) })}</span>
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="rounded-md border border-dashed p-3 text-xs text-muted-foreground">
+                {t('dermat_orders.sheet.noReservation', 'Nothing reserved yet. Open the planning board to reserve stock for this order; it stays held until the store issues it.')}
+              </p>
+            )}
+          </div>
         ) : null}
 
         {STORE_STAGES.includes(stage.key) ? (

@@ -206,9 +206,7 @@ export const enabledModules: ModuleEntry[] = [
           '/backend/wms/movements': {
             metadata: { pageTitle: 'Stock Ledger', pageTitleKey: 'dermat_store.nav.ledger', pageGroup: 'Store', pageGroupKey: 'dermat-06-store.nav.group', pageOrder: 30 },
           },
-          '/backend/wms/reservations': {
-            metadata: { pageTitle: 'Reservations', pageTitleKey: 'dermat_store.nav.reservations', pageGroup: 'Planning', pageGroupKey: 'dermat-04-planning.nav.group', pageOrder: 30 },
-          },
+          '/backend/wms/reservations': null,
           '/backend/wms/locations': {
             metadata: { pageTitle: 'Stores', pageTitleKey: 'dermat_store.nav.stores', pageGroup: 'Masters', pageGroupKey: 'dermat-11-masters.nav.group', pageOrder: 40 },
           },
@@ -259,6 +257,7 @@ export const enabledModules: ModuleEntry[] = [
   { id: 'dermat_orders', from: '@app' },
   { id: 'dermat_quality', from: '@app' },
   { id: 'dermat_store', from: '@app' },
+  { id: 'dermat_planning', from: '@app' },
   { id: 'dermat_vendors', from: '@app' },
   { id: 'ratelimit_probe', from: '@app' },
 ]

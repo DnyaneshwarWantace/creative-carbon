@@ -48,7 +48,7 @@ function openQty(line: LineView): number {
 }
 
 function availableFor(line: LineView): number {
-  return round(line.lots.reduce((sum, lot) => sum + Math.max(0, lot.free), 0) + line.reservedForOrder)
+  return round(Math.max(0, line.free))
 }
 
 export function StoreRequestPage({ requestId }: { requestId: string }) {
@@ -420,6 +420,14 @@ export function StoreRequestPage({ requestId }: { requestId: string }) {
                                 {line.reservedForOrder > 0 ? (
                                   <p className="text-xs text-muted-foreground">
                                     {qty(line.reservedForOrder)} {t('dermat_store.detail.reserved', 'reserved for this order')}
+                                  </p>
+                                ) : null}
+                                {line.heldByOthers.length ? (
+                                  <p className="text-xs text-status-warning-text">
+                                    {t('dermat_store.detail.heldBy', '{qty} held for {orders}', {
+                                      qty: qty(line.heldByOthers.reduce((sum, holder) => sum + holder.quantity, 0)),
+                                      orders: line.heldByOthers.map((holder) => holder.orderNo).join(', '),
+                                    })}
                                   </p>
                                 ) : null}
                               </td>

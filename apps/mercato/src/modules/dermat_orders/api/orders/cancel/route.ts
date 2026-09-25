@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { releaseAllForOrder } from '../../../../dermat_planning/lib/service'
 import { z } from 'zod'
 import type { OpenApiRouteDoc } from '@open-mercato/shared/lib/openapi'
 import { logEvent, serializeOrder } from '../../../lib/engine'
@@ -24,7 +25,9 @@ async function POST(req: Request) {
     return await runGuarded(ctx, req, { resourceId: order.id, operation: 'custom', payload: parsed.data }, async () => {
       order.status = 'cancelled'
       order.updatedAt = new Date()
-      logEvent(ctx, order, 'cancelled', null, parsed.data.reason, await currentUserName(ctx))
+      const byName = await currentUserName(ctx)
+      logEvent(ctx, order, 'cancelled', null, parsed.data.reason, byName)
+      await releaseAllForOrder(ctx, order.id, `Order cancelled: ${parsed.data.reason}`, byName)
       await ctx.em.flush()
       return NextResponse.json(await serializeOrder(ctx, order))
     })

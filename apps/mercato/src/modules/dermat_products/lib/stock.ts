@@ -71,36 +71,3 @@ export async function lotsAtLocation(scope: StockScope, variantIds: string[], lo
     expiresAt: row.expires_at ? new Date(row.expires_at).toISOString() : null,
   }))
 }
-
-export type OrderReservation = { id: string; orderId: string; variantId: string; quantity: number; createdAt: string; metadata: Record<string, unknown> }
-
-export async function orderReservations(scope: StockScope, filter: { orderIds?: string[]; variantIds?: string[] }): Promise<OrderReservation[]> {
-  const conditions = [`r.tenant_id = ?`, `r.organization_id = ?`, `r.deleted_at is null`, `r.status = 'active'`, `r.source_type = 'order'`]
-  const params: unknown[] = [scope.tenantId, scope.organizationId]
-  if (filter.orderIds) {
-    const ids = uuids(filter.orderIds)
-    if (!ids.length) return []
-    conditions.push(`r.source_id = any(?::uuid[])`)
-    params.push(`{${ids.join(',')}}`)
-  }
-  if (filter.variantIds) {
-    const ids = uuids(filter.variantIds)
-    if (!ids.length) return []
-    conditions.push(`r.catalog_variant_id = any(?::uuid[])`)
-    params.push(`{${ids.join(',')}}`)
-  }
-  const rows = await run<Array<{ id: string; source_id: string; catalog_variant_id: string; quantity: string; created_at: Date; metadata: Record<string, unknown> | null }>>(
-    scope,
-    `select r.id, r.source_id, r.catalog_variant_id, r.quantity, r.created_at, r.metadata from wms_inventory_reservations r
-      where ${conditions.join(' and ')} order by r.created_at asc`,
-    params,
-  )
-  return rows.map((row) => ({
-    id: row.id,
-    orderId: row.source_id,
-    variantId: row.catalog_variant_id,
-    quantity: Number(row.quantity),
-    createdAt: new Date(row.created_at).toISOString(),
-    metadata: row.metadata ?? {},
-  }))
-}

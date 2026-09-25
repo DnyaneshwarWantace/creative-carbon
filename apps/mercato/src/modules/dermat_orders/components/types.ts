@@ -104,6 +104,7 @@ export type Order = {
   stages: Stage[]
   qc: Record<string, OrderQcCheck[]>
   store: Record<string, OrderStoreRequest[]>
+  reservations: Array<{ productId: string; title: string; unit: string | null; quantity: number; since: string }>
   events: OrderEvent[]
 }
 

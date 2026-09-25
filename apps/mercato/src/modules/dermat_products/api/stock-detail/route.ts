@@ -17,6 +17,7 @@ const responseSchema = z.object({
   batches: z.array(
     z.object({ lotNumber: z.string(), store: z.string().nullable(), onHand: z.number(), expiresAt: z.string().nullable(), manufacturedAt: z.string().nullable(), status: z.string().nullable() }),
   ),
+  reservations: z.array(z.object({ orderId: z.string(), orderNo: z.string(), quantity: z.number(), since: z.string(), byName: z.string().nullable() })),
   movements: z.array(
     z.object({ at: z.string(), type: z.string(), quantity: z.number(), from: z.string().nullable(), to: z.string().nullable(), lotNumber: z.string().nullable(), reason: z.string().nullable() }),
   ),
@@ -34,7 +35,7 @@ async function GET(req: Request) {
   const connection = (container.resolve('em') as EntityManager).fork().getConnection()
   const params = [parsed.data.productId, auth.tenantId, organizationId]
   const variantFilter = `select v.id from catalog_product_variants v where v.product_id = ? and v.deleted_at is null`
-  const [stores, batches, movements] = await Promise.all([
+  const [stores, batches, movements, reservations] = await Promise.all([
     connection.execute<Array<{ code: string; on_hand: string; reserved: string; available: string }>>(
       `select coalesce(l.code, 'Unknown') as code, sum(b.quantity_on_hand) as on_hand, sum(b.quantity_reserved) as reserved, sum(b.quantity_available) as available
          from wms_inventory_balances b left join wms_warehouse_locations l on l.id = b.location_id
@@ -63,6 +64,11 @@ async function GET(req: Request) {
         order by coalesce(m.performed_at, m.created_at) desc limit 30`,
       params,
     ),
+    connection.execute<Array<{ order_id: string; order_no: string; quantity: string; since: Date; by_name: string | null }>>(
+      `select r.order_id, r.order_no, r.quantity, r.since, r.by_name from dermat_planning_reservations r
+        where r.product_id = ? and r.tenant_id = ? and r.organization_id = ? and r.quantity > 0 order by r.since asc`,
+      params,
+    ),
   ])
   const iso = (value: Date | null) => (value ? new Date(value).toISOString() : null)
   return NextResponse.json({
@@ -75,6 +81,7 @@ async function GET(req: Request) {
       manufacturedAt: iso(row.manufactured_at),
       status: row.status,
     })),
+    reservations: reservations.map((row) => ({ orderId: row.order_id, orderNo: row.order_no, quantity: Number(row.quantity), since: iso(row.since) ?? '', byName: row.by_name })),
     movements: movements.map((row) => ({
       at: iso(row.at) ?? '',
       type: row.type,

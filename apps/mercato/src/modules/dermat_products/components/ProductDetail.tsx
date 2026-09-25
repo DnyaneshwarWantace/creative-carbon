@@ -19,6 +19,7 @@ type Row = Record<string, unknown> & { id: string }
 type StockDetail = {
   stores: Array<{ code: string; onHand: number; reserved: number; available: number }>
   batches: Array<{ lotNumber: string; store: string | null; onHand: number; expiresAt: string | null; manufacturedAt: string | null; status: string | null }>
+  reservations?: Array<{ orderId: string; orderNo: string; quantity: number; since: string; byName: string | null }>
   movements: Array<{ at: string; type: string; quantity: number; from: string | null; to: string | null; lotNumber: string | null; reason: string | null }>
 }
 type Usage = {
@@ -359,8 +360,6 @@ export function ProductDetail({ productId }: { productId: string }) {
                         <tr>
                           <th className="p-3 text-left">{t('dermat_products.detail.store', 'Store')}</th>
                           <th className="p-3 text-right">{t('dermat_products.stock.onHand', 'On hand')}</th>
-                          <th className="p-3 text-right">{t('dermat_products.stock.reserved', 'Reserved')}</th>
-                          <th className="p-3 text-right">{t('dermat_products.stock.available', 'Free')}</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y">
@@ -368,12 +367,46 @@ export function ProductDetail({ productId }: { productId: string }) {
                           <tr key={row.code}>
                             <td className="p-3 font-mono text-xs">{row.code}</td>
                             <td className="p-3 text-right font-mono">{qty(row.onHand)}</td>
-                            <td className="p-3 text-right font-mono">{qty(row.reserved)}</td>
-                            <td className="p-3 text-right font-mono">{qty(row.available)}</td>
                           </tr>
                         ))}
                       </tbody>
                     </table>
+                    {(() => {
+                      const inStores = stock.stores.filter((row) => row.code === 'RM-STORE' || row.code === 'PM-STORE').reduce((sum, row) => sum + row.onHand, 0)
+                      const reserved = (stock.reservations ?? []).reduce((sum, row) => sum + row.quantity, 0)
+                      return (
+                        <div className="border-t bg-muted/20 px-3 py-3">
+                          <div className="grid grid-cols-3 gap-3 text-center">
+                            <div>
+                              <p className="text-xs text-muted-foreground">{t('dermat_products.stock.inStores', 'In RM / PM store')}</p>
+                              <p className="font-mono text-sm font-semibold">{qty(inStores)}</p>
+                            </div>
+                            <div>
+                              <p className="text-xs text-muted-foreground">{t('dermat_products.stock.reservedOrders', 'Reserved for orders')}</p>
+                              <p className="font-mono text-sm font-semibold">{qty(reserved)}</p>
+                            </div>
+                            <div>
+                              <p className="text-xs text-muted-foreground">{t('dermat_products.stock.available', 'Free')}</p>
+                              <p className={cn('font-mono text-sm font-semibold', inStores - reserved <= 0 && reserved > 0 && 'text-status-warning-text')}>{qty(Math.max(0, inStores - reserved))}</p>
+                            </div>
+                          </div>
+                          {(stock.reservations ?? []).length ? (
+                            <ul className="mt-3 space-y-1 text-xs">
+                              {(stock.reservations ?? []).map((row) => (
+                                <li key={row.orderId} className="flex items-center justify-between gap-2">
+                                  <Link href={`/backend/orders/${row.orderId}`} className="font-medium hover:underline">
+                                    {row.orderNo}
+                                  </Link>
+                                  <span className="text-muted-foreground">
+                                    {qty(row.quantity)} {unit} · {t('dermat_products.stock.since', 'since {date}', { date: date(row.since) })}
+                                  </span>
+                                </li>
+                              ))}
+                            </ul>
+                          ) : null}
+                        </div>
+                      )
+                    })()}
                     {stock.batches.length ? (
                       <table className="w-full border-t text-sm">
                         <thead className="border-b bg-muted/40 text-xs uppercase tracking-wide text-muted-foreground">

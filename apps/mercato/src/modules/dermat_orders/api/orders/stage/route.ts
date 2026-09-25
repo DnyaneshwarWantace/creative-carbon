@@ -9,6 +9,7 @@ import { findOrder, resolveOrderContext } from '../../../lib/server'
 import { enforceOrderLock, orderErrorResponse, runGuarded } from '../../../lib/guard'
 import { STORE_STAGE_KEYS, consumeForStage, type StoreStage } from '../../../../dermat_store/lib/service'
 import { resolveStoreContext } from '../../../../dermat_store/lib/server'
+import { releaseAllForOrder } from '../../../../dermat_planning/lib/service'
 
 export const metadata = {
   POST: { requireAuth: true, requireFeatures: ['dermat_orders.stages'] },
@@ -27,6 +28,7 @@ async function POST(req: Request) {
         const txCtx = { ...ctx, em: em as EntityManager }
         const fresh = await findOrder(txCtx, order.id)
         await applyStageAction(txCtx, fresh, parsed.data)
+        if (fresh.status === 'completed') await releaseAllForOrder(txCtx, fresh.id, 'Order completed', null)
         await em.flush()
       })
       if (parsed.data.action === 'complete' && STORE_STAGE_KEYS.includes(parsed.data.stageKey as StoreStage)) {
