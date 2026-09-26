@@ -2,6 +2,7 @@ import type { ModuleCli } from '@open-mercato/shared/modules/registry'
 import type { EntityManager } from '@mikro-orm/postgresql'
 import { createRequestContainer } from '@open-mercato/shared/lib/di/container'
 import { sendDigests } from './lib/digest'
+import { sweepOverdueStages } from '../dermat_orders/lib/notify'
 
 function readFlag(args: string[], names: string[]): string {
   for (let index = 0; index < args.length; index += 1) {
@@ -35,6 +36,22 @@ const sendDigest: ModuleCli = {
   },
 }
 
-const commands = [sendDigest]
+const overdueAlerts: ModuleCli = {
+  command: 'overdue-alerts',
+  async run(rest) {
+    const tenantId = readFlag(rest, ['tenant', 'tenantId'])
+    const organizationId = readFlag(rest, ['org', 'organizationId'])
+    if (!tenantId || !organizationId) {
+      console.error('Usage: mercato dermat_dashboard overdue-alerts --tenant <tenantId> --org <organizationId>')
+      return
+    }
+    const container = await createRequestContainer()
+    const em = (container.resolve('em') as EntityManager).fork()
+    const sent = await sweepOverdueStages({ container, em, tenantId, organizationId } as Parameters<typeof sweepOverdueStages>[0], { force: true })
+    console.log(sent ? `Sent ${sent} overdue alert(s).` : 'No stage is over its day limit (or everyone was already told).')
+  },
+}
+
+const commands = [sendDigest, overdueAlerts]
 
 export default commands

@@ -148,7 +148,7 @@ export async function onProductionStageDone(ctx: StoreContext, orderId: string, 
   const problems: string[] = []
   const mfg = await stageData(ctx, orderId, 'manufacturing')
   const batchNo = text(mfg.batch_no)
-  const mfgDate = text(mfg.mfg_date) || new Date().toISOString().slice(0, 10)
+  const mfgDate = text(mfg.mfg_date) || new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' })
   if (!batchNo) return []
   const warehouse = await locations(ctx)
   const production = warehouse.locations.get(LOCATION_CODES.production)

@@ -3,7 +3,7 @@
 import * as React from 'react'
 import { useGranted } from '../../dermat_departments/components/useGranted'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { ArrowLeft, Ban, CheckCircle2, Copy, FileStack, History, Layers, Lock, Package, Pencil, UserRound } from 'lucide-react'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { cn } from '@open-mercato/shared/lib/utils'
@@ -157,7 +157,8 @@ export function OrderView({ orderId }: { orderId: string }) {
   const [order, setOrder] = React.useState<Order | null>(null)
   const [loadError, setLoadError] = React.useState<string | null>(null)
   const [people, setPeople] = React.useState<Array<{ id: string; name: string }>>([])
-  const [openStage, setOpenStage] = React.useState<string | null>(null)
+  const searchParams = useSearchParams()
+  const [openStage, setOpenStage] = React.useState<string | null>(() => searchParams?.get('stage') ?? null)
   const [cancelBusy, setBusy] = React.useState(false)
   const busy = cancelBusy || stageRunner.busy
   const [cancelOpen, setCancelOpen] = React.useState(false)
@@ -287,6 +288,13 @@ export function OrderView({ orderId }: { orderId: string }) {
                   {statusLabel}
                 </StatusBadge>
                 {order.onHold ? <StatusBadge variant="error">{t('dermat_orders.status.on_hold', 'On hold')}</StatusBadge> : null}
+                {order.priority === 'urgent' ? <StatusBadge variant="error">{t('dermat_orders.priority.urgent', 'Urgent')}</StatusBadge> : null}
+                {order.headline === 'delivered' ? <StatusBadge variant="success">{t('dermat_orders.headline.delivered', 'Delivered')}</StatusBadge> : null}
+                {order.headline === 'updated' ? (
+                  <span title={[order.revisedByName, order.revisedAt ? formatDateTime(order.revisedAt) : null, order.revisionNote].filter(Boolean).join(' · ')}>
+                    <StatusBadge variant="info">{t('dermat_orders.headline.updated', 'Updated')}</StatusBadge>
+                  </span>
+                ) : null}
                 {order.orderType !== 'new' ? <StatusBadge variant="info">{t(`dermat_orders.type.${order.orderType}`, order.orderType)}</StatusBadge> : null}
               </div>
               <p className="text-sm">

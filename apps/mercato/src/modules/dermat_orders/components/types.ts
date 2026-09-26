@@ -38,6 +38,8 @@ export type OrderLine = {
   discountPercent: number
   price: { gross: number; discount: number; taxable: number; gst: number; total: number }
   batchNo: string | null
+  sampleNeeded?: boolean
+  rdNumber?: string | null
   specs: Record<string, Record<string, string>>
 }
 
@@ -116,6 +118,13 @@ export type Order = {
   billingRemarks: string | null
   packingRemarks: string | null
   status: 'booked' | 'confirmed' | 'completed' | 'cancelled'
+  headline?: 'booked' | 'confirmed' | 'updated' | 'completed' | 'delivered' | 'cancelled'
+  priority?: 'normal' | 'urgent'
+  billingAddress?: string | null
+  shippingAddress?: string | null
+  revisedAt?: string | null
+  revisedByName?: string | null
+  revisionNote?: string | null
   onHold: boolean
   createdByName: string | null
   createdAt: string
@@ -142,6 +151,8 @@ export type OrderListItem = {
   customerId: string
   customerName: string
   status: Order['status']
+  headline?: Order['headline']
+  priority?: 'normal' | 'urgent'
   orderType: string
   salesManager: string | null
   products: Array<{ id: string; title: string; code: string | null; quantity: number }>

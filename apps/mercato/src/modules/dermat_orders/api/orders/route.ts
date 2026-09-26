@@ -18,6 +18,7 @@ import {
   type OrderContext,
 } from '../../lib/server'
 import { orderFilter } from '../../lib/orderFilter'
+import { notifyStagesOpened } from '../../lib/notify'
 import { enforceOrderLock, orderErrorResponse, runGuarded } from '../../lib/guard'
 
 export const metadata = {
@@ -245,6 +246,8 @@ async function POST(req: Request) {
         await em.flush()
         return created
       })
+      const openedNow = (await ctx.em.fork().find(DermatOrderStage, { orderId: order.id, status: 'open' })).map((stage) => stage.stageKey)
+      await notifyStagesOpened(ctx, order, openedNow)
       return NextResponse.json({ id: order.id, orderNo: order.orderNo }, { status: 201 })
     })
   } catch (error) {

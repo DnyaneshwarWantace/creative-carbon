@@ -72,7 +72,7 @@ async function GET(req: Request) {
     ).total
   const receivedOf = (orderId: string) => received(allPayments.filter((payment) => payment.orderId === orderId))
 
-  const today = new Date().toISOString().slice(0, 10)
+  const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' })
   const stageCounts: Record<string, number> = {}
   let value = 0
   let paid = 0

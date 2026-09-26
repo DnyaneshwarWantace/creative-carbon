@@ -27,8 +27,7 @@ function days(openedAt: Date | null): number {
 }
 
 function todayIso(): string {
-  const now = new Date()
-  return new Date(now.getTime() - now.getTimezoneOffset() * 60000).toISOString().slice(0, 10)
+  return new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' })
 }
 
 export async function openStages(ctx: Scope, filter?: { userId?: string }): Promise<OpenStageRow[]> {
@@ -108,7 +107,7 @@ async function count(ctx: Scope, sql: string, params: unknown[] = []): Promise<n
 
 export async function overview(ctx: Scope) {
   const today = todayIso()
-  const week = new Date(Date.now() + 7 * DAY_MS).toISOString().slice(0, 10)
+  const week = new Date(Date.parse(`${new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' })}T00:00:00Z`) + 7 * DAY_MS).toISOString().slice(0, 10)
   const stageRows = await openStages(ctx)
   const items = await toWorkItems(ctx, stageRows)
 

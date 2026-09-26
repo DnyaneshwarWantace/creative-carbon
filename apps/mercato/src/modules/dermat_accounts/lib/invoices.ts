@@ -135,7 +135,7 @@ export async function createInvoice(
   const already = await invoicedByLine(ctx, order.id)
   const left = new Map(orderLines.map((line) => [line.id, Math.max(0, Number(line.quantity) - (already.get(line.id) ?? 0))]))
   const lines = await buildLines(ctx, order.id, order.pricesIncludeGst, input.lines ?? null, interState, left)
-  const invoiceDate = input.invoiceDate || new Date().toISOString().slice(0, 10)
+  const invoiceDate = input.invoiceDate || new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' })
   const dispatch = (await ctx.em.findOne(DermatOrderStage, { orderId: order.id, stageKey: 'dispatch' }))?.data ?? {}
   const invoice = ctx.em.create(TaxInvoice, {
     organizationId: ctx.organizationId,
@@ -233,7 +233,7 @@ export async function createCreditNote(
     customerId: invoice.customerId,
     customerName: invoice.customerName,
     customerGstin: invoice.customerGstin ?? null,
-    invoiceDate: new Date().toISOString().slice(0, 10),
+    invoiceDate: new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' }),
     status: 'draft',
     interState: invoice.interState,
     placeOfSupply: invoice.placeOfSupply ?? null,

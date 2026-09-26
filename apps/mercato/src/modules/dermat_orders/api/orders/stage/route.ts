@@ -5,7 +5,8 @@ import type { OpenApiRouteDoc } from '@open-mercato/shared/lib/openapi'
 import { stageActionSchema } from '../../../data/validators'
 import { DermatOrderStage } from '../../../data/entities'
 import { applyStageAction, serializeOrder } from '../../../lib/engine'
-import { findOrder, hasFeatures, resolveOrderContext } from '../../../lib/server'
+import { currentUserName, findOrder, hasFeatures, resolveOrderContext } from '../../../lib/server'
+import { notifyAssigned, notifyStagesOpened } from '../../../lib/notify'
 import { stageDef, stageWorkFeature } from '../../../lib/stages'
 import { enforceOrderLock, orderErrorResponse, runGuarded } from '../../../lib/guard'
 import { STORE_STAGE_KEYS, consumeForStage, type StoreStage } from '../../../../dermat_store/lib/service'
@@ -30,6 +31,7 @@ async function POST(req: Request) {
   }
   try {
     const order = await findOrder(ctx, parsed.data.orderId)
+    const statusBefore = new Map((await ctx.em.fork().find(DermatOrderStage, { orderId: order.id })).map((stage) => [stage.stageKey, stage.status]))
     if (parsed.data.action !== 'assign' && parsed.data.action !== 'save') enforceOrderLock(order, req)
     return await runGuarded(ctx, req, { resourceId: order.id, operation: 'custom', payload: parsed.data }, async () => {
       await ctx.em.transactional(async (em) => {
@@ -60,7 +62,15 @@ async function POST(req: Request) {
         const stockCtx = await resolveStoreContext(req)
         if (!('error' in stockCtx)) await onProductionStageDone(stockCtx, order.id, parsed.data.stageKey)
       }
-      return NextResponse.json(await serializeOrder(ctx, await findOrder({ ...ctx, em: ctx.em.fork() }, order.id)))
+      const freshCtx = { ...ctx, em: ctx.em.fork() }
+      const freshOrder = await findOrder(freshCtx, order.id)
+      const after = await freshCtx.em.find(DermatOrderStage, { orderId: order.id })
+      const opened = after.filter((stage) => stage.status === 'open' && statusBefore.get(stage.stageKey) !== 'open' && statusBefore.get(stage.stageKey) !== 'on_hold').map((stage) => stage.stageKey)
+      await notifyStagesOpened(ctx, freshOrder, opened)
+      if (parsed.data.action === 'assign' && parsed.data.responsibleUserId && parsed.data.responsibleUserId !== ctx.userId) {
+        await notifyAssigned(ctx, freshOrder, parsed.data.stageKey, parsed.data.responsibleUserId, await currentUserName(ctx))
+      }
+      return NextResponse.json(await serializeOrder(freshCtx, freshOrder))
     })
   } catch (error) {
     return orderErrorResponse(error)

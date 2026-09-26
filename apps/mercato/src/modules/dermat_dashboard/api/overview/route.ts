@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { z } from 'zod'
 import type { OpenApiRouteDoc } from '@open-mercato/shared/lib/openapi'
 import { resolveOrderContext } from '../../../dermat_orders/lib/server'
+import { sweepOverdueStages } from '../../../dermat_orders/lib/notify'
 import { overview } from '../../lib/overview'
 
 export const metadata = {
@@ -11,6 +12,7 @@ export const metadata = {
 async function GET(req: Request) {
   const ctx = await resolveOrderContext(req)
   if ('error' in ctx) return NextResponse.json({ error: ctx.error }, { status: ctx.status })
+  await sweepOverdueStages(ctx)
   return NextResponse.json(await overview(ctx))
 }
 

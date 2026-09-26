@@ -6,6 +6,7 @@ import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { cn } from '@open-mercato/shared/lib/utils'
 import { daysUntil, formatDate } from './format'
 import type { Order } from './types'
+import { STAGE_DAY_LIMIT } from '../lib/stages'
 
 export type OrderTab = 'work' | 'products' | 'materials' | 'documents' | 'money' | 'history'
 
@@ -49,6 +50,17 @@ export function orderAttention(order: Order, shortCount: number | null, t: Retur
         tone: 'warning',
         text: t('dermat_orders.attention.docs', '{stage} needs: {docs}', { stage: stage.label, docs: missing.map((doc) => doc.label).join(', ') }),
         action: { label: t('dermat_orders.attention.upload', 'Upload'), stageKey: stage.key },
+      })
+    }
+  }
+  for (const stage of order.stages.filter((entry) => entry.status === 'open' || entry.status === 'on_hold')) {
+    const limit = STAGE_DAY_LIMIT[stage.key]
+    if (limit && stage.days !== null && stage.days > limit) {
+      items.push({
+        key: `late-${stage.key}`,
+        tone: 'warning',
+        text: t('dermat_orders.attention.overLimit', '{stage} open {days} days; its limit is {limit}', { stage: stage.label, days: Math.floor(stage.days), limit }),
+        action: { label: t('dermat_orders.attention.open', 'Open'), stageKey: stage.key },
       })
     }
   }

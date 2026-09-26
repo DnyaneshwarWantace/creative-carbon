@@ -24,6 +24,20 @@ export type StageDef = {
   fields: StageField[]
 }
 
+export const STAGE_DAY_LIMIT: Record<string, number> = {
+  advance: 7,
+  sampling: 10,
+  artwork: 10,
+  formulation: 5,
+  planning: 3,
+  manufacturing: 3,
+  filling: 2,
+  packing: 2,
+  qc_qa: 3,
+  billing: 3,
+  dispatch: 2,
+}
+
 export const STAGE_WORK_FEATURE: Record<string, string> = {
   order: 'dermat_orders.manage',
   advance: 'dermat_orders.work.accounts',

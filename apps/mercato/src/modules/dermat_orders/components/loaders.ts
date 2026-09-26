@@ -88,3 +88,20 @@ export async function loadCustomerOrders(customerId: string): Promise<OrderListI
   })
   return call.result?.items ?? []
 }
+
+export type CustomerAddress = { id: string; purpose: string | null; text: string }
+
+function plainText(value: unknown): string {
+  if (typeof value !== 'string') return ''
+  return /^[A-Za-z0-9+/=]{8,}:[A-Za-z0-9+/=]+:[A-Za-z0-9+/=]+:v\d+$/.test(value) ? '' : value.trim()
+}
+
+export async function loadAddresses(customerId: string): Promise<CustomerAddress[]> {
+  const call = await apiCall<{ items?: Array<Record<string, unknown>> }>(`/api/customers/addresses?entityId=${encodeURIComponent(customerId)}&pageSize=20`, undefined, { fallback: { items: [] } })
+  return (call.result?.items ?? [])
+    .map((row) => {
+      const parts = [plainText(row.address_line1), plainText(row.address_line2), plainText(row.city), [plainText(row.region), plainText(row.postal_code)].filter(Boolean).join(' '), plainText(row.country)].filter(Boolean)
+      return { id: String(row.id), purpose: typeof row.purpose === 'string' ? row.purpose : null, text: parts.join(', ') }
+    })
+    .filter((entry) => entry.text)
+}

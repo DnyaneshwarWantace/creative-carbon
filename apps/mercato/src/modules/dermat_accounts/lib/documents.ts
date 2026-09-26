@@ -153,7 +153,7 @@ export async function createPi(
   const customer = customers.get(order.customerId)
   const { lines, totals } = await linesFromOrder(ctx, order)
   if (!lines.some((line) => line.rate !== null)) throw new AccountsError('Enter the rate on the order lines before making a proforma invoice')
-  const piDate = input.piDate || new Date().toISOString().slice(0, 10)
+  const piDate = input.piDate || new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' })
   const pi = ctx.em.create(ProformaInvoice, {
     organizationId: ctx.organizationId,
     tenantId: ctx.tenantId,

@@ -26,7 +26,7 @@ import { LINE_SPEC_SECTIONS, PARTY_SIDE } from '../lib/specs'
 import { priceOrder } from '../lib/pricing'
 import { SearchPicker, type PickerOption } from './SearchPicker'
 import { formatDate, formatQty, todayIso, PAYMENT_TERMS_LABEL } from './format'
-import { loadBomStatus, loadCustomer, loadCustomerOrders, loadProductDetails, searchCustomers, searchFinishedGoods } from './loaders'
+import { loadAddresses, loadBomStatus, loadCustomer, loadCustomerOrders, loadProductDetails, searchCustomers, searchFinishedGoods, type CustomerAddress } from './loaders'
 import type { BomRef, Customer, Order, OrderListItem, ProductInfo } from './types'
 
 type LineDraft = {
@@ -41,6 +41,8 @@ type LineDraft = {
   gstPercent: string
   discountPercent: string
   batchNo: string
+  sampleNeeded: boolean
+  rdNumber: string
   specs: Record<string, Record<string, string>>
 }
 
@@ -57,6 +59,10 @@ type Header = {
   billingRemarks: string
   packingRemarks: string
   pricesIncludeGst: boolean
+  priority: 'normal' | 'urgent'
+  billingAddress: string
+  shippingAddress: string
+  revisionNote: string
 }
 
 const EMPTY_HEADER: Header = {
@@ -72,13 +78,17 @@ const EMPTY_HEADER: Header = {
   billingRemarks: '',
   packingRemarks: '',
   pricesIncludeGst: false,
+  priority: 'normal',
+  billingAddress: '',
+  shippingAddress: '',
+  revisionNote: '',
 }
 
 let lineCounter = 0
 
 function newLine(): LineDraft {
   lineCounter += 1
-  return { key: `line-${lineCounter}`, product: null, bom: undefined, brandName: '', packSize: '', mrp: '', quantity: '', rate: '', gstPercent: '18', discountPercent: '', batchNo: '', specs: {} }
+  return { key: `line-${lineCounter}`, product: null, bom: undefined, brandName: '', packSize: '', mrp: '', quantity: '', rate: '', gstPercent: '18', discountPercent: '', batchNo: '', sampleNeeded: false, rdNumber: '', specs: {} }
 }
 
 function linesFromOrder(order: Order, keepBatch: boolean): LineDraft[] {
@@ -94,6 +104,8 @@ function linesFromOrder(order: Order, keepBatch: boolean): LineDraft[] {
     gstPercent: String(line.gstPercent ?? 18),
     discountPercent: line.discountPercent ? String(line.discountPercent) : '',
     batchNo: keepBatch ? (line.batchNo ?? '') : '',
+    sampleNeeded: keepBatch ? Boolean(line.sampleNeeded) : false,
+    rdNumber: line.rdNumber ?? '',
     specs: line.specs ?? {},
   }))
 }
@@ -186,6 +198,10 @@ export function OrderForm({ orderId, copyFrom, customerId }: { orderId?: string;
           billingRemarks: order.billingRemarks ?? '',
           packingRemarks: order.packingRemarks ?? '',
           pricesIncludeGst: order.pricesIncludeGst ?? false,
+          priority: order.priority ?? 'normal',
+          billingAddress: order.billingAddress ?? '',
+          shippingAddress: order.shippingAddress ?? '',
+          revisionNote: '',
         })
         setLines(linesFromOrder(order, true))
       } else {
@@ -200,6 +216,8 @@ export function OrderForm({ orderId, copyFrom, customerId }: { orderId?: string;
           billingRemarks: order.billingRemarks ?? '',
           packingRemarks: order.packingRemarks ?? '',
           pricesIncludeGst: order.pricesIncludeGst ?? false,
+          billingAddress: order.billingAddress ?? '',
+          shippingAddress: order.shippingAddress ?? '',
         })
         setLines(linesFromOrder(order, false))
       }
@@ -241,6 +259,27 @@ export function OrderForm({ orderId, copyFrom, customerId }: { orderId?: string;
       cancelled = true
     }
   }, [customer, orderId])
+
+  const [addresses, setAddresses] = React.useState<CustomerAddress[]>([])
+  const [shortage, setShortage] = React.useState<{ rows: Array<{ productId: string; title: string; code: string | null; unit: string | null; required: number; free: number; short: number; onOrder: number }>; missingBoms: string[] } | null>(null)
+
+  React.useEffect(() => {
+    if (!customer) {
+      setAddresses([])
+      return
+    }
+    let cancelled = false
+    loadAddresses(customer.id).then((list) => {
+      if (cancelled) return
+      setAddresses(list)
+      const billing = list.find((entry) => entry.purpose === 'billing') ?? list[0]
+      const shipping = list.find((entry) => entry.purpose === 'shipping') ?? billing
+      setHeader((prev) => ({ ...prev, billingAddress: prev.billingAddress || billing?.text || '', shippingAddress: prev.shippingAddress || shipping?.text || '' }))
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [customer])
 
   const patchHeader = (patch: Partial<Header>) => setHeader((prev) => ({ ...prev, ...patch }))
   const patchLine = (key: string, patch: Partial<LineDraft>) => setLines((prev) => prev.map((line) => (line.key === key ? { ...line, ...patch } : line)))
@@ -326,8 +365,12 @@ export function OrderForm({ orderId, copyFrom, customerId }: { orderId?: string;
       flash(t('dermat_orders.errors.delivery', 'Delivery date is before the order date.'), 'error')
       return
     }
+    const { revisionNote, ...headerFields } = header
     const body = {
-      ...header,
+      ...headerFields,
+      ...(existing ? { revisionNote: revisionNote || null } : {}),
+      billingAddress: header.billingAddress || null,
+      shippingAddress: header.shippingAddress || null,
       deliveryDate: header.deliveryDate || null,
       customerId: customer!.id,
       lines: filled.map((line) => ({
@@ -340,6 +383,8 @@ export function OrderForm({ orderId, copyFrom, customerId }: { orderId?: string;
         gstPercent: toNumber(line.gstPercent) ?? 18,
         discountPercent: toNumber(line.discountPercent) ?? 0,
         batchNo: line.batchNo || null,
+        sampleNeeded: line.sampleNeeded,
+        rdNumber: line.rdNumber || null,
         specs: line.specs,
       })),
     }
@@ -381,6 +426,25 @@ export function OrderForm({ orderId, copyFrom, customerId }: { orderId?: string;
     }
   }
 
+  const shortageLines = lines.filter((line) => line.product && line.quantity.trim())
+  const shortageKey = step === 3 ? shortageLines.map((line) => `${line.product?.id}:${line.quantity}`).join('|') : ''
+  const shortageRef = React.useRef(shortageLines)
+  shortageRef.current = shortageLines
+  const existingId = existing?.id ?? null
+  React.useEffect(() => {
+    if (!shortageKey) return
+    let cancelled = false
+    const items = shortageRef.current.map((line) => ({ key: line.key, orderId: existingId, lineId: null, productId: line.product!.id, quantity: toNumber(line.quantity) ?? 0 })).filter((item) => item.quantity > 0)
+    if (!items.length) return
+    setShortage(null)
+    apiCall<{ rows?: Array<{ productId: string; title: string; code: string | null; unit: string | null; required: number; free: number; short: number; onOrder: number }>; missingBoms?: string[] }>('/api/dermat_planning/calculate', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ items }) }, { fallback: { rows: [], missingBoms: [] } }).then((call) => {
+      if (!cancelled && call.ok) setShortage({ rows: call.result?.rows ?? [], missingBoms: call.result?.missingBoms ?? [] })
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [shortageKey, existingId])
+
   if (loadError) {
     return (
       <Page>
@@ -390,6 +454,7 @@ export function OrderForm({ orderId, copyFrom, customerId }: { orderId?: string;
       </Page>
     )
   }
+
   if (loading) {
     return (
       <Page>
@@ -602,6 +667,40 @@ export function OrderForm({ orderId, copyFrom, customerId }: { orderId?: string;
                 <Field label={t('dermat_orders.form.paymentRemarks', 'Payment remarks')} className="md:col-span-6">
                   <Input value={header.paymentRemarks} onChange={(event) => patchHeader({ paymentRemarks: event.target.value })} placeholder="e.g. 40% advance 60% before dispatch" />
                 </Field>
+                <Field label={t('dermat_orders.form.priority', 'Priority')} className="md:col-span-3">
+                  <Select value={header.priority} onValueChange={(value) => patchHeader({ priority: value === 'urgent' ? 'urgent' : 'normal' })}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="normal">{t('dermat_orders.priority.normal', 'Normal')}</SelectItem>
+                      <SelectItem value="urgent">{t('dermat_orders.priority.urgent', 'Urgent')}</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </Field>
+                {(['billingAddress', 'shippingAddress'] as const).map((key) => (
+                  <Field key={key} label={key === 'billingAddress' ? t('dermat_orders.form.billingAddress', 'Bill to') : t('dermat_orders.form.shippingAddress', 'Ship to')} className="md:col-span-6">
+                    {addresses.length ? (
+                      <Select value={addresses.some((entry) => entry.text === header[key]) ? header[key] : header[key] ? '__typed' : '__none'} onValueChange={(value) => patchHeader({ [key]: value === '__none' ? '' : value === '__typed' ? header[key] : value } as Partial<Header>)}>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="__none">—</SelectItem>
+                          {addresses.map((entry) => (
+                            <SelectItem key={entry.id} value={entry.text}>
+                              {entry.purpose ? `${entry.purpose === 'shipping' ? t('dermat_orders.form.addrShipping', 'Shipping') : t('dermat_orders.form.addrBilling', 'Billing')}: ` : ''}
+                              {entry.text}
+                            </SelectItem>
+                          ))}
+                          {header[key] && !addresses.some((entry) => entry.text === header[key]) ? <SelectItem value="__typed">{header[key]}</SelectItem> : null}
+                        </SelectContent>
+                      </Select>
+                    ) : (
+                      <Input value={header[key]} onChange={(event) => patchHeader({ [key]: event.target.value } as Partial<Header>)} placeholder={customer ? t('dermat_orders.form.noAddresses', 'No saved address. Type it or add one on the customer.') : t('dermat_orders.form.pickCustomerFirst', 'Pick the customer first')} />
+                    )}
+                  </Field>
+                ))}
                 {customer && !existing && previous.length ? (
                   <div className="md:col-span-6 md:self-end">
                     <Popover>
@@ -667,6 +766,7 @@ export function OrderForm({ orderId, copyFrom, customerId }: { orderId?: string;
                         <th className="w-24 px-2 py-2 text-left font-semibold">{t('dermat_orders.form.gst', 'GST %')}</th>
                         <th className="w-20 px-2 py-2 text-right font-semibold">{t('dermat_orders.form.discount', 'Disc. %')}</th>
                         <th className="w-28 px-2 py-2 text-left font-semibold">{t('dermat_orders.form.batchNo', 'Batch no.')}</th>
+                        <th className="w-36 px-2 py-2 text-left font-semibold">{t('dermat_orders.form.sampleRd', 'Sample / R&D no.')}</th>
                         <th className="w-28 px-2 py-2 text-right font-semibold">{t('dermat_orders.form.lineTotal', 'Total (₹)')}</th>
                         <th className="px-2 py-2" />
                       </tr>
@@ -734,7 +834,14 @@ export function OrderForm({ orderId, copyFrom, customerId }: { orderId?: string;
                                 <Input type="number" min={0} max={100} step="any" className="text-right" value={line.discountPercent} onChange={(event) => patchLine(line.key, { discountPercent: event.target.value })} placeholder="0" />
                               </td>
                               <td className="px-2 py-2">
-                                <Input value={line.batchNo} onChange={(event) => patchLine(line.key, { batchNo: event.target.value })} placeholder="57001" />
+                                <Input value={line.batchNo} onChange={(event) => patchLine(line.key, { batchNo: event.target.value })} placeholder={t('dermat_orders.form.batchAuto', 'Auto')} />
+                              </td>
+                              <td className="px-2 py-2">
+                                <label className="mb-1 flex items-center gap-1.5 text-xs">
+                                  <input type="checkbox" className="h-3.5 w-3.5 rounded-sm border-input" checked={line.sampleNeeded} onChange={(event) => patchLine(line.key, { sampleNeeded: event.target.checked })} />
+                                  {t('dermat_orders.form.sampleNeeded', 'Sample needed')}
+                                </label>
+                                <Input value={line.rdNumber} onChange={(event) => patchLine(line.key, { rdNumber: event.target.value })} placeholder={t('dermat_orders.form.rdPlaceholder', 'R&D no.')} aria-label={t('dermat_orders.form.rdNumber', 'R&D number')} />
                               </td>
                               <td className="px-2 py-2 pt-4 text-right font-medium tabular-nums">{total > 0 ? `₹${formatQty(total, 2)}` : '—'}</td>
                               <td className="px-2 py-2">
@@ -755,7 +862,7 @@ export function OrderForm({ orderId, copyFrom, customerId }: { orderId?: string;
                             {error ? (
                               <tr className="border-b">
                                 <td />
-                                <td colSpan={11} className="px-2 pb-2 text-xs text-status-error-text">
+                                <td colSpan={12} className="px-2 pb-2 text-xs text-status-error-text">
                                   {error}
                                 </td>
                               </tr>
@@ -775,7 +882,7 @@ export function OrderForm({ orderId, copyFrom, customerId }: { orderId?: string;
                           ) : null}
                         </td>
                         <td className="px-2 py-3 text-right font-semibold tabular-nums">{formatQty(totalPieces, 0)}</td>
-                        <td colSpan={4} className="px-2 py-3 text-right text-xs text-muted-foreground">
+                        <td colSpan={5} className="px-2 py-3 text-right text-xs text-muted-foreground">
                           {orderTotals.total > 0 ? t('dermat_orders.form.taxBreak', '₹{taxable} + GST ₹{gst}', { taxable: formatQty(orderTotals.taxable, 2), gst: formatQty(orderTotals.gst, 2) }) : null}
                         </td>
                         <td className="px-2 py-3 text-right font-bold tabular-nums">{orderTotals.total > 0 ? `₹${formatQty(orderTotals.total, 2)}` : '—'}</td>
@@ -886,6 +993,9 @@ export function OrderForm({ orderId, copyFrom, customerId }: { orderId?: string;
                       [t('dermat_orders.form.salesManager', 'Sales POC'), header.salesManager || '—'],
                       [t('dermat_orders.form.paymentTerms', 'Payment terms'), PAYMENT_TERMS_LABEL[header.paymentTerms] ?? (header.paymentTerms || '—')],
                       [t('dermat_orders.form.paymentRemarks', 'Payment remarks'), header.paymentRemarks || '—'],
+                      [t('dermat_orders.form.priority', 'Priority'), header.priority === 'urgent' ? t('dermat_orders.priority.urgent', 'Urgent') : t('dermat_orders.priority.normal', 'Normal')],
+                      [t('dermat_orders.form.billingAddress', 'Bill to'), header.billingAddress || '—'],
+                      [t('dermat_orders.form.shippingAddress', 'Ship to'), header.shippingAddress || '—'],
                     ].map(([label, value]) => (
                       <div key={label}>
                         <dt className="text-xs text-muted-foreground">{label}</dt>
@@ -913,7 +1023,9 @@ export function OrderForm({ orderId, copyFrom, customerId }: { orderId?: string;
                               <span className="block text-xs text-muted-foreground">
                                 {line.product?.code ? `${line.product.code} · ` : ''}
                                 {line.product?.title}
-                                {line.batchNo ? ` · Batch ${line.batchNo}` : ''}
+                                {line.batchNo ? ` · Batch ${line.batchNo}` : ` · ${t('dermat_orders.form.batchAutoNote', 'batch no. given on booking')}`}
+                                {line.sampleNeeded ? ` · ${t('dermat_orders.form.sampleNeeded', 'Sample needed')}` : ''}
+                                {line.rdNumber ? ` · R&D ${line.rdNumber}` : ''}
                               </span>
                             </td>
                             <td className="px-3 py-2">{line.packSize || '—'}</td>
@@ -926,6 +1038,51 @@ export function OrderForm({ orderId, copyFrom, customerId }: { orderId?: string;
                       </tbody>
                     </table>
                   </div>
+                  <section className="space-y-2 rounded-md border p-3" aria-labelledby="order-materials-check">
+                    <h3 id="order-materials-check" className="text-sm font-semibold">
+                      {t('dermat_orders.form.materialsCheck', 'Materials check')}
+                    </h3>
+                    {!shortage ? (
+                      <p className="text-xs text-muted-foreground">{t('dermat_orders.form.checking', 'Checking raw and packing material against free stock…')}</p>
+                    ) : (
+                      <>
+                        {shortage.missingBoms.length ? (
+                          <p className="text-xs text-status-warning-text">{t('dermat_orders.form.noBomCheck', 'No approved BOM yet for {count} product(s), so their materials cannot be checked.', { count: shortage.missingBoms.length })}</p>
+                        ) : null}
+                        {shortage.rows.filter((row) => row.short > 0).length ? (
+                          <>
+                            <p className="text-xs font-medium text-status-warning-text">
+                              {t('dermat_orders.form.shortWarning', '{count} material(s) are short. You can still book; Planning and Purchase will see it.', { count: shortage.rows.filter((row) => row.short > 0).length })}
+                            </p>
+                            <ul className="divide-y text-xs">
+                              {shortage.rows
+                                .filter((row) => row.short > 0)
+                                .slice(0, 12)
+                                .map((row) => (
+                                  <li key={row.productId} className="flex items-center justify-between gap-3 py-1.5">
+                                    <span className="min-w-0 truncate">
+                                      <span className="mr-1.5 font-mono text-muted-foreground">{row.code ?? ''}</span>
+                                      {row.title}
+                                    </span>
+                                    <span className="shrink-0 tabular-nums text-status-error-text">
+                                      {t('dermat_orders.form.shortBy', 'short {qty} {unit}', { qty: formatQty(row.short, 2), unit: row.unit ?? '' })}
+                                      {row.onOrder > 0 ? <span className="ml-1 text-muted-foreground">{t('dermat_orders.form.onOrder', '({qty} on order)', { qty: formatQty(row.onOrder, 2) })}</span> : null}
+                                    </span>
+                                  </li>
+                                ))}
+                            </ul>
+                          </>
+                        ) : shortage.rows.length ? (
+                          <p className="text-xs text-status-success-text">{t('dermat_orders.form.allInStock', 'All {count} materials are free in stock.', { count: shortage.rows.length })}</p>
+                        ) : null}
+                      </>
+                    )}
+                  </section>
+                  {existing ? (
+                    <Field label={t('dermat_orders.form.revisionNote', 'What changed and why (shown in the history)')}>
+                      <Input value={header.revisionNote} onChange={(event) => patchHeader({ revisionNote: event.target.value })} placeholder={t('dermat_orders.form.revisionPlaceholder', 'e.g. client increased quantity by phone')} />
+                    </Field>
+                  ) : null}
                 </CardContent>
               </Card>
               <Card>

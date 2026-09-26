@@ -27,7 +27,7 @@ import { ProductionRoundsPanel, QaArtworkChecklist, QaReleaseReview } from './Qu
 import type { Order, Stage } from './types'
 
 export type StageActionRequest = {
-  action: 'start' | 'checklist' | 'rework' | 'reject_batch' | 'save' | 'complete' | 'hold' | 'resume' | 'revert' | 'skip' | 'assign' | 'step' | 'pm_status' | 'new_round'
+  action: 'start' | 'checklist' | 'rework' | 'reject_batch' | 'save' | 'complete' | 'hold' | 'resume' | 'revert' | 'skip' | 'assign' | 'step' | 'pm_status' | 'new_round' | 'delivered'
   stepKey?: string
   productId?: string
   pmStatus?: string
@@ -478,6 +478,13 @@ export function StageWorkArea({ order, stage, people, canWork: canWorkProp, busy
           />
         ) : null}
 
+        {stage.key === 'dispatch' && stage.status === 'done' && (granted.has('dermat_orders.work.dispatch') || granted.has('dermat_orders.manage')) ? (
+          <DeliveredBox
+            deliveredOn={typeof stage.data?.delivered_on === 'string' ? stage.data.delivered_on : null}
+            busy={busy}
+            onMark={(date, receivedNote) => run({ action: 'delivered', data: { delivered_on: date }, note: receivedNote || undefined })}
+          />
+        ) : null}
         {!canWork && granted.ready && canWorkProp && (stage.status === 'open' || stage.status === 'on_hold') ? (
           <p className="rounded-md border border-status-info-border bg-status-info-bg px-3 py-2 text-xs text-status-info-text">
             {t('dermat_orders.sheet.viewOnly', 'View only: {department} works on this stage. Your role can see it but not change it.', { department: def.department })}
@@ -625,6 +632,32 @@ export function StageWorkArea({ order, stage, people, canWork: canWorkProp, busy
         </div>
       ) : null}
     </>
+  )
+}
+
+
+function DeliveredBox({ deliveredOn, busy, onMark }: { deliveredOn: string | null; busy: boolean; onMark: (date: string, note: string) => Promise<boolean> }) {
+  const t = useT()
+  const [date, setDate] = React.useState(() => new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' }))
+  const [note, setNote] = React.useState('')
+  if (deliveredOn) {
+    return (
+      <p className="rounded-md border border-status-success-border bg-status-success-bg px-3 py-2 text-sm text-status-success-text">
+        {t('dermat_orders.sheet.deliveredOn', 'Delivered to the client on {date}.', { date: formatDate(deliveredOn) })}
+      </p>
+    )
+  }
+  return (
+    <div className="space-y-2 rounded-md border p-3">
+      <p className="text-sm font-medium">{t('dermat_orders.sheet.deliveredTitle', 'Did the goods reach the client?')}</p>
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+        <Input type="date" value={date} onChange={(event) => setDate(event.target.value)} aria-label={t('dermat_orders.sheet.deliveredDate', 'Delivered on')} />
+        <Input className="sm:col-span-2" value={note} onChange={(event) => setNote(event.target.value)} placeholder={t('dermat_orders.sheet.deliveredNote', 'Received by / POD no. (optional)')} aria-label={t('dermat_orders.sheet.deliveredNoteLabel', 'Received by')} />
+      </div>
+      <Button type="button" size="sm" disabled={busy || !date} onClick={() => void onMark(date, note.trim())}>
+        {t('dermat_orders.sheet.markDelivered', 'Mark delivered')}
+      </Button>
+    </div>
   )
 }
 
