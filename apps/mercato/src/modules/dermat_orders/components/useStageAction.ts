@@ -56,6 +56,8 @@ export function useStageAction(contextId: string) {
             resume: t('dermat_orders.flash.resumed', '{stage} resumed', { stage: stage.label }),
             revert: t('dermat_orders.flash.reopened', '{stage} reopened', { stage: stage.label }),
             assign: t('dermat_orders.flash.assigned', 'Responsible person updated'),
+            pm_status: t('dermat_orders.flash.pmStatus', 'Packing item status updated'),
+            new_round: t('dermat_orders.flash.newRound', 'New sample round started'),
           }
           flash(messages[request.action] ?? '', 'success')
         }

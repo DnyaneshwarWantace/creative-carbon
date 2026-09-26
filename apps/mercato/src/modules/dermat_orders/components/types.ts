@@ -122,6 +122,7 @@ export type Order = {
   qc: Record<string, OrderQcCheck[]>
   store: Record<string, OrderStoreRequest[]>
   reservations: Array<{ productId: string; title: string; unit: string | null; quantity: number; since: string }>
+  packItems: Array<{ productId: string; title: string; code: string | null; unit: string; quantity: number }>
   pricesIncludeGst: boolean
   totals: { gross: number; discount: number; taxable: number; gst: number; total: number }
   payments: { received: number; due: number; items: OrderPayment[] }

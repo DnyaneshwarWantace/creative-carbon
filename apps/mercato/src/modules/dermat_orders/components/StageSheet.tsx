@@ -15,11 +15,14 @@ import { HOLD_PARTIES, stageDef, stepStates, type StageField } from '../lib/stag
 import { cn } from '@open-mercato/shared/lib/utils'
 import { STAGE_VARIANT, formatDate, formatDateTime, formatQty } from './format'
 import { ProductionPanel } from './ProductionPanel'
+import { PackItemsPanel, SampleRoundsPanel } from './ArtworkPanels'
 import type { Order, Stage } from './types'
 
 export type StageActionRequest = {
-  action: 'save' | 'complete' | 'hold' | 'resume' | 'revert' | 'skip' | 'assign' | 'step'
+  action: 'save' | 'complete' | 'hold' | 'resume' | 'revert' | 'skip' | 'assign' | 'step' | 'pm_status' | 'new_round'
   stepKey?: string
+  productId?: string
+  pmStatus?: string
   done?: boolean
   data?: Record<string, string | number | null>
   note?: string
@@ -384,6 +387,12 @@ export function StageWorkArea({ order, stage, people, canWork, busy, shortCount,
             </ul>
           </div>
         ) : null}
+
+        {stage.key === 'artwork' && order.packItems?.length ? (
+          <PackItemsPanel order={order} stage={stage} editable={editable} busy={busy} onStatus={(productId, pmStatus) => run({ action: 'pm_status', productId, pmStatus })} />
+        ) : null}
+
+        {stage.key === 'sampling' ? <SampleRoundsPanel stage={stage} editable={editable} busy={busy} onNewRound={(text) => run({ action: 'new_round', note: text })} /> : null}
 
         {mode === 'form' && (stage.key === 'manufacturing' || stage.key === 'filling') ? (
           <ProductionPanel

@@ -40,8 +40,10 @@ export const orderUpdateSchema = orderInputSchema.extend({ id: z.string().uuid()
 export const stageActionSchema = z.object({
   orderId: z.string().uuid(),
   stageKey: z.enum(STAGE_KEYS as [string, ...string[]]),
-  action: z.enum(['save', 'complete', 'hold', 'resume', 'revert', 'skip', 'assign', 'step']),
+  action: z.enum(['save', 'complete', 'hold', 'resume', 'revert', 'skip', 'assign', 'step', 'pm_status', 'new_round']),
   stepKey: z.string().max(60).optional(),
+  productId: z.string().uuid().optional(),
+  pmStatus: z.string().max(60).optional(),
   done: z.boolean().optional(),
   data: z.record(z.string(), z.union([z.string().max(2000), z.number(), z.null()])).optional(),
   note: optionalText(1000),

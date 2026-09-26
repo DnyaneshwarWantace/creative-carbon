@@ -289,3 +289,26 @@ export async function onProductionStageDone(ctx: StoreContext, orderId: string, 
   if (problems.length) await ctx.em.flush()
   return problems
 }
+
+export type PackItem = { productId: string; title: string; code: string | null; unit: string; quantity: number }
+
+export async function packItems(ctx: OrderContext, orderId: string): Promise<PackItem[]> {
+  const lines = await ctx.em.find(DermatOrderLine, { orderId })
+  const boms = await approvedPackBoms(ctx, lines.map((line) => line.productId))
+  const totals = new Map<string, number>()
+  for (const line of lines) {
+    const bom = boms.get(line.productId)
+    if (!bom) continue
+    const items = await ctx.em.find(BomItem, { bomId: bom.id, componentKind: 'packing_material' })
+    for (const item of items) totals.set(item.componentProductId, (totals.get(item.componentProductId) ?? 0) + Number(item.qtyPerUnit ?? 0) * Number(line.quantity))
+  }
+  if (!totals.size) return []
+  const products = await loadBomProducts(ctx, Array.from(totals.keys()))
+  return Array.from(totals.entries()).map(([productId, quantity]) => ({
+    productId,
+    title: products.get(productId)?.title ?? '—',
+    code: products.get(productId)?.code ?? null,
+    unit: products.get(productId)?.unit ?? 'pc',
+    quantity: round(quantity),
+  }))
+}

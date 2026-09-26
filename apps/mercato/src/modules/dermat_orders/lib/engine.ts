@@ -1,10 +1,10 @@
 import { DermatOrder, DermatOrderEvent, DermatOrderLine, DermatOrderStage } from '../data/entities'
 import type { StageActionInput } from '../data/validators'
-import { STAGES, isFinished, missingRequired, missingSteps, stageDef, stepStates } from './stages'
+import { DESIGNER_STATUSES, STAGES, isFinished, missingRequired, missingSteps, stageDef, stepStates } from './stages'
 import { blockingChecks, checksForOrder, ensureChecksForStage, retireStageChecks, type StageQcSummary } from '../../dermat_quality/lib/service'
 import { requestsForOrder, storeBlocking } from '../../dermat_store/lib/service'
 import { reservationsForOrder } from '../../dermat_planning/lib/service'
-import { USE_EXISTING_BULK, existingBulkProblem } from './productionStock'
+import { USE_EXISTING_BULK, existingBulkProblem, packItems } from './productionStock'
 import { paymentView, paymentsFor, received, recordAdvanceFromStage } from '../../dermat_accounts/lib/service'
 import { priceLine, priceOrder } from './pricing'
 
@@ -148,6 +148,28 @@ export async function applyStageAction(ctx: OrderContext, order: DermatOrder, in
       logEvent(ctx, order, done ? 'step_done' : 'step_undone', def.key, step.label, byName)
       break
     }
+    case 'pm_status': {
+      if (def.key !== 'artwork') throw new OrderError('Packing item status belongs to Artwork & packaging')
+      if (stage.status !== 'open' && stage.status !== 'on_hold') throw new OrderError(`${def.label} is not in progress`, 409)
+      if (!input.productId || !input.pmStatus || !DESIGNER_STATUSES.includes(input.pmStatus)) throw new OrderError('Pick a packing item and a status')
+      const item = (await packItems(ctx, order.id)).find((entry) => entry.productId === input.productId)
+      if (!item) throw new OrderError('That packing item is not on this order', 404)
+      const current = (stage.data?.__pm as Record<string, unknown> | undefined) ?? {}
+      stage.data = { ...(stage.data ?? {}), __pm: { ...current, [item.productId]: { status: input.pmStatus, note: note ?? null, at: new Date().toISOString(), by: byName } } }
+      logEvent(ctx, order, 'pm_status', def.key, `${item.title}: ${input.pmStatus}${note ? ` (${note})` : ''}`, byName)
+      break
+    }
+    case 'new_round': {
+      if (def.key !== 'sampling') throw new OrderError('Sample rounds belong to Sampling / R&D')
+      if (stage.status !== 'open' && stage.status !== 'on_hold') throw new OrderError(`${def.label} is not in progress`, 409)
+      if (!note) throw new OrderError('Write what the client asked to change')
+      const rounds = Array.isArray(stage.data?.__rounds) ? (stage.data?.__rounds as Array<Record<string, unknown>>) : []
+      const steps = { ...stepStates(stage.data) }
+      for (const key of ['sample_made', 'sample_sent', 'client_ok']) steps[key] = { done: false, at: null, by: null }
+      stage.data = { ...(stage.data ?? {}), client_feedback: null, __steps: steps, __rounds: [...rounds, { round: rounds.length + 1, feedback: note, at: new Date().toISOString(), by: byName }] }
+      logEvent(ctx, order, 'sample_round', def.key, `Round ${rounds.length + 2}: ${note}`, byName)
+      break
+    }
     case 'save': {
       if (stage.status === 'waiting') throw new OrderError(`${def.label} has not started yet`, 409)
       if (isFinished(stage.status)) throw new OrderError(`${def.label} is finished. Reopen it to change it.`, 409)
@@ -164,6 +186,17 @@ export async function applyStageAction(ctx: OrderContext, order: DermatOrder, in
       if (missing.length) throw new OrderError(`Fill in: ${missing.join(', ')}`, 400, { missing })
       const openSteps = missingSteps(def, stage.data)
       if (openSteps.length) throw new OrderError(`Tick these steps first: ${openSteps.join(', ')}`, 400, { steps: openSteps })
+      if (def.key === 'sampling' && stage.data?.client_feedback !== 'Approved') {
+        throw new OrderError('The client has not approved the sample. Set feedback to Approved, or start another round with their changes.', 400)
+      }
+      if (def.key === 'artwork') {
+        const items = await packItems(ctx, order.id)
+        const statuses = (stage.data?.__pm as Record<string, { status?: string }> | undefined) ?? {}
+        const notReady = items.filter((item) => !['PM OK', 'Half PM OK'].includes(statuses[item.productId]?.status ?? ''))
+        if (notReady.length) {
+          throw new OrderError(`Packing material not ready: ${notReady.map((item) => `${item.title} (${statuses[item.productId]?.status ?? 'no status'})`).join(', ')}`, 400, { pm: notReady.map((item) => item.productId) })
+        }
+      }
       const reusingBulk = def.key === 'manufacturing' && stage.data?.bulk_source === USE_EXISTING_BULK
       if (reusingBulk) {
         const problem = await existingBulkProblem(ctx, order.id, String(stage.data?.batch_no ?? '').trim())
@@ -383,6 +416,7 @@ export async function serializeOrder(ctx: OrderContext, order: DermatOrder) {
     ),
     store,
     reservations,
+    packItems: await packItems(ctx, order.id),
     events: events.map((event) => ({
       id: event.id,
       stageKey: event.stageKey ?? null,
