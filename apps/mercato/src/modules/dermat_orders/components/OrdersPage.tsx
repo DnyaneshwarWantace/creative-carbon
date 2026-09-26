@@ -354,18 +354,18 @@ export function OrdersPage() {
     <Page>
       <PageBody>
         <div className="flex flex-col gap-5 pb-16">
-          <header className="flex flex-wrap items-end justify-between gap-4 border-b pb-4">
-            <div className="space-y-1">
+          <header className="flex flex-col gap-4 border-b pb-4 xl:flex-row xl:items-start xl:justify-between">
+            <div className="min-w-0 flex-1 space-y-1">
               <div className="flex items-center gap-2">
                 <FileSpreadsheet className="h-6 w-6 text-primary" aria-hidden="true" />
                 <h1 className="text-2xl font-bold tracking-tight">{t('dermat_orders.book.title', 'Order book & production master sheet')}</h1>
                 <span className="rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-bold text-primary tabular-nums">{data?.total ?? '–'}</span>
               </div>
-              <p className="max-w-3xl text-sm text-muted-foreground">
-                {t('dermat_orders.book.lede', 'Every order, product by product, with where it is now. Press Edit table to change cells in place — text as text, lists as dropdowns — then Save all. Press the stage on the right to open its form: fill it, complete it, and the order moves to the next stage.')}
+              <p className="max-w-2xl text-sm text-muted-foreground">
+                {t('dermat_orders.book.lede', 'Every order, product by product, and where it is now. Edit table changes cells in place; the stage button on the right opens that stage’s form.')}
               </p>
             </div>
-            <div className="flex flex-wrap items-center gap-2">
+            <div className="flex shrink-0 flex-wrap items-center gap-2 xl:justify-end">
               <SegmentedControl value={view} onValueChange={(value) => setView(value as typeof view)} aria-label={t('dermat_orders.book.viewMode', 'View')}>
                 <SegmentedControlItem value="table">
                   <List className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
