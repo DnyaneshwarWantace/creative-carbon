@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from 'react'
+import { ListSelectItems } from '../../dermat_lists/components/ListSelectItems'
 import Link from 'next/link'
 import { Ban, IndianRupee, Pencil, Plus, Search } from 'lucide-react'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
@@ -22,7 +23,6 @@ import { downloadCsv, fetchAllPages } from '../../dermat_products/lib/csvExport'
 import { rupeeText } from '../../dermat_products/lib/whatsapp'
 import { PaymentDialog, type PaymentRow } from './PaymentDialog'
 
-const MODES = ['NEFT / RTGS', 'UPI', 'Cheque', 'Cash', 'Other']
 const ALL = '__all'
 const KIND_LABEL: Record<string, string> = { advance: 'Advance', balance: 'Balance', other: 'Other' }
 
@@ -143,11 +143,7 @@ export function PaymentsPage() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value={ALL}>{t('dermat_accounts.pay.anyMode', 'Any mode')}</SelectItem>
-                  {MODES.map((entry) => (
-                    <SelectItem key={entry} value={entry}>
-                      {entry}
-                    </SelectItem>
-                  ))}
+                  <ListSelectItems listKey="payment_modes" current={mode === ALL ? null : mode} />
                 </SelectContent>
               </Select>
             </div>

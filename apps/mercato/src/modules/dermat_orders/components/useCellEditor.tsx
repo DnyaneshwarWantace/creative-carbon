@@ -157,6 +157,7 @@ export function useCellEditor({ contextId, patchOrder, refresh }: Options) {
       <EditField
         kind={edit.kind}
         options={edit.options}
+        listKey={edit.listKey}
         align={column.align}
         value={draft ? draft.value : original}
         dirty={Boolean(draft)}

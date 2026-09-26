@@ -1,6 +1,7 @@
 'use client'
 
 import * as React from 'react'
+import { ListSelectItems } from '../../dermat_lists/components/ListSelectItems'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { Check, CheckCircle2, CirclePause, CirclePlay, FileStack, Hourglass, Lock, PackagePlus, Play, RotateCcw, SkipForward, Wallet } from 'lucide-react'
@@ -146,11 +147,7 @@ export function StageWorkArea({ order, stage, people, canWork, busy, shortCount,
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="__none">—</SelectItem>
-            {(field.options ?? []).map((option) => (
-              <SelectItem key={option} value={option}>
-                {option}
-              </SelectItem>
-            ))}
+            <ListSelectItems listKey={field.listKey} fallback={field.options} current={value} />
           </SelectContent>
         </Select>
       )
@@ -516,11 +513,7 @@ export function StageWorkArea({ order, stage, people, canWork, busy, shortCount,
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {HOLD_PARTIES.map((option) => (
-                      <SelectItem key={option} value={option}>
-                        {option}
-                      </SelectItem>
-                    ))}
+                    <ListSelectItems listKey="hold_parties" current={party} />
                   </SelectContent>
                 </Select>
               </div>

@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from 'react'
+import { useListOptions } from '../../dermat_lists/components/useListOptions'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { ArrowLeft, Building2, MapPin, Plus, Save, Trash2, Truck, Users } from 'lucide-react'
@@ -29,7 +30,6 @@ const GST_TYPES = [
   { value: 'composition', label: 'Composition' },
   { value: 'overseas', label: 'Overseas' },
 ]
-const PAYMENT_REMARKS = ['40% advance 60% before dispatch', '50% advance and 50% before dispatch', '30% Advance 70% before Dispatch', '25% Advance and 75% Before Dispatch', '20% ADVANCE', '60DAYS CREDIT', '90 DAYS', 'As Discussed']
 const NONE = '__none'
 const EMPTY_ADDRESS: AddressForm = { id: null, street: '', pin: '', district: '', state: '', country: 'India' }
 
@@ -74,6 +74,7 @@ export function CustomerForm({ customerId }: { customerId?: string }) {
   const [shipping, setShipping] = React.useState<AddressForm>({ ...EMPTY_ADDRESS })
   const [sameAsBilling, setSameAsBilling] = React.useState(true)
   const [errors, setErrors] = React.useState<Record<string, string>>({})
+  const remarkOptions = useListOptions('payment_remarks', form.paymentRemarks)
 
   React.useEffect(() => {
     if (!customerId) return
@@ -373,7 +374,7 @@ export function CustomerForm({ customerId }: { customerId?: string }) {
               </div>
               {field('salesManager', t('dermat_customers.form.salesManager', 'Sales manager'))}
               {select('paymentTerms', t('dermat_customers.form.terms', 'Payment terms'), Object.entries(PAYMENT_TERMS_LABEL).map(([value, label]) => ({ value, label })))}
-              {select('paymentRemarks', t('dermat_customers.form.remarks', 'Payment remarks'), PAYMENT_REMARKS.map((value) => ({ value, label: value })), true)}
+              {select('paymentRemarks', t('dermat_customers.form.remarks', 'Payment remarks'), remarkOptions.map((value) => ({ value, label: value })), true)}
               <div className="space-y-1">
                 <Label className="text-xs text-muted-foreground">{t('dermat_customers.form.currency', 'Currency')}</Label>
                 <Input value="INR (₹)" disabled />

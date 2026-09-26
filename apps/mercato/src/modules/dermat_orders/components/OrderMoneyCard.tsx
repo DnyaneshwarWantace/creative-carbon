@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from 'react'
+import { ListSelectItems } from '../../dermat_lists/components/ListSelectItems'
 import { FileText, IndianRupee, Plus, Printer, Truck, X } from 'lucide-react'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { cn } from '@open-mercato/shared/lib/utils'
@@ -18,7 +19,6 @@ import { formatDate, todayIso } from './format'
 import { printCoa, printDoc, type CoaCheck, type DocCompany } from './printDocs'
 import type { Order, OrderPayment } from './types'
 
-const MODES = ['NEFT / RTGS', 'UPI', 'Cheque', 'Cash', 'Other']
 const KIND_LABEL: Record<OrderPayment['kind'], string> = { advance: 'Advance', balance: 'Balance', other: 'Other' }
 
 function rupees(value: number): string {
@@ -265,11 +265,7 @@ export function OrderMoneyCard({ order, onChanged }: { order: Order; onChanged: 
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {MODES.map((mode) => (
-                    <SelectItem key={mode} value={mode}>
-                      {mode}
-                    </SelectItem>
-                  ))}
+                  <ListSelectItems listKey="payment_modes" current={form.mode} />
                 </SelectContent>
               </Select>
             </div>

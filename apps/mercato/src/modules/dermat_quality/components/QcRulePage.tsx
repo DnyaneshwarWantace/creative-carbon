@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from 'react'
+import { ListSelectItems } from '../../dermat_lists/components/ListSelectItems'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { ArrowLeft, Plus, Trash2 } from 'lucide-react'
@@ -18,7 +19,7 @@ import { buildOptimisticLockHeader } from '@open-mercato/ui/backend/utils/optimi
 import { useGuardedMutation } from '@open-mercato/ui/backend/injection/useGuardedMutation'
 import { flash } from '@open-mercato/ui/backend/FlashMessages'
 import { ErrorMessage, LoadingMessage } from '@open-mercato/ui/backend/detail'
-import { QC_CLASSES, DEFAULT_RULES } from '../lib/defaults'
+import { DEFAULT_RULES } from '../lib/defaults'
 import { OPERATION_LABEL } from './shared'
 
 type Param = { key: string; name: string; class: string; spec: string; test: 'chemical' | 'micro'; min?: number | null; max?: number | null; unit?: string | null }
@@ -375,11 +376,7 @@ export function QcRulePage({ ruleId }: { ruleId?: string }) {
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
-                            {QC_CLASSES.map((entry) => (
-                              <SelectItem key={entry} value={entry}>
-                                {entry}
-                              </SelectItem>
-                            ))}
+                            <ListSelectItems listKey="qc_classes" current={param.class} />
                           </SelectContent>
                         </Select>
                       </td>

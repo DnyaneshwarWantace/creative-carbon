@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from 'react'
+import { ListSelectItems } from '../../dermat_lists/components/ListSelectItems'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { ArrowLeft, CheckCircle2, ChevronLeft, ChevronRight, ClipboardList, Copy, FileStack, Package, Plus, StickyNote, Trash2, UserRound } from 'lucide-react'
@@ -828,11 +829,7 @@ export function OrderForm({ orderId, copyFrom, customerId }: { orderId?: string;
                                     </SelectTrigger>
                                     <SelectContent>
                                       <SelectItem value="__none">—</SelectItem>
-                                      {[...field.options, PARTY_SIDE].map((option) => (
-                                        <SelectItem key={option} value={option}>
-                                          {option}
-                                        </SelectItem>
-                                      ))}
+                                      <ListSelectItems listKey={field.listKey} fallback={field.options} current={value} extra={[PARTY_SIDE]} />
                                     </SelectContent>
                                   </Select>
                                 ) : (

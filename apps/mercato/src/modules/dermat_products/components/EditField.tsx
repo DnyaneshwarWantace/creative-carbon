@@ -5,6 +5,7 @@ import { cn } from '@open-mercato/shared/lib/utils'
 import { Input } from '@open-mercato/ui/primitives/input'
 import { Textarea } from '@open-mercato/ui/primitives/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@open-mercato/ui/primitives/select'
+import { useListOptions } from '../../dermat_lists/components/useListOptions'
 
 export type EditKind = 'text' | 'number' | 'date' | 'time' | 'select' | 'textarea'
 export type EditOption = string | { value: string; label: string }
@@ -13,6 +14,7 @@ type Props = {
   kind: EditKind
   value: string
   options?: EditOption[]
+  listKey?: string
   dirty?: boolean
   align?: 'right' | 'center'
   onChange: (value: string) => void
@@ -20,10 +22,11 @@ type Props = {
 
 const NONE = '__none'
 
-export function EditField({ kind, value, options, dirty, align, onChange }: Props) {
+export function EditField({ kind, value, options, listKey, dirty, align, onChange }: Props) {
+  const managed = useListOptions(listKey ?? '')
   const tone = dirty ? 'border-status-warning-border bg-status-warning-bg' : 'bg-background'
   if (kind === 'select') {
-    const list = (options ?? []).map((option) => (typeof option === 'string' ? { value: option, label: option } : option))
+    const list = (listKey ? managed : options ?? []).map((option) => (typeof option === 'string' ? { value: option, label: option } : option))
     return (
       <Select value={value || NONE} onValueChange={(next) => onChange(next === NONE ? '' : next)}>
         <SelectTrigger className={cn('h-7 min-w-32 text-xs', tone)}>

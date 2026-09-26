@@ -1,4 +1,4 @@
-export type SpecField = { key: string; label: string; options?: string[] }
+export type SpecField = { key: string; label: string; options?: string[]; listKey?: string }
 export type SpecSection = { key: 'production' | 'primary' | 'secondary'; title: string; fields: SpecField[] }
 
 export const LINE_SPEC_SECTIONS: SpecSection[] = [
@@ -24,9 +24,9 @@ export const LINE_SPEC_SECTIONS: SpecSection[] = [
       { key: 'packing_code', label: 'Packing code' },
       { key: 'cap_colour', label: 'Cap colour' },
       { key: 'body_colour', label: 'Body colour' },
-      { key: 'tube_shape', label: 'Round or oval tube', options: ['Round', 'Oval'] },
-      { key: 'decoration', label: 'Labelled or printed tube', options: ['Labelled', 'Printed'] },
-      { key: 'finish', label: 'Matt or glossy finishing', options: ['Matt', 'Glossy'] },
+      { key: 'tube_shape', label: 'Round or oval tube', options: ['Round', 'Oval'], listKey: 'tube_shape' },
+      { key: 'decoration', label: 'Labelled or printed tube', options: ['Labelled', 'Printed'], listKey: 'tube_decoration' },
+      { key: 'finish', label: 'Matt or glossy finishing', options: ['Matt', 'Glossy'], listKey: 'tube_finish' },
       { key: 'vendor', label: 'Tube / bottle vendor' },
       { key: 'leafing', label: 'Leafing, UV, foiling etc.' },
       { key: 'remarks', label: 'Packaging remarks' },

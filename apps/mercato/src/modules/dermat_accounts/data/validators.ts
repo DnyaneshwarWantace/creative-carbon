@@ -1,13 +1,14 @@
 import { z } from 'zod'
 
-export const PAYMENT_MODES = ['NEFT / RTGS', 'UPI', 'Cheque', 'Cash', 'Other'] as const
+
+const paymentModeSchema = z.string().trim().min(1).max(80)
 
 export const paymentInputSchema = z.object({
   orderId: z.string().uuid(),
   kind: z.enum(['advance', 'balance', 'other']),
   amount: z.coerce.number().positive().max(1_000_000_000),
   paidOn: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-  mode: z.enum(PAYMENT_MODES).optional().nullable(),
+  mode: paymentModeSchema.optional().nullable(),
   reference: z.string().trim().max(120).optional().nullable(),
   note: z.string().trim().max(500).optional().nullable(),
   invoiceId: z.string().uuid().optional().nullable(),
@@ -18,7 +19,7 @@ export const paymentUpdateSchema = z.object({
   kind: z.enum(['advance', 'balance', 'other']).optional(),
   amount: z.coerce.number().positive().max(1_000_000_000).optional(),
   paidOn: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
-  mode: z.enum(PAYMENT_MODES).optional().nullable(),
+  mode: paymentModeSchema.optional().nullable(),
   reference: z.string().trim().max(120).optional().nullable(),
   note: z.string().trim().max(500).optional().nullable(),
   invoiceId: z.string().uuid().optional().nullable(),
@@ -28,7 +29,7 @@ export const paymentUpdateSchema = z.object({
 export const receiptsQuerySchema = z.object({
   from: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
   to: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
-  mode: z.enum(PAYMENT_MODES).optional(),
+  mode: paymentModeSchema.optional(),
   customerId: z.string().uuid().optional(),
   search: z.string().trim().max(120).optional(),
   includeVoided: z.enum(['0', '1']).default('0'),

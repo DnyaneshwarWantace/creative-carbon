@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from 'react'
+import { ListSelectItems } from '../../dermat_lists/components/ListSelectItems'
 import Link from 'next/link'
 import { RefreshCcw, ShoppingCart } from 'lucide-react'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
@@ -9,7 +10,6 @@ import { Button } from '@open-mercato/ui/primitives/button'
 import { Label } from '@open-mercato/ui/primitives/label'
 import { Textarea } from '@open-mercato/ui/primitives/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@open-mercato/ui/primitives/select'
-import { DESIGNER_STATUSES } from '../lib/stages'
 import { formatDateTime, formatQty } from './format'
 import type { Order, Stage } from './types'
 
@@ -55,11 +55,7 @@ export function PackItemsPanel({ order, stage, editable, busy, onStatus }: { ord
                     <SelectValue placeholder={t('dermat_orders.artwork.pick', 'Set status')} />
                   </SelectTrigger>
                   <SelectContent>
-                    {DESIGNER_STATUSES.map((status) => (
-                      <SelectItem key={status} value={status}>
-                        {status}
-                      </SelectItem>
-                    ))}
+                    <ListSelectItems listKey="designer_statuses" current={entry?.status ?? null} />
                   </SelectContent>
                 </Select>
               ) : (

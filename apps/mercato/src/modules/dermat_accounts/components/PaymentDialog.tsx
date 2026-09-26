@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from 'react'
+import { ListSelectItems } from '../../dermat_lists/components/ListSelectItems'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { Button } from '@open-mercato/ui/primitives/button'
 import { Input } from '@open-mercato/ui/primitives/input'
@@ -38,7 +39,6 @@ export type PaymentRow = {
 type OrderHit = { id: string; orderNo: string; customerName: string }
 type InvoiceHit = { id: string; code: string; totals: { payable: number } }
 
-const MODES = ['NEFT / RTGS', 'UPI', 'Cheque', 'Cash', 'Other']
 const NONE = '__none'
 
 function today(): string {
@@ -187,11 +187,7 @@ export function PaymentDialog({ open, onOpenChange, order, payment, onSaved }: P
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {MODES.map((mode) => (
-                  <SelectItem key={mode} value={mode}>
-                    {mode}
-                  </SelectItem>
-                ))}
+                <ListSelectItems listKey="payment_modes" current={form.mode} />
               </SelectContent>
             </Select>
           </div>

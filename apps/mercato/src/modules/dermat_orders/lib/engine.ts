@@ -1,6 +1,7 @@
 import { DermatOrder, DermatOrderEvent, DermatOrderLine, DermatOrderStage } from '../data/entities'
 import type { StageActionInput } from '../data/validators'
-import { DESIGNER_STATUSES, QA_ARTWORK_CHECKS, STAGES, isFinished, missingRequired, missingSteps, stageDef, stepStates } from './stages'
+import { activeOptions } from '../../dermat_lists/lib/service'
+import { QA_ARTWORK_CHECKS, STAGES, isFinished, missingRequired, missingSteps, stageDef, stepStates } from './stages'
 import { blockingChecks, checksForOrder, closeFailedChecks, ensureChecksForStage, retireStageChecks, type StageQcSummary } from '../../dermat_quality/lib/service'
 import { requestsForOrder, storeBlocking } from '../../dermat_store/lib/service'
 import { reservationsForOrder } from '../../dermat_planning/lib/service'
@@ -193,7 +194,7 @@ export async function applyStageAction(ctx: OrderContext, order: DermatOrder, in
       markStarted()
       if (def.key !== 'artwork') throw new OrderError('Packing item status belongs to Artwork & packaging')
       if (stage.status !== 'open' && stage.status !== 'on_hold') throw new OrderError(`${def.label} is not in progress`, 409)
-      if (!input.productId || !input.pmStatus || !DESIGNER_STATUSES.includes(input.pmStatus)) throw new OrderError('Pick a packing item and a status')
+      if (!input.productId || !input.pmStatus || !(await activeOptions(ctx, 'designer_statuses')).includes(input.pmStatus)) throw new OrderError('Pick a packing item and a status')
       const item = (await packItems(ctx, order.id)).find((entry) => entry.productId === input.productId)
       if (!item) throw new OrderError('That packing item is not on this order', 404)
       const current = (stage.data?.__pm as Record<string, unknown> | undefined) ?? {}

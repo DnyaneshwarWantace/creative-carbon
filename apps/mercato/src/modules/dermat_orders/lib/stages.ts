@@ -5,6 +5,7 @@ export type StageField = {
   label: string
   type: StageFieldType
   options?: string[]
+  listKey?: string
   required?: boolean
   placeholder?: string
 }
@@ -75,7 +76,7 @@ export const STAGES: StageDef[] = [
       { key: 'rd_number', label: 'R&D no.', type: 'text', required: true },
       { key: 'sample_name', label: 'Sample name', type: 'text' },
       { key: 'sample_sent_on', label: 'Sample sent on', type: 'date' },
-      { key: 'client_feedback', label: 'Client feedback', type: 'select', options: ['Approved', 'Changes needed', 'Waiting'], required: true },
+      { key: 'client_feedback', label: 'Client feedback', type: 'select', options: ['Approved', 'Changes needed', 'Waiting'], listKey: 'client_feedback', required: true },
       { key: 'remarks', label: 'Remarks', type: 'textarea' },
     ],
   },
@@ -94,7 +95,7 @@ export const STAGES: StageDef[] = [
       { key: 'pm_ok', label: 'Packing material received (PM OK)' },
     ],
     fields: [
-      { key: 'designer_status', label: 'Designer status', type: 'select', options: DESIGNER_STATUSES, required: true },
+      { key: 'designer_status', label: 'Designer status', type: 'select', options: DESIGNER_STATUSES, listKey: 'designer_statuses', required: true },
       { key: 'status_note', label: 'Status note', type: 'text', placeholder: 'e.g. Artwork under process' },
       { key: 'artwork_approved_on', label: 'Artwork approved on', type: 'date' },
       { key: 'remarks', label: 'Remarks', type: 'textarea' },
@@ -124,7 +125,7 @@ export const STAGES: StageDef[] = [
       { key: 'received', label: 'Material received and QC approved', optional: true },
     ],
     fields: [
-      { key: 'material_status', label: 'Material status', type: 'select', options: ['All available', 'Purchase raised', 'Waiting for material'], required: true },
+      { key: 'material_status', label: 'Material status', type: 'select', options: ['All available', 'Purchase raised', 'Waiting for material'], listKey: 'material_status', required: true },
       { key: 'planned_for', label: 'Planned for (week of)', type: 'date' },
       { key: 'remarks', label: 'Remarks', type: 'textarea' },
     ],
@@ -144,7 +145,7 @@ export const STAGES: StageDef[] = [
       { key: 'batch_no', label: 'Batch no.', type: 'text', required: true },
       { key: 'batch_size', label: 'Bulk made / taken (kg)', type: 'number', required: true },
       { key: 'mfg_date', label: 'Mfg. date', type: 'date', required: true },
-      { key: 'shift', label: 'Shift', type: 'select', options: ['A', 'B', 'C', 'General'] },
+      { key: 'shift', label: 'Shift', type: 'select', options: ['A', 'B', 'C', 'General'], listKey: 'shifts' },
       { key: 'machine', label: 'Vessel / machine', type: 'text' },
       { key: 'operator', label: 'Operator', type: 'text' },
       { key: 'start_time', label: 'Started at', type: 'time' },
@@ -167,7 +168,7 @@ export const STAGES: StageDef[] = [
       { key: 'filled_units', label: 'Units filled', type: 'number', required: true },
       { key: 'rejected_units', label: 'Rejected units', type: 'number' },
       { key: 'filling_date', label: 'Filling date', type: 'date' },
-      { key: 'shift', label: 'Shift', type: 'select', options: ['A', 'B', 'C', 'General'] },
+      { key: 'shift', label: 'Shift', type: 'select', options: ['A', 'B', 'C', 'General'], listKey: 'shifts' },
       { key: 'machine', label: 'Filling machine', type: 'text' },
       { key: 'operator', label: 'Operator', type: 'text' },
       { key: 'remarks', label: 'Remarks', type: 'textarea' },

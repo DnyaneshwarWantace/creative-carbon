@@ -70,6 +70,7 @@ export type CellInput = { order: SheetOrder; line: SheetLine | null }
 export type CellEdit = {
   kind: StageFieldType
   options?: EditOption[]
+  listKey?: string
   target: 'order' | 'line' | 'spec' | 'stage'
   field: string
   section?: 'production' | 'primary' | 'secondary'
@@ -118,10 +119,11 @@ export function lineEdit(field: keyof SheetLine, kind: StageFieldType = 'text', 
   }
 }
 
-export function specEdit(section: 'production' | 'primary' | 'secondary', field: string, options?: string[]): CellEdit {
+export function specEdit(section: 'production' | 'primary' | 'secondary', field: string, options?: string[], listKey?: string): CellEdit {
   return {
     kind: options ? 'select' : 'text',
     options,
+    listKey,
     target: 'spec',
     section,
     field,
@@ -136,6 +138,7 @@ export function stageEdit(stageKey: string, field: string): CellEdit | undefined
   return {
     kind: def.type,
     options: def.options,
+    listKey: def.listKey,
     target: 'stage',
     stageKey,
     field,
@@ -339,7 +342,7 @@ const SPEC_COLUMNS: SheetColumn[] = LINE_SPEC_SECTIONS.flatMap((section) =>
     label: entry.label,
     section: section.title.charAt(0).toUpperCase() + section.title.slice(1),
     scope: 'line' as const,
-    edit: specEdit(section.key, entry.key, entry.options),
+    edit: specEdit(section.key, entry.key, entry.options, entry.listKey),
     render: ({ line }: CellInput) => <span className="block max-w-60 truncate">{dash(line?.specs?.[section.key]?.[entry.key])}</span>,
   })),
 )

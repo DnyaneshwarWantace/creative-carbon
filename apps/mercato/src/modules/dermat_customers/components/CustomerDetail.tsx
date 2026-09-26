@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from 'react'
+import { useListOptions } from '../../dermat_lists/components/useListOptions'
 import Link from 'next/link'
 import { ArrowLeft, Building2, ClipboardList, Copy, MapPin, Package, Pencil, Plus } from 'lucide-react'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
@@ -51,17 +52,6 @@ const PAYMENT_TERMS: Record<string, string> = {
   '60_days': '60 days',
   '90_days': '90 days',
 }
-const PAYMENT_REMARKS = [
-  '90 DAYS',
-  '60DAYS CREDIT',
-  'As Discussed',
-  '20% ADVANCE',
-  '25% Advance and 75% Before Dispatch',
-  '40% advance 60% before dispatch',
-  '50% advance and 50% before dispatch',
-  '30% Advance 70% before Dispatch',
-]
-
 function readable(value: unknown): string | null {
   if (typeof value !== 'string') return null
   const trimmed = value.trim()
@@ -118,6 +108,7 @@ function EditSheet({ open, onOpenChange, company, onSaved }: { open: boolean; on
   const { runMutation } = useGuardedMutation({ contextId: `dermat-customer-${company.id}` })
   const [values, setValues] = React.useState<EditValues | null>(null)
   const [saving, setSaving] = React.useState(false)
+  const remarkOptions = useListOptions('payment_remarks', field(company, 'payment_remarks'))
 
   React.useEffect(() => {
     if (!open) return
@@ -246,7 +237,7 @@ function EditSheet({ open, onOpenChange, company, onSaved }: { open: boolean; on
           {select(
             'paymentRemarks',
             t('dermat_customers.edit.remarks', 'Payment remarks'),
-            PAYMENT_REMARKS.map((value) => [value, value]),
+            remarkOptions.map((value) => [value, value]),
           )}
           {input('salesManager', t('dermat_customers.edit.manager', 'Sales manager'))}
           <div className="grid grid-cols-2 gap-3">
