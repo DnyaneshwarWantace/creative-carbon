@@ -102,7 +102,7 @@ export function StoreRequestPage({ requestId }: { requestId: string }) {
       })
       if (!call.ok || !call.result || call.result.error) {
         flash(
-          call.status === 409 && !call.result?.error
+          call.status === 409 && (!call.result?.error || call.result?.error === 'record_modified')
             ? t('dermat_store.detail.conflict', 'Someone else changed this request. It has been reloaded.')
             : call.result?.error ?? t('dermat_store.detail.actionError', 'That did not work. Try again.'),
           'error',

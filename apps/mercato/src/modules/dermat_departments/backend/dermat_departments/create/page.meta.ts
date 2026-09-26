@@ -6,4 +6,5 @@ export const metadata = {
   pageGroup: 'Masters',
   pageGroupKey: 'dermat-11-masters.nav.group',
   icon: 'building-2',
+  navHidden: true,
 }

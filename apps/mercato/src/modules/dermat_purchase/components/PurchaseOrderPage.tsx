@@ -127,7 +127,7 @@ export function PurchaseOrderPage({ poId }: { poId: string }) {
           ),
       })
       if (!call.ok || !call.result || call.result.error) {
-        flash(call.status === 409 && !call.result?.error ? t('dermat_purchase.detail.conflict', 'Someone else changed this PO. It has been reloaded.') : call.result?.error ?? t('dermat_purchase.detail.error', 'That did not work.'), 'error')
+        flash(call.status === 409 && (!call.result?.error || call.result?.error === 'record_modified') ? t('dermat_purchase.detail.conflict', 'Someone else changed this PO. It has been reloaded.') : call.result?.error ?? t('dermat_purchase.detail.error', 'That did not work.'), 'error')
         await load()
         return false
       }

@@ -361,7 +361,7 @@ export function OrderForm({ orderId, copyFrom, customerId }: { orderId?: string;
       if (!call.ok) {
         if (call.result?.rows) setErrors((prev) => ({ ...prev, rows: call.result?.rows ?? {} }))
         flash(
-          call.status === 409 && !call.result?.error
+          call.status === 409 && (!call.result?.error || call.result?.error === 'record_modified')
             ? t('dermat_orders.errors.conflict', 'Someone else changed this order. Reload to see the latest.')
             : (call.result?.error ?? t('dermat_orders.errors.save', 'Could not save the order.')),
           'error',

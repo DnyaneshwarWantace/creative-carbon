@@ -9,16 +9,17 @@ import { cn } from '@open-mercato/shared/lib/utils'
 import { Page, PageBody } from '@open-mercato/ui/backend/Page'
 import { DataTable } from '@open-mercato/ui/backend/DataTable'
 import { Tabs, TabsList, TabsTrigger } from '@open-mercato/ui/primitives/tabs'
-import { StatusBadge } from '@open-mercato/ui/primitives/status-badge'
 import { apiCall } from '@open-mercato/ui/backend/utils/apiCall'
 import { flash } from '@open-mercato/ui/backend/FlashMessages'
 import { ExportButton } from '../../dermat_products/components/ExportButton'
 import { openServerExport } from '../../dermat_products/lib/csvExport'
 import { stageDef } from '../lib/stages'
-import { STAGE_VARIANT, daysUntil, formatDate, formatQty } from './format'
+import { daysUntil, formatDate, formatQty } from './format'
 import { StageSheet, type StageActionRequest } from './StageSheet'
 import { useStageAction } from './useStageAction'
-import type { Order, OrderListItem, Stage } from './types'
+import type { Order, Stage } from './types'
+import { StatePill, sheetWorkState, stageEdit, type SheetColumn, type SheetOrder } from './orderBookColumns'
+import { useCellEditor } from './useCellEditor'
 
 type QueueTab = 'active' | 'waiting' | 'done'
 
@@ -28,7 +29,7 @@ export function StageQueue({ stageKey }: { stageKey: string }) {
   const t = useT()
   const def = stageDef(stageKey)
   const [tab, setTab] = React.useState<QueueTab>('active')
-  const [rows, setRows] = React.useState<OrderListItem[]>([])
+  const [rows, setRows] = React.useState<SheetOrder[]>([])
   const [search, setSearch] = React.useState('')
   const [page, setPage] = React.useState(1)
   const [total, setTotal] = React.useState(0)
@@ -47,13 +48,15 @@ export function StageQueue({ stageKey }: { stageKey: string }) {
 
   React.useEffect(() => setPage(1), [tab])
 
+  const silent = React.useRef(false)
   React.useEffect(() => {
     let cancelled = false
-    setIsLoading(true)
+    const quiet = silent.current
+    if (!quiet) setIsLoading(true)
     const params = new URLSearchParams({ stage: stageKey, stageStatus: tab, page: String(page), pageSize: String(PAGE_SIZE) })
     if (tab !== 'done') params.set('status', 'open')
     if (search.trim()) params.set('search', search.trim())
-    apiCall<{ items?: OrderListItem[]; total?: number; totalPages?: number }>(`/api/dermat_orders/orders?${params.toString()}`, undefined, {
+    apiCall<{ items?: SheetOrder[]; total?: number; totalPages?: number }>(`/api/dermat_orders/orders/sheet?${params.toString()}`, undefined, {
       fallback: { items: [] },
     }).then((call) => {
       if (cancelled) return
@@ -62,11 +65,21 @@ export function StageQueue({ stageKey }: { stageKey: string }) {
       setTotal(call.result?.total ?? 0)
       setTotalPages(call.result?.totalPages ?? 1)
       setIsLoading(false)
+      silent.current = false
     })
     return () => {
       cancelled = true
     }
   }, [stageKey, tab, page, search, reload, t])
+
+  const { renderCell } = useCellEditor({
+    contextId: `dermat-stage-queue-cells-${stageKey}`,
+    patchOrder: (orderId, mutate) => setRows((prev) => prev.map((row) => (row.id === orderId ? mutate(row) : row))),
+    refresh: () => {
+      silent.current = true
+      setReload((value) => value + 1)
+    },
+  })
 
   const openOrder = async (id: string) => {
     const call = await apiCall<Order>(`/api/dermat_orders/orders?id=${encodeURIComponent(id)}`)
@@ -92,97 +105,127 @@ export function StageQueue({ stageKey }: { stageKey: string }) {
     return false
   }
 
-  const columns = React.useMemo<ColumnDef<OrderListItem>[]>(
-    () => [
-      {
-        id: 'order',
-        header: t('dermat_orders.list.order', 'Order'),
-        cell: ({ row }) => (
-          <span>
-            <span className="font-mono text-xs font-semibold">{row.original.orderNo}</span>
-            <span className="block text-xs text-muted-foreground">{formatDate(row.original.orderDate)}</span>
-          </span>
-        ),
-      },
-      { id: 'customer', header: t('dermat_orders.list.customer', 'Customer'), cell: ({ row }) => <span className="font-medium">{row.original.customerName || '—'}</span> },
-      {
-        id: 'products',
-        header: t('dermat_orders.list.products', 'Products'),
-        cell: ({ row }) => (
-          <span className="block max-w-80 text-xs">
-            {row.original.products.map((product) => (
-              <span key={product.id} className="block truncate">
-                {product.code ? <span className="mr-1.5 font-mono text-muted-foreground">{product.code}</span> : null}
-                {product.title} · {formatQty(product.quantity, 0)} pcs
-              </span>
-            ))}
-          </span>
-        ),
-      },
-      {
-        id: 'stage',
-        header: t('dermat_orders.queue.here', 'This stage'),
-        cell: ({ row }) => {
-          const here = row.original.current.find((entry) => entry.key === stageKey)
-          if (!here) return <span className="text-xs text-muted-foreground">{tab === 'waiting' ? t('dermat_orders.queue.coming', 'Coming') : t('dermat_orders.queue.done', 'Done')}</span>
-          return (
-            <span className="flex flex-col gap-0.5 text-xs">
-              <StatusBadge variant={here.status === 'on_hold' ? 'error' : here.started ? 'info' : 'warning'} dot>
-                {here.status === 'on_hold'
-                  ? `${t('dermat_orders.status.on_hold', 'On hold')}${here.holdParty ? ` · ${here.holdParty}` : ''}`
-                  : here.started
-                    ? t('dermat_orders.workState.in_progress', 'In progress')
-                    : t('dermat_orders.workState.pending', 'Pending')}
-              </StatusBadge>
-              <span className="text-muted-foreground">
-                {[here.responsibleName ?? t('dermat_orders.rail.unassigned', 'Not assigned'), here.days != null ? `${formatQty(here.days, 1)} d` : null].filter(Boolean).join(' · ')}
-              </span>
-            </span>
-          )
+  const fieldColumns = React.useMemo<SheetColumn[]>(
+    () =>
+      (def?.fields ?? []).map((field) => ({
+        key: field.key,
+        label: field.label,
+        section: def?.label ?? '',
+        scope: 'order' as const,
+        align: field.type === 'number' ? ('right' as const) : undefined,
+        edit: stageEdit(stageKey, field.key),
+        render: ({ order }) => {
+          const value = order.stages[stageKey]?.fields[field.key]
+          if (value === null || value === undefined || value === '') return <span className="text-muted-foreground">—</span>
+          if (field.type === 'date') return formatDate(String(value))
+          if (field.type === 'number') return formatQty(Number(value), 2)
+          return <span className={cn(field.type === 'textarea' && 'block max-w-60 truncate')}>{String(value)}</span>
         },
-      },
-      {
-        id: 'other',
-        header: t('dermat_orders.queue.alsoAt', 'Order is at'),
-        cell: ({ row }) => (
-          <span className="text-xs text-muted-foreground">
-            {row.original.current
-              .filter((entry) => entry.key !== stageKey)
-              .map((entry) => entry.label)
-              .join(', ') || '—'}
-          </span>
-        ),
-      },
-      {
-        id: 'delivery',
-        header: t('dermat_orders.list.delivery', 'Delivery'),
-        cell: ({ row }) => {
-          const left = daysUntil(row.original.deliveryDate)
-          return <span className={cn('text-xs', left !== null && left < 0 && 'font-semibold text-status-error-text')}>{formatDate(row.original.deliveryDate)}</span>
-        },
-      },
-      {
-        id: 'open',
-        header: '',
-        cell: ({ row }) => (
-          <span className="flex flex-col gap-1 text-xs">
-            <Link
-              href={`/backend/orders/${row.original.id}/stages/${stageKey}`}
-              onClick={(event) => event.stopPropagation()}
-              className="inline-flex items-center gap-1 text-primary hover:underline"
-            >
-              {t('dermat_orders.queue.stagePage', 'Stage page')}
-              <ExternalLink className="h-3 w-3" />
-            </Link>
-            <Link href={`/backend/orders/${row.original.id}`} onClick={(event) => event.stopPropagation()} className="text-muted-foreground hover:underline">
-              {t('dermat_orders.queue.openOrder', 'Order page')}
-            </Link>
-          </span>
-        ),
-      },
-    ],
-    [stageKey, tab, t],
+      })),
+    [def, stageKey],
   )
+
+  const columns: ColumnDef<SheetOrder>[] = [
+    {
+      id: 'order',
+      header: t('dermat_orders.list.order', 'Order'),
+      cell: ({ row }) => (
+        <span>
+          <span className="font-mono text-xs font-semibold">{row.original.orderNo}</span>
+          <span className="block text-xs text-muted-foreground">{formatDate(row.original.orderDate)}</span>
+        </span>
+      ),
+    },
+    { id: 'customer', header: t('dermat_orders.list.customer', 'Customer'), cell: ({ row }) => <span className="font-medium">{row.original.customerName || '—'}</span> },
+    {
+      id: 'products',
+      header: t('dermat_orders.list.products', 'Products'),
+      cell: ({ row }) => (
+        <span className="block max-w-72 text-xs">
+          {row.original.lines.map((line) => (
+            <span key={line.id} className="block truncate">
+              {line.productCode ? <span className="mr-1.5 font-mono text-muted-foreground">{line.productCode}</span> : null}
+              {line.brandName || line.productTitle}
+              {line.packSize ? ` ${line.packSize}` : ''} · {formatQty(line.quantity, 0)} pcs
+            </span>
+          ))}
+        </span>
+      ),
+    },
+    {
+      id: 'stage',
+      header: t('dermat_orders.queue.here', 'This stage'),
+      cell: ({ row }) => {
+        const stage = row.original.stages[stageKey]
+        const state = sheetWorkState(stage)
+        const current = row.original.current.find((entry) => entry.key === stageKey)
+        return (
+          <span className="flex flex-col gap-0.5 text-xs">
+            <span className="flex items-center gap-1.5">
+              <StatePill state={state} />
+              {stage?.stepsTotal ? <span className="tabular-nums text-muted-foreground">{t('dermat_orders.queue.steps', '{done}/{total} steps', { done: stage.stepsDone, total: stage.stepsTotal })}</span> : null}
+            </span>
+            <span className="text-muted-foreground">
+              {[
+                current?.status === 'on_hold' ? current.holdParty : null,
+                stage?.responsibleName ?? (tab === 'done' ? stage?.completedByName : t('dermat_orders.rail.unassigned', 'Not assigned')),
+                stage?.days != null && tab !== 'waiting' ? `${formatQty(stage.days, 1)} d` : null,
+              ]
+                .filter(Boolean)
+                .join(' · ')}
+            </span>
+          </span>
+        )
+      },
+    },
+    ...fieldColumns.map<ColumnDef<SheetOrder>>((column) => ({
+      id: `field-${column.key}`,
+      header: column.label,
+      cell: ({ row }) => <span className="block min-w-24 text-xs">{renderCell(column, { order: row.original, line: null })}</span>,
+    })),
+    {
+      id: 'other',
+      header: t('dermat_orders.queue.alsoAt', 'Order is at'),
+      cell: ({ row }) => (
+        <span className="text-xs text-muted-foreground">
+          {row.original.current
+            .filter((entry) => entry.key !== stageKey)
+            .map((entry) => entry.label)
+            .join(', ') || '—'}
+        </span>
+      ),
+    },
+    {
+      id: 'delivery',
+      header: t('dermat_orders.list.delivery', 'Delivery'),
+      cell: ({ row }) => {
+        const left = daysUntil(row.original.deliveryDate)
+        return <span className={cn('text-xs', left !== null && left < 0 && 'font-semibold text-status-error-text')}>{formatDate(row.original.deliveryDate)}</span>
+      },
+    },
+    {
+      id: 'open',
+      header: '',
+      cell: ({ row }) => (
+        <span className="flex flex-col gap-1 text-xs">
+          <button type="button" onClick={(event) => { event.stopPropagation(); void openOrder(row.original.id) }} className="inline-flex items-center gap-1 font-medium text-primary hover:underline">
+            {tab === 'active' ? t('dermat_orders.queue.openForm', 'Open form') : t('dermat_orders.queue.view', 'View')}
+          </button>
+          <Link
+            href={`/backend/orders/${row.original.id}/stages/${stageKey}`}
+            onClick={(event) => event.stopPropagation()}
+            className="inline-flex items-center gap-1 text-muted-foreground hover:underline"
+          >
+            {t('dermat_orders.queue.stagePage', 'Stage page')}
+            <ExternalLink className="h-3 w-3" />
+          </Link>
+          <Link href={`/backend/orders/${row.original.id}`} onClick={(event) => event.stopPropagation()} className="text-muted-foreground hover:underline">
+            {t('dermat_orders.queue.openOrder', 'Order page')}
+          </Link>
+        </span>
+      ),
+    },
+  ]
 
   const exportStage = () => {
     const params = new URLSearchParams({ stage: stageKey, stageStatus: tab })

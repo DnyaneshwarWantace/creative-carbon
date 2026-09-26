@@ -16,14 +16,16 @@ import { Popover, PopoverContent, PopoverTrigger } from '@open-mercato/ui/primit
 import { SegmentedControl, SegmentedControlItem } from '@open-mercato/ui/primitives/segmented-control'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@open-mercato/ui/primitives/select'
 import { apiCall } from '@open-mercato/ui/backend/utils/apiCall'
+import { InlineCell } from '../../dermat_products/components/InlineCell'
 import { flash } from '@open-mercato/ui/backend/FlashMessages'
 import { ExportButton } from '../../dermat_products/components/ExportButton'
 import { openServerExport } from '../../dermat_products/lib/csvExport'
 import { STAGES, WORK_STATE_LABEL } from '../lib/stages'
 import { formatDate, formatQty } from './format'
-import { ALL_COLUMNS, DEFAULT_VIEW, SHEET_VIEWS, StageTrack, StatePill, sheetWorkState, type SheetColumn, type SheetOrder } from './orderBookColumns'
+import { ALL_COLUMNS, DEFAULT_VIEW, SHEET_VIEWS, StatePill, lineEdit, sheetWorkState, type SheetColumn, type SheetOrder } from './orderBookColumns'
 import { StageSheet, type StageActionRequest } from './StageSheet'
 import { useStageAction } from './useStageAction'
+import { useCellEditor } from './useCellEditor'
 import type { Order, Stage } from './types'
 
 const PAGE_SIZE = 50
@@ -249,6 +251,7 @@ export function OrdersPage() {
   const [people, setPeople] = React.useState<Array<{ id: string; name: string }>>([])
   const [working, setWorking] = React.useState<{ order: Order; stageKey: string } | null>(null)
   const runner = useStageAction('dermat-order-book')
+  const silent = React.useRef(false)
 
   React.useEffect(() => setVisible(readColumns()), [])
   React.useEffect(() => {
@@ -278,7 +281,8 @@ export function OrdersPage() {
 
   React.useEffect(() => {
     let cancelled = false
-    setLoading(true)
+    const quiet = silent.current
+    if (!quiet) setLoading(true)
     const handle = window.setTimeout(async () => {
       const params = filterParams()
       params.set('page', String(page))
@@ -288,12 +292,27 @@ export function OrdersPage() {
       if (!call.ok || !call.result) flash(t('dermat_orders.list.loadError', 'Failed to load orders'), 'error')
       setData(call.result ?? null)
       setLoading(false)
-    }, 200)
+      silent.current = false
+    }, quiet ? 0 : 200)
     return () => {
       cancelled = true
       window.clearTimeout(handle)
     }
   }, [filterParams, page, reload, t])
+
+  const patchOrder = (orderId: string, mutate: (order: SheetOrder) => SheetOrder) =>
+    setData((prev) => (prev ? { ...prev, items: prev.items.map((order) => (order.id === orderId ? mutate(order) : order)) } : prev))
+
+  const { saveCell, renderCell } = useCellEditor({
+    contextId: 'dermat-order-book-cells',
+    patchOrder,
+    refresh: () => {
+      silent.current = true
+      setReload((current) => current + 1)
+    },
+  })
+
+  const brandEdit = lineEdit('brandName')
 
   const openStage = async (orderId: string, stageKey: string) => {
     const call = await apiCall<Order>(`/api/dermat_orders/orders?id=${encodeURIComponent(orderId)}`)
@@ -343,7 +362,7 @@ export function OrdersPage() {
                 <span className="rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-bold text-primary tabular-nums">{data?.total ?? '–'}</span>
               </div>
               <p className="max-w-3xl text-sm text-muted-foreground">
-                {t('dermat_orders.book.lede', 'Every order, product by product, with where it is now. Press the stage on the right to open its form: fill it, complete it, and the order moves to the next stage.')}
+                {t('dermat_orders.book.lede', 'Every order, product by product, with where it is now. Click any cell to change it right here. Press the stage on the right to open its form: fill it, complete it, and the order moves to the next stage.')}
               </p>
             </div>
             <div className="flex flex-wrap items-center gap-2">
@@ -465,32 +484,40 @@ export function OrdersPage() {
                         return (
                           <tr
                             key={`${order.id}-${line?.id ?? 'none'}`}
-                            onClick={() => router.push(`/backend/orders/${order.id}`)}
-                            className={cn('cursor-pointer align-top hover:bg-muted/30', index === lines.length - 1 && 'border-b', order.status === 'cancelled' && 'opacity-60')}
+                            className={cn('align-top hover:bg-muted/30', index === lines.length - 1 && 'border-b', order.status === 'cancelled' && 'opacity-60')}
                           >
                             {span ? (
                               <td rowSpan={span} className="sticky left-0 z-10 border-r bg-card px-3 py-2">
-                                <span className="block font-mono font-semibold text-foreground">{order.orderNo}</span>
+                                <Link href={`/backend/orders/${order.id}`} className="block font-mono font-semibold text-primary hover:underline">
+                                  {order.orderNo}
+                                </Link>
                                 <span className="block text-muted-foreground">{formatDate(order.orderDate)}</span>
                                 {order.late ? <span className="mt-0.5 block font-semibold text-status-error-text">{t('dermat_orders.book.late', 'Late')}</span> : null}
                               </td>
                             ) : null}
                             <td className="px-3 py-2">
-                              <span className="block max-w-72 truncate font-semibold text-foreground" title={line ? `${line.brandName ?? ''} ${line.productTitle}`.trim() : ''}>
-                                {line?.brandName ?? line?.productTitle ?? '—'}
+                              <InlineCell
+                                display={<span className="block max-w-72 truncate font-semibold text-foreground">{line?.brandName || <span className="font-normal text-muted-foreground">{t('dermat_orders.book.addBrand', 'Add brand')}</span>}</span>}
+                                value={brandEdit.get({ order, line })}
+                                kind="text"
+                                locked={brandEdit.locked?.({ order, line }) ?? null}
+                                onSave={(next) => saveCell(brandEdit, { order, line }, next)}
+                              />
+                              <span className="block max-w-72 truncate text-muted-foreground" title={line?.productTitle}>
+                                {line?.productCode ? `${line.productCode} · ` : ''}
+                                {line?.productTitle ?? '—'}
                               </span>
-                              {line?.brandName ? <span className="block max-w-72 truncate text-muted-foreground">{line.productTitle}</span> : null}
                             </td>
                             {columns.map((column) =>
                               column.scope === 'order' ? (
                                 span ? (
                                   <td key={column.key} rowSpan={span} className={cn('px-3 py-2', column.align === 'right' && 'text-right tabular-nums', column.align === 'center' && 'text-center')}>
-                                    {column.render({ order, line })}
+                                    {renderCell(column, { order, line })}
                                   </td>
                                 ) : null
                               ) : (
                                 <td key={column.key} className={cn('px-3 py-2', column.align === 'right' && 'text-right tabular-nums', column.align === 'center' && 'text-center')}>
-                                  {column.render({ order, line })}
+                                  {renderCell(column, { order, line })}
                                 </td>
                               ),
                             )}

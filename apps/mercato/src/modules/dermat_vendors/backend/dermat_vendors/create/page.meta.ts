@@ -5,4 +5,5 @@ export const metadata = {
   pageTitleKey: 'dermat_vendors.create.title',
   pageGroup: 'Purchase',
   pageGroupKey: 'dermat-05-purchase.nav.group',
+  navHidden: true,
 }

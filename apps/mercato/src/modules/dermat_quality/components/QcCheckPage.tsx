@@ -74,7 +74,7 @@ export function QcCheckPage({ checkId }: { checkId: string }) {
       })
       if (!call.ok || !call.result) {
         flash(
-          call.status === 409 && !call.result?.error
+          call.status === 409 && (!call.result?.error || call.result?.error === 'record_modified')
             ? t('dermat_quality.errors.conflict', 'Someone else changed this check. Reloaded the latest.')
             : (call.result?.error ?? t('dermat_quality.errors.save', 'Could not save.')),
           'error',

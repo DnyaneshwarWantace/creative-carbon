@@ -1,7 +1,7 @@
 export const metadata = {
   requireAuth: true,
   requireFeatures: ['dermat_orders.manage'],
-  pageTitle: 'New order',
+  pageTitle: 'Book new order',
   pageTitleKey: 'dermat_orders.nav.new',
   pageGroup: 'Sales',
   pageGroupKey: 'dermat-01-sales.nav.group',

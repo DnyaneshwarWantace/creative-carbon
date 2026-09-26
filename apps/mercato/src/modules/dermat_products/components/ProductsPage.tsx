@@ -16,6 +16,10 @@ import { PRODUCT_KINDS, type ProductKind } from '../lib/kinds'
 import { KIND_CONFIG, kindFromSlug } from '../lib/kindConfig'
 import { ImportPanel } from './ImportPanel'
 import { ExportButton } from './ExportButton'
+import { InlineCell } from './InlineCell'
+import { withScopedApiRequestHeaders } from '@open-mercato/ui/backend/utils/apiCall'
+import { buildOptimisticLockHeader } from '@open-mercato/ui/backend/utils/optimisticLock'
+import { useGuardedMutation } from '@open-mercato/ui/backend/injection/useGuardedMutation'
 import { downloadCsv, fetchAllPages } from '../lib/csvExport'
 
 type Row = Record<string, unknown> & { id: string }
@@ -54,6 +58,7 @@ export function ProductsPage() {
   const [isLoading, setIsLoading] = React.useState(true)
   const [importOpen, setImportOpen] = React.useState(false)
   const [reloadToken, setReloadToken] = React.useState(0)
+  const { runMutation } = useGuardedMutation({ contextId: 'dermat-products-inline' })
 
   React.useEffect(() => {
     let cancelled = false
@@ -151,19 +156,72 @@ export function ProductsPage() {
     }
   }, [categoryIds, kind, page, search, reloadToken, t])
 
+  const saveProduct = React.useCallback(
+    async (row: Row, key: string, raw: string, numeric: boolean): Promise<boolean> => {
+      const trimmed = raw.trim()
+      if (key === 'title' && !trimmed) {
+        flash(t('dermat_products.inline.nameRequired', 'The name cannot be empty.'), 'error')
+        return false
+      }
+      const value = numeric ? (trimmed === '' ? null : Number(trimmed)) : trimmed || null
+      if (numeric && value !== null && !Number.isFinite(value)) {
+        flash(t('dermat_products.inline.notNumber', 'Enter a number.'), 'error')
+        return false
+      }
+      const field = key === 'title' ? 'title' : `cf_${key}`
+      const body = { id: row.id, [field]: value }
+      const updatedAt = typeof row.updated_at === 'string' ? row.updated_at : null
+      const call = await runMutation({
+        context: { productId: row.id, field },
+        mutationPayload: body,
+        operation: () => {
+          const request = () => apiCall<{ ok?: boolean; error?: string }>('/api/catalog/products', { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) })
+          return updatedAt ? withScopedApiRequestHeaders(buildOptimisticLockHeader(updatedAt), request) : request()
+        },
+      })
+      if (!call.ok) {
+        flash(
+          call.status === 409 ? t('dermat_products.inline.conflict', 'Someone else changed this product. The list is reloaded.') : (call.result?.error ?? t('dermat_products.inline.error', 'Could not save the change.')),
+          'error',
+        )
+        setReloadToken((token) => token + 1)
+        return false
+      }
+      setRows((prev) => prev.map((entry) => (entry.id === row.id ? { ...entry, [field]: value, updated_at: new Date().toISOString() } : entry)))
+      setReloadToken((token) => token + 1)
+      return true
+    },
+    [runMutation, t],
+  )
+
+  const editable = React.useCallback(
+    (row: Row, key: string, numeric = false, className?: string) => {
+      const shown = cell(row, key)
+      return (
+        <InlineCell
+          display={<span className={className}>{shown}</span>}
+          value={shown === '—' ? '' : shown}
+          kind={numeric ? 'number' : 'text'}
+          onSave={(next) => saveProduct(row, key, next, numeric)}
+        />
+      )
+    },
+    [saveProduct],
+  )
+
   const columns = React.useMemo<ColumnDef<Row>[]>(() => {
     const base: ColumnDef<Row>[] = [
-      { id: 'item_code', header: config.codeLabel, cell: ({ row }) => <span className="font-mono">{cell(row.original, 'item_code')}</span> },
+      { id: 'item_code', header: config.codeLabel, cell: ({ row }) => editable(row.original, 'item_code', false, 'font-mono') },
       {
         id: 'title',
         header: t('dermat_products.list.name', 'Name'),
-        cell: ({ row }) => <span className="font-medium">{cell(row.original, 'title')}</span>,
+        cell: ({ row }) => editable(row.original, 'title', false, 'font-medium'),
       },
     ]
     const kindColumns: ColumnDef<Row>[] = config.columns.map((column) => ({
       id: column.key,
       header: column.label,
-      cell: ({ row }) => cell(row.original, column.key),
+      cell: ({ row }) => editable(row.original, column.key, Boolean(config.fields.find((field) => field.key === column.key)?.numeric)),
     }))
     const tail: ColumnDef<Row>[] = [
       {
@@ -178,7 +236,7 @@ export function ProductsPage() {
       { id: 'sku', header: t('dermat_products.list.sku', 'SKU'), cell: ({ row }) => cell(row.original, 'sku') },
     ]
     return [...base, ...kindColumns, ...tail]
-  }, [config, stock, t])
+  }, [config, editable, stock, t])
 
   const createHref = `/backend/products/new/${config.slug}`
 

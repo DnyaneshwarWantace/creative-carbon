@@ -163,7 +163,11 @@ export function OrderView({ orderId }: { orderId: string }) {
   const load = React.useCallback(async () => {
     const call = await apiCall<Order>(`/api/dermat_orders/orders?id=${encodeURIComponent(orderId)}`)
     if (!call.ok || !call.result) {
-      setLoadError(t('dermat_orders.errors.load', 'Could not load the order.'))
+      setLoadError(
+        call.status === 404
+          ? t('dermat_orders.errors.notFound', 'This order does not exist any more. It may have been deleted, or the link is wrong.')
+          : t('dermat_orders.errors.load', 'Could not load the order.'),
+      )
       return
     }
     setOrder(call.result)
@@ -229,7 +233,12 @@ export function OrderView({ orderId }: { orderId: string }) {
     return (
       <Page>
         <PageBody>
-          <ErrorMessage label={loadError} />
+          <div className="mx-auto max-w-xl space-y-4 py-16 text-center">
+            <ErrorMessage label={loadError} />
+            <Button asChild variant="outline">
+              <Link href="/backend/orders">{t('dermat_orders.view.backToBook', 'Back to the Order Book')}</Link>
+            </Button>
+          </div>
         </PageBody>
       </Page>
     )

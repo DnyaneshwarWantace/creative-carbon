@@ -33,7 +33,7 @@ export function useStageAction(contextId: string) {
         })
         if (!call.ok || !call.result) {
           flash(
-            call.status === 409 && !call.result?.error
+            call.status === 409 && (!call.result?.error || call.result?.error === 'record_modified')
               ? t('dermat_orders.errors.conflict', 'Someone else changed this order. Reload to see the latest.')
               : (call.result?.error ?? t('dermat_orders.errors.stage', 'Could not update the stage.')),
             'error',
