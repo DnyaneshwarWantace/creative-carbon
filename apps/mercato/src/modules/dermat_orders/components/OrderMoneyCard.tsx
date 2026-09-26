@@ -15,7 +15,7 @@ import { apiCall } from '@open-mercato/ui/backend/utils/apiCall'
 import { useGuardedMutation } from '@open-mercato/ui/backend/injection/useGuardedMutation'
 import { flash } from '@open-mercato/ui/backend/FlashMessages'
 import { formatDate, todayIso } from './format'
-import { printCoa, printDoc, type CoaCheck } from './printDocs'
+import { printCoa, printDoc, type CoaCheck, type DocCompany } from './printDocs'
 import type { Order, OrderPayment } from './types'
 
 const MODES = ['NEFT / RTGS', 'UPI', 'Cheque', 'Cash', 'Other']
@@ -28,30 +28,35 @@ function rupees(value: number): string {
 export function OrderMoneyCard({ order, onChanged }: { order: Order; onChanged: () => void }) {
   const router = useRouter()
   const [piBusy, setPiBusy] = React.useState(false)
-  const openProforma = async () => {
+  const [company, setCompany] = React.useState<DocCompany | null>(null)
+  React.useEffect(() => {
+    apiCall<DocCompany>('/api/dermat_accounts/company').then((call) => setCompany(call.result ?? null))
+  }, [])
+  const openDocument = async (kind: 'proformas' | 'invoices') => {
     setPiBusy(true)
     try {
-      const list = await apiCall<{ items?: Array<{ id: string; status: string }> }>(`/api/dermat_accounts/proformas?orderId=${encodeURIComponent(order.id)}`, undefined, { fallback: { items: [] } })
-      const current = (list.result?.items ?? []).find((pi) => pi.status !== 'cancelled')
+      const list = await apiCall<{ items?: Array<{ id: string; status: string; kind?: string }> }>(`/api/dermat_accounts/${kind}?orderId=${encodeURIComponent(order.id)}${kind === 'invoices' ? '&kind=invoice' : ''}`, undefined, { fallback: { items: [] } })
+      const current = (list.result?.items ?? []).find((doc) => doc.status !== 'cancelled')
       if (current) {
-        router.push(`/backend/accounts/proformas/${current.id}`)
+        router.push(`/backend/accounts/${kind}/${current.id}`)
         return
       }
       const body = { orderId: order.id }
       const call = await runMutation({
-        context: { orderId: order.id, document: 'proforma' },
+        context: { orderId: order.id, document: kind },
         mutationPayload: body,
-        operation: () => apiCall<{ id?: string; error?: string }>('/api/dermat_accounts/proformas', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) }),
+        operation: () => apiCall<{ id?: string; error?: string }>(`/api/dermat_accounts/${kind}`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) }),
       })
       if (!call.ok || !call.result?.id) {
-        flash(call.result?.error ?? t('dermat_orders.money.piError', 'Could not make the proforma invoice.'), 'error')
+        flash(call.result?.error ?? t('dermat_orders.money.docError', 'Could not make the document.'), 'error')
         return
       }
-      router.push(`/backend/accounts/proformas/${call.result.id}`)
+      router.push(`/backend/accounts/${kind}/${call.result.id}`)
     } finally {
       setPiBusy(false)
     }
   }
+
   const t = useT()
   const { runMutation } = useGuardedMutation({ contextId: `dermat-order-money-${order.id}` })
   const [open, setOpen] = React.useState(false)
@@ -111,11 +116,11 @@ export function OrderMoneyCard({ order, onChanged }: { order: Order; onChanged: 
           {t('dermat_orders.money.title', 'Money & documents')}
         </h2>
         <div className="flex flex-wrap gap-2">
-          <Button type="button" variant="outline" size="sm" onClick={() => void openProforma()} disabled={piBusy}>
+          <Button type="button" variant="outline" size="sm" onClick={() => void openDocument('proformas')} disabled={piBusy}>
             <FileText className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
             {t('dermat_orders.money.pi', 'Proforma invoice')}
           </Button>
-          <Button type="button" variant="outline" size="sm" onClick={() => printDoc(order, 'invoice')} disabled={!order.stages.find((stage) => stage.key === 'billing')?.data?.invoice_number}>
+          <Button type="button" variant="outline" size="sm" onClick={() => void openDocument('invoices')} disabled={piBusy || order.totals.total <= 0}>
             <Printer className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
             {t('dermat_orders.money.invoice', 'Tax invoice')}
           </Button>
@@ -124,12 +129,12 @@ export function OrderMoneyCard({ order, onChanged }: { order: Order; onChanged: 
             variant="outline"
             size="sm"
             disabled={!Object.values(order.qc ?? {}).some((list) => list.length)}
-            onClick={() => printCoa(order, async (id) => (await apiCall<CoaCheck>(`/api/dermat_quality/checks?id=${encodeURIComponent(id)}`)).result ?? null)}
+            onClick={() => printCoa(order, async (id) => (await apiCall<CoaCheck>(`/api/dermat_quality/checks?id=${encodeURIComponent(id)}`)).result ?? null, company)}
           >
             <FileText className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
             {t('dermat_orders.money.coa', 'COA')}
           </Button>
-          <Button type="button" variant="outline" size="sm" onClick={() => printDoc(order, 'challan')}>
+          <Button type="button" variant="outline" size="sm" onClick={() => printDoc(order, 'challan', company)}>
             <Truck className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
             {t('dermat_orders.money.challan', 'Delivery challan')}
           </Button>

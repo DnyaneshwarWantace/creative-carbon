@@ -69,3 +69,46 @@ export const PI_STATUS: Record<PiView['status'], { label: string; variant: 'neut
   sent: { label: 'Sent to customer', variant: 'success' },
   cancelled: { label: 'Cancelled', variant: 'neutral' },
 }
+
+export type InvoiceLine = PiLine & { orderLineId: string; cgst: number; sgst: number; igst: number }
+
+export type InvoiceView = {
+  id: string
+  code: string
+  kind: 'invoice' | 'credit_note'
+  againstId: string | null
+  againstCode: string | null
+  orderId: string
+  orderNo: string
+  customerId: string
+  customerName: string
+  customerGstin: string | null
+  invoiceDate: string
+  dueDate: string | null
+  status: 'draft' | 'issued' | 'cancelled'
+  interState: boolean
+  placeOfSupply: string | null
+  pricesIncludeGst: boolean
+  lines: InvoiceLine[]
+  totals: { gross: number; discount: number; taxable: number; gst: number; total: number; cgst: number; sgst: number; igst: number; roundOff: number; payable: number }
+  transporter: string | null
+  vehicleNo: string | null
+  lrNo: string | null
+  ewayBillNo: string | null
+  terms: string | null
+  bankDetails: string | null
+  notes: string | null
+  issuedAt: string | null
+  issuedByName: string | null
+  createdByName: string | null
+  cancelReason: string | null
+  history: Array<{ action: string; by: string | null; at: string; note: string | null }>
+  createdAt: string
+  updatedAt: string
+}
+
+export const INVOICE_STATUS: Record<InvoiceView['status'], { label: string; variant: 'neutral' | 'info' | 'success' | 'warning' | 'error' }> = {
+  draft: { label: 'Draft', variant: 'warning' },
+  issued: { label: 'Issued', variant: 'success' },
+  cancelled: { label: 'Cancelled', variant: 'neutral' },
+}

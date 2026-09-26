@@ -72,3 +72,43 @@ export const piListSchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(50),
 })
+
+const invoiceLineSchema = z.object({ orderLineId: z.string().uuid(), quantity: z.coerce.number().min(0).max(100_000_000) })
+
+export const invoiceCreateSchema = z.object({
+  orderId: z.string().uuid(),
+  invoiceDate: isoDay.optional().nullable(),
+  lines: z.array(invoiceLineSchema).max(50).optional().nullable(),
+  notes: text(2000),
+})
+
+export const invoiceUpdateSchema = z.object({
+  id: z.string().uuid(),
+  invoiceDate: isoDay.optional(),
+  dueDate: isoDay.optional().nullable(),
+  lines: z.array(invoiceLineSchema).max(50).optional(),
+  transporter: text(120),
+  vehicleNo: text(40),
+  lrNo: text(60),
+  ewayBillNo: text(20),
+  terms: text(3000),
+  bankDetails: text(1000),
+  notes: text(2000),
+})
+
+export const invoiceActionSchema = z.object({
+  id: z.string().uuid(),
+  action: z.enum(['issue', 'cancel', 'credit_note']),
+  reason: text(500),
+  lines: z.array(invoiceLineSchema).max(50).optional(),
+})
+
+export const invoiceListSchema = z.object({
+  id: z.string().uuid().optional(),
+  orderId: z.string().uuid().optional(),
+  kind: z.enum(['invoice', 'credit_note']).optional(),
+  status: z.enum(['draft', 'issued', 'cancelled']).optional(),
+  search: z.string().trim().max(120).optional(),
+  page: z.coerce.number().int().min(1).default(1),
+  pageSize: z.coerce.number().int().min(1).max(100).default(50),
+})

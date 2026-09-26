@@ -2,6 +2,18 @@ import type { Order } from './types'
 
 export type DocKind = 'proforma' | 'invoice' | 'challan'
 
+export type DocCompany = { name: string; legalName?: string | null; gstin?: string | null; address?: string | null; phone?: string | null; email?: string | null; signatory?: string | null }
+
+function companyHeader(company: DocCompany | null | undefined, subtitle: string): string {
+  if (!company) return `<div><h1>DERMAT INDIA</h1><div class="muted">${subtitle}</div></div>`
+  const lines = [company.address ? company.address.replace(/\n/g, '<br>') : '', [company.phone ? `Phone ${company.phone}` : '', company.email ?? ''].filter(Boolean).join(' · ')].filter(Boolean)
+  return `<div><h1>${esc(company.legalName || company.name)}</h1><div class="muted">${lines.map((line) => esc(line).replace(/&lt;br&gt;/g, '<br>')).join('<br>')}</div>${company.gstin ? `<div class="code">GSTIN ${esc(company.gstin)}</div>` : ''}<div class="muted">${subtitle}</div></div>`
+}
+
+function signName(company: DocCompany | null | undefined): string {
+  return company ? esc(company.legalName || company.name) : 'Dermat India'
+}
+
 function esc(value: unknown): string {
   return String(value ?? '').replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char] ?? char)
 }
@@ -31,7 +43,7 @@ function expiryFor(mfg: unknown, months: string | undefined): string {
   return date.toLocaleDateString('en-IN', { month: 'short', year: 'numeric' })
 }
 
-export function buildDocHtml(order: Order, kind: DocKind): string {
+export function buildDocHtml(order: Order, kind: DocKind, company?: DocCompany | null): string {
   const advance = stageData(order, 'advance')
   const billing = stageData(order, 'billing')
   const dispatch = stageData(order, 'dispatch')
@@ -95,7 +107,7 @@ export function buildDocHtml(order: Order, kind: DocKind): string {
     @media print{body{padding:14mm}}
   </style></head><body>
   <div class="top">
-    <div><h1>DERMAT INDIA</h1><div class="muted">Cosmetic contract manufacturing</div></div>
+    ${companyHeader(company, 'Cosmetic contract manufacturing')}
     <div class="doc"><div class="kind">${esc(title)}</div><div class="no">${esc(number)}</div><div class="muted">${date} · Order ${esc(order.orderNo)}</div></div>
   </div>
   <div class="grid">
@@ -106,16 +118,16 @@ export function buildDocHtml(order: Order, kind: DocKind): string {
   ${totals}
   ${kind === 'invoice' && order.billingRemarks ? `<p class="muted" style="margin-top:16px">${esc(order.billingRemarks)}</p>` : ''}
   ${kind === 'challan' && order.packingRemarks ? `<p class="muted" style="margin-top:16px">${esc(order.packingRemarks)}</p>` : ''}
-  <div class="sign"><div>${kind === 'challan' ? 'Received by (name, stamp)' : 'Customer signature'}</div><div>For Dermat India</div></div>
+  <div class="sign"><div>${kind === 'challan' ? 'Received by (name, stamp)' : 'Customer signature'}</div><div>For ${signName(company)}${company?.signatory ? `<br>${esc(company.signatory)}` : ''}</div></div>
   <script>window.addEventListener('load', function () { setTimeout(function () { window.print() }, 200) })</script>
   </body></html>`
 }
 
-export function printDoc(order: Order, kind: DocKind): boolean {
+export function printDoc(order: Order, kind: DocKind, company?: DocCompany | null): boolean {
   const popup = window.open('', '_blank', 'width=960,height=1100')
   if (!popup) return false
   popup.document.open()
-  popup.document.write(buildDocHtml(order, kind))
+  popup.document.write(buildDocHtml(order, kind, company))
   popup.document.close()
   return true
 }
@@ -135,7 +147,7 @@ type CoaCheck = {
   results: Array<{ name: string; class: string; spec: string; test: string; observation: string; remark: string }>
 }
 
-export function buildCoaHtml(order: Order, checks: CoaCheck[]): string {
+export function buildCoaHtml(order: Order, checks: CoaCheck[], company?: DocCompany | null): string {
   const mfg = stageData(order, 'manufacturing')
   const qa = order.stages.find((stage) => stage.key === 'qc_qa')
   const qaData = stageData(order, 'qc_qa')
@@ -173,7 +185,7 @@ export function buildCoaHtml(order: Order, checks: CoaCheck[]): string {
     @media print{body{padding:14mm}}
   </style></head><body>
   <div class="top">
-    <div><h1>DERMAT INDIA</h1><div class="muted">Certificate of Analysis</div></div>
+    ${companyHeader(company, 'Certificate of Analysis')}
     <div class="doc"><div class="kind">COA</div><div class="no">${esc(order.orderNo)}</div><div class="muted">${esc(order.customer?.name ?? '')}</div></div>
   </div>
   <table style="margin-top:16px"><thead><tr><th>Product</th><th>Pack</th><th>Batch</th><th>Mfg.</th><th>Exp.</th><th class="r">Quantity</th></tr></thead><tbody>${lineRows}</tbody></table>
@@ -184,14 +196,14 @@ export function buildCoaHtml(order: Order, checks: CoaCheck[]): string {
   </body></html>`
 }
 
-export async function printCoa(order: Order, load: (id: string) => Promise<CoaCheck | null>): Promise<boolean> {
+export async function printCoa(order: Order, load: (id: string) => Promise<CoaCheck | null>, company?: DocCompany | null): Promise<boolean> {
   const popup = window.open('', '_blank', 'width=960,height=1100')
   if (!popup) return false
   popup.document.write('<p style="font-family:sans-serif;padding:24px">Preparing the certificate…</p>')
-  const ids = [...(order.qc?.manufacturing ?? []), ...(order.qc?.filling ?? []), ...(order.qc?.packing ?? [])].map((check) => check.id)
+  const ids = [...(order.qc?.manufacturing ?? []), ...(order.qc?.filling ?? []), ...(order.qc?.packing ?? [])].filter((check) => check.status === 'passed').map((check) => check.id)
   const checks = (await Promise.all(ids.map(load))).filter((check): check is CoaCheck => Boolean(check))
   popup.document.open()
-  popup.document.write(buildCoaHtml(order, checks))
+  popup.document.write(buildCoaHtml(order, checks, company))
   popup.document.close()
   return true
 }

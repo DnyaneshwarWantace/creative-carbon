@@ -234,3 +234,122 @@ export class ProformaInvoice {
   @Property({ name: 'deleted_at', type: Date, nullable: true })
   deletedAt?: Date | null
 }
+
+export type InvoiceStatus = 'draft' | 'issued' | 'cancelled'
+export type InvoiceKind = 'invoice' | 'credit_note'
+export type InvoiceLine = PiLine & { orderLineId: string; cgst: number; sgst: number; igst: number }
+export type InvoiceTotals = PiTotals & { cgst: number; sgst: number; igst: number; roundOff: number; payable: number }
+
+@Entity({ tableName: 'dermat_tax_invoices' })
+@Index({ name: 'dermat_tax_invoices_order_idx', properties: ['organizationId', 'tenantId', 'orderId'] })
+export class TaxInvoice {
+  [OptionalProps]?: 'kind' | 'againstId' | 'againstCode' | 'customerGstin' | 'customerAddress' | 'dueDate' | 'status' | 'interState' | 'placeOfSupply' | 'pricesIncludeGst' | 'transporter' | 'vehicleNo' | 'lrNo' | 'ewayBillNo' | 'terms' | 'bankDetails' | 'notes' | 'issuedAt' | 'issuedByName' | 'createdByName' | 'cancelReason' | 'history' | 'createdAt' | 'updatedAt' | 'deletedAt'
+
+  @PrimaryKey({ type: 'uuid', defaultRaw: 'gen_random_uuid()' })
+  id!: string
+
+  @Property({ name: 'organization_id', type: 'uuid' })
+  organizationId!: string
+
+  @Property({ name: 'tenant_id', type: 'uuid' })
+  tenantId!: string
+
+  @Property({ type: 'text' })
+  code!: string
+
+  @Property({ type: 'text', default: 'invoice' })
+  kind: InvoiceKind = 'invoice'
+
+  @Property({ name: 'against_id', type: 'uuid', nullable: true })
+  againstId?: string | null
+
+  @Property({ name: 'against_code', type: 'text', nullable: true })
+  againstCode?: string | null
+
+  @Property({ name: 'order_id', type: 'uuid' })
+  orderId!: string
+
+  @Property({ name: 'order_no', type: 'text' })
+  orderNo!: string
+
+  @Property({ name: 'customer_id', type: 'uuid' })
+  customerId!: string
+
+  @Property({ name: 'customer_name', type: 'text' })
+  customerName!: string
+
+  @Property({ name: 'customer_gstin', type: 'text', nullable: true })
+  customerGstin?: string | null
+
+  @Property({ name: 'customer_address', type: 'text', nullable: true })
+  customerAddress?: string | null
+
+  @Property({ name: 'invoice_date', type: 'text' })
+  invoiceDate!: string
+
+  @Property({ name: 'due_date', type: 'text', nullable: true })
+  dueDate?: string | null
+
+  @Property({ type: 'text', default: 'draft' })
+  status: InvoiceStatus = 'draft'
+
+  @Property({ name: 'inter_state', type: 'boolean', default: false })
+  interState: boolean = false
+
+  @Property({ name: 'place_of_supply', type: 'text', nullable: true })
+  placeOfSupply?: string | null
+
+  @Property({ name: 'prices_include_gst', type: 'boolean', default: false })
+  pricesIncludeGst: boolean = false
+
+  @Property({ type: 'json' })
+  lines!: InvoiceLine[]
+
+  @Property({ type: 'json' })
+  totals!: InvoiceTotals
+
+  @Property({ type: 'text', nullable: true })
+  transporter?: string | null
+
+  @Property({ name: 'vehicle_no', type: 'text', nullable: true })
+  vehicleNo?: string | null
+
+  @Property({ name: 'lr_no', type: 'text', nullable: true })
+  lrNo?: string | null
+
+  @Property({ name: 'eway_bill_no', type: 'text', nullable: true })
+  ewayBillNo?: string | null
+
+  @Property({ type: 'text', nullable: true })
+  terms?: string | null
+
+  @Property({ name: 'bank_details', type: 'text', nullable: true })
+  bankDetails?: string | null
+
+  @Property({ type: 'text', nullable: true })
+  notes?: string | null
+
+  @Property({ name: 'issued_at', type: Date, nullable: true })
+  issuedAt?: Date | null
+
+  @Property({ name: 'issued_by_name', type: 'text', nullable: true })
+  issuedByName?: string | null
+
+  @Property({ name: 'created_by_name', type: 'text', nullable: true })
+  createdByName?: string | null
+
+  @Property({ name: 'cancel_reason', type: 'text', nullable: true })
+  cancelReason?: string | null
+
+  @Property({ type: 'json', nullable: true })
+  history?: PiHistory[] | null
+
+  @Property({ name: 'created_at', type: Date, onCreate: () => new Date() })
+  createdAt: Date = new Date()
+
+  @Property({ name: 'updated_at', type: Date, onCreate: () => new Date(), onUpdate: () => new Date() })
+  updatedAt: Date = new Date()
+
+  @Property({ name: 'deleted_at', type: Date, nullable: true })
+  deletedAt?: Date | null
+}
