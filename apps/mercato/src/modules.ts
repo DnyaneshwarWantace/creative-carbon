@@ -147,6 +147,7 @@ export const enabledModules: ModuleEntry[] = [
             },
           },
           '/backend/customers/companies/create': {
+            load: () => import('./modules/dermat_customers/components/CustomerForm').then((mod) => mod.default),
             metadata: {
               pageTitle: 'Create Customer',
               pageTitleKey: 'dermat_customers.create.title',

@@ -393,9 +393,11 @@ export function CustomerDetail({ customerId }: { customerId: string }) {
                   </Link>
                 </Button>
               ) : null}
-              <Button type="button" variant="outline" size="sm" onClick={() => setEditOpen(true)}>
-                <Pencil className="mr-1.5 h-4 w-4" />
-                {t('dermat_customers.detail.edit', 'Edit details')}
+              <Button asChild variant="outline" size="sm">
+                <Link href={`/backend/customers/edit/${customerId}`}>
+                  <Pencil className="mr-1.5 h-4 w-4" />
+                  {t('dermat_customers.detail.edit', 'Edit details')}
+                </Link>
               </Button>
               <Button asChild size="sm">
                 <Link href={`/backend/orders/new?customerId=${customerId}`}>

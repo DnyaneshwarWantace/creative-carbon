@@ -7,6 +7,7 @@ const systemEntities: CustomEntitySpec[] = [
     label: 'Customer Company',
     showInSidebar: false,
     fields: [
+      cf.text('customer_no', { label: 'Customer #', listVisible: true, filterable: true }),
       cf.select('customer_type_category', ['business', 'individual'], {
         label: 'Customer Category',
         defaultValue: 'business',
