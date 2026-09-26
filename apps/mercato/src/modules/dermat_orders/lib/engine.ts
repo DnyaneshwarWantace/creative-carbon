@@ -1,7 +1,7 @@
 import { DermatOrder, DermatOrderEvent, DermatOrderLine, DermatOrderStage } from '../data/entities'
 import type { StageActionInput } from '../data/validators'
-import { DESIGNER_STATUSES, STAGES, isFinished, missingRequired, missingSteps, stageDef, stepStates } from './stages'
-import { blockingChecks, checksForOrder, ensureChecksForStage, retireStageChecks, type StageQcSummary } from '../../dermat_quality/lib/service'
+import { DESIGNER_STATUSES, QA_ARTWORK_CHECKS, STAGES, isFinished, missingRequired, missingSteps, stageDef, stepStates } from './stages'
+import { blockingChecks, checksForOrder, closeFailedChecks, ensureChecksForStage, retireStageChecks, type StageQcSummary } from '../../dermat_quality/lib/service'
 import { requestsForOrder, storeBlocking } from '../../dermat_store/lib/service'
 import { reservationsForOrder } from '../../dermat_planning/lib/service'
 import { USE_EXISTING_BULK, existingBulkProblem, packItems } from './productionStock'
@@ -178,6 +178,11 @@ export async function applyStageAction(ctx: OrderContext, order: DermatOrder, in
         const later = def.steps.slice(index + 1).filter((entry) => current[entry.key]?.done)
         if (later.length) throw new OrderError(`Undo the later steps first: ${later.map((entry) => entry.label).join(', ')}`, 400)
       }
+      if (done && def.key === 'artwork' && step.key === 'qa_final') {
+        const ticked = ((stage.data?.__qa_art as Record<string, { done?: boolean }> | undefined) ?? {})
+        const open = QA_ARTWORK_CHECKS.filter((check) => !ticked[check.key]?.done)
+        if (open.length) throw new OrderError(`QA artwork checklist first: ${open.map((check) => check.label).join('; ')}`, 400)
+      }
       if (done) await assertSubStageOrder(ctx, order.id, def.key, step.key, stage.data ?? {})
       const states = { ...stepStates(stage.data), [step.key]: { done, at: done ? new Date().toISOString() : null, by: done ? byName : null } }
       stage.data = { ...(stage.data ?? {}), __steps: states }
@@ -194,6 +199,59 @@ export async function applyStageAction(ctx: OrderContext, order: DermatOrder, in
       const current = (stage.data?.__pm as Record<string, unknown> | undefined) ?? {}
       stage.data = { ...(stage.data ?? {}), __pm: { ...current, [item.productId]: { status: input.pmStatus, note: note ?? null, at: new Date().toISOString(), by: byName } } }
       logEvent(ctx, order, 'pm_status', def.key, `${item.title}: ${input.pmStatus}${note ? ` (${note})` : ''}`, byName)
+      break
+    }
+    case 'checklist': {
+      if (def.key !== 'artwork') throw new OrderError('The QA artwork checklist belongs to Artwork & packaging')
+      if (stage.status !== 'open' && stage.status !== 'on_hold') throw new OrderError(`${def.label} is not in progress`, 409)
+      const check = QA_ARTWORK_CHECKS.find((entry) => entry.key === input.stepKey)
+      if (!check) throw new OrderError('Unknown checklist item')
+      if (stepStates(stage.data).qa_final?.done) throw new OrderError('QA already finalised the artwork. Untick it first.', 409)
+      markStarted()
+      const done = input.done !== false
+      const current = (stage.data?.__qa_art as Record<string, unknown> | undefined) ?? {}
+      stage.data = { ...(stage.data ?? {}), __qa_art: { ...current, [check.key]: { done, at: done ? new Date().toISOString() : null, by: done ? byName : null, note: note ?? null } } }
+      logEvent(ctx, order, done ? 'qa_check' : 'qa_uncheck', def.key, `${check.label}${note ? ` — ${note}` : ''}`, byName)
+      break
+    }
+    case 'rework':
+    case 'reject_batch': {
+      const resets: Record<string, string[]> = { manufacturing: ['manufactured'], filling: ['filled'], packing: ['sample', 'packed'] }
+      const reset = resets[def.key]
+      if (!reset) throw new OrderError('Only manufacturing, filling and packing can be reworked')
+      if (input.action === 'reject_batch' && def.key !== 'manufacturing') throw new OrderError('Only a manufacturing batch can be rejected; filling and packing are reworked')
+      if (stage.status !== 'open') throw new OrderError(`${def.label} must be in progress (resume it first if on hold)`, 409)
+      if (!note) throw new OrderError(input.action === 'rework' ? 'Write what failed and what will be corrected' : 'Write why the batch is rejected')
+      const failed = (await blockingChecks(ctx, order.id, def.key)).filter((check) => check.status === 'failed')
+      if (!failed.length) throw new OrderError('There is no failed QC check at this stage', 409)
+      markStarted()
+      const codes = await closeFailedChecks(ctx, { orderId: order.id, stageKey: def.key, status: input.action === 'rework' ? 'reworked' : 'rejected', note, byName })
+      const data = { ...(stage.data ?? {}) } as Record<string, unknown>
+      const steps = { ...stepStates(data) }
+      for (const key of reset) steps[key] = { done: false, at: null, by: null }
+      const rounds = Array.isArray(data.__rework) ? (data.__rework as Array<Record<string, unknown>>) : []
+      const batchNo = typeof data.batch_no === 'string' || typeof data.batch_no === 'number' ? String(data.batch_no) : null
+      data.__steps = steps
+      data.__rework = [...rounds, { round: rounds.length + 2, type: input.action === 'rework' ? 'rework' : 'rejected', note, qc: codes, batchNo, at: new Date().toISOString(), by: byName }]
+      if (input.action === 'reject_batch') data.batch_no = null
+      stage.data = data
+      await ctx.em.flush()
+      const lines = await ctx.em.find(DermatOrderLine, { orderId: order.id })
+      await ensureChecksForStage(ctx, {
+        orderId: order.id,
+        orderNo: order.orderNo,
+        stageKey: def.key,
+        productIds: def.key === 'manufacturing' ? await bulkForProducts(ctx, lines.map((line) => line.productId)) : lines.map((line) => line.productId),
+        byName,
+      })
+      logEvent(
+        ctx,
+        order,
+        input.action === 'rework' ? 'rework' : 'batch_rejected',
+        def.key,
+        `${input.action === 'rework' ? 'Rework' : `Batch ${batchNo ?? ''} rejected`} after ${codes.join(', ')} failed: ${note}. New QC check created.`,
+        byName,
+      )
       break
     }
     case 'new_round': {
@@ -226,6 +284,16 @@ export async function applyStageAction(ctx: OrderContext, order: DermatOrder, in
       if (missing.length) throw new OrderError(`Fill in: ${missing.join(', ')}`, 400, { missing })
       if (def.key === 'sampling' && stage.data?.client_feedback !== 'Approved') {
         throw new OrderError('The client has not approved the sample. Set feedback to Approved, or start another round with their changes.', 400)
+      }
+      if (def.key === 'qc_qa' && stage.data?.qc_result !== 'Released') {
+        throw new OrderError(
+          stage.data?.qc_result === 'Rework'
+            ? 'QA decided Rework: send it back to the production stage to redo, then QA reviews again'
+            : stage.data?.qc_result === 'Rejected'
+              ? 'QA rejected the batch: it cannot be billed or dispatched. Reopen Manufacturing for a new batch.'
+              : 'Choose the QA decision',
+          400,
+        )
       }
       if (def.key === 'artwork') {
         const items = await packItems(ctx, order.id)

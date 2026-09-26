@@ -21,7 +21,7 @@ import { ErrorMessage, LoadingMessage } from '@open-mercato/ui/backend/detail'
 import { QC_CLASSES, DEFAULT_RULES } from '../lib/defaults'
 import { OPERATION_LABEL } from './shared'
 
-type Param = { key: string; name: string; class: string; spec: string; test: 'chemical' | 'micro' }
+type Param = { key: string; name: string; class: string; spec: string; test: 'chemical' | 'micro'; min?: number | null; max?: number | null; unit?: string | null }
 type Rule = {
   id: string
   code: string
@@ -358,6 +358,7 @@ export function QcRulePage({ ruleId }: { ruleId?: string }) {
                     <th className="p-3 text-left">{t('dermat_quality.parameter', 'Parameter')}</th>
                     <th className="w-32 p-3 text-left">{t('dermat_quality.class', 'Class')}</th>
                     <th className="p-3 text-left">{t('dermat_quality.spec', 'Specification')}</th>
+                    <th className="w-60 p-3 text-left">{t('dermat_quality.limits', 'Min · Max · Unit (for automatic check)')}</th>
                     <th className="w-32 p-3 text-left">{t('dermat_quality.rules.test', 'Test')}</th>
                     <th className="w-12 p-3" />
                   </tr>
@@ -383,7 +384,30 @@ export function QcRulePage({ ruleId }: { ruleId?: string }) {
                         </Select>
                       </td>
                       <td className="p-2">
-                        <Input aria-label="Specification" className="h-8" value={param.spec} placeholder="e.g. 400.0–1000.0" onChange={(event) => patchParam(index, { spec: event.target.value })} />
+                        <Input aria-label="Specification" className="h-8" value={param.spec} placeholder="e.g. Clear, colourless gel" onChange={(event) => patchParam(index, { spec: event.target.value })} />
+                      </td>
+                      <td className="p-2">
+                        <span className="flex gap-1.5">
+                          <Input
+                            aria-label="Minimum"
+                            type="number"
+                            step="any"
+                            className="h-8 w-20 text-right"
+                            placeholder="min"
+                            value={param.min ?? ''}
+                            onChange={(event) => patchParam(index, { min: event.target.value === '' ? null : Number(event.target.value) })}
+                          />
+                          <Input
+                            aria-label="Maximum"
+                            type="number"
+                            step="any"
+                            className="h-8 w-20 text-right"
+                            placeholder="max"
+                            value={param.max ?? ''}
+                            onChange={(event) => patchParam(index, { max: event.target.value === '' ? null : Number(event.target.value) })}
+                          />
+                          <Input aria-label="Unit" className="h-8 w-16" placeholder="unit" value={param.unit ?? ''} onChange={(event) => patchParam(index, { unit: event.target.value || null })} />
+                        </span>
                       </td>
                       <td className="p-2">
                         <Select value={param.test} onValueChange={(value) => patchParam(index, { test: value as Param['test'] })}>

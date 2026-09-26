@@ -21,10 +21,11 @@ import { STAGE_VARIANT, formatDate, formatDateTime, formatQty } from './format'
 import { ProductionPanel } from './ProductionPanel'
 import { SubStageTracker } from './SubStageTracker'
 import { PackItemsPanel, SampleRoundsPanel } from './ArtworkPanels'
+import { ProductionRoundsPanel, QaArtworkChecklist, QaReleaseReview } from './QualityPanels'
 import type { Order, Stage } from './types'
 
 export type StageActionRequest = {
-  action: 'start' | 'save' | 'complete' | 'hold' | 'resume' | 'revert' | 'skip' | 'assign' | 'step' | 'pm_status' | 'new_round'
+  action: 'start' | 'checklist' | 'rework' | 'reject_batch' | 'save' | 'complete' | 'hold' | 'resume' | 'revert' | 'skip' | 'assign' | 'step' | 'pm_status' | 'new_round'
   stepKey?: string
   productId?: string
   pmStatus?: string
@@ -433,7 +434,7 @@ export function StageWorkArea({ order, stage, people, canWork, busy, shortCount,
                 <li key={check.id}>
                   <Link href={`/backend/qc/checks/${check.id}`} className="flex items-center justify-between gap-2 px-3 py-2 hover:bg-muted/40">
                     <span className="min-w-0 truncate">
-                      <span className="mr-1 font-mono text-xs text-muted-foreground">{check.code}</span>
+                      <span className="mr-1 font-mono text-xs text-muted-foreground">{check.arNo ?? check.code}{check.round > 1 ? ` · R${check.round}` : ''}</span>
                       {check.productTitle}
                     </span>
                     <span className="flex shrink-0 items-center gap-1">
@@ -456,6 +457,14 @@ export function StageWorkArea({ order, stage, people, canWork, busy, shortCount,
         {stage.key === 'artwork' && order.packItems?.length ? (
           <PackItemsPanel order={order} stage={stage} editable={editable} busy={busy} onStatus={(productId, pmStatus) => run({ action: 'pm_status', productId, pmStatus })} />
         ) : null}
+
+        {['manufacturing', 'filling', 'packing'].includes(stage.key) ? (
+          <ProductionRoundsPanel order={order} stage={stage} editable={editable} busy={busy} onRework={(action, text) => run({ action, note: text })} />
+        ) : null}
+
+        {stage.key === 'artwork' ? <QaArtworkChecklist stage={stage} editable={editable} busy={busy} onToggle={(key, done) => run({ action: 'checklist', stepKey: key, done })} /> : null}
+
+        {stage.key === 'qc_qa' ? <QaReleaseReview order={order} /> : null}
 
         {stage.key === 'sampling' ? <SampleRoundsPanel stage={stage} editable={editable} busy={busy} onNewRound={(text) => run({ action: 'new_round', note: text })} /> : null}
 

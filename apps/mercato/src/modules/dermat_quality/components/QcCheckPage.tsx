@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 import Link from 'next/link'
-import { ArrowLeft, CheckCircle2, FlaskConical, History, Microscope, RotateCcw, XCircle } from 'lucide-react'
+import { AlertTriangle, ArrowLeft, Archive, CheckCircle2, FlaskConical, History, Microscope, Pipette, RotateCcw, XCircle } from 'lucide-react'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { Page, PageBody } from '@open-mercato/ui/backend/Page'
 import { Button } from '@open-mercato/ui/primitives/button'
@@ -15,7 +15,7 @@ import { buildOptimisticLockHeader } from '@open-mercato/ui/backend/utils/optimi
 import { useGuardedMutation } from '@open-mercato/ui/backend/injection/useGuardedMutation'
 import { flash } from '@open-mercato/ui/backend/FlashMessages'
 import { ErrorMessage, LoadingMessage } from '@open-mercato/ui/backend/detail'
-import { CHECK_VARIANT, OPERATION_LABEL, PART_LABEL, PART_VARIANT, when, type QcCheckView } from './shared'
+import { CHECK_LABEL, CHECK_VARIANT, OPERATION_LABEL, PART_LABEL, PART_VARIANT, limitText, when, type QcCheckView, type QcWorksheet } from './shared'
 
 type Part = 'chemical' | 'micro'
 
@@ -27,6 +27,18 @@ const HISTORY_LABEL: Record<string, string> = {
   micro_pass: 'Micro passed',
   micro_fail: 'Micro failed',
   retest: 'Re-test started',
+  sent_to_rework: 'Sent to rework',
+  batch_rejected: 'Batch rejected',
+}
+
+const WORKSHEET_KEYS: Array<keyof QcWorksheet> = ['sampledBy', 'sampledAt', 'sampleQty', 'sampleRef', 'platedAt', 'incubationDays', 'retentionQty', 'retentionLocation', 'retentionKeptBy', 'notes']
+
+function toLocalInput(value: string | null | undefined): string {
+  if (!value) return ''
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return value
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`
 }
 
 export function QcCheckPage({ checkId }: { checkId: string }) {
@@ -34,7 +46,8 @@ export function QcCheckPage({ checkId }: { checkId: string }) {
   const { runMutation } = useGuardedMutation({ contextId: `dermat-qc-${checkId}` })
   const [check, setCheck] = React.useState<QcCheckView | null>(null)
   const [loadError, setLoadError] = React.useState<string | null>(null)
-  const [values, setValues] = React.useState<Record<string, { observation: string; remark: string }>>({})
+  const [values, setValues] = React.useState<Record<string, { observation: string; remark: string; instrument: string }>>({})
+  const [sheet, setSheet] = React.useState<Record<string, string>>({})
   const [batchNo, setBatchNo] = React.useState('')
   const [busy, setBusy] = React.useState(false)
   const [failing, setFailing] = React.useState<Part | null>(null)
@@ -43,7 +56,15 @@ export function QcCheckPage({ checkId }: { checkId: string }) {
 
   const apply = (next: QcCheckView) => {
     setCheck(next)
-    setValues(Object.fromEntries(next.results.map((row) => [row.key, { observation: row.observation, remark: row.remark }])))
+    setValues(Object.fromEntries(next.results.map((row) => [row.key, { observation: row.observation, remark: row.remark, instrument: row.instrument ?? '' }])))
+    setSheet(
+      Object.fromEntries(
+        WORKSHEET_KEYS.map((key) => {
+          const value = next.worksheet?.[key]
+          return [key, key === 'sampledAt' || key === 'platedAt' ? toLocalInput(value as string | null) : value === null || value === undefined ? '' : String(value)]
+        }),
+      ),
+    )
     setBatchNo(next.batchNo ?? '')
   }
 
@@ -93,16 +114,29 @@ export function QcCheckPage({ checkId }: { checkId: string }) {
     }
   }
 
-  const resultsPayload = () => Object.entries(values).map(([key, value]) => ({ key, observation: value.observation, remark: value.remark }))
+  const resultsPayload = () => Object.entries(values).map(([key, value]) => ({ key, observation: value.observation, remark: value.remark, instrument: value.instrument }))
+
+  const sheetPayload = () =>
+    Object.fromEntries(
+      WORKSHEET_KEYS.map((key) => {
+        const raw = (sheet[key] ?? '').trim()
+        if (key === 'incubationDays') return [key, raw === '' ? null : Number(raw)]
+        if ((key === 'sampledAt' || key === 'platedAt') && raw) return [key, new Date(raw).toISOString()]
+        return [key, raw || null]
+      }),
+    )
+
+  const closed = check?.status === 'reworked' || check?.status === 'rejected'
+  const locked = closed || check?.status === 'passed'
 
   const saveObservations = () =>
-    send('/api/dermat_quality/checks', 'PUT', { id: checkId, batchNo, results: resultsPayload() }, t('dermat_quality.flash.saved', 'Observations saved'))
+    send('/api/dermat_quality/checks', 'PUT', { id: checkId, batchNo, results: locked ? [] : resultsPayload(), worksheet: sheetPayload() }, t('dermat_quality.flash.saved', 'Saved'))
 
   const decide = async (part: Part, result: 'pass' | 'fail') => {
     if (!check) return
     const partStatus = part === 'chemical' ? check.chemicalStatus : check.microStatus
     if (partStatus === 'pending') {
-      const saved = await send('/api/dermat_quality/checks', 'PUT', { id: checkId, batchNo, results: resultsPayload() }, t('dermat_quality.flash.saved', 'Observations saved'))
+      const saved = await send('/api/dermat_quality/checks', 'PUT', { id: checkId, batchNo, results: resultsPayload(), worksheet: sheetPayload() }, t('dermat_quality.flash.saved', 'Saved'))
       if (!saved) return
     }
     const ok = await send(
@@ -154,12 +188,16 @@ export function QcCheckPage({ checkId }: { checkId: string }) {
                 {t('dermat_quality.nav.checks', 'QC checks')}
               </Link>
               <div className="flex flex-wrap items-center gap-2">
-                <h1 className="font-mono text-xl font-bold">{check.code}</h1>
+                <h1 className="font-mono text-xl font-bold">{check.arNo ?? check.code}</h1>
                 <StatusBadge variant={CHECK_VARIANT[check.status] ?? 'neutral'} dot>
-                  {t(`dermat_quality.status.${check.status}`, check.status)}
+                  {t(`dermat_quality.status.${check.status}`, CHECK_LABEL[check.status] ?? check.status)}
                 </StatusBadge>
+                {check.round > 1 ? <StatusBadge variant="warning">{t('dermat_quality.round', 'Round {round}', { round: check.round })}</StatusBadge> : null}
                 <StatusBadge variant="info">{OPERATION_LABEL[check.operation] ?? check.operation}</StatusBadge>
               </div>
+              <p className="font-mono text-xs text-muted-foreground">
+                {t('dermat_quality.arHint', 'AR no. (analysis report)')} · {check.code}
+              </p>
               <p className="text-sm">
                 <Link href={`/backend/products/${check.productId}`} className="font-semibold hover:underline">
                   {check.productCode ? <span className="mr-1 font-mono text-muted-foreground">{check.productCode}</span> : null}
@@ -188,7 +226,7 @@ export function QcCheckPage({ checkId }: { checkId: string }) {
               <label htmlFor="qc-batch" className="text-xs text-muted-foreground">
                 {t('dermat_quality.batch', 'Batch no.')}
               </label>
-              <Input id="qc-batch" className="mt-1 h-8" value={batchNo} disabled={check.status === 'passed'} onChange={(event) => setBatchNo(event.target.value)} />
+              <Input id="qc-batch" className="mt-1 h-8" value={batchNo} disabled={locked} onChange={(event) => setBatchNo(event.target.value)} />
             </div>
             {parts.map((part) => (
               <div key={part.key} className="rounded-lg border bg-card p-3">
@@ -205,6 +243,89 @@ export function QcCheckPage({ checkId }: { checkId: string }) {
               </div>
             ))}
           </div>
+
+          {check.status === 'failed' && check.orderId && check.stageKey && check.stageKey !== 'grn' ? (
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-status-error-border bg-status-error-bg p-3 text-sm text-status-error-text">
+              <span className="flex items-start gap-2">
+                <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+                <span>
+                  {t('dermat_quality.failedNext', 'Failed. Choose what happens next: re-test the same sample here, or send the batch back on the order: Rework (step goes back, QC tests again) or Reject batch (written off, new batch).')}
+                </span>
+              </span>
+              <Link href={`/backend/orders/${check.orderId}/stages/${check.stageKey}`} className="shrink-0 font-semibold underline">
+                {t('dermat_quality.openStage', 'Open the order stage')}
+              </Link>
+            </div>
+          ) : null}
+          {closed ? (
+            <div className="rounded-lg border bg-muted/40 p-3 text-sm text-muted-foreground">
+              {check.status === 'reworked'
+                ? t('dermat_quality.closedRework', 'This round was sent to rework. The next round has its own check on the same order stage.')
+                : t('dermat_quality.closedReject', 'The batch was rejected. A new batch gets its own check.')}
+            </div>
+          ) : null}
+
+          <Card>
+            <CardHeader className="flex flex-col gap-2 border-b bg-muted/20 pb-3 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <CardTitle className="flex items-center gap-2 text-sm font-bold">
+                  <Pipette className="h-4 w-4 text-primary" />
+                  {t('dermat_quality.sheet', 'Sample, micro plating and retention')}
+                </CardTitle>
+                <CardDescription className="text-xs">{t('dermat_quality.sheetHint', 'Record who drew the sample and when before passing. Retention can be added after passing.')}</CardDescription>
+              </div>
+              {!closed ? (
+                <Button type="button" variant="outline" size="sm" disabled={busy} onClick={saveObservations}>
+                  {t('dermat_quality.save', 'Save')}
+                </Button>
+              ) : null}
+            </CardHeader>
+            <CardContent className="grid grid-cols-1 gap-4 pt-4 md:grid-cols-3">
+              {(
+                [
+                  { key: 'sampledBy', label: t('dermat_quality.ws.sampledBy', 'Sample drawn by *'), type: 'text', group: 'sample' },
+                  { key: 'sampledAt', label: t('dermat_quality.ws.sampledAt', 'Drawn on *'), type: 'datetime-local', group: 'sample' },
+                  { key: 'sampleQty', label: t('dermat_quality.ws.sampleQty', 'Sample quantity'), type: 'text', group: 'sample', placeholder: 'e.g. 200 g' },
+                  { key: 'sampleRef', label: t('dermat_quality.ws.sampleRef', 'Taken from (container / drum / carton)'), type: 'text', group: 'sample', placeholder: 'e.g. Vessel V-2, top and bottom' },
+                  ...(check.requiresMicro
+                    ? [
+                        { key: 'platedAt', label: t('dermat_quality.ws.platedAt', 'Micro plated on'), type: 'datetime-local', group: 'micro' },
+                        { key: 'incubationDays', label: t('dermat_quality.ws.incubation', 'Incubation days'), type: 'number', group: 'micro', placeholder: '5' },
+                      ]
+                    : []),
+                  { key: 'retentionQty', label: t('dermat_quality.ws.retentionQty', 'Retention sample'), type: 'text', group: 'retention', placeholder: 'e.g. 2 × 30 ml' },
+                  { key: 'retentionLocation', label: t('dermat_quality.ws.retentionLocation', 'Kept at'), type: 'text', group: 'retention', placeholder: 'e.g. Retention room, rack R2' },
+                  { key: 'retentionKeptBy', label: t('dermat_quality.ws.retentionKeptBy', 'Kept by'), type: 'text', group: 'retention' },
+                ] as Array<{ key: keyof QcWorksheet; label: string; type: string; group: string; placeholder?: string }>
+              ).map((field) => (
+                <div key={field.key} className="space-y-1">
+                  <label htmlFor={`qc-ws-${field.key}`} className="flex items-center gap-1 text-xs text-muted-foreground">
+                    {field.group === 'retention' ? <Archive className="h-3 w-3" aria-hidden="true" /> : field.group === 'micro' ? <Microscope className="h-3 w-3" aria-hidden="true" /> : null}
+                    {field.label}
+                  </label>
+                  <Input
+                    id={`qc-ws-${field.key}`}
+                    className="h-8"
+                    type={field.type}
+                    placeholder={field.placeholder}
+                    value={sheet[field.key] ?? ''}
+                    disabled={closed || (field.group !== 'retention' && check.status === 'passed')}
+                    onChange={(event) => setSheet((prev) => ({ ...prev, [field.key]: event.target.value }))}
+                  />
+                </div>
+              ))}
+              {check.requiresMicro && sheet.platedAt ? (
+                <p className="text-xs text-muted-foreground md:col-span-3">
+                  {(() => {
+                    const due = new Date(new Date(sheet.platedAt).getTime() + Number(sheet.incubationDays || 5) * 86400000)
+                    return check.microStatus === 'pending'
+                      ? t('dermat_quality.ws.due', 'Micro in incubation; results due {date}', { date: when(due.toISOString()) })
+                      : t('dermat_quality.ws.plated', 'Plated {date}', { date: when(new Date(sheet.platedAt).toISOString()) })
+                  })()}
+                </p>
+              ) : null}
+            </CardContent>
+          </Card>
 
           {retestOpen ? (
             <Card>
@@ -294,6 +415,7 @@ export function QcCheckPage({ checkId }: { checkId: string }) {
                           <th className="w-24 p-3 text-left">{t('dermat_quality.class', 'Class')}</th>
                           <th className="p-3 text-left">{t('dermat_quality.spec', 'Specification')}</th>
                           <th className="w-56 p-3 text-left">{t('dermat_quality.observation', 'Observation')}</th>
+                          <th className="w-40 p-3 text-left">{t('dermat_quality.instrument', 'Instrument')}</th>
                           <th className="w-56 p-3 text-left">{t('dermat_quality.remark', 'Remark')}</th>
                         </tr>
                       </thead>
@@ -302,17 +424,44 @@ export function QcCheckPage({ checkId }: { checkId: string }) {
                           <tr key={row.key} className="align-top">
                             <td className="p-3 font-medium">{row.name}</td>
                             <td className="p-3 text-xs">{row.class}</td>
-                            <td className="p-3 text-xs text-muted-foreground">{row.spec || '—'}</td>
+                            <td className="p-3 text-xs text-muted-foreground">
+                              {row.spec || (limitText(row) ? '' : '—')}
+                              {limitText(row) ? <span className="block font-mono text-foreground">{limitText(row)}</span> : null}
+                            </td>
+                            <td className="p-2">
+                              {(() => {
+                                const typed = values[row.key]?.observation ?? ''
+                                const value = Number.parseFloat(typed.replace(',', '.'))
+                                const hasLimits = limitText(row) !== ''
+                                const inSpec = !hasLimits || !typed.trim() || !Number.isFinite(value) ? null : (row.min == null || value >= row.min) && (row.max == null || value <= row.max)
+                                return (
+                                  <span className="flex items-center gap-1.5">
+                                    {editable ? (
+                                      <Input
+                                        aria-label={`${row.name} observation`}
+                                        className="h-8"
+                                        value={typed}
+                                        onChange={(event) => setValues((prev) => ({ ...prev, [row.key]: { ...(prev[row.key] ?? { remark: '', instrument: '' }), observation: event.target.value } }))}
+                                      />
+                                    ) : (
+                                      <span>{row.observation || '—'}</span>
+                                    )}
+                                    {inSpec === true ? <StatusBadge variant="success">{t('dermat_quality.inSpec', 'In spec')}</StatusBadge> : inSpec === false ? <StatusBadge variant="error">{t('dermat_quality.outSpec', 'Out of spec')}</StatusBadge> : null}
+                                  </span>
+                                )
+                              })()}
+                            </td>
                             <td className="p-2">
                               {editable ? (
                                 <Input
-                                  aria-label={`${row.name} observation`}
+                                  aria-label={`${row.name} instrument`}
                                   className="h-8"
-                                  value={values[row.key]?.observation ?? ''}
-                                  onChange={(event) => setValues((prev) => ({ ...prev, [row.key]: { ...(prev[row.key] ?? { remark: '' }), observation: event.target.value } }))}
+                                  placeholder="e.g. pH meter PH-02"
+                                  value={values[row.key]?.instrument ?? ''}
+                                  onChange={(event) => setValues((prev) => ({ ...prev, [row.key]: { ...(prev[row.key] ?? { observation: '', remark: '' }), instrument: event.target.value } }))}
                                 />
                               ) : (
-                                <span>{row.observation || '—'}</span>
+                                <span className="text-xs text-muted-foreground">{row.instrument || '—'}</span>
                               )}
                             </td>
                             <td className="p-2">
@@ -321,7 +470,7 @@ export function QcCheckPage({ checkId }: { checkId: string }) {
                                   aria-label={`${row.name} remark`}
                                   className="h-8"
                                   value={values[row.key]?.remark ?? ''}
-                                  onChange={(event) => setValues((prev) => ({ ...prev, [row.key]: { ...(prev[row.key] ?? { observation: '' }), remark: event.target.value } }))}
+                                  onChange={(event) => setValues((prev) => ({ ...prev, [row.key]: { ...(prev[row.key] ?? { observation: '', instrument: '' }), remark: event.target.value } }))}
                                 />
                               ) : (
                                 <span className="text-xs text-muted-foreground">{row.remark || '—'}</span>

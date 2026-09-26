@@ -197,16 +197,23 @@ export const STAGES: StageDef[] = [
     label: 'QA release',
     department: 'QA',
     group: 'qa',
-    hint: 'QA checks the documents and releases the goods for billing and dispatch.',
+    hint: 'QA reviews the batch record, materials and every QC result, checks retention samples, then releases, reworks or rejects the batch.',
     after: ['packing'],
     steps: [
-      { key: 'documents', label: 'Batch documents checked' },
-      { key: 'released', label: 'Released for dispatch' },
+      { key: 'line_clearance', label: 'Line clearance checked for manufacturing, filling and packing' },
+      { key: 'documents', label: 'Batch manufacturing record complete and reviewed' },
+      { key: 'materials', label: 'Store issues and returns reconciled, yield checked' },
+      { key: 'qc_review', label: 'Every QC check reviewed (bulk, filling, finished goods)' },
+      { key: 'retention', label: 'Retention sample of finished goods kept' },
+      { key: 'released', label: 'Decision signed' },
     ],
     fields: [
-      { key: 'qc_result', label: 'Result', type: 'select', options: ['Pass', 'Fail'], required: true },
-      { key: 'released_on', label: 'Released on', type: 'date', required: true },
-      { key: 'remarks', label: 'Remarks', type: 'textarea' },
+      { key: 'qc_result', label: 'QA decision', type: 'select', options: ['Released', 'Rework', 'Rejected'], required: true },
+      { key: 'released_on', label: 'Decision date', type: 'date', required: true },
+      { key: 'coa_no', label: 'COA no.', type: 'text', placeholder: 'e.g. COA/57001' },
+      { key: 'retention_qty', label: 'Retention sample (pcs)', type: 'number' },
+      { key: 'retention_location', label: 'Retention sample kept at', type: 'text', placeholder: 'e.g. QA retention cabinet R2' },
+      { key: 'remarks', label: 'QA remarks', type: 'textarea' },
     ],
   },
   {
@@ -301,3 +308,12 @@ export const WORK_STATE_LABEL: Record<WorkState, string> = {
   completed: 'Completed',
   skipped: 'Skipped',
 }
+
+export const QA_ARTWORK_CHECKS = [
+  { key: 'product_name', label: 'Product name and variant match the order' },
+  { key: 'inci', label: 'INCI / ingredient list matches the approved formula' },
+  { key: 'mrp_block', label: 'MRP block and net quantity correct' },
+  { key: 'batch_area', label: 'Space for batch no., mfg and expiry date' },
+  { key: 'legal', label: 'Legal text: manufacturer, licence no., address, customer care' },
+  { key: 'barcode', label: 'Barcode readable and correct' },
+] as const

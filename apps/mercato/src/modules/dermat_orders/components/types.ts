@@ -77,9 +77,11 @@ export type OrderEvent = { id: string; stageKey: string | null; action: string; 
 export type OrderQcCheck = {
   id: string
   code: string
+  arNo: string | null
+  round: number
   productId: string
   productTitle: string
-  status: 'pending' | 'passed' | 'failed'
+  status: 'pending' | 'passed' | 'failed' | 'reworked' | 'rejected'
   chemicalStatus: 'pending' | 'pass' | 'fail' | 'na'
   microStatus: 'pending' | 'pass' | 'fail' | 'na'
   batchNo: string | null

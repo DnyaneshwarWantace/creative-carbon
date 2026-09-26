@@ -141,7 +141,7 @@ export async function suggestLines(ctx: OrderContext, orderId: string, stageKey:
     const primary = isPrimaryPack(row.title, types.get(id))
     return stageKey === 'filling' ? primary : !primary
   })
-  const existing = await ctx.em.find(StoreRequest, { orderId, stageKey, deletedAt: null, status: { $ne: 'cancelled' } })
+  const existing = await ctx.em.find(StoreRequest, { orderId, stageKey, deletedAt: null, status: { $nin: ['cancelled', 'used'] } })
   const existingLines = existing.length ? await ctx.em.find(StoreRequestLine, { requestId: { $in: existing.map((request) => request.id) } }) : []
   const requested = new Map<string, number>()
   for (const line of existingLines) requested.set(line.productId, (requested.get(line.productId) ?? 0) + num(line.requiredQty))
@@ -396,7 +396,7 @@ export async function cancelRequest(ctx: StoreContext, request: StoreRequest, no
   await ctx.em.flush()
 }
 
-export async function consumeForStage(ctx: StoreContext, orderId: string, stageKey: string, batchNo: string | null): Promise<string[]> {
+export async function consumeForStage(ctx: StoreContext, orderId: string, stageKey: string, batchNo: string | null, rejection?: string | null): Promise<string[]> {
   const requests = await ctx.em.find(StoreRequest, {
     orderId,
     stageKey,
@@ -424,8 +424,10 @@ export async function consumeForStage(ctx: StoreContext, orderId: string, stageK
             catalogVariantId: line.variantId,
             ...(issue.lotId ? { lotId: issue.lotId } : {}),
             delta: -round(left),
-            reason: `Used in ${stageDef(stageKey)?.label ?? stageKey}${batchNo ? ` batch ${batchNo}` : ''} for ${request.orderNo} (${request.code})`,
-            reasonCode: 'production_use',
+            reason: rejection
+              ? `Written off: rejected ${stageDef(stageKey)?.label ?? stageKey} batch${batchNo ? ` ${batchNo}` : ''} for ${request.orderNo} (${request.code}) · ${rejection}`
+              : `Used in ${stageDef(stageKey)?.label ?? stageKey}${batchNo ? ` batch ${batchNo}` : ''} for ${request.orderNo} (${request.code})`,
+            reasonCode: rejection ? 'production_reject' : 'production_use',
             referenceType: 'transfer',
             referenceId: randomUUID(),
             performedBy: performerId(ctx),
@@ -442,7 +444,7 @@ export async function consumeForStage(ctx: StoreContext, orderId: string, stageK
     }
     request.status = 'used'
     request.usedAt = new Date()
-    history(request, 'used', byName, batchNo ? `Batch ${batchNo}` : null)
+    history(request, rejection ? 'written_off' : 'used', byName, rejection ? `Rejected batch${batchNo ? ` ${batchNo}` : ''}: ${rejection}` : batchNo ? `Batch ${batchNo}` : null)
     request.updatedAt = new Date()
   }
   await ctx.em.flush()
@@ -451,7 +453,7 @@ export async function consumeForStage(ctx: StoreContext, orderId: string, stageK
 
 export async function storeBlocking(ctx: OrderContext, orderId: string, stageKey: string): Promise<string | null> {
   if (!STORE_STAGE_KEYS.includes(stageKey as StoreStage)) return null
-  const requests = await ctx.em.find(StoreRequest, { orderId, stageKey, deletedAt: null, status: { $ne: 'cancelled' } })
+  const requests = await ctx.em.find(StoreRequest, { orderId, stageKey, deletedAt: null, status: { $nin: ['cancelled', 'used'] } })
   if (!requests.length) {
     const { rows } = await suggestLines(ctx, orderId, stageKey as StoreStage)
     if (!rows.some((row) => row.required > 0)) return null

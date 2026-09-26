@@ -29,6 +29,32 @@ export async function nextCode(scope: QcScope, table: 'dermat_quality_rules' | '
   return `${prefix}${String(Number(row?.max ?? 0) + 1).padStart(pad, '0')}`
 }
 
+const AR_KIND: Record<QcOperation, string> = { purchase_receipt: 'IN', bulk: 'BK', filling: 'FL', packing: 'FG' }
+
+export async function nextArNo(scope: QcScope, operation: QcOperation, productId: string): Promise<string> {
+  let kind = AR_KIND[operation]
+  if (operation === 'purchase_receipt') {
+    const [row] = await scope.em.getConnection().execute<Array<{ kind: string | null }>>(
+      'select custom_fieldset_code as kind from catalog_products where id = ?',
+      [productId],
+      'all',
+      scope.em.getTransactionContext(),
+    )
+    kind = row?.kind === 'packing_material' ? 'PM' : 'RM'
+  }
+  const now = new Date()
+  const prefix = `DI/${kind}/${String(now.getFullYear()).slice(-2)}/${String(now.getMonth() + 1).padStart(2, '0')}/`
+  const [row] = await scope.em.getConnection().execute<Array<{ max: number | null }>>(
+    `select max(nullif(substring(ar_no from length(?) + 1), '')::int) as max from dermat_quality_checks where tenant_id = ? and organization_id = ? and ar_no like ?`,
+    [prefix, scope.tenantId, scope.organizationId, `${prefix}%`],
+    'all',
+    scope.em.getTransactionContext(),
+  )
+  return `${prefix}${String(Number(row?.max ?? 0) + 1).padStart(3, '0')}`
+}
+
+export const CLOSED_CHECK_STATUSES = ['reworked', 'rejected'] as const
+
 export async function ensureDefaultRules(scope: QcScope): Promise<void> {
   const existing = await scope.em.find(QcRule, { tenantId: scope.tenantId, organizationId: scope.organizationId, productId: null, deletedAt: null })
   const have = new Set(existing.map((rule) => rule.operation))
@@ -80,8 +106,9 @@ export async function ensureChecksForStage(
   await ensureDefaultRules(scope)
   let created = 0
   for (const productId of Array.from(new Set(input.productIds))) {
-    const exists = await scope.em.findOne(QcCheck, { orderId: input.orderId, stageKey: input.stageKey, productId, deletedAt: null })
-    if (exists) continue
+    const earlier = await scope.em.find(QcCheck, { orderId: input.orderId, stageKey: input.stageKey, productId, deletedAt: null })
+    if (earlier.some((check) => !(CLOSED_CHECK_STATUSES as readonly string[]).includes(check.status))) continue
+    const round = earlier.reduce((max, check) => Math.max(max, check.round ?? 1), 0) + 1
     const rule = await resolveRule(scope, operation, productId)
     if (!rule || !rule.isActive) continue
     const results: QcResult[] = (rule.parameters ?? [])
@@ -92,6 +119,8 @@ export async function ensureChecksForStage(
         organizationId: scope.organizationId,
         tenantId: scope.tenantId,
         code: await nextCode(scope, 'dermat_quality_checks', 'QC', 4),
+        arNo: await nextArNo(scope, operation, productId),
+        round,
         operation,
         productId,
         orderId: input.orderId,
@@ -104,7 +133,7 @@ export async function ensureChecksForStage(
         microStatus: rule.requiresMicro ? 'pending' : 'na',
         status: rule.requiresChemical || rule.requiresMicro ? 'pending' : 'passed',
         results,
-        history: [{ action: 'created', by: input.byName, at: new Date().toISOString(), note: `From ${rule.code} ${rule.title}` }],
+        history: [{ action: 'created', by: input.byName, at: new Date().toISOString(), note: `${round > 1 ? `Round ${round} after rework · ` : ''}From ${rule.code} ${rule.title}` }],
       }),
     )
     await scope.em.flush()
@@ -113,7 +142,7 @@ export async function ensureChecksForStage(
   return created
 }
 
-export type StageQcSummary = { id: string; code: string; productId: string; status: string; chemicalStatus: string; microStatus: string; batchNo: string | null }
+export type StageQcSummary = { id: string; code: string; arNo: string | null; round: number; productId: string; status: string; chemicalStatus: string; microStatus: string; batchNo: string | null }
 
 export async function checksForOrder(scope: QcScope, orderId: string): Promise<Record<string, StageQcSummary[]>> {
   const checks = await scope.em.find(QcCheck, { orderId, tenantId: scope.tenantId, organizationId: scope.organizationId, deletedAt: null }, { orderBy: { createdAt: 'asc' } })
@@ -123,6 +152,8 @@ export async function checksForOrder(scope: QcScope, orderId: string): Promise<R
     ;(result[key] ??= []).push({
       id: check.id,
       code: check.code,
+      arNo: check.arNo ?? null,
+      round: check.round ?? 1,
       productId: check.productId,
       status: check.status,
       chemicalStatus: check.chemicalStatus,
@@ -136,7 +167,20 @@ export async function checksForOrder(scope: QcScope, orderId: string): Promise<R
 export async function blockingChecks(scope: QcScope, orderId: string, stageKey: string): Promise<QcCheck[]> {
   if (!STAGE_TO_OPERATION[stageKey]) return []
   const checks = await scope.em.find(QcCheck, { orderId, stageKey, tenantId: scope.tenantId, organizationId: scope.organizationId, deletedAt: null })
-  return checks.filter((check) => check.status !== 'passed')
+  return checks.filter((check) => check.status !== 'passed' && !(CLOSED_CHECK_STATUSES as readonly string[]).includes(check.status))
+}
+
+export async function closeFailedChecks(
+  scope: QcScope,
+  input: { orderId: string; stageKey: string; status: 'reworked' | 'rejected'; note: string; byName: string | null },
+): Promise<string[]> {
+  const checks = await scope.em.find(QcCheck, { orderId: input.orderId, stageKey: input.stageKey, deletedAt: null, status: 'failed' })
+  for (const check of checks) {
+    check.status = input.status
+    check.history = [...(check.history ?? []), { action: input.status === 'reworked' ? 'sent_to_rework' : 'batch_rejected', by: input.byName, at: new Date().toISOString(), note: input.note }]
+    check.updatedAt = new Date()
+  }
+  return checks.map((check) => check.code)
 }
 
 export async function createInwardCheck(
@@ -153,6 +197,7 @@ export async function createInwardCheck(
     organizationId: scope.organizationId,
     tenantId: scope.tenantId,
     code: await nextCode(scope, 'dermat_quality_checks', 'QC', 4),
+    arNo: await nextArNo(scope, 'purchase_receipt', input.productId),
     operation: 'purchase_receipt',
     productId: input.productId,
     orderId: input.grnId,

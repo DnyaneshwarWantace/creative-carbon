@@ -8,6 +8,9 @@ export const parameterSchema = z.object({
   class: z.string().trim().min(1).max(30),
   spec: z.string().trim().max(300).default(''),
   test: z.enum(['chemical', 'micro']),
+  min: z.coerce.number().optional().nullable(),
+  max: z.coerce.number().optional().nullable(),
+  unit: z.string().trim().max(30).optional().nullable(),
 })
 
 export const ruleInputSchema = z.object({
@@ -26,7 +29,21 @@ export const ruleUpdateSchema = ruleInputSchema.extend({ id: z.string().uuid() }
 export const checkSaveSchema = z.object({
   id: z.string().uuid(),
   batchNo: z.string().trim().max(60).optional().nullable(),
-  results: z.array(z.object({ key: z.string().max(60), observation: z.string().max(500), remark: z.string().max(1000) })).max(100),
+  results: z.array(z.object({ key: z.string().max(60), observation: z.string().max(500), remark: z.string().max(1000), instrument: z.string().trim().max(120).optional().nullable() })).max(100).default([]),
+  worksheet: z
+    .object({
+      sampledBy: z.string().trim().max(120).optional().nullable(),
+      sampledAt: z.string().trim().max(40).optional().nullable(),
+      sampleQty: z.string().trim().max(60).optional().nullable(),
+      sampleRef: z.string().trim().max(200).optional().nullable(),
+      platedAt: z.string().trim().max(40).optional().nullable(),
+      incubationDays: z.coerce.number().int().min(0).max(60).optional().nullable(),
+      retentionQty: z.string().trim().max(60).optional().nullable(),
+      retentionLocation: z.string().trim().max(200).optional().nullable(),
+      retentionKeptBy: z.string().trim().max(120).optional().nullable(),
+      notes: z.string().trim().max(2000).optional().nullable(),
+    })
+    .optional(),
 })
 
 export const decideSchema = z.object({
@@ -39,7 +56,7 @@ export const retestSchema = z.object({ id: z.string().uuid(), note: z.string().t
 
 export const checkListSchema = z.object({
   id: z.string().uuid().optional(),
-  status: z.enum(['pending', 'passed', 'failed']).optional(),
+  status: z.enum(['pending', 'passed', 'failed', 'reworked', 'rejected']).optional(),
   operation: operationSchema.optional(),
   orderId: z.string().uuid().optional(),
   search: z.string().trim().max(200).optional(),

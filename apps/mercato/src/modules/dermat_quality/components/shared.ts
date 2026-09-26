@@ -7,15 +7,54 @@ export const OPERATION_LABEL: Record<string, string> = {
   packing: 'Final after packing',
 }
 
-export const CHECK_VARIANT: Record<string, StatusBadgeVariant> = { pending: 'warning', passed: 'success', failed: 'error' }
+export const CHECK_VARIANT: Record<string, StatusBadgeVariant> = { pending: 'warning', passed: 'success', failed: 'error', reworked: 'neutral', rejected: 'neutral' }
+export const CHECK_LABEL: Record<string, string> = { pending: 'Testing', passed: 'Passed', failed: 'Failed', reworked: 'Sent to rework', rejected: 'Batch rejected' }
 export const PART_VARIANT: Record<string, StatusBadgeVariant> = { pending: 'warning', pass: 'success', fail: 'error', na: 'neutral' }
 export const PART_LABEL: Record<string, string> = { pending: 'Pending', pass: 'Passed', fail: 'Failed', na: 'Not needed' }
 
-export type QcResultRow = { key: string; name: string; class: string; spec: string; test: 'chemical' | 'micro'; observation: string; remark: string }
+export type QcResultRow = {
+  key: string
+  name: string
+  class: string
+  spec: string
+  test: 'chemical' | 'micro'
+  observation: string
+  remark: string
+  min?: number | null
+  max?: number | null
+  unit?: string | null
+  instrument?: string | null
+  inSpec?: boolean | null
+}
+
+export type QcWorksheet = {
+  sampledBy?: string | null
+  sampledAt?: string | null
+  sampleQty?: string | null
+  sampleRef?: string | null
+  platedAt?: string | null
+  incubationDays?: number | null
+  retentionQty?: string | null
+  retentionLocation?: string | null
+  retentionKeptBy?: string | null
+  notes?: string | null
+}
+
+export function limitText(row: Pick<QcResultRow, 'min' | 'max' | 'unit'>): string {
+  const unit = row.unit ? ` ${row.unit}` : ''
+  const has = (value: number | null | undefined) => value !== null && value !== undefined
+  if (has(row.min) && has(row.max)) return `${row.min}–${row.max}${unit}`
+  if (has(row.min)) return `≥ ${row.min}${unit}`
+  if (has(row.max)) return `≤ ${row.max}${unit}`
+  return ''
+}
 
 export type QcCheckView = {
   id: string
   code: string
+  arNo: string | null
+  round: number
+  worksheet: QcWorksheet
   operation: string
   productId: string
   productTitle: string
@@ -28,7 +67,7 @@ export type QcCheckView = {
   requiresMicro: boolean
   chemicalStatus: 'pending' | 'pass' | 'fail' | 'na'
   microStatus: 'pending' | 'pass' | 'fail' | 'na'
-  status: 'pending' | 'passed' | 'failed'
+  status: 'pending' | 'passed' | 'failed' | 'reworked' | 'rejected'
   results: QcResultRow[]
   chemicalBy: string | null
   chemicalAt: string | null

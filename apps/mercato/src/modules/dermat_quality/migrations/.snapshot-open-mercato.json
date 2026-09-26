@@ -8,6 +8,23 @@
       "name": "dermat_quality_checks",
       "schema": "public",
       "columns": {
+        "ar_no": {
+          "name": "ar_no",
+          "type": "text",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": true,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "text"
+        },
         "batch_no": {
           "name": "batch_no",
           "type": "text",
@@ -348,6 +365,23 @@
           "enumItems": [],
           "mappedType": "json"
         },
+        "round": {
+          "name": "round",
+          "type": "int",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": "1",
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "integer"
+        },
         "rule_id": {
           "name": "rule_id",
           "type": "uuid",
@@ -432,6 +466,23 @@
           "collation": null,
           "enumItems": [],
           "mappedType": "datetime"
+        },
+        "worksheet": {
+          "name": "worksheet",
+          "type": "jsonb",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": true,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "json"
         }
       },
       "indexes": [

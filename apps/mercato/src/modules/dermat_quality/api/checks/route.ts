@@ -4,7 +4,7 @@ import type { OpenApiRouteDoc } from '@open-mercato/shared/lib/openapi'
 import { enforceCommandOptimisticLock } from '@open-mercato/shared/lib/crud/optimistic-lock-command'
 import { checkListSchema, checkSaveSchema } from '../../data/validators'
 import { QcError } from '../../lib/service'
-import { checkView, findCheck } from '../../lib/checks'
+import { checkView, evaluateResult, findCheck } from '../../lib/checks'
 import { currentUserName, productSummaries, qcErrorResponse, resolveQcContext, runGuarded } from '../../lib/server'
 
 export const metadata = {
@@ -39,16 +39,16 @@ async function GET(req: Request) {
   }
   if (query.search) {
     const term = `%${query.search.replace(/[\\%_]/g, (char) => `\\${char}`)}%`
-    where.push(`(c.code ilike ? or c.order_no ilike ? or c.batch_no ilike ? or p.title ilike ?)`)
-    params.push(term, term, term, term)
+    where.push(`(c.code ilike ? or c.ar_no ilike ? or c.order_no ilike ? or c.batch_no ilike ? or p.title ilike ?)`)
+    params.push(term, term, term, term, term)
   }
   const from = `from dermat_quality_checks c left join catalog_products p on p.id = c.product_id where ${where.join(' and ')}`
   const connection = ctx.em.getConnection()
   const [count] = await connection.execute<Array<{ total: string }>>(`select count(*) as total ${from}`, params)
   const rows = await connection.execute<
-    Array<{ id: string; code: string; operation: string; product_id: string; order_id: string | null; order_no: string | null; stage_key: string | null; batch_no: string | null; status: string; chemical_status: string; micro_status: string; created_at: Date; chemical_by: string | null; micro_by: string | null }>
+    Array<{ id: string; code: string; ar_no: string | null; round: number; operation: string; product_id: string; order_id: string | null; order_no: string | null; stage_key: string | null; batch_no: string | null; status: string; chemical_status: string; micro_status: string; created_at: Date; chemical_by: string | null; micro_by: string | null }>
   >(
-    `select c.id, c.code, c.operation, c.product_id, c.order_id, c.order_no, c.stage_key, c.batch_no, c.status, c.chemical_status, c.micro_status, c.created_at, c.chemical_by, c.micro_by
+    `select c.id, c.code, c.ar_no, c.round, c.operation, c.product_id, c.order_id, c.order_no, c.stage_key, c.batch_no, c.status, c.chemical_status, c.micro_status, c.created_at, c.chemical_by, c.micro_by
        ${from} order by c.status = 'pending' desc, c.created_at desc limit ? offset ?`,
     [...params, query.pageSize, (query.page - 1) * query.pageSize],
   )
@@ -61,6 +61,8 @@ async function GET(req: Request) {
     items: rows.map((row) => ({
       id: row.id,
       code: row.code,
+      arNo: row.ar_no,
+      round: row.round,
       operation: row.operation,
       productId: row.product_id,
       productTitle: products.get(row.product_id)?.title ?? '',
@@ -90,7 +92,7 @@ async function PUT(req: Request) {
   if (!parsed.success) return NextResponse.json({ error: 'Invalid QC data' }, { status: 400 })
   try {
     const check = await findCheck(ctx, parsed.data.id)
-    if (check.status === 'passed') throw new QcError('This check is passed and locked', 409)
+    if ((check.status === 'passed' || check.status === 'reworked' || check.status === 'rejected') && parsed.data.results.length) throw new QcError('This check is locked; only the sample and retention details can still be updated', 409)
     enforceCommandOptimisticLock({ resourceKind: 'dermat_quality.check', resourceId: check.id, current: check.updatedAt, request: req })
     return await runGuarded(ctx, req, { resourceKind: 'dermat_quality.check', resourceId: check.id, operation: 'update', payload: parsed.data }, async () => {
       const incoming = new Map(parsed.data.results.map((row) => [row.key, row]))
@@ -98,8 +100,16 @@ async function PUT(req: Request) {
         const partStatus = row.test === 'micro' ? check.microStatus : check.chemicalStatus
         const update = incoming.get(row.key)
         if (!update || partStatus !== 'pending') return row
-        return { ...row, observation: update.observation.trim(), remark: update.remark.trim() }
+        return evaluateResult({ ...row, observation: update.observation.trim(), remark: update.remark.trim(), instrument: update.instrument?.trim() || row.instrument || null })
       })
+      if (parsed.data.worksheet) {
+        const next = { ...(check.worksheet ?? {}) } as Record<string, string | number | null>
+        for (const [key, value] of Object.entries(parsed.data.worksheet)) {
+          if (value === undefined) continue
+          next[key] = typeof value === 'string' ? value.trim() || null : value
+        }
+        check.worksheet = next
+      }
       if (parsed.data.batchNo !== undefined) check.batchNo = parsed.data.batchNo?.trim() || null
       check.history = [...(check.history ?? []), { action: 'saved', by: await currentUserName(ctx), at: new Date().toISOString(), note: null }]
       check.updatedAt = new Date()

@@ -41,6 +41,14 @@ async function POST(req: Request) {
           await consumeForStage(storeCtx, order.id, parsed.data.stageKey, batchNo)
         }
       }
+      if (parsed.data.action === 'reject_batch') {
+        const storeCtx = await resolveStoreContext(req)
+        if (!('error' in storeCtx)) {
+          const stage = await ctx.em.fork().findOne(DermatOrderStage, { orderId: order.id, stageKey: parsed.data.stageKey })
+          const rounds = Array.isArray(stage?.data?.__rework) ? (stage?.data?.__rework as Array<{ batchNo?: string | null }>) : []
+          await consumeForStage(storeCtx, order.id, parsed.data.stageKey, rounds[rounds.length - 1]?.batchNo ?? null, parsed.data.note ?? 'Rejected by QC')
+        }
+      }
       if (parsed.data.action === 'complete' && ['manufacturing', 'filling', 'packing', 'dispatch'].includes(parsed.data.stageKey)) {
         const stockCtx = await resolveStoreContext(req)
         if (!('error' in stockCtx)) await onProductionStageDone(stockCtx, order.id, parsed.data.stageKey)

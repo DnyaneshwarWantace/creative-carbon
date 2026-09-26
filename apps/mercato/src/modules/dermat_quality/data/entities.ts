@@ -3,8 +3,20 @@ import { OptionalProps } from '@mikro-orm/core'
 
 export type QcOperation = 'purchase_receipt' | 'bulk' | 'filling' | 'packing'
 export type QcPartStatus = 'pending' | 'pass' | 'fail' | 'na'
-export type QcParameter = { key: string; name: string; class: string; spec: string; test: 'chemical' | 'micro' }
-export type QcResult = QcParameter & { observation: string; remark: string }
+export type QcParameter = { key: string; name: string; class: string; spec: string; test: 'chemical' | 'micro'; min?: number | null; max?: number | null; unit?: string | null }
+export type QcResult = QcParameter & { observation: string; remark: string; instrument?: string | null; inSpec?: boolean | null }
+export type QcWorksheet = {
+  sampledBy?: string | null
+  sampledAt?: string | null
+  sampleQty?: string | null
+  sampleRef?: string | null
+  platedAt?: string | null
+  incubationDays?: number | null
+  retentionQty?: string | null
+  retentionLocation?: string | null
+  retentionKeptBy?: string | null
+  notes?: string | null
+}
 export type QcHistory = { action: string; by: string | null; at: string; note: string | null }
 
 @Entity({ tableName: 'dermat_quality_rules' })
@@ -68,6 +80,9 @@ export class QcCheck {
     | 'orderId'
     | 'orderNo'
     | 'stageKey'
+    | 'arNo'
+    | 'round'
+    | 'worksheet'
     | 'batchNo'
     | 'ruleId'
     | 'requiresChemical'
@@ -131,7 +146,16 @@ export class QcCheck {
   microStatus: QcPartStatus = 'na'
 
   @Property({ type: 'text', default: 'pending' })
-  status: 'pending' | 'passed' | 'failed' = 'pending'
+  status: 'pending' | 'passed' | 'failed' | 'reworked' | 'rejected' = 'pending'
+
+  @Property({ name: 'ar_no', type: 'text', nullable: true })
+  arNo?: string | null
+
+  @Property({ type: 'integer', default: 1 })
+  round: number = 1
+
+  @Property({ type: 'json', nullable: true })
+  worksheet?: QcWorksheet | null
 
   @Property({ type: 'json', nullable: true })
   results?: QcResult[] | null
