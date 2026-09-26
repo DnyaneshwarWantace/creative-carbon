@@ -3,7 +3,7 @@
 import * as React from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { ArrowLeft, ChevronDown, ChevronRight, ClipboardList, Copy, FileStack, Package, Plus, StickyNote, Trash2, UserRound } from 'lucide-react'
+import { ArrowLeft, CheckCircle2, ChevronLeft, ChevronRight, ClipboardList, Copy, FileStack, Package, Plus, StickyNote, Trash2, UserRound } from 'lucide-react'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { cn } from '@open-mercato/shared/lib/utils'
 import { Page, PageBody } from '@open-mercato/ui/backend/Page'
@@ -15,6 +15,7 @@ import { Textarea } from '@open-mercato/ui/primitives/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@open-mercato/ui/primitives/select'
 import { Popover, PopoverContent, PopoverTrigger } from '@open-mercato/ui/primitives/popover'
 import { StatusBadge } from '@open-mercato/ui/primitives/status-badge'
+import { StepIndicator } from '@open-mercato/ui/primitives/step-indicator'
 import { apiCall, withScopedApiRequestHeaders } from '@open-mercato/ui/backend/utils/apiCall'
 import { buildOptimisticLockHeader } from '@open-mercato/ui/backend/utils/optimisticLock'
 import { useGuardedMutation } from '@open-mercato/ui/backend/injection/useGuardedMutation'
@@ -40,7 +41,6 @@ type LineDraft = {
   discountPercent: string
   batchNo: string
   specs: Record<string, Record<string, string>>
-  open: boolean
 }
 
 type Header = {
@@ -77,7 +77,7 @@ let lineCounter = 0
 
 function newLine(): LineDraft {
   lineCounter += 1
-  return { key: `line-${lineCounter}`, product: null, bom: undefined, brandName: '', packSize: '', mrp: '', quantity: '', rate: '', gstPercent: '18', discountPercent: '', batchNo: '', specs: {}, open: false }
+  return { key: `line-${lineCounter}`, product: null, bom: undefined, brandName: '', packSize: '', mrp: '', quantity: '', rate: '', gstPercent: '18', discountPercent: '', batchNo: '', specs: {} }
 }
 
 function linesFromOrder(order: Order, keepBatch: boolean): LineDraft[] {
@@ -153,6 +153,7 @@ export function OrderForm({ orderId, copyFrom, customerId }: { orderId?: string;
   const [saving, setSaving] = React.useState(false)
   const [errors, setErrors] = React.useState<{ customer?: string; rows: Record<string, string> }>({ rows: {} })
   const [previous, setPrevious] = React.useState<OrderListItem[]>([])
+  const [step, setStep] = React.useState(0)
 
   React.useEffect(() => {
     const sourceId = orderId ?? copyFrom
@@ -310,6 +311,8 @@ export function OrderForm({ orderId, copyFrom, customerId }: { orderId?: string;
     })
     const customerError = customer ? undefined : t('dermat_orders.errors.customer', 'Pick the customer')
     setErrors({ customer: customerError, rows: rowErrors })
+    if (customerError) setStep(0)
+    else if (Object.keys(rowErrors).length) setStep(1)
     if (customerError || Object.keys(rowErrors).length) {
       flash(t('dermat_orders.errors.fix', 'Some fields need fixing.'), 'error')
       return
@@ -397,6 +400,71 @@ export function OrderForm({ orderId, copyFrom, customerId }: { orderId?: string;
   }
 
   const backHref = existing ? `/backend/orders/${existing.id}` : '/backend/orders'
+  const steps = [
+    { id: 'customer', label: t('dermat_orders.wizard.customer', '1. Customer & header'), description: t('dermat_orders.wizard.customerHint', 'Who, when, terms') },
+    { id: 'products', label: t('dermat_orders.wizard.products', '2. Products & items'), description: t('dermat_orders.wizard.productsHint', 'Brand, pack, MRP, qty, rate') },
+    { id: 'specs', label: t('dermat_orders.wizard.specs', '3. Production & packing specs'), description: t('dermat_orders.wizard.specsHint', 'The client’s order form') },
+    { id: 'review', label: t('dermat_orders.wizard.review', '4. Review & book'), description: t('dermat_orders.wizard.reviewHint', 'Check and save') },
+  ]
+  const filledLines = lines.filter((line) => line.product || line.quantity.trim())
+
+  const checkStep = (index: number): boolean => {
+    if (index === 0) {
+      const customerError = customer ? undefined : t('dermat_orders.errors.customer', 'Pick the customer')
+      setErrors((prev) => ({ ...prev, customer: customerError }))
+      if (customerError) {
+        flash(customerError, 'error')
+        return false
+      }
+      if (!header.orderDate) {
+        flash(t('dermat_orders.errors.orderDate', 'Enter the order date.'), 'error')
+        return false
+      }
+      if (header.deliveryDate && header.deliveryDate < header.orderDate) {
+        flash(t('dermat_orders.errors.delivery', 'Delivery date is before the order date.'), 'error')
+        return false
+      }
+      return true
+    }
+    if (index === 1) {
+      const rowErrors: Record<string, string> = {}
+      lines.forEach((line, row) => {
+        if (!line.product && !line.quantity.trim()) return
+        if (!line.product) rowErrors[String(row + 1)] = t('dermat_orders.errors.product', 'Pick a product')
+        else if (!((toNumber(line.quantity) ?? 0) > 0)) rowErrors[String(row + 1)] = t('dermat_orders.errors.quantity', 'Enter the quantity in pieces')
+      })
+      setErrors((prev) => ({ ...prev, rows: rowErrors }))
+      if (Object.keys(rowErrors).length) {
+        flash(t('dermat_orders.errors.fix', 'Some fields need fixing.'), 'error')
+        return false
+      }
+      if (!filledLines.length) {
+        flash(t('dermat_orders.errors.noLines', 'Add at least one product.'), 'error')
+        return false
+      }
+      return true
+    }
+    return true
+  }
+
+  const goTo = (target: number) => {
+    if (target <= step || existing) {
+      setStep(target)
+      return
+    }
+    for (let index = step; index < target; index += 1) {
+      if (!checkStep(index)) {
+        setStep(index)
+        return
+      }
+    }
+    setStep(target)
+  }
+
+  const lineMoney = (line: LineDraft) =>
+    priceOrder([{ quantity: toNumber(line.quantity) ?? 0, rate: toNumber(line.rate), gstPercent: toNumber(line.gstPercent) ?? 18, discountPercent: toNumber(line.discountPercent) ?? 0 }], header.pricesIncludeGst)
+
+  const specSummary = (line: LineDraft) => LINE_SPEC_SECTIONS.map((section) => `${filledCount(line.specs[section.key])}/${section.fields.length}`).join(' · ')
 
   return (
     <Page>
@@ -405,12 +473,14 @@ export function OrderForm({ orderId, copyFrom, customerId }: { orderId?: string;
           className="mx-auto max-w-7xl space-y-5 pb-16"
           onSubmit={(event) => {
             event.preventDefault()
-            save()
+            if (step < steps.length - 1 && !existing) goTo(step + 1)
+            else save()
           }}
           onKeyDown={(event) => {
             if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) {
               event.preventDefault()
-              save()
+              if (step < steps.length - 1 && !existing) goTo(step + 1)
+              else save()
             }
             if (event.key === 'Escape') router.push(backHref)
           }}
@@ -425,11 +495,11 @@ export function OrderForm({ orderId, copyFrom, customerId }: { orderId?: string;
                   {existing
                     ? t('dermat_orders.form.editTitle', 'Edit order {no}', { no: existing.orderNo })
                     : header.orderType === 'repeat'
-                      ? t('dermat_orders.form.repeatTitle', 'Repeat order')
-                      : t('dermat_orders.form.newTitle', 'New order')}
+                      ? t('dermat_orders.form.repeatTitle', 'Book a repeat order')
+                      : t('dermat_orders.form.newTitle', 'Book a new order')}
                 </h1>
                 <p className="text-xs text-muted-foreground">
-                  {t('dermat_orders.form.subtitle', 'The order number is given when you save. The order becomes official when the advance is received.')}
+                  {t('dermat_orders.form.subtitle', 'The order number is given when you save. It then waits at "Advance received" until Accounts verifies the advance.')}
                 </p>
               </div>
             </div>
@@ -437,324 +507,502 @@ export function OrderForm({ orderId, copyFrom, customerId }: { orderId?: string;
               <Button type="button" variant="outline" onClick={() => router.push(backHref)} disabled={saving}>
                 {t('common.cancel', 'Cancel')}
               </Button>
-              <Button type="submit" disabled={saving}>
-                {saving ? t('dermat_orders.form.saving', 'Saving…') : existing ? t('dermat_orders.form.save', 'Save order') : t('dermat_orders.form.book', 'Book order')}
-              </Button>
+              {existing ? (
+                <Button type="button" onClick={() => save()} disabled={saving}>
+                  {saving ? t('dermat_orders.form.saving', 'Saving…') : t('dermat_orders.form.save', 'Save order')}
+                </Button>
+              ) : null}
             </div>
           </div>
 
-          <Card>
-            <CardHeader className="border-b bg-muted/20 pb-3">
-              <CardTitle className="flex items-center gap-2 text-sm font-bold">
-                <UserRound className="h-4 w-4 text-primary" />
-                {t('dermat_orders.form.customerTitle', '1. Customer & order')}
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="grid grid-cols-1 gap-4 pt-4 md:grid-cols-12">
-              <Field label={t('dermat_orders.form.customer', 'Customer (company)')} required className="md:col-span-6">
-                <SearchPicker
-                  value={customer ? { id: customer.id, primary: customer.name, value: customer } : null}
-                  placeholder={t('dermat_orders.form.customerPick', 'Search customer by name')}
-                  searchPlaceholder={t('dermat_orders.form.customerSearch', 'Type a customer name')}
-                  load={searchCustomers}
-                  onSelect={selectCustomer}
-                  invalid={Boolean(errors.customer)}
-                  disabled={Boolean(existing)}
-                  footer={
-                    <Link href="/backend/customers/companies/create" target="_blank" className="inline-flex items-center gap-1 text-xs text-primary hover:underline">
-                      <Plus className="h-3 w-3" />
-                      {t('dermat_orders.form.newCustomer', 'Add a new customer (opens in a new tab)')}
-                    </Link>
-                  }
-                />
-                {errors.customer ? <p className="text-xs text-status-error-text">{errors.customer}</p> : null}
-                {customer ? (
-                  <p className="text-xs text-muted-foreground">
-                    {[customer.gstin ? `GSTIN ${customer.gstin}` : t('dermat_orders.form.noGst', 'No GSTIN on file'), customer.phone, customer.email].filter(Boolean).join(' · ')}{' '}
-                    <Link href={`/backend/customers/companies/${customer.id}`} target="_blank" className="text-primary hover:underline">
-                      {t('dermat_orders.form.openCustomer', 'Open customer')}
-                    </Link>
-                  </p>
-                ) : null}
-              </Field>
-              <Field label={t('dermat_orders.form.orderDate', 'Order date')} required className="md:col-span-3">
-                <Input type="date" value={header.orderDate} onChange={(event) => patchHeader({ orderDate: event.target.value })} />
-              </Field>
-              <Field label={t('dermat_orders.form.deliveryDate', 'Delivery date')} className="md:col-span-3">
-                <Input type="date" value={header.deliveryDate} onChange={(event) => patchHeader({ deliveryDate: event.target.value })} />
-              </Field>
-              <Field label={t('dermat_orders.form.orderType', 'Order type')} className="md:col-span-3">
-                <Select value={header.orderType} onValueChange={(value) => patchHeader({ orderType: value as Header['orderType'] })}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="new">{t('dermat_orders.type.new', 'New')}</SelectItem>
-                    <SelectItem value="repeat">{t('dermat_orders.type.repeat', 'Repeat')}</SelectItem>
-                    <SelectItem value="revision">{t('dermat_orders.type.revision', 'Revision')}</SelectItem>
-                  </SelectContent>
-                </Select>
-              </Field>
-              <Field label={t('dermat_orders.form.poRef', 'Customer PO / reference')} className="md:col-span-3">
-                <Input value={header.customerPoRef} onChange={(event) => patchHeader({ customerPoRef: event.target.value })} placeholder="e.g. PO-2291" />
-              </Field>
-              <Field label={t('dermat_orders.form.salesManager', 'Sales manager')} className="md:col-span-3">
-                <Input value={header.salesManager} onChange={(event) => patchHeader({ salesManager: event.target.value })} />
-              </Field>
-              <Field label={t('dermat_orders.form.paymentTerms', 'Payment terms')} className="md:col-span-3">
-                <Select value={header.paymentTerms || '__none'} onValueChange={(value) => patchHeader({ paymentTerms: value === '__none' ? '' : value })}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="__none">—</SelectItem>
-                    {Object.entries(PAYMENT_TERMS_LABEL).map(([value, label]) => (
-                      <SelectItem key={value} value={value}>
-                        {label}
-                      </SelectItem>
-                    ))}
-                    {header.paymentTerms && !PAYMENT_TERMS_LABEL[header.paymentTerms] ? <SelectItem value={header.paymentTerms}>{header.paymentTerms}</SelectItem> : null}
-                  </SelectContent>
-                </Select>
-              </Field>
-              <Field label={t('dermat_orders.form.paymentRemarks', 'Payment remarks')} className="md:col-span-6">
-                <Input value={header.paymentRemarks} onChange={(event) => patchHeader({ paymentRemarks: event.target.value })} placeholder="e.g. 40% advance 60% before dispatch" />
-              </Field>
-              {customer && !existing && previous.length ? (
-                <div className="md:col-span-6 md:self-end">
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button type="button" variant="outline" className="w-full justify-start">
-                        <Copy className="mr-2 h-4 w-4" />
-                        {t('dermat_orders.form.repeatPick', 'Repeat a previous order of this customer ({count})', { count: previous.length })}
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent align="start" className="w-96 p-0">
-                      <ul className="max-h-72 divide-y overflow-auto text-sm">
-                        {previous.map((item) => (
-                          <li key={item.id}>
-                            <button type="button" className="w-full px-3 py-2 text-left hover:bg-muted" onClick={() => copyOrder(item)}>
-                              <span className="font-mono text-xs">{item.orderNo}</span>
-                              <span className="ml-2 text-xs text-muted-foreground">{formatDate(item.orderDate)}</span>
-                              <span className="block truncate">
-                                {item.products.map((product) => `${product.title} × ${formatQty(product.quantity, 0)}`).join(', ')}
-                              </span>
-                            </button>
-                          </li>
-                        ))}
-                      </ul>
-                    </PopoverContent>
-                  </Popover>
-                </div>
-              ) : null}
-            </CardContent>
-          </Card>
+          <div className="rounded-lg border bg-card p-4 shadow-xs">
+            <StepIndicator
+              steps={steps.map((entry, index) => ({ ...entry, status: index < step ? 'complete' : index === step ? 'current' : 'pending' }))}
+              onStepClick={(id) => goTo(steps.findIndex((entry) => entry.id === id))}
+            />
+          </div>
 
-          <Card>
-            <CardHeader className="flex flex-col gap-2 border-b bg-muted/20 pb-3 sm:flex-row sm:items-end sm:justify-between">
-              <div>
+          {step === 0 ? (
+            <Card>
+              <CardHeader className="border-b bg-muted/20 pb-3">
                 <CardTitle className="flex items-center gap-2 text-sm font-bold">
-                  <Package className="h-4 w-4 text-primary" />
-                  {t('dermat_orders.form.productsTitle', '2. Products')}
+                  <UserRound className="h-4 w-4 text-primary" />
+                  {t('dermat_orders.form.customerTitle', 'Customer & order header')}
                 </CardTitle>
-                <CardDescription className="text-xs">
-                  {locked
-                    ? t('dermat_orders.form.locked', 'Manufacturing is done — products and quantities are locked.')
-                    : t('dermat_orders.form.productsHint', 'Search the Finished Good by internal ID or name. Quantity is in pieces. Open "Specs" for the client’s order form.')}
-                </CardDescription>
-              </div>
-              <div className="flex flex-col items-end gap-1 text-right">
-                <span className="text-sm text-muted-foreground">
-                  {t('dermat_orders.form.totalPieces', 'Total {count} pcs', { count: formatQty(totalPieces, 0) })}
-                  {orderTotals.total > 0 ? <span className="ml-2 font-semibold text-foreground">₹{formatQty(orderTotals.total, 2)}</span> : null}
-                </span>
-                {orderTotals.total > 0 ? (
-                  <span className="text-xs text-muted-foreground">
-                    {t('dermat_orders.form.taxBreak', '₹{taxable} + GST ₹{gst}', { taxable: formatQty(orderTotals.taxable, 2), gst: formatQty(orderTotals.gst, 2) })}
-                  </span>
+                <CardDescription className="text-xs">{t('dermat_orders.form.customerDesc', 'Pick the company. Payment terms and sales person come from the customer and can be changed for this order.')}</CardDescription>
+              </CardHeader>
+              <CardContent className="grid grid-cols-1 gap-4 pt-4 md:grid-cols-12">
+                <Field label={t('dermat_orders.form.customer', 'Customer (company)')} required className="md:col-span-6">
+                  <SearchPicker
+                    value={customer ? { id: customer.id, primary: customer.name, value: customer } : null}
+                    placeholder={t('dermat_orders.form.customerPick', 'Search customer by name')}
+                    searchPlaceholder={t('dermat_orders.form.customerSearch', 'Type a customer name')}
+                    load={searchCustomers}
+                    onSelect={selectCustomer}
+                    invalid={Boolean(errors.customer)}
+                    disabled={Boolean(existing)}
+                    footer={
+                      <Link href="/backend/customers/companies/create" target="_blank" className="inline-flex items-center gap-1 text-xs text-primary hover:underline">
+                        <Plus className="h-3 w-3" />
+                        {t('dermat_orders.form.newCustomer', 'Add a new customer (opens in a new tab)')}
+                      </Link>
+                    }
+                  />
+                  {errors.customer ? <p className="text-xs text-status-error-text">{errors.customer}</p> : null}
+                  {customer ? (
+                    <p className="text-xs text-muted-foreground">
+                      {[customer.gstin ? `GSTIN ${customer.gstin}` : t('dermat_orders.form.noGst', 'No GSTIN on file'), customer.phone, customer.email].filter(Boolean).join(' · ')}{' '}
+                      <Link href={`/backend/customers/companies/${customer.id}`} target="_blank" className="text-primary hover:underline">
+                        {t('dermat_orders.form.openCustomer', 'Open customer')}
+                      </Link>
+                    </p>
+                  ) : null}
+                </Field>
+                <Field label={t('dermat_orders.form.orderDate', 'Order date')} required className="md:col-span-3">
+                  <Input type="date" value={header.orderDate} onChange={(event) => patchHeader({ orderDate: event.target.value })} />
+                </Field>
+                <Field label={t('dermat_orders.form.deliveryDate', 'Delivery date')} className="md:col-span-3">
+                  <Input type="date" value={header.deliveryDate} onChange={(event) => patchHeader({ deliveryDate: event.target.value })} />
+                </Field>
+                <Field label={t('dermat_orders.form.orderType', 'Order type')} className="md:col-span-3">
+                  <Select value={header.orderType} onValueChange={(value) => patchHeader({ orderType: value as Header['orderType'] })}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="new">{t('dermat_orders.type.new', 'New (first batch)')}</SelectItem>
+                      <SelectItem value="repeat">{t('dermat_orders.type.repeat', 'Repeat')}</SelectItem>
+                      <SelectItem value="revision">{t('dermat_orders.type.revision', 'Revision')}</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </Field>
+                <Field label={t('dermat_orders.form.poRef', 'Customer PO / reference')} className="md:col-span-3">
+                  <Input value={header.customerPoRef} onChange={(event) => patchHeader({ customerPoRef: event.target.value })} placeholder="e.g. PO-2291" />
+                </Field>
+                <Field label={t('dermat_orders.form.salesManager', 'Sales POC')} className="md:col-span-3">
+                  <Input value={header.salesManager} onChange={(event) => patchHeader({ salesManager: event.target.value })} />
+                </Field>
+                <Field label={t('dermat_orders.form.paymentTerms', 'Payment terms')} className="md:col-span-3">
+                  <Select value={header.paymentTerms || '__none'} onValueChange={(value) => patchHeader({ paymentTerms: value === '__none' ? '' : value })}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__none">—</SelectItem>
+                      {Object.entries(PAYMENT_TERMS_LABEL).map(([value, label]) => (
+                        <SelectItem key={value} value={value}>
+                          {label}
+                        </SelectItem>
+                      ))}
+                      {header.paymentTerms && !PAYMENT_TERMS_LABEL[header.paymentTerms] ? <SelectItem value={header.paymentTerms}>{header.paymentTerms}</SelectItem> : null}
+                    </SelectContent>
+                  </Select>
+                </Field>
+                <Field label={t('dermat_orders.form.paymentRemarks', 'Payment remarks')} className="md:col-span-6">
+                  <Input value={header.paymentRemarks} onChange={(event) => patchHeader({ paymentRemarks: event.target.value })} placeholder="e.g. 40% advance 60% before dispatch" />
+                </Field>
+                {customer && !existing && previous.length ? (
+                  <div className="md:col-span-6 md:self-end">
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button type="button" variant="outline" className="w-full justify-start">
+                          <Copy className="mr-2 h-4 w-4" />
+                          {t('dermat_orders.form.repeatPick', 'Repeat a previous order of this customer ({count})', { count: previous.length })}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent align="start" className="w-96 p-0">
+                        <ul className="max-h-72 divide-y overflow-auto text-sm">
+                          {previous.map((item) => (
+                            <li key={item.id}>
+                              <button type="button" className="w-full px-3 py-2 text-left hover:bg-muted" onClick={() => copyOrder(item)}>
+                                <span className="font-mono text-xs">{item.orderNo}</span>
+                                <span className="ml-2 text-xs text-muted-foreground">{formatDate(item.orderDate)}</span>
+                                <span className="block truncate">
+                                  {item.products.map((product) => `${product.title} × ${formatQty(product.quantity, 0)}`).join(', ')}
+                                </span>
+                              </button>
+                            </li>
+                          ))}
+                        </ul>
+                      </PopoverContent>
+                    </Popover>
+                  </div>
                 ) : null}
+              </CardContent>
+            </Card>
+          ) : null}
+
+          {step === 1 ? (
+            <Card>
+              <CardHeader className="flex flex-col gap-2 border-b bg-muted/20 pb-3 sm:flex-row sm:items-end sm:justify-between">
+                <div>
+                  <CardTitle className="flex items-center gap-2 text-sm font-bold">
+                    <Package className="h-4 w-4 text-primary" />
+                    {t('dermat_orders.form.productsTitle', 'Ordered products ({count})', { count: filledLines.length })}
+                  </CardTitle>
+                  <CardDescription className="text-xs">
+                    {locked
+                      ? t('dermat_orders.form.locked', 'Manufacturing is done — products and quantities are locked.')
+                      : t('dermat_orders.form.productsHint', 'One row per product, like the order sheet. Search the Finished Good by ID or name; quantity is in pieces.')}
+                  </CardDescription>
+                </div>
                 <label className="inline-flex cursor-pointer items-center gap-1.5 text-xs text-muted-foreground">
                   <input type="checkbox" className="h-3.5 w-3.5 rounded-sm border-input" checked={header.pricesIncludeGst} onChange={(event) => patchHeader({ pricesIncludeGst: event.target.checked })} />
                   {t('dermat_orders.form.includesGst', 'Rates include GST')}
                 </label>
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-3 pt-4">
-              {lines.map((line, index) => {
-                const error = errors.rows[String(index + 1)]
-                return (
-                  <div key={line.key} className={cn('rounded-lg border', error && 'border-status-error-border')}>
-                    <div className="grid grid-cols-2 gap-3 p-3 md:grid-cols-12">
-                      <Field label={`${index + 1}. ${t('dermat_orders.form.product', 'Finished Good')}`} required className="col-span-2 md:col-span-4">
-                        <SearchPicker
-                          value={line.product ? { id: line.product.id, primary: line.product.title, tag: line.product.code, value: line.product } : null}
-                          placeholder={t('dermat_orders.form.productPick', 'Internal ID or name')}
-                          searchPlaceholder={t('dermat_orders.form.productSearch', 'e.g. FG-0142 or Night Serum')}
-                          load={searchFinishedGoods}
-                          onSelect={(option) => selectProduct(line.key, option)}
-                          disabled={locked}
-                          invalid={Boolean(error)}
-                          footer={
-                            <Link href="/backend/products/new/finished-goods" target="_blank" className="inline-flex items-center gap-1 text-xs text-primary hover:underline">
-                              <Plus className="h-3 w-3" />
-                              {t('dermat_orders.form.newProduct', 'Add a new Finished Good (opens in a new tab)')}
-                            </Link>
-                          }
-                        />
-                        {error ? <p className="text-xs text-status-error-text">{error}</p> : null}
-                      </Field>
-                      <Field label={t('dermat_orders.form.quantity', 'Qty (pcs)')} required className="md:col-span-2">
-                        <Input
-                          type="number"
-                          min={0}
-                          step="1"
-                          className="text-right font-mono"
-                          value={line.quantity}
-                          disabled={locked}
-                          onChange={(event) => patchLine(line.key, { quantity: event.target.value })}
-                        />
-                      </Field>
-                      <Field label={t('dermat_orders.form.packSize', 'Pack size')} className="md:col-span-1">
-                        <Input value={line.packSize} onChange={(event) => patchLine(line.key, { packSize: event.target.value })} placeholder="30 ml" />
-                      </Field>
-                      <Field label={t('dermat_orders.form.brand', 'Brand name')} className="md:col-span-2">
-                        <Input value={line.brandName} onChange={(event) => patchLine(line.key, { brandName: event.target.value })} />
-                      </Field>
-                      <Field label={t('dermat_orders.form.mrp', 'MRP (₹)')} className="md:col-span-1">
-                        <Input type="number" min={0} step="any" className="text-right" value={line.mrp} onChange={(event) => patchLine(line.key, { mrp: event.target.value })} />
-                      </Field>
-                      <Field label={t('dermat_orders.form.rate', 'Rate (₹/pc)')} className="md:col-span-1">
-                        <Input type="number" min={0} step="any" className="text-right" value={line.rate} onChange={(event) => patchLine(line.key, { rate: event.target.value })} />
-                      </Field>
-                      <Field label={t('dermat_orders.form.gst', 'GST %')} className="md:col-span-1">
-                        <Select value={line.gstPercent} onValueChange={(value) => patchLine(line.key, { gstPercent: value })}>
-                          <SelectTrigger>
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {['0', '5', '12', '18', '28'].map((rate) => (
-                              <SelectItem key={rate} value={rate}>
-                                {rate}%
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </Field>
-                      <Field label={t('dermat_orders.form.discount', 'Disc. %')} className="md:col-span-1">
-                        <Input type="number" min={0} max={100} step="any" className="text-right" value={line.discountPercent} onChange={(event) => patchLine(line.key, { discountPercent: event.target.value })} placeholder="0" />
-                      </Field>
-                      <Field label={t('dermat_orders.form.batchNo', 'Batch no.')} className="md:col-span-1">
-                        <Input value={line.batchNo} onChange={(event) => patchLine(line.key, { batchNo: event.target.value })} />
-                      </Field>
-                    </div>
-                    <div className="flex flex-wrap items-center gap-3 border-t bg-muted/20 px-3 py-2">
-                      <button
-                        type="button"
-                        onClick={() => patchLine(line.key, { open: !line.open })}
-                        className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
-                      >
-                        {line.open ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
-                        {t('dermat_orders.form.specs', 'Specs')}
-                      </button>
-                      <span className="text-xs text-muted-foreground">
-                        {LINE_SPEC_SECTIONS.map((section) => `${section.title.split(' ')[0]} ${filledCount(line.specs[section.key])}/${section.fields.length}`).join(' · ')}
-                      </span>
-                      {line.product ? <BomChip bom={line.bom} productId={line.product.id} /> : null}
-                      <span className="flex-1" />
-                      {!locked && lines.length > 1 ? (
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          className="text-muted-foreground"
-                          onClick={() => setLines((prev) => prev.filter((entry) => entry.key !== line.key))}
-                        >
-                          <Trash2 className="mr-1 h-3.5 w-3.5" />
-                          {t('dermat_orders.form.removeLine', 'Remove')}
-                        </Button>
-                      ) : null}
-                    </div>
-                    {line.open ? (
-                      <div className="grid grid-cols-1 gap-4 border-t p-3 lg:grid-cols-3">
-                        {LINE_SPEC_SECTIONS.map((section) => (
-                          <div key={section.key} className="space-y-2">
-                            <div className="flex items-center justify-between">
-                              <h4 className="text-xs font-bold uppercase tracking-wide text-muted-foreground">{section.title}</h4>
-                              <button type="button" className="text-xs text-primary hover:underline" onClick={() => markPartySide(line.key, section.key)}>
-                                {t('dermat_orders.form.partySide', 'Blanks = Party side')}
-                              </button>
-                            </div>
-                            {section.fields.map((field) => {
-                              const value = line.specs[section.key]?.[field.key] ?? ''
-                              return (
-                                <div key={field.key} className="grid grid-cols-5 items-center gap-2">
-                                  <Label className="col-span-2 text-xs">{field.label}</Label>
-                                  <div className="col-span-3">
-                                    {field.options ? (
-                                      <Select value={value || '__none'} onValueChange={(next) => setSpec(line.key, section.key, field.key, next === '__none' ? '' : next)}>
-                                        <SelectTrigger className="h-8">
-                                          <SelectValue />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                          <SelectItem value="__none">—</SelectItem>
-                                          {[...field.options, PARTY_SIDE].map((option) => (
-                                            <SelectItem key={option} value={option}>
-                                              {option}
-                                            </SelectItem>
-                                          ))}
-                                        </SelectContent>
-                                      </Select>
-                                    ) : (
-                                      <Input className="h-8" value={value} onChange={(event) => setSpec(line.key, section.key, field.key, event.target.value)} />
-                                    )}
+              </CardHeader>
+              <CardContent className="p-0">
+                <div className="overflow-x-auto">
+                  <table className="w-full min-w-max border-collapse text-sm">
+                    <thead className="bg-muted/40 text-xs text-muted-foreground">
+                      <tr className="border-b">
+                        <th className="px-2 py-2 text-left font-semibold">#</th>
+                        <th className="min-w-72 px-2 py-2 text-left font-semibold">{t('dermat_orders.form.product', 'Finished Good')} *</th>
+                        <th className="min-w-44 px-2 py-2 text-left font-semibold">{t('dermat_orders.form.brand', 'Brand name')}</th>
+                        <th className="w-28 px-2 py-2 text-left font-semibold">{t('dermat_orders.form.packSize', 'Pack size')}</th>
+                        <th className="w-24 px-2 py-2 text-right font-semibold">{t('dermat_orders.form.mrp', 'MRP (₹)')}</th>
+                        <th className="w-28 px-2 py-2 text-right font-semibold">{t('dermat_orders.form.quantity', 'Qty (pcs)')} *</th>
+                        <th className="w-24 px-2 py-2 text-right font-semibold">{t('dermat_orders.form.rate', 'Rate (₹/pc)')}</th>
+                        <th className="w-24 px-2 py-2 text-left font-semibold">{t('dermat_orders.form.gst', 'GST %')}</th>
+                        <th className="w-20 px-2 py-2 text-right font-semibold">{t('dermat_orders.form.discount', 'Disc. %')}</th>
+                        <th className="w-28 px-2 py-2 text-left font-semibold">{t('dermat_orders.form.batchNo', 'Batch no.')}</th>
+                        <th className="w-28 px-2 py-2 text-right font-semibold">{t('dermat_orders.form.lineTotal', 'Total (₹)')}</th>
+                        <th className="px-2 py-2" />
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {lines.map((line, index) => {
+                        const error = errors.rows[String(index + 1)]
+                        const total = lineMoney(line).total
+                        return (
+                          <React.Fragment key={line.key}>
+                            <tr className={cn('align-top', !error && 'border-b')}>
+                              <td className="px-2 py-2 pt-4 text-xs text-muted-foreground tabular-nums">{index + 1}</td>
+                              <td className="px-2 py-2">
+                                <SearchPicker
+                                  value={line.product ? { id: line.product.id, primary: line.product.title, tag: line.product.code, value: line.product } : null}
+                                  placeholder={t('dermat_orders.form.productPick', 'Internal ID or name')}
+                                  searchPlaceholder={t('dermat_orders.form.productSearch', 'e.g. FG-0142 or Night Serum')}
+                                  load={searchFinishedGoods}
+                                  onSelect={(option) => selectProduct(line.key, option)}
+                                  disabled={locked}
+                                  invalid={Boolean(error)}
+                                  footer={
+                                    <Link href="/backend/products/new/finished-goods" target="_blank" className="inline-flex items-center gap-1 text-xs text-primary hover:underline">
+                                      <Plus className="h-3 w-3" />
+                                      {t('dermat_orders.form.newProduct', 'Add a new Finished Good (opens in a new tab)')}
+                                    </Link>
+                                  }
+                                />
+                                {line.product ? (
+                                  <div className="mt-1">
+                                    <BomChip bom={line.bom} productId={line.product.id} />
                                   </div>
-                                </div>
-                              )
-                            })}
-                          </div>
-                        ))}
+                                ) : null}
+                              </td>
+                              <td className="px-2 py-2">
+                                <Input value={line.brandName} onChange={(event) => patchLine(line.key, { brandName: event.target.value })} placeholder="e.g. Orange Skin" />
+                              </td>
+                              <td className="px-2 py-2">
+                                <Input value={line.packSize} onChange={(event) => patchLine(line.key, { packSize: event.target.value })} placeholder="30 ml" />
+                              </td>
+                              <td className="px-2 py-2">
+                                <Input type="number" min={0} step="any" className="text-right" value={line.mrp} onChange={(event) => patchLine(line.key, { mrp: event.target.value })} />
+                              </td>
+                              <td className="px-2 py-2">
+                                <Input type="number" min={0} step="1" className="text-right font-mono" value={line.quantity} disabled={locked} onChange={(event) => patchLine(line.key, { quantity: event.target.value })} />
+                              </td>
+                              <td className="px-2 py-2">
+                                <Input type="number" min={0} step="any" className="text-right" value={line.rate} onChange={(event) => patchLine(line.key, { rate: event.target.value })} />
+                              </td>
+                              <td className="px-2 py-2">
+                                <Select value={line.gstPercent} onValueChange={(value) => patchLine(line.key, { gstPercent: value })}>
+                                  <SelectTrigger>
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {['0', '5', '12', '18', '28'].map((rate) => (
+                                      <SelectItem key={rate} value={rate}>
+                                        {rate}%
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              </td>
+                              <td className="px-2 py-2">
+                                <Input type="number" min={0} max={100} step="any" className="text-right" value={line.discountPercent} onChange={(event) => patchLine(line.key, { discountPercent: event.target.value })} placeholder="0" />
+                              </td>
+                              <td className="px-2 py-2">
+                                <Input value={line.batchNo} onChange={(event) => patchLine(line.key, { batchNo: event.target.value })} placeholder="57001" />
+                              </td>
+                              <td className="px-2 py-2 pt-4 text-right font-medium tabular-nums">{total > 0 ? `₹${formatQty(total, 2)}` : '—'}</td>
+                              <td className="px-2 py-2">
+                                {!locked && lines.length > 1 ? (
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="icon"
+                                    className="text-muted-foreground"
+                                    aria-label={t('dermat_orders.form.removeLine', 'Remove')}
+                                    onClick={() => setLines((prev) => prev.filter((entry) => entry.key !== line.key))}
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </Button>
+                                ) : null}
+                              </td>
+                            </tr>
+                            {error ? (
+                              <tr className="border-b">
+                                <td />
+                                <td colSpan={11} className="px-2 pb-2 text-xs text-status-error-text">
+                                  {error}
+                                </td>
+                              </tr>
+                            ) : null}
+                          </React.Fragment>
+                        )
+                      })}
+                    </tbody>
+                    <tfoot>
+                      <tr className="bg-muted/20 text-sm">
+                        <td colSpan={5} className="px-2 py-3">
+                          {!locked ? (
+                            <Button type="button" variant="outline" size="sm" onClick={() => setLines((prev) => [...prev, newLine()])}>
+                              <Plus className="mr-1.5 h-4 w-4" />
+                              {t('dermat_orders.form.addLine', 'Add product')}
+                            </Button>
+                          ) : null}
+                        </td>
+                        <td className="px-2 py-3 text-right font-semibold tabular-nums">{formatQty(totalPieces, 0)}</td>
+                        <td colSpan={4} className="px-2 py-3 text-right text-xs text-muted-foreground">
+                          {orderTotals.total > 0 ? t('dermat_orders.form.taxBreak', '₹{taxable} + GST ₹{gst}', { taxable: formatQty(orderTotals.taxable, 2), gst: formatQty(orderTotals.gst, 2) }) : null}
+                        </td>
+                        <td className="px-2 py-3 text-right font-bold tabular-nums">{orderTotals.total > 0 ? `₹${formatQty(orderTotals.total, 2)}` : '—'}</td>
+                        <td />
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
+              </CardContent>
+            </Card>
+          ) : null}
+
+          {step === 2 ? (
+            <div className="space-y-4">
+              {filledLines.map((line, index) => (
+                <Card key={line.key}>
+                  <CardHeader className="flex flex-col gap-1 border-b bg-muted/20 pb-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                      <CardTitle className="flex items-center gap-2 text-sm font-bold">
+                        <ClipboardList className="h-4 w-4 text-primary" />
+                        {index + 1}. {line.brandName || line.product?.title || t('dermat_orders.form.productN', 'Product')}
+                        {line.packSize ? <span className="font-normal text-muted-foreground">· {line.packSize}</span> : null}
+                        <span className="font-normal text-muted-foreground">· {formatQty(toNumber(line.quantity) ?? 0, 0)} pcs</span>
+                      </CardTitle>
+                      <CardDescription className="text-xs">{line.product?.title}</CardDescription>
+                    </div>
+                    <span className="text-xs text-muted-foreground">{t('dermat_orders.form.specFilled', 'Filled {summary}', { summary: specSummary(line) })}</span>
+                  </CardHeader>
+                  <CardContent className="grid grid-cols-1 gap-5 pt-4 lg:grid-cols-3">
+                    {LINE_SPEC_SECTIONS.map((section) => (
+                      <div key={section.key} className="space-y-2">
+                        <div className="flex items-center justify-between gap-2 border-b pb-1.5">
+                          <h4 className="text-xs font-bold uppercase tracking-wide text-muted-foreground">{section.title}</h4>
+                          <button type="button" className="shrink-0 text-xs text-primary hover:underline" onClick={() => markPartySide(line.key, section.key)}>
+                            {t('dermat_orders.form.partySide', 'Blanks = Party side')}
+                          </button>
+                        </div>
+                        {section.fields.map((field, fieldIndex) => {
+                          const value = line.specs[section.key]?.[field.key] ?? ''
+                          return (
+                            <div key={field.key} className="grid grid-cols-5 items-center gap-2">
+                              <Label className="col-span-2 text-xs">
+                                <span className="mr-1 text-muted-foreground tabular-nums">{fieldIndex + 1}.</span>
+                                {field.label}
+                              </Label>
+                              <div className="col-span-3">
+                                {field.options ? (
+                                  <Select value={value || '__none'} onValueChange={(next) => setSpec(line.key, section.key, field.key, next === '__none' ? '' : next)}>
+                                    <SelectTrigger className="h-8">
+                                      <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      <SelectItem value="__none">—</SelectItem>
+                                      {[...field.options, PARTY_SIDE].map((option) => (
+                                        <SelectItem key={option} value={option}>
+                                          {option}
+                                        </SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                ) : (
+                                  <Input className="h-8" value={value} onChange={(event) => setSpec(line.key, section.key, field.key, event.target.value)} />
+                                )}
+                              </div>
+                            </div>
+                          )
+                        })}
                       </div>
-                    ) : null}
+                    ))}
+                  </CardContent>
+                </Card>
+              ))}
+              <Card>
+                <CardHeader className="border-b bg-muted/20 pb-3">
+                  <CardTitle className="flex items-center gap-2 text-sm font-bold">
+                    <StickyNote className="h-4 w-4 text-primary" />
+                    {t('dermat_orders.form.remarksTitle', 'Remarks')}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="grid grid-cols-1 gap-4 pt-4 md:grid-cols-3">
+                  <Field label={t('dermat_orders.form.productRemarks', 'Product remarks')}>
+                    <Textarea rows={3} value={header.productRemarks} onChange={(event) => patchHeader({ productRemarks: event.target.value })} />
+                  </Field>
+                  <Field label={t('dermat_orders.form.packingRemarks', 'Packing remarks')}>
+                    <Textarea rows={3} value={header.packingRemarks} onChange={(event) => patchHeader({ packingRemarks: event.target.value })} />
+                  </Field>
+                  <Field label={t('dermat_orders.form.billingRemarks', 'Billing remarks')}>
+                    <Textarea rows={3} value={header.billingRemarks} onChange={(event) => patchHeader({ billingRemarks: event.target.value })} />
+                  </Field>
+                </CardContent>
+              </Card>
+            </div>
+          ) : null}
+
+          {step === 3 ? (
+            <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+              <Card className="lg:col-span-2">
+                <CardHeader className="border-b bg-muted/20 pb-3">
+                  <CardTitle className="flex items-center gap-2 text-sm font-bold">
+                    <CheckCircle2 className="h-4 w-4 text-primary" />
+                    {t('dermat_orders.form.summaryTitle', 'Order summary')}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4 pt-4">
+                  <dl className="grid grid-cols-2 gap-x-4 gap-y-3 text-sm md:grid-cols-3">
+                    {[
+                      [t('dermat_orders.form.customer', 'Customer (company)'), customer?.name ?? '—'],
+                      [t('dermat_orders.form.orderDate', 'Order date'), formatDate(header.orderDate)],
+                      [t('dermat_orders.form.deliveryDate', 'Delivery date'), header.deliveryDate ? formatDate(header.deliveryDate) : '—'],
+                      [t('dermat_orders.form.orderType', 'Order type'), header.orderType === 'new' ? 'New' : header.orderType === 'repeat' ? 'Repeat' : 'Revision'],
+                      [t('dermat_orders.form.poRef', 'Customer PO / reference'), header.customerPoRef || '—'],
+                      [t('dermat_orders.form.salesManager', 'Sales POC'), header.salesManager || '—'],
+                      [t('dermat_orders.form.paymentTerms', 'Payment terms'), PAYMENT_TERMS_LABEL[header.paymentTerms] ?? (header.paymentTerms || '—')],
+                      [t('dermat_orders.form.paymentRemarks', 'Payment remarks'), header.paymentRemarks || '—'],
+                    ].map(([label, value]) => (
+                      <div key={label}>
+                        <dt className="text-xs text-muted-foreground">{label}</dt>
+                        <dd className="font-medium">{value}</dd>
+                      </div>
+                    ))}
+                  </dl>
+                  <div className="overflow-x-auto rounded-md border">
+                    <table className="w-full text-sm">
+                      <thead className="bg-muted/40 text-xs text-muted-foreground">
+                        <tr>
+                          <th className="px-3 py-2 text-left font-semibold">{t('dermat_orders.form.product', 'Finished Good')}</th>
+                          <th className="px-3 py-2 text-left font-semibold">{t('dermat_orders.form.packSize', 'Pack size')}</th>
+                          <th className="px-3 py-2 text-right font-semibold">{t('dermat_orders.form.quantity', 'Qty (pcs)')}</th>
+                          <th className="px-3 py-2 text-right font-semibold">{t('dermat_orders.form.rate', 'Rate (₹/pc)')}</th>
+                          <th className="px-3 py-2 text-right font-semibold">{t('dermat_orders.form.lineTotal', 'Total (₹)')}</th>
+                          <th className="px-3 py-2 text-left font-semibold">{t('dermat_orders.form.specsShort', 'Specs filled')}</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y">
+                        {filledLines.map((line) => (
+                          <tr key={line.key}>
+                            <td className="px-3 py-2">
+                              <span className="block font-medium">{line.brandName || line.product?.title}</span>
+                              <span className="block text-xs text-muted-foreground">
+                                {line.product?.code ? `${line.product.code} · ` : ''}
+                                {line.product?.title}
+                                {line.batchNo ? ` · Batch ${line.batchNo}` : ''}
+                              </span>
+                            </td>
+                            <td className="px-3 py-2">{line.packSize || '—'}</td>
+                            <td className="px-3 py-2 text-right tabular-nums">{formatQty(toNumber(line.quantity) ?? 0, 0)}</td>
+                            <td className="px-3 py-2 text-right tabular-nums">{line.rate ? `₹${formatQty(toNumber(line.rate) ?? 0, 2)}` : '—'}</td>
+                            <td className="px-3 py-2 text-right tabular-nums">{lineMoney(line).total > 0 ? `₹${formatQty(lineMoney(line).total, 2)}` : '—'}</td>
+                            <td className="px-3 py-2 text-xs text-muted-foreground">{specSummary(line)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
                   </div>
-                )
-              })}
-              {!locked ? (
-                <Button type="button" variant="outline" onClick={() => setLines((prev) => [...prev, newLine()])}>
-                  <Plus className="mr-2 h-4 w-4" />
-                  {t('dermat_orders.form.addLine', 'Add product')}
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader className="border-b bg-muted/20 pb-3">
+                  <CardTitle className="text-sm font-bold">{t('dermat_orders.form.valueTitle', 'Value & what happens next')}</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4 pt-4 text-sm">
+                  <dl className="space-y-1.5">
+                    <div className="flex justify-between">
+                      <dt className="text-muted-foreground">{t('dermat_orders.form.pieces', 'Pieces')}</dt>
+                      <dd className="tabular-nums">{formatQty(totalPieces, 0)}</dd>
+                    </div>
+                    <div className="flex justify-between">
+                      <dt className="text-muted-foreground">{t('dermat_orders.form.taxable', 'Taxable')}</dt>
+                      <dd className="tabular-nums">₹{formatQty(orderTotals.taxable, 2)}</dd>
+                    </div>
+                    <div className="flex justify-between">
+                      <dt className="text-muted-foreground">GST</dt>
+                      <dd className="tabular-nums">₹{formatQty(orderTotals.gst, 2)}</dd>
+                    </div>
+                    <div className="flex justify-between border-t pt-1.5 font-bold">
+                      <dt>{t('dermat_orders.form.total', 'Order value')}</dt>
+                      <dd className="tabular-nums">₹{formatQty(orderTotals.total, 2)}</dd>
+                    </div>
+                  </dl>
+                  <ol className="space-y-2 rounded-md bg-muted/30 p-3 text-xs">
+                    <li>
+                      <span className="font-semibold">1. {t('dermat_orders.form.next1', 'Order booked')}</span>
+                      <span className="block text-muted-foreground">{t('dermat_orders.form.next1Hint', 'Order number is given now.')}</span>
+                    </li>
+                    <li>
+                      <span className="font-semibold">2. {t('dermat_orders.form.next2', 'Advance received — Pending with Accounts')}</span>
+                      <span className="block text-muted-foreground">{t('dermat_orders.form.next2Hint', 'Accounts verifies the advance; the order becomes official.')}</span>
+                    </li>
+                    <li>
+                      <span className="font-semibold">3. {t('dermat_orders.form.next3', 'Sampling / R&D, then artwork and formula in parallel')}</span>
+                      <span className="block text-muted-foreground">{t('dermat_orders.form.next3Hint', 'Each stage appears as a task on its department page and on this order.')}</span>
+                    </li>
+                  </ol>
+                </CardContent>
+              </Card>
+            </div>
+          ) : null}
+
+          <div className="flex flex-wrap items-center justify-between gap-3 border-t pt-4">
+            <p className="flex items-center gap-2 text-xs text-muted-foreground">
+              <ClipboardList className="h-3.5 w-3.5" />
+              {existing ? t('dermat_orders.form.keysEdit', 'Ctrl/⌘ + Enter saves · Esc goes back') : t('dermat_orders.form.keys', 'Ctrl/⌘ + Enter goes to the next step · Esc goes back')}
+            </p>
+            <div className="flex items-center gap-2">
+              {step > 0 ? (
+                <Button type="button" variant="outline" onClick={() => setStep(step - 1)} disabled={saving}>
+                  <ChevronLeft className="mr-1 h-4 w-4" />
+                  {t('dermat_orders.form.back', 'Back')}
                 </Button>
               ) : null}
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="border-b bg-muted/20 pb-3">
-              <CardTitle className="flex items-center gap-2 text-sm font-bold">
-                <StickyNote className="h-4 w-4 text-primary" />
-                {t('dermat_orders.form.remarksTitle', '3. Remarks')}
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="grid grid-cols-1 gap-4 pt-4 md:grid-cols-3">
-              <Field label={t('dermat_orders.form.productRemarks', 'Product remarks')}>
-                <Textarea rows={3} value={header.productRemarks} onChange={(event) => patchHeader({ productRemarks: event.target.value })} />
-              </Field>
-              <Field label={t('dermat_orders.form.packingRemarks', 'Packing remarks')}>
-                <Textarea rows={3} value={header.packingRemarks} onChange={(event) => patchHeader({ packingRemarks: event.target.value })} />
-              </Field>
-              <Field label={t('dermat_orders.form.billingRemarks', 'Billing remarks')}>
-                <Textarea rows={3} value={header.billingRemarks} onChange={(event) => patchHeader({ billingRemarks: event.target.value })} />
-              </Field>
-            </CardContent>
-          </Card>
-
-          <p className="flex items-center gap-2 text-xs text-muted-foreground">
-            <ClipboardList className="h-3.5 w-3.5" />
-            {t('dermat_orders.form.keys', 'Ctrl/⌘ + Enter saves · Esc goes back')}
-          </p>
+              {step < steps.length - 1 ? (
+                <Button type="button" onClick={() => goTo(step + 1)} disabled={saving}>
+                  {t('dermat_orders.form.next', 'Next: {step}', { step: steps[step + 1].label.replace(/^\d+\.\s*/, '') })}
+                  <ChevronRight className="ml-1 h-4 w-4" />
+                </Button>
+              ) : (
+                <Button type="submit" disabled={saving}>
+                  <CheckCircle2 className="mr-1.5 h-4 w-4" />
+                  {saving ? t('dermat_orders.form.saving', 'Saving…') : existing ? t('dermat_orders.form.save', 'Save order') : t('dermat_orders.form.book', 'Book order')}
+                </Button>
+              )}
+            </div>
+          </div>
         </form>
       </PageBody>
     </Page>
   )
+
 }
 
 export default OrderForm

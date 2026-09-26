@@ -102,6 +102,11 @@ function StageCard({ order, stage, onOpen }: { order: Order; stage: Stage; onOpe
       </div>
       <div className="mt-1 text-xs text-muted-foreground">{stage.department}</div>
       <div className="mt-1.5 truncate text-xs">
+        {stage.status === 'open' ? (
+          <span className={cn('mr-1 rounded-sm px-1 font-semibold', stage.data?.__started ? 'bg-status-info-bg text-status-info-text' : 'bg-status-warning-bg text-status-warning-text')}>
+            {stage.data?.__started ? t('dermat_orders.workState.in_progress', 'In progress') : t('dermat_orders.workState.pending', 'Pending')}
+          </span>
+        ) : null}
         {stage.status === 'waiting'
           ? t('dermat_orders.rail.waiting', 'Coming')
           : stage.status === 'skipped'

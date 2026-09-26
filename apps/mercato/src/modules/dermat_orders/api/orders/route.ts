@@ -154,7 +154,7 @@ async function GET(req: Request) {
         })),
         current: views
           .filter((stage) => stage.status === 'open' || stage.status === 'on_hold')
-          .map((stage) => ({ key: stage.key, label: stage.label, status: stage.status, responsibleName: stage.responsibleName, days: stage.days, holdParty: stage.holdParty })),
+          .map((stage) => ({ key: stage.key, label: stage.label, status: stage.status, responsibleName: stage.responsibleName, days: stage.days, holdParty: stage.holdParty, started: Boolean(stage.data.__started) })),
         doneCount: views.filter((stage) => isFinished(stage.status)).length,
         stageCount: views.length,
       }

@@ -127,8 +127,12 @@ export function StageQueue({ stageKey }: { stageKey: string }) {
           if (!here) return <span className="text-xs text-muted-foreground">{tab === 'waiting' ? t('dermat_orders.queue.coming', 'Coming') : t('dermat_orders.queue.done', 'Done')}</span>
           return (
             <span className="flex flex-col gap-0.5 text-xs">
-              <StatusBadge variant={STAGE_VARIANT[here.status] ?? 'neutral'} dot>
-                {here.status === 'on_hold' ? `${t('dermat_orders.status.on_hold', 'On hold')}${here.holdParty ? ` · ${here.holdParty}` : ''}` : t('dermat_orders.queue.todo', 'To do')}
+              <StatusBadge variant={here.status === 'on_hold' ? 'error' : here.started ? 'info' : 'warning'} dot>
+                {here.status === 'on_hold'
+                  ? `${t('dermat_orders.status.on_hold', 'On hold')}${here.holdParty ? ` · ${here.holdParty}` : ''}`
+                  : here.started
+                    ? t('dermat_orders.workState.in_progress', 'In progress')
+                    : t('dermat_orders.workState.pending', 'Pending')}
               </StatusBadge>
               <span className="text-muted-foreground">
                 {[here.responsibleName ?? t('dermat_orders.rail.unassigned', 'Not assigned'), here.days != null ? `${formatQty(here.days, 1)} d` : null].filter(Boolean).join(' · ')}

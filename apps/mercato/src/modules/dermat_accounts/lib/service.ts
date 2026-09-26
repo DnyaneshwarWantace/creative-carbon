@@ -70,8 +70,16 @@ export async function recordAdvanceFromStage(
   const amount = Number(data.advance_amount)
   if (!Number.isFinite(amount) || amount <= 0) return false
   const existing = await ctx.em.findOne(OrderPayment, { orderId: order.id, kind: 'advance' as PaymentKind, voidedAt: null, tenantId: ctx.tenantId, organizationId: ctx.organizationId })
-  if (existing) return false
   const paidOn = typeof data.received_on === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(data.received_on) ? data.received_on : new Date().toISOString().slice(0, 10)
+  if (existing) {
+    const reference = typeof data.payment_ref === 'string' && data.payment_ref.trim() ? data.payment_ref.trim() : existing.reference ?? null
+    if (Math.abs(Number(existing.amount) - money(amount)) < 0.005 && existing.paidOn === paidOn && (existing.reference ?? null) === reference) return false
+    existing.note = `${existing.note ? `${existing.note} · ` : ''}Checked at Advance stage: was ${existing.amount} on ${existing.paidOn}`
+    existing.amount = String(money(amount))
+    existing.paidOn = paidOn
+    existing.reference = reference
+    return true
+  }
   ctx.em.persist(
     ctx.em.create(OrderPayment, {
       organizationId: ctx.organizationId,

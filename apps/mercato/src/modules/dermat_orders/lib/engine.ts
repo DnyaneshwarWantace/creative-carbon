@@ -142,8 +142,19 @@ export async function applyStageAction(ctx: OrderContext, order: DermatOrder, in
     }
     stage.data = next
   }
+  const markStarted = () => {
+    if ((stage.data as Record<string, unknown> | null)?.__started) return
+    stage.data = { ...(stage.data ?? {}), __started: { at: new Date().toISOString(), by: byName } }
+  }
 
   switch (input.action) {
+    case 'start': {
+      if (stage.status !== 'open') throw new OrderError(stage.status === 'on_hold' ? `${def.label} is on hold. Resume it first.` : `${def.label} is not waiting to be started`, 409)
+      if ((stage.data as Record<string, unknown> | null)?.__started) throw new OrderError(`${def.label} is already in progress`, 409)
+      markStarted()
+      logEvent(ctx, order, 'started', def.key, note, byName)
+      break
+    }
     case 'assign': {
       const userId = input.responsibleUserId ?? null
       stage.responsibleUserId = userId
@@ -152,6 +163,7 @@ export async function applyStageAction(ctx: OrderContext, order: DermatOrder, in
       break
     }
     case 'step': {
+      markStarted()
       const step = def.steps.find((entry) => entry.key === input.stepKey)
       if (!step) throw new OrderError('Unknown step')
       if (stage.status !== 'open' && stage.status !== 'on_hold') throw new OrderError(`${def.label} is not in progress`, 409)
@@ -173,6 +185,7 @@ export async function applyStageAction(ctx: OrderContext, order: DermatOrder, in
       break
     }
     case 'pm_status': {
+      markStarted()
       if (def.key !== 'artwork') throw new OrderError('Packing item status belongs to Artwork & packaging')
       if (stage.status !== 'open' && stage.status !== 'on_hold') throw new OrderError(`${def.label} is not in progress`, 409)
       if (!input.productId || !input.pmStatus || !DESIGNER_STATUSES.includes(input.pmStatus)) throw new OrderError('Pick a packing item and a status')
@@ -184,6 +197,7 @@ export async function applyStageAction(ctx: OrderContext, order: DermatOrder, in
       break
     }
     case 'new_round': {
+      markStarted()
       if (def.key !== 'sampling') throw new OrderError('Sample rounds belong to Sampling / R&D')
       if (stage.status !== 'open' && stage.status !== 'on_hold') throw new OrderError(`${def.label} is not in progress`, 409)
       if (!note) throw new OrderError('Write what the client asked to change')
@@ -195,6 +209,7 @@ export async function applyStageAction(ctx: OrderContext, order: DermatOrder, in
       break
     }
     case 'save': {
+      markStarted()
       if (stage.status === 'waiting') throw new OrderError(`${def.label} has not started yet`, 409)
       if (isFinished(stage.status)) throw new OrderError(`${def.label} is finished. Reopen it to change it.`, 409)
       mergeData()
@@ -202,6 +217,7 @@ export async function applyStageAction(ctx: OrderContext, order: DermatOrder, in
       break
     }
     case 'complete': {
+      markStarted()
       if (stage.status === 'waiting') throw new OrderError(`${def.label} has not started yet`, 409)
       if (stage.status === 'on_hold') throw new OrderError(`${def.label} is on hold. Resume it first.`, 409)
       if (isFinished(stage.status)) throw new OrderError(`${def.label} is already finished`, 409)

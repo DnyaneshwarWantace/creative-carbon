@@ -140,7 +140,7 @@ export type OrderListItem = {
   orderType: string
   salesManager: string | null
   products: Array<{ id: string; title: string; code: string | null; quantity: number }>
-  current: Array<{ key: string; label: string; status: string; responsibleName: string | null; days: number | null; holdParty: string | null }>
+  current: Array<{ key: string; label: string; status: string; responsibleName: string | null; days: number | null; holdParty: string | null; started?: boolean }>
   doneCount: number
   stageCount: number
 }

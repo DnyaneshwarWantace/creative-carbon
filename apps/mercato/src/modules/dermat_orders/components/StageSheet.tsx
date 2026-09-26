@@ -3,7 +3,7 @@
 import * as React from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { Check, CheckCircle2, CirclePause, CirclePlay, FileStack, Lock, PackagePlus, RotateCcw, SkipForward } from 'lucide-react'
+import { Check, CheckCircle2, CirclePause, CirclePlay, FileStack, Hourglass, Lock, PackagePlus, Play, RotateCcw, SkipForward, Wallet } from 'lucide-react'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { Button } from '@open-mercato/ui/primitives/button'
 import { Input } from '@open-mercato/ui/primitives/input'
@@ -14,7 +14,8 @@ import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '
 import { StatusBadge } from '@open-mercato/ui/primitives/status-badge'
 import { apiCall } from '@open-mercato/ui/backend/utils/apiCall'
 import { flash } from '@open-mercato/ui/backend/FlashMessages'
-import { HOLD_PARTIES, STAGES, stageDef, type StageField } from '../lib/stages'
+import { HOLD_PARTIES, STAGES, WORK_STATE_LABEL, stageDef, workState, type StageField, type WorkState } from '../lib/stages'
+import { AttachmentsSection } from '@open-mercato/ui/backend/detail/AttachmentsSection'
 import { cn } from '@open-mercato/shared/lib/utils'
 import { STAGE_VARIANT, formatDate, formatDateTime, formatQty } from './format'
 import { ProductionPanel } from './ProductionPanel'
@@ -23,7 +24,7 @@ import { PackItemsPanel, SampleRoundsPanel } from './ArtworkPanels'
 import type { Order, Stage } from './types'
 
 export type StageActionRequest = {
-  action: 'save' | 'complete' | 'hold' | 'resume' | 'revert' | 'skip' | 'assign' | 'step' | 'pm_status' | 'new_round'
+  action: 'start' | 'save' | 'complete' | 'hold' | 'resume' | 'revert' | 'skip' | 'assign' | 'step' | 'pm_status' | 'new_round'
   stepKey?: string
   productId?: string
   pmStatus?: string
@@ -51,6 +52,19 @@ const STORE_LABEL = { requested: 'Requested', partly_issued: 'Partly issued', is
 
 const QC_PART_VARIANT = { pending: 'warning', pass: 'success', fail: 'error', na: 'neutral' } as const
 
+export const WORK_STATE_VARIANT: Record<WorkState, 'neutral' | 'warning' | 'info' | 'error' | 'success'> = {
+  coming: 'neutral',
+  pending: 'warning',
+  in_progress: 'info',
+  on_hold: 'error',
+  completed: 'success',
+  skipped: 'neutral',
+}
+
+function rupees(value: number): string {
+  return `₹${new Intl.NumberFormat('en-IN', { maximumFractionDigits: 2 }).format(value)}`
+}
+
 type StageSheetProps = Omit<StageWorkAreaProps, 'variant'> & { onClose: () => void }
 
 type Mode = 'form' | 'hold' | 'revert' | 'skip'
@@ -75,13 +89,22 @@ export function StageWorkArea({ order, stage, people, canWork, busy, shortCount,
     if (!stage) return
     const next: Record<string, string> = {}
     for (const [key, value] of Object.entries(stage.data ?? {})) next[key] = value === null || value === undefined ? '' : String(value)
+    if (stage.key === 'advance' && !next.advance_amount) {
+      const advance = order.payments?.items.find((payment) => payment.kind === 'advance' && !payment.voided)
+      if (advance) {
+        next.advance_amount = String(advance.amount)
+        if (!next.received_on) next.received_on = advance.paidOn
+        if (!next.payment_ref && advance.reference) next.payment_ref = advance.reference
+      }
+    }
     setValues(next)
     setMode('form')
     setNote('')
     setParty(HOLD_PARTIES[0])
-  }, [stage])
+  }, [stage, order.payments])
 
   if (!stage || !def) return null
+  const state = workState(stage.status, stage.data)
 
   const editable = canWork && (stage.status === 'open' || stage.status === 'on_hold') && order.status !== 'cancelled'
   const nextLabels = STAGES.filter((entry) => entry.after.includes(stage.key)).map((entry) => entry.label)
@@ -217,7 +240,70 @@ export function StageWorkArea({ order, stage, people, canWork, busy, shortCount,
               })}
             </p>
           ) : null}
+          <div className="col-span-2 flex items-center gap-2">
+            <span className="text-muted-foreground">{t('dermat_orders.sheet.workState', 'Task')}</span>
+            <StatusBadge variant={WORK_STATE_VARIANT[state]} dot>
+              {t(`dermat_orders.workState.${state}`, WORK_STATE_LABEL[state])}
+            </StatusBadge>
+          </div>
         </div>
+
+        {state === 'pending' && editable ? (
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-status-warning-border bg-status-warning-bg p-3">
+            <span className="flex min-w-0 items-start gap-2 text-sm text-status-warning-text">
+              <Hourglass className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+              <span>
+                <span className="block font-semibold">{t('dermat_orders.sheet.pendingTitle', 'Pending with {department}', { department: def.department })}</span>
+                <span className="block text-xs">{t('dermat_orders.sheet.pendingHint', 'Start the work so everyone sees it is being done. Saving the form also starts it.')}</span>
+              </span>
+            </span>
+            <Button type="button" size="sm" onClick={() => run({ action: 'start' })} disabled={busy}>
+              <Play className="mr-1.5 h-4 w-4" aria-hidden="true" />
+              {t('dermat_orders.sheet.start', 'Start work')}
+            </Button>
+          </div>
+        ) : null}
+
+        {stage.key === 'advance' ? (
+          <div className="space-y-2">
+            <Label className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              <Wallet className="h-3.5 w-3.5" aria-hidden="true" />
+              {t('dermat_orders.sheet.advanceCheck', 'Check the advance')}
+            </Label>
+            {order.payments?.items.filter((payment) => !payment.voided).length ? (
+              <ul className="divide-y rounded-md border text-sm">
+                {order.payments.items
+                  .filter((payment) => !payment.voided)
+                  .map((payment) => (
+                    <li key={payment.id} className="flex items-center justify-between gap-2 px-3 py-2">
+                      <span className="min-w-0">
+                        <span className="block font-medium capitalize">{payment.kind}</span>
+                        <span className="block truncate text-xs text-muted-foreground">
+                          {formatDate(payment.paidOn)}
+                          {payment.reference ? ` · ${payment.reference}` : ''}
+                          {payment.byName ? ` · ${payment.byName}` : ''}
+                        </span>
+                      </span>
+                      <span className="shrink-0 font-semibold tabular-nums">{rupees(payment.amount)}</span>
+                    </li>
+                  ))}
+              </ul>
+            ) : (
+              <p className="rounded-md border border-dashed p-3 text-xs text-muted-foreground">
+                {t('dermat_orders.sheet.noAdvance', 'No payment recorded yet. Enter the advance below when it reaches the bank.')}
+              </p>
+            )}
+            <p className="text-xs text-muted-foreground">
+              {order.totals?.total
+                ? t('dermat_orders.sheet.advanceTotals', 'Order value {total} · received {received} · due {due}. Match the amount with the bank, correct it below if it differs, then verify.', {
+                    total: rupees(order.totals.total),
+                    received: rupees(order.payments?.received ?? 0),
+                    due: rupees(order.payments?.due ?? 0),
+                  })
+                : t('dermat_orders.sheet.advanceNoRates', 'No rates on this order yet, so the due amount is not known. Match the amount with the bank, then verify.')}
+            </p>
+          </div>
+        ) : null}
 
         {stage.key === 'formulation' ? (
           <div className="space-y-2">
@@ -394,6 +480,15 @@ export function StageWorkArea({ order, stage, people, canWork, busy, shortCount,
                 {renderInput(field)}
               </div>
             ))}
+            {stage.status !== 'waiting' ? (
+              <AttachmentsSection
+                entityId="dermat_orders:order_stage"
+                recordId={`${order.id}:${stage.key}`}
+                title={t('dermat_orders.sheet.documents', 'Documents')}
+                description={t('dermat_orders.sheet.documentsHint', 'Attach sheets, photos, COA, approvals or anything else for this stage.')}
+                compact
+              />
+            ) : null}
           </div>
         ) : (
           <div className="space-y-3 rounded-lg border p-3">
@@ -492,7 +587,9 @@ export function StageWorkArea({ order, stage, people, canWork, busy, shortCount,
               </Button>
               <Button type="button" size="sm" onClick={() => run({ action: 'complete', data: dataPayload() })} disabled={busy}>
                 <CheckCircle2 className="mr-1.5 h-4 w-4" />
-                {nextLabels.length
+                {stage.key === 'advance'
+                  ? t('dermat_orders.sheet.verifySend', 'Verified — send to {next}', { next: nextLabels.join(' + ') })
+                  : nextLabels.length
                   ? t('dermat_orders.sheet.completeSend', 'Done — send to {next}', { next: nextLabels.join(' + ') })
                   : t('dermat_orders.sheet.completeLast', 'Done — close the order')}
               </Button>

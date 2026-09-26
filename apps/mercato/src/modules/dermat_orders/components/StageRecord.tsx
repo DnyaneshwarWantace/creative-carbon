@@ -187,7 +187,15 @@ export function StageRecord({ order, people, busy, shortCount, focusKey, onActio
                     <span className="text-xs tabular-nums text-muted-foreground">{index + 1}</span>
                     <span className="font-semibold">{stage.label}</span>
                     <span className="text-xs text-muted-foreground">{stage.department}</span>
-                    {working ? <StatusBadge variant={stage.status === 'on_hold' ? 'error' : 'warning'} dot>{stage.status === 'on_hold' ? t('dermat_orders.record.hold', 'On hold') : t('dermat_orders.record.now', 'In progress')}</StatusBadge> : null}
+                    {working ? (
+                      <StatusBadge variant={stage.status === 'on_hold' ? 'error' : stage.data?.__started ? 'info' : 'warning'} dot>
+                        {stage.status === 'on_hold'
+                          ? t('dermat_orders.record.hold', 'On hold')
+                          : stage.data?.__started
+                            ? t('dermat_orders.workState.in_progress', 'In progress')
+                            : t('dermat_orders.workState.pending', 'Pending — not started')}
+                      </StatusBadge>
+                    ) : null}
                     {(() => {
                       const progress = subStageProgress(order, stage)
                       if (!progress.total || stage.status === 'waiting' || stage.status === 'skipped') return null

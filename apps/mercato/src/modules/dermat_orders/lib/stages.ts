@@ -282,3 +282,22 @@ export function missingSteps(def: StageDef, data: Record<string, unknown> | null
   const states = stepStates(data)
   return def.steps.filter((step) => !step.optional && !states[step.key]?.done).map((step) => step.label)
 }
+
+export type WorkState = 'coming' | 'pending' | 'in_progress' | 'on_hold' | 'completed' | 'skipped'
+
+export function workState(status: string, data: Record<string, unknown> | null | undefined): WorkState {
+  if (status === 'done') return 'completed'
+  if (status === 'skipped') return 'skipped'
+  if (status === 'on_hold') return 'on_hold'
+  if (status !== 'open') return 'coming'
+  return data && data.__started ? 'in_progress' : 'pending'
+}
+
+export const WORK_STATE_LABEL: Record<WorkState, string> = {
+  coming: 'Coming',
+  pending: 'Pending',
+  in_progress: 'In progress',
+  on_hold: 'On hold',
+  completed: 'Completed',
+  skipped: 'Skipped',
+}
