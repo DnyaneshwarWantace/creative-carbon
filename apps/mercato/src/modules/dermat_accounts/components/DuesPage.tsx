@@ -12,12 +12,18 @@ import { Spinner } from '@open-mercato/ui/primitives/spinner'
 import { SegmentedControl, SegmentedControlItem } from '@open-mercato/ui/primitives/segmented-control'
 import { StatusBadge, type StatusBadgeVariant } from '@open-mercato/ui/primitives/status-badge'
 import { apiCall } from '@open-mercato/ui/backend/utils/apiCall'
+import { Button } from '@open-mercato/ui/primitives/button'
+import { WhatsAppMenu } from '../../dermat_products/components/WhatsAppMenu'
+import { dateText, rupeeText } from '../../dermat_products/lib/whatsapp'
+import { PaymentDialog } from './PaymentDialog'
 import { ExportButton } from '../../dermat_products/components/ExportButton'
 import { downloadCsv } from '../../dermat_products/lib/csvExport'
 
 type Row = {
   orderId: string
   orderNo: string
+  customerId: string
+  customerPhone: string | null
   orderDate: string
   deliveryDate: string | null
   status: string
@@ -47,6 +53,8 @@ export function DuesPage() {
   const [view, setView] = React.useState<'due' | 'all'>('due')
   const [search, setSearch] = React.useState('')
   const [data, setData] = React.useState<{ items: Row[]; summary: Summary } | null>(null)
+  const [paying, setPaying] = React.useState<Row | null>(null)
+  const [reload, setReload] = React.useState(0)
 
   React.useEffect(() => {
     let cancelled = false
@@ -61,7 +69,7 @@ export function DuesPage() {
       cancelled = true
       window.clearTimeout(handle)
     }
-  }, [view, search])
+  }, [view, search, reload])
 
   const exportDues = () => {
     downloadCsv(view === 'due' ? 'dues' : 'order-payments', [
@@ -177,6 +185,38 @@ export function DuesPage() {
                           <ChevronRight className="h-4 w-4 text-muted-foreground transition-transform group-hover:translate-x-0.5" aria-hidden="true" />
                         </div>
                       </Link>
+                      {row.priced && row.due > 0.5 && row.status !== 'cancelled' ? (
+                        <div className="flex flex-wrap items-center gap-2 px-5 pb-3">
+                          <Button type="button" size="sm" variant="outline" onClick={() => setPaying(row)}>
+                            <IndianRupee className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
+                            {t('dermat_accounts.recordPayment', 'Record payment')}
+                          </Button>
+                          <WhatsAppMenu
+                            phone={row.customerPhone}
+                            recipient={row.customerName}
+                            messages={[
+                              {
+                                key: 'reminder',
+                                label: t('dermat_accounts.reminder', 'Payment reminder'),
+                                hint: `${rupeeText(row.due)} due on ${row.orderNo}`,
+                                text: [
+                                  `Dear ${row.customerName},`,
+                                  '',
+                                  `A balance of ${rupeeText(row.due)} is due on our order ${row.orderNo} dated ${dateText(row.orderDate)}.`,
+                                  `Order value: ${rupeeText(row.total)} · Received: ${rupeeText(row.received)}`,
+                                  'Please arrange the payment and share the UTR.',
+                                  '',
+                                  'Thank you,',
+                                  'Dermat India – Accounts',
+                                ].join('\n'),
+                              },
+                            ]}
+                          />
+                          <Button asChild type="button" size="sm" variant="ghost">
+                            <Link href={`/backend/customers/companies/${row.customerId}`}>{t('dermat_accounts.statement', 'Customer statement')}</Link>
+                          </Button>
+                        </div>
+                      ) : null}
                     </li>
                   )
                 })}
@@ -184,6 +224,12 @@ export function DuesPage() {
             )}
           </section>
         </div>
+        <PaymentDialog
+          open={Boolean(paying)}
+          onOpenChange={(open) => (open ? null : setPaying(null))}
+          order={paying ? { id: paying.orderId, orderNo: paying.orderNo, customerName: paying.customerName, due: paying.due } : null}
+          onSaved={() => setReload((value) => value + 1)}
+        />
       </PageBody>
     </Page>
   )

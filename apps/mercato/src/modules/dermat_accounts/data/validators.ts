@@ -10,7 +10,33 @@ export const paymentInputSchema = z.object({
   mode: z.enum(PAYMENT_MODES).optional().nullable(),
   reference: z.string().trim().max(120).optional().nullable(),
   note: z.string().trim().max(500).optional().nullable(),
+  invoiceId: z.string().uuid().optional().nullable(),
 })
+
+export const paymentUpdateSchema = z.object({
+  id: z.string().uuid(),
+  kind: z.enum(['advance', 'balance', 'other']).optional(),
+  amount: z.coerce.number().positive().max(1_000_000_000).optional(),
+  paidOn: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  mode: z.enum(PAYMENT_MODES).optional().nullable(),
+  reference: z.string().trim().max(120).optional().nullable(),
+  note: z.string().trim().max(500).optional().nullable(),
+  invoiceId: z.string().uuid().optional().nullable(),
+  reason: z.string().trim().min(1).max(500),
+})
+
+export const receiptsQuerySchema = z.object({
+  from: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  to: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  mode: z.enum(PAYMENT_MODES).optional(),
+  customerId: z.string().uuid().optional(),
+  search: z.string().trim().max(120).optional(),
+  includeVoided: z.enum(['0', '1']).default('0'),
+  page: z.coerce.number().int().min(1).default(1),
+  pageSize: z.coerce.number().int().min(1).max(100).default(50),
+})
+
+export const statementQuerySchema = z.object({ customerId: z.string().uuid() })
 
 export const paymentVoidSchema = z.object({ id: z.string().uuid(), reason: z.string().trim().min(1).max(500) })
 

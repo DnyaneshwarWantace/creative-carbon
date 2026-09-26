@@ -19,6 +19,7 @@ import { buildOptimisticLockHeader } from '@open-mercato/ui/backend/utils/optimi
 import { useGuardedMutation } from '@open-mercato/ui/backend/injection/useGuardedMutation'
 import { flash } from '@open-mercato/ui/backend/FlashMessages'
 import { ErrorMessage, LoadingMessage } from '@open-mercato/ui/backend/detail'
+import { CustomerStatement } from '../../dermat_accounts/components/CustomerStatement'
 
 type Row = Record<string, unknown> & { id: string }
 type Address = { id: string; name: string | null; purpose: string | null; address_line1: string | null; address_line2: string | null; city: string | null; region: string | null; postal_code: string | null; country: string | null; is_primary: boolean | null }
@@ -484,6 +485,12 @@ export function CustomerDetail({ customerId }: { customerId: string }) {
                 ) : (
                   <p className="p-6 text-center text-sm text-muted-foreground">{t('dermat_customers.detail.noOrders', 'No orders here.')}</p>
                 )}
+              </CardContent>
+            </Card>
+
+            <Card className="lg:col-span-8 lg:row-start-2">
+              <CardContent className="pt-4">
+                <CustomerStatement customerId={customerId} customerName={name} />
               </CardContent>
             </Card>
 

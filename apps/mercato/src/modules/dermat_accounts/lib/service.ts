@@ -1,5 +1,5 @@
 import type { EntityManager } from '@mikro-orm/postgresql'
-import { OrderPayment, type PaymentKind } from '../data/entities'
+import { OrderPayment, TaxInvoice, type PaymentKind } from '../data/entities'
 import type { PaymentInput } from '../data/validators'
 
 type Scope = { em: EntityManager; tenantId: string; organizationId: string }
@@ -34,7 +34,13 @@ export function paymentView(payment: OrderPayment) {
     byName: payment.byName ?? null,
     voided: Boolean(payment.voidedAt),
     voidReason: payment.voidReason ?? null,
+    orderId: payment.orderId,
+    orderNo: payment.orderNo,
+    invoiceId: payment.invoiceId ?? null,
+    invoiceCode: payment.invoiceCode ?? null,
+    history: payment.history ?? [],
     createdAt: payment.createdAt.toISOString(),
+    updatedAt: payment.updatedAt.toISOString(),
   }
 }
 
@@ -42,7 +48,16 @@ export function received(payments: OrderPayment[]): number {
   return money(payments.filter((payment) => !payment.voidedAt).reduce((sum, payment) => sum + Number(payment.amount), 0))
 }
 
+export async function invoiceForPayment(ctx: Scope, orderId: string, invoiceId: string | null | undefined): Promise<TaxInvoice | null> {
+  if (!invoiceId) return null
+  const invoice = await ctx.em.findOne(TaxInvoice, { id: invoiceId, tenantId: ctx.tenantId, organizationId: ctx.organizationId, deletedAt: null })
+  if (!invoice || invoice.orderId !== orderId || invoice.kind !== 'invoice') throw new AccountsError('That invoice is not on this order')
+  if (invoice.status !== 'issued') throw new AccountsError('Payments can be matched only to an issued invoice')
+  return invoice
+}
+
 export async function recordPayment(ctx: Scope, input: PaymentInput & { orderNo: string }, byName: string | null): Promise<OrderPayment> {
+  const invoice = await invoiceForPayment(ctx, input.orderId, input.invoiceId)
   const payment = ctx.em.create(OrderPayment, {
     organizationId: ctx.organizationId,
     tenantId: ctx.tenantId,
@@ -55,10 +70,51 @@ export async function recordPayment(ctx: Scope, input: PaymentInput & { orderNo:
     reference: input.reference ?? null,
     note: input.note ?? null,
     byName,
+    invoiceId: invoice?.id ?? null,
+    invoiceCode: invoice?.code ?? null,
+    history: [{ action: 'recorded', by: byName, at: new Date().toISOString(), note: null }],
   })
   ctx.em.persist(payment)
   await ctx.em.flush()
   return payment
+}
+
+type TrackedField = 'kind' | 'amount' | 'paidOn' | 'mode' | 'reference' | 'note' | 'invoiceCode'
+
+const MONEY_FIELDS: Array<[TrackedField, string]> = [
+  ['kind', 'Kind'],
+  ['amount', 'Amount'],
+  ['paidOn', 'Date'],
+  ['mode', 'Mode'],
+  ['reference', 'Reference'],
+  ['note', 'Note'],
+  ['invoiceCode', 'Invoice'],
+]
+
+export async function updatePayment(
+  ctx: Scope,
+  payment: OrderPayment,
+  input: { kind?: PaymentKind; amount?: number; paidOn?: string; mode?: string | null; reference?: string | null; note?: string | null; invoiceId?: string | null; reason: string },
+  byName: string | null,
+): Promise<void> {
+  if (payment.voidedAt) throw new AccountsError('A voided payment cannot be changed', 409)
+  const shown = (key: TrackedField) => (key === 'amount' ? Number(payment.amount).toFixed(2) : String(payment[key] ?? ''))
+  const before = Object.fromEntries(MONEY_FIELDS.map(([key]) => [key, shown(key)]))
+  if (input.kind) payment.kind = input.kind
+  if (input.amount !== undefined) payment.amount = String(money(input.amount))
+  if (input.paidOn) payment.paidOn = input.paidOn
+  if (input.mode !== undefined) payment.mode = input.mode
+  if (input.reference !== undefined) payment.reference = input.reference?.trim() || null
+  if (input.note !== undefined) payment.note = input.note?.trim() || null
+  if (input.invoiceId !== undefined) {
+    const invoice = await invoiceForPayment(ctx, payment.orderId, input.invoiceId)
+    payment.invoiceId = invoice?.id ?? null
+    payment.invoiceCode = invoice?.code ?? null
+  }
+  const changes = MONEY_FIELDS.filter(([key]) => shown(key) !== before[key]).map(([key, label]) => `${label}: ${before[key] || '—'} → ${shown(key) || '—'}`)
+  if (!changes.length) throw new AccountsError('Nothing changed')
+  payment.history = [...(payment.history ?? []), { action: 'edited', by: byName, at: new Date().toISOString(), note: `${changes.join('; ')} · ${input.reason}` }]
+  payment.updatedAt = new Date()
 }
 
 export async function recordAdvanceFromStage(

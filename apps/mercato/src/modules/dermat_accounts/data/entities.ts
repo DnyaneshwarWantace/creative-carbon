@@ -6,7 +6,7 @@ export type PaymentKind = 'advance' | 'balance' | 'other'
 @Entity({ tableName: 'dermat_order_payments' })
 @Index({ name: 'dermat_order_payments_order_idx', properties: ['organizationId', 'tenantId', 'orderId'] })
 export class OrderPayment {
-  [OptionalProps]?: 'mode' | 'reference' | 'note' | 'byName' | 'voidedAt' | 'voidReason' | 'createdAt' | 'updatedAt'
+  [OptionalProps]?: 'mode' | 'reference' | 'note' | 'byName' | 'voidedAt' | 'voidReason' | 'invoiceId' | 'invoiceCode' | 'history' | 'createdAt' | 'updatedAt'
 
   @PrimaryKey({ type: 'uuid', defaultRaw: 'gen_random_uuid()' })
   id!: string
@@ -49,6 +49,15 @@ export class OrderPayment {
 
   @Property({ name: 'void_reason', type: 'text', nullable: true })
   voidReason?: string | null
+
+  @Property({ name: 'invoice_id', type: 'uuid', nullable: true })
+  invoiceId?: string | null
+
+  @Property({ name: 'invoice_code', type: 'text', nullable: true })
+  invoiceCode?: string | null
+
+  @Property({ type: 'json', nullable: true })
+  history?: Array<{ action: string; by: string | null; at: string; note: string | null }> | null
 
   @Property({ name: 'created_at', type: Date, onCreate: () => new Date() })
   createdAt: Date = new Date()
