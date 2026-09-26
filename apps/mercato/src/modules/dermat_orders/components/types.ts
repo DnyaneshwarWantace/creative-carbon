@@ -97,6 +97,8 @@ export type OrderStoreRequest = {
   issuedLines: number
 }
 
+export type StageDocumentStatus = { key: string; label: string; hint: string; required?: 'always' | 'eway'; count: number; needed: boolean }
+
 export type Order = {
   id: string
   orderNo: string
@@ -121,6 +123,7 @@ export type Order = {
   linesLocked: boolean
   lines: OrderLine[]
   stages: Stage[]
+  documents?: Record<string, StageDocumentStatus[]>
   qc: Record<string, OrderQcCheck[]>
   store: Record<string, OrderStoreRequest[]>
   reservations: Array<{ productId: string; title: string; unit: string | null; quantity: number; since: string }>

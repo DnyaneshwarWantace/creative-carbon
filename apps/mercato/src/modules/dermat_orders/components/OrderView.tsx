@@ -11,6 +11,7 @@ import { Button } from '@open-mercato/ui/primitives/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@open-mercato/ui/primitives/card'
 import { Textarea } from '@open-mercato/ui/primitives/textarea'
 import { StatusBadge } from '@open-mercato/ui/primitives/status-badge'
+import { SegmentedControl, SegmentedControlItem } from '@open-mercato/ui/primitives/segmented-control'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@open-mercato/ui/primitives/dialog'
 import { apiCall, withScopedApiRequestHeaders } from '@open-mercato/ui/backend/utils/apiCall'
 import { buildOptimisticLockHeader } from '@open-mercato/ui/backend/utils/optimisticLock'
@@ -26,6 +27,7 @@ import { subStageProgress } from './subStages'
 import { useStageAction } from './useStageAction'
 import { useOrderMaterials } from './useOrderMaterials'
 import { OrderMoneyCard } from './OrderMoneyCard'
+import { AttentionList, DocumentsOverview, orderAttention, type OrderTab } from './OrderPanels'
 import type { Order, Stage } from './types'
 import { ExportButton } from '../../dermat_products/components/ExportButton'
 import { WhatsAppMenu } from '../../dermat_products/components/WhatsAppMenu'
@@ -159,6 +161,7 @@ export function OrderView({ orderId }: { orderId: string }) {
   const [cancelOpen, setCancelOpen] = React.useState(false)
   const materials = useOrderMaterials(order)
   const [cancelReason, setCancelReason] = React.useState('')
+  const [tab, setTab] = React.useState<OrderTab>('work')
 
   const load = React.useCallback(async () => {
     const call = await apiCall<Order>(`/api/dermat_orders/orders?id=${encodeURIComponent(orderId)}`)
@@ -260,6 +263,11 @@ export function OrderView({ orderId }: { orderId: string }) {
   const totalPieces = order.lines.reduce((sum, line) => sum + line.quantity, 0)
   const shortRows = materials?.rows.filter((row) => row.quantity > row.onHand) ?? []
   const statusLabel = t(`dermat_orders.status.${order.status}`, order.status)
+  const attention = orderAttention(order, materials ? shortRows.length : null, t)
+  const goToStage = (key: string) => {
+    setTab('work')
+    setOpenStage(key)
+  }
 
   return (
     <Page>
@@ -320,29 +328,11 @@ export function OrderView({ orderId }: { orderId: string }) {
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4 rounded-lg border bg-card p-4 sm:grid-cols-3 lg:grid-cols-6">
-            <Info label={t('dermat_orders.view.orderDate', 'Order date')}>{formatDate(order.orderDate)}</Info>
-            <Info label={t('dermat_orders.view.delivery', 'Delivery')}>
-              <span className={cn(deliveryIn !== null && deliveryIn < 0 && order.status !== 'completed' && 'text-status-error-text')}>
-                {formatDate(order.deliveryDate)}
-                {deliveryIn !== null && order.status !== 'completed' && order.status !== 'cancelled'
-                  ? ` · ${deliveryIn < 0 ? t('dermat_orders.view.late', '{days} d late', { days: -deliveryIn }) : t('dermat_orders.view.left', '{days} d left', { days: deliveryIn })}`
-                  : ''}
-              </span>
-            </Info>
-            <Info label={t('dermat_orders.view.pieces', 'Total pieces')}>{formatQty(totalPieces, 0)}</Info>
-            <Info label={t('dermat_orders.view.salesManager', 'Sales manager')}>{order.salesManager ?? '—'}</Info>
-            <Info label={t('dermat_orders.view.payment', 'Payment')}>
-              {[PAYMENT_TERMS_LABEL[order.paymentTerms ?? ''] ?? order.paymentTerms, order.paymentRemarks].filter(Boolean).join(' · ') || '—'}
-            </Info>
-            <Info label={t('dermat_orders.view.po', 'Customer PO')}>{order.customerPoRef ?? '—'}</Info>
-          </div>
-
           <Card>
             <CardHeader className="border-b bg-muted/20 pb-3">
               <CardTitle className="text-sm font-bold">{t('dermat_orders.view.stages', 'Stages')}</CardTitle>
               <CardDescription className="text-xs">
-                {t('dermat_orders.view.stagesHint', 'Green = done · Orange = in progress · Red = on hold · Grey = coming. Click a stage to jump to it in the order file below.')}
+                {t('dermat_orders.view.stagesHint', 'Green = done · Orange = in progress · Red = on hold · Grey = coming. Click a stage to open its work.')}
               </CardDescription>
             </CardHeader>
             <CardContent className="overflow-x-auto p-4">
@@ -353,7 +343,7 @@ export function OrderView({ orderId }: { orderId: string }) {
                     {block.kind === 'single' ? (
                       <div className="flex w-36 flex-col justify-center">
                         {stagesByKey.get(block.key) ? (
-                          <StageCard order={order} stage={stagesByKey.get(block.key)!} onOpen={() => setOpenStage(block.key)} />
+                          <StageCard order={order} stage={stagesByKey.get(block.key)!} onOpen={() => goToStage(block.key)} />
                         ) : null}
                       </div>
                     ) : (
@@ -367,7 +357,7 @@ export function OrderView({ orderId }: { orderId: string }) {
                               <React.Fragment key={key}>
                                 {laneIndex > 0 ? <span className="text-muted-foreground">›</span> : null}
                                 <div className="w-36">
-                                  {stagesByKey.get(key) ? <StageCard order={order} stage={stagesByKey.get(key)!} onOpen={() => setOpenStage(key)} /> : null}
+                                  {stagesByKey.get(key) ? <StageCard order={order} stage={stagesByKey.get(key)!} onOpen={() => goToStage(key)} /> : null}
                                 </div>
                               </React.Fragment>
                             ))}
@@ -384,8 +374,18 @@ export function OrderView({ orderId }: { orderId: string }) {
             </CardContent>
           </Card>
 
-          <StageRecord order={order} people={people} busy={busy} shortCount={materials ? shortRows.length : null} focusKey={openStage} onAction={stageAction} />
-
+          <div className="grid grid-cols-1 gap-5 lg:grid-cols-12">
+            <div className="min-w-0 space-y-4 lg:col-span-8">
+              <SegmentedControl value={tab} onValueChange={(value) => setTab(value as OrderTab)} aria-label={t('dermat_orders.view.sections', 'Order sections')}>
+                <SegmentedControlItem value="work">{t('dermat_orders.view.tabWork', 'Stage work')}</SegmentedControlItem>
+                <SegmentedControlItem value="products">{t('dermat_orders.view.tabProducts', 'Products & specs')}</SegmentedControlItem>
+                <SegmentedControlItem value="materials">{t('dermat_orders.view.tabMaterials', 'Materials')}</SegmentedControlItem>
+                <SegmentedControlItem value="documents">{t('dermat_orders.view.tabDocuments', 'Documents')}</SegmentedControlItem>
+                <SegmentedControlItem value="money">{t('dermat_orders.view.tabMoney', 'Money')}</SegmentedControlItem>
+                <SegmentedControlItem value="history">{t('dermat_orders.view.tabHistory', 'History')}</SegmentedControlItem>
+              </SegmentedControl>
+              {tab === 'work' ? <StageRecord order={order} people={people} busy={busy} shortCount={materials ? shortRows.length : null} focusKey={openStage} onAction={stageAction} /> : null}
+              {tab === 'products' ? (
           <Card>
             <CardHeader className="border-b bg-muted/20 pb-3">
               <CardTitle className="flex items-center gap-2 text-sm font-bold">
@@ -453,11 +453,9 @@ export function OrderView({ orderId }: { orderId: string }) {
               ) : null}
             </CardContent>
           </Card>
-
-          <OrderMoneyCard order={order} onChanged={load} />
-
-          <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
-            <Card className="overflow-hidden lg:col-span-2">
+              ) : null}
+              {tab === 'materials' ? (
+            <Card className="overflow-hidden">
               <CardHeader className="border-b bg-muted/20 pb-3">
                 <CardTitle className="flex items-center gap-2 text-sm font-bold">
                   <Layers className="h-4 w-4 text-primary" />
@@ -523,7 +521,10 @@ export function OrderView({ orderId }: { orderId: string }) {
                 </table>
               </CardContent>
             </Card>
-
+              ) : null}
+              {tab === 'documents' ? <DocumentsOverview order={order} onStage={goToStage} /> : null}
+              {tab === 'money' ? <OrderMoneyCard order={order} onChanged={load} /> : null}
+              {tab === 'history' ? (
             <Card className="overflow-hidden">
               <CardHeader className="border-b bg-muted/20 pb-3">
                 <CardTitle className="flex items-center gap-2 text-sm font-bold">
@@ -531,7 +532,7 @@ export function OrderView({ orderId }: { orderId: string }) {
                   {t('dermat_orders.view.history', 'History')}
                 </CardTitle>
               </CardHeader>
-              <CardContent className="max-h-96 overflow-auto p-0">
+              <CardContent className="p-0">
                 <ol className="divide-y text-sm">
                   {order.events.map((event) => (
                     <li key={event.id} className="px-4 py-2">
@@ -554,6 +555,63 @@ export function OrderView({ orderId }: { orderId: string }) {
                 </ol>
               </CardContent>
             </Card>
+              ) : null}
+            </div>
+
+            <aside className="space-y-4 lg:sticky lg:top-4 lg:col-span-4 lg:self-start">
+              <section className="space-y-3 rounded-lg border bg-card p-4" aria-labelledby="order-attention">
+                <h2 id="order-attention" className="text-sm font-semibold">
+                  {t('dermat_orders.view.attention', 'Needs attention')}
+                </h2>
+                <AttentionList items={attention} onStage={goToStage} onTab={setTab} />
+              </section>
+              <section className="space-y-3 rounded-lg border bg-card p-4" aria-labelledby="order-money">
+                <div className="flex items-center justify-between">
+                  <h2 id="order-money" className="text-sm font-semibold">
+                    {t('dermat_orders.view.moneyTitle', 'Money')}
+                  </h2>
+                  <button type="button" className="text-xs font-medium text-primary hover:underline" onClick={() => setTab('money')}>
+                    {t('dermat_orders.view.moneyOpen', 'Payments & documents')}
+                  </button>
+                </div>
+                <dl className="grid grid-cols-3 gap-2 text-sm">
+                  <div>
+                    <dt className="text-xs text-muted-foreground">{t('dermat_orders.view.orderValue', 'Order value')}</dt>
+                    <dd className="font-semibold tabular-nums">{formatQty(order.totals.total, 0)}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-xs text-muted-foreground">{t('dermat_orders.view.received', 'Received')}</dt>
+                    <dd className="font-semibold tabular-nums text-status-success-text">{formatQty(order.payments.received, 0)}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-xs text-muted-foreground">{t('dermat_orders.view.due', 'Due')}</dt>
+                    <dd className={cn('font-semibold tabular-nums', order.payments.due > 0.5 && 'text-status-warning-text')}>{formatQty(Math.max(0, order.payments.due), 0)}</dd>
+                  </div>
+                </dl>
+                {order.totals.total > 0 ? (
+                  <div className="h-1.5 overflow-hidden rounded-full bg-muted" aria-hidden="true">
+                    <div className="h-full bg-status-success-solid" style={{ width: `${Math.min(100, Math.round((order.payments.received / order.totals.total) * 100))}%` }} />
+                  </div>
+                ) : null}
+              </section>
+              <section className="grid grid-cols-2 gap-4 rounded-lg border bg-card p-4" aria-label={t('dermat_orders.view.summary', 'Order summary')}>
+            <Info label={t('dermat_orders.view.orderDate', 'Order date')}>{formatDate(order.orderDate)}</Info>
+            <Info label={t('dermat_orders.view.delivery', 'Delivery')}>
+              <span className={cn(deliveryIn !== null && deliveryIn < 0 && order.status !== 'completed' && 'text-status-error-text')}>
+                {formatDate(order.deliveryDate)}
+                {deliveryIn !== null && order.status !== 'completed' && order.status !== 'cancelled'
+                  ? ` · ${deliveryIn < 0 ? t('dermat_orders.view.late', '{days} d late', { days: -deliveryIn }) : t('dermat_orders.view.left', '{days} d left', { days: deliveryIn })}`
+                  : ''}
+              </span>
+            </Info>
+            <Info label={t('dermat_orders.view.pieces', 'Total pieces')}>{formatQty(totalPieces, 0)}</Info>
+            <Info label={t('dermat_orders.view.salesManager', 'Sales manager')}>{order.salesManager ?? '—'}</Info>
+            <Info label={t('dermat_orders.view.payment', 'Payment')}>
+              {[PAYMENT_TERMS_LABEL[order.paymentTerms ?? ''] ?? order.paymentTerms, order.paymentRemarks].filter(Boolean).join(' · ') || '—'}
+            </Info>
+            <Info label={t('dermat_orders.view.po', 'Customer PO')}>{order.customerPoRef ?? '—'}</Info>
+              </section>
+            </aside>
           </div>
           <p className="text-xs text-muted-foreground">
             {t('dermat_orders.view.createdBy', 'Booked by {name} on {date}', { name: order.createdByName ?? '—', date: formatDateTime(order.createdAt) })} ·{' '}

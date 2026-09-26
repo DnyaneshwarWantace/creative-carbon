@@ -16,7 +16,7 @@ import { StatusBadge } from '@open-mercato/ui/primitives/status-badge'
 import { apiCall } from '@open-mercato/ui/backend/utils/apiCall'
 import { flash } from '@open-mercato/ui/backend/FlashMessages'
 import { HOLD_PARTIES, STAGES, WORK_STATE_LABEL, stageDef, workState, type StageField, type WorkState } from '../lib/stages'
-import { AttachmentsSection } from '@open-mercato/ui/backend/detail/AttachmentsSection'
+import { StageDocuments } from './StageDocuments'
 import { cn } from '@open-mercato/shared/lib/utils'
 import { STAGE_VARIANT, formatDate, formatDateTime, formatQty } from './format'
 import { ProductionPanel } from './ProductionPanel'
@@ -487,13 +487,7 @@ export function StageWorkArea({ order, stage, people, canWork, busy, shortCount,
               </div>
             ))}
             {stage.status !== 'waiting' ? (
-              <AttachmentsSection
-                entityId="dermat_orders:order_stage"
-                recordId={`${order.id}:${stage.key}`}
-                title={t('dermat_orders.sheet.documents', 'Documents')}
-                description={t('dermat_orders.sheet.documentsHint', 'Attach sheets, photos, COA, approvals or anything else for this stage.')}
-                compact
-              />
+              <StageDocuments orderId={order.id} stageKey={stage.key} documents={order.documents?.[stage.key] ?? []} editable={editable} />
             ) : null}
           </div>
         ) : (

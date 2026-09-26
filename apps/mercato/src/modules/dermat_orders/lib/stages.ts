@@ -24,6 +24,36 @@ export type StageDef = {
   fields: StageField[]
 }
 
+export type StageDocument = { key: string; label: string; hint: string; required?: 'always' | 'eway' }
+
+export const EWAY_BILL_LIMIT = 50000
+
+export const STAGE_DOCUMENTS: Record<string, StageDocument[]> = {
+  order: [{ key: 'customer_po', label: 'Customer PO / sale order', hint: 'The PO or order sheet the client sent. A repeat order can use the earlier one.' }],
+  advance: [{ key: 'payment_proof', label: 'Payment proof', hint: 'Bank or UPI screenshot of the advance.' }],
+  sampling: [
+    { key: 'client_approval', label: 'Client approval of the sample', hint: 'Email or WhatsApp screenshot where the client approves the sample.', required: 'always' },
+    { key: 'sample_photo', label: 'Sample photo', hint: 'Photo of the approved sample.' },
+  ],
+  artwork: [{ key: 'approved_artwork', label: 'Artwork approved by the client', hint: 'Final artwork file or the client approval of it.', required: 'always' }],
+  manufacturing: [{ key: 'bmr', label: 'Batch manufacturing record', hint: 'Scan or photo of the filled BMR sheet.' }],
+  filling: [{ key: 'filling_photo', label: 'Filling photo', hint: 'Photo of filled units.' }],
+  packing: [{ key: 'packed_photo', label: 'Packed goods photo', hint: 'Photo of packed cartons or shippers.' }],
+  qc_qa: [{ key: 'release_record', label: 'Signed batch record', hint: 'Signed BMR / BPR used for the release decision.' }],
+  dispatch: [
+    { key: 'lr_copy', label: 'LR / transport receipt', hint: 'Lorry receipt or courier docket from the transporter.', required: 'always' },
+    { key: 'eway_bill', label: 'E-way bill', hint: `Needed when the goods are worth more than ₹${EWAY_BILL_LIMIT.toLocaleString('en-IN')}.`, required: 'eway' },
+  ],
+}
+
+export function stageDocuments(stageKey: string): StageDocument[] {
+  return STAGE_DOCUMENTS[stageKey] ?? []
+}
+
+export function documentRecordId(orderId: string, stageKey: string, documentKey: string): string {
+  return `${orderId}:${stageKey}:${documentKey}`
+}
+
 export const DESIGNER_STATUSES = ['ORDERED', 'PM OK', 'Client Side', 'Artwork', 'Half PM OK', 'Hold', 'Need to Order PM']
 
 export const HOLD_PARTIES = ['Client side', 'Internal', 'Vendor']

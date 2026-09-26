@@ -8,6 +8,7 @@ import { reservationsForOrder } from '../../dermat_planning/lib/service'
 import { USE_EXISTING_BULK, existingBulkProblem, packItems } from './productionStock'
 import { paymentView, paymentsFor, received, recordAdvanceFromStage } from '../../dermat_accounts/lib/service'
 import { priceLine, priceOrder } from './pricing'
+import { documentCounts, documentStatus, missingDocuments } from './stageDocuments'
 
 function pricedLine(line: DermatOrderLine) {
   return { quantity: Number(line.quantity), rate: line.rate == null ? null : Number(line.rate), gstPercent: Number(line.gstPercent ?? 18), discountPercent: Number(line.discountPercent ?? 0) }
@@ -283,6 +284,9 @@ export async function applyStageAction(ctx: OrderContext, order: DermatOrder, in
       mergeData()
       const missing = missingRequired(def, stage.data ?? {})
       if (missing.length) throw new OrderError(`Fill in: ${missing.join(', ')}`, 400, { missing })
+      const orderValue = priceOrder((await ctx.em.find(DermatOrderLine, { orderId: order.id })).map(pricedLine), order.pricesIncludeGst).total
+      const missingDocs = await missingDocuments(ctx, order.id, def.key, orderValue)
+      if (missingDocs.length) throw new OrderError(`Upload: ${missingDocs.map((doc) => doc.label).join(', ')}`, 400, { documents: missingDocs.map((doc) => doc.key) })
       if (def.key === 'sampling' && stage.data?.client_feedback !== 'Approved') {
         throw new OrderError('The client has not approved the sample. Set feedback to Approved, or start another round with their changes.', 400)
       }
@@ -459,7 +463,7 @@ export async function serializeOrder(ctx: OrderContext, order: DermatOrder) {
     ctx.em.find(DermatOrderEvent, { orderId: order.id }, { orderBy: { createdAt: 'desc' }, limit: 200 }),
   ])
   const productIds = lines.map((line) => line.productId)
-  const [customers, products, boms, qc, store, reservations, payments] = await Promise.all([
+  const [customers, products, boms, qc, store, reservations, payments, docCounts] = await Promise.all([
     loadCustomers(ctx, [order.customerId]),
     loadProducts(ctx, productIds),
     approvedPackBoms(ctx, productIds, order.id),
@@ -467,7 +471,9 @@ export async function serializeOrder(ctx: OrderContext, order: DermatOrder) {
     requestsForOrder(ctx, order.id),
     reservationsForOrder(ctx, order.id),
     paymentsFor(ctx, [order.id]),
+    documentCounts(ctx, order.id),
   ])
+  const orderTotal = priceOrder(lines.map(pricedLine), order.pricesIncludeGst).total
   const qcOnly = Object.values(qc).flat().map((check) => check.productId).filter((id) => !products.has(id))
   if (qcOnly.length) for (const [id, product] of await loadProducts(ctx, qcOnly)) products.set(id, product)
   const views = stageViews(stages)
@@ -518,6 +524,7 @@ export async function serializeOrder(ctx: OrderContext, order: DermatOrder) {
       return { received: paid, due: Math.round((total - paid) * 100) / 100, items: payments.map(paymentView) }
     })(),
     stages: views,
+    documents: Object.fromEntries(views.map((stage) => [stage.key, documentStatus(order.id, stage.key, docCounts, orderTotal)])),
     qc: Object.fromEntries(
       Object.entries(qc).map(([key, list]) => [
         key,
