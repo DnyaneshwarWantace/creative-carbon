@@ -1,6 +1,6 @@
 export const metadata = {
   requireAuth: true,
-  requireFeatures: ['dermat_orders.view'],
+  requireFeatures: ['dermat_orders.view', 'dermat_orders.work.rnd'],
   pageTitle: 'Sampling',
   pageTitleKey: 'dermat_orders.nav.work.sampling',
   pageGroup: 'R&D',

@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from 'react'
+import { useGranted } from '../../dermat_departments/components/useGranted'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { AlertTriangle, ArrowRight, CalendarClock, ChevronLeft, ChevronRight, Columns3, FileSpreadsheet, IndianRupee, LayoutGrid, List, PauseCircle, Plus, Search, Wallet } from 'lucide-react'
@@ -236,6 +237,7 @@ function BoardView({ orders, onOpen }: { orders: SheetOrder[]; onOpen: (orderId:
 
 export function OrdersPage() {
   const t = useT()
+  const granted = useGranted()
   const router = useRouter()
   const searchParams = useSearchParams()
   const tabParam = searchParams?.get('tab') as StatusTab | null
@@ -381,12 +383,14 @@ export function OrdersPage() {
                 <EditTableBar editing={table.editing} dirtyCount={table.dirtyCount} saving={table.saving} onEdit={table.startEditing} onCancel={table.cancelEditing} onSave={() => void table.saveAll()} />
               ) : null}
               <ExportButton onExport={() => openServerExport(`/api/dermat_orders/orders/export?${filterParams().toString()}`)} />
+              {granted.has('dermat_orders.manage') ? (
               <Button asChild>
                 <Link href="/backend/orders/new">
                   <Plus className="mr-1.5 h-4 w-4" aria-hidden="true" />
                   {t('dermat_orders.book.new', 'Book new order')}
                 </Link>
               </Button>
+              ) : null}
             </div>
           </header>
 

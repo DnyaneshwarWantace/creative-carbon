@@ -24,6 +24,25 @@ export type StageDef = {
   fields: StageField[]
 }
 
+export const STAGE_WORK_FEATURE: Record<string, string> = {
+  order: 'dermat_orders.manage',
+  advance: 'dermat_orders.work.accounts',
+  sampling: 'dermat_orders.work.rnd',
+  artwork: 'dermat_orders.work.artwork',
+  formulation: 'dermat_orders.work.rnd',
+  planning: 'dermat_orders.work.planning',
+  manufacturing: 'dermat_orders.work.production',
+  filling: 'dermat_orders.work.production',
+  packing: 'dermat_orders.work.production',
+  qc_qa: 'dermat_orders.work.qa',
+  billing: 'dermat_orders.work.accounts',
+  dispatch: 'dermat_orders.work.dispatch',
+}
+
+export function stageWorkFeature(stageKey: string): string {
+  return STAGE_WORK_FEATURE[stageKey] ?? 'dermat_orders.stages'
+}
+
 export type StageDocument = { key: string; label: string; hint: string; required?: 'always' | 'eway' }
 
 export const EWAY_BILL_LIMIT = 50000

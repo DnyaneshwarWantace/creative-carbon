@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from 'react'
+import { useGranted } from '../../dermat_departments/components/useGranted'
 import { useListOptions } from '../../dermat_lists/components/useListOptions'
 import Link from 'next/link'
 import { ArrowLeft, Building2, ClipboardList, Copy, MapPin, Package, Pencil, Plus } from 'lucide-react'
@@ -260,6 +261,7 @@ function EditSheet({ open, onOpenChange, company, onSaved }: { open: boolean; on
 
 export function CustomerDetail({ customerId }: { customerId: string }) {
   const t = useT()
+  const granted = useGranted()
   const [company, setCompany] = React.useState<Row | null>(null)
   const [loadError, setLoadError] = React.useState<string | null>(null)
   const [addresses, setAddresses] = React.useState<Address[]>([])
@@ -376,7 +378,7 @@ export function CustomerDetail({ customerId }: { customerId: string }) {
               ) : null}
             </div>
             <div className="flex flex-wrap gap-2">
-              {lastOrder ? (
+              {lastOrder && granted.has('dermat_orders.manage') ? (
                 <Button asChild variant="outline" size="sm">
                   <Link href={`/backend/orders/new?copyFrom=${lastOrder.id}`}>
                     <Copy className="mr-1.5 h-4 w-4" />
@@ -384,18 +386,22 @@ export function CustomerDetail({ customerId }: { customerId: string }) {
                   </Link>
                 </Button>
               ) : null}
+              {granted.has('customers.companies.manage') ? (
               <Button asChild variant="outline" size="sm">
                 <Link href={`/backend/customers/edit/${customerId}`}>
                   <Pencil className="mr-1.5 h-4 w-4" />
                   {t('dermat_customers.detail.edit', 'Edit details')}
                 </Link>
               </Button>
+              ) : null}
+              {granted.has('dermat_orders.manage') ? (
               <Button asChild size="sm">
                 <Link href={`/backend/orders/new?customerId=${customerId}`}>
                   <Plus className="mr-1.5 h-4 w-4" />
                   {t('dermat_customers.detail.newOrder', 'New order')}
                 </Link>
               </Button>
+              ) : null}
             </div>
           </div>
 

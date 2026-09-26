@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from 'react'
+import { useGranted } from '../../dermat_departments/components/useGranted'
 import Link from 'next/link'
 import { ArrowLeft, Boxes, ClipboardList, FileStack, History, Layers, Pencil, Plus, Users, Warehouse } from 'lucide-react'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
@@ -134,6 +135,7 @@ function Empty({ children }: { children: React.ReactNode }) {
 
 export function ProductDetail({ productId }: { productId: string }) {
   const t = useT()
+  const granted = useGranted()
   const [product, setProduct] = React.useState<Row | null>(null)
   const [loadError, setLoadError] = React.useState<string | null>(null)
   const [defs, setDefs] = React.useState<ProductFieldDef[]>([])
@@ -311,7 +313,7 @@ export function ProductDetail({ productId }: { productId: string }) {
               </p>
             </div>
             <div className="flex flex-wrap gap-2">
-              {kind === 'finished_goods' ? (
+              {kind === 'finished_goods' && granted.has('dermat_orders.manage') ? (
                 <Button asChild variant="outline" size="sm">
                   <Link href="/backend/orders/new">
                     <Plus className="mr-1.5 h-4 w-4" />

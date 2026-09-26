@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from 'react'
+import { useGranted } from '../../dermat_departments/components/useGranted'
 import Link from 'next/link'
 import {
   AlarmClock,
@@ -103,6 +104,7 @@ function Panel({ title, hint, action, children, className }: { title: string; hi
 
 export function OverviewPage() {
   const t = useT()
+  const granted = useGranted()
   const [data, setData] = React.useState<Overview | null>(null)
   const [error, setError] = React.useState<string | null>(null)
 
@@ -147,12 +149,14 @@ export function OverviewPage() {
                   {t('dermat_dashboard.myWork', 'My pending work')}
                 </Button>
               </Link>
+              {granted.has('dermat_orders.manage') ? (
               <Link href="/backend/orders/new">
                 <Button type="button">
                   <Plus className="mr-1.5 h-4 w-4" aria-hidden="true" />
                   {t('dermat_dashboard.newOrder', 'New order')}
                 </Button>
               </Link>
+              ) : null}
             </div>
           </header>
 

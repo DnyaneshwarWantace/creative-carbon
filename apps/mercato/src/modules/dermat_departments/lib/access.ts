@@ -1,5 +1,5 @@
 export type Ability = { feature: string; label: string; short: string }
-export type AccessArea = { key: string; label: string; department: string; pages: string; abilities: Ability[] }
+export type AccessArea = { key: string; label: string; department: string; pages: string; abilities: Ability[]; independent?: boolean; requires?: string[] }
 
 export const ACCESS_AREAS: AccessArea[] = [
   {
@@ -7,6 +7,7 @@ export const ACCESS_AREAS: AccessArea[] = [
     label: 'Overview',
     department: 'Everyone',
     pages: 'Overview, My pending work, Turnaround',
+    independent: true,
     abilities: [
       { feature: 'dermat_dashboard.my_work', label: 'See their own pending work', short: 'Own work' },
       { feature: 'dermat_dashboard.view', label: 'See the overview dashboard and turnaround', short: 'Dashboard' },
@@ -27,11 +28,27 @@ export const ACCESS_AREAS: AccessArea[] = [
     key: 'orders',
     label: 'Orders',
     department: 'Sales',
-    pages: 'Order Book, order page, every department work page',
+    pages: 'Order Book, order page, batch register',
     abilities: [
       { feature: 'dermat_orders.view', label: 'See orders and where they are', short: 'View' },
-      { feature: 'dermat_orders.stages', label: 'Work on their department stages', short: 'Stages' },
       { feature: 'dermat_orders.manage', label: 'Book, edit and cancel orders', short: 'Book' },
+    ],
+  },
+  {
+    key: 'work',
+    label: 'Department stages',
+    department: 'Every department',
+    pages: 'Department work pages in the sidebar, and the stage forms on each order',
+    independent: true,
+    requires: ['dermat_orders.view', 'dermat_orders.stages'],
+    abilities: [
+      { feature: 'dermat_orders.work.accounts', label: 'Advance and billing', short: 'Accounts' },
+      { feature: 'dermat_orders.work.rnd', label: 'Sampling and formula', short: 'R&D' },
+      { feature: 'dermat_orders.work.artwork', label: 'Artwork & packaging', short: 'Artwork' },
+      { feature: 'dermat_orders.work.planning', label: 'Material planning', short: 'Planning' },
+      { feature: 'dermat_orders.work.production', label: 'Manufacturing, filling and packing', short: 'Production' },
+      { feature: 'dermat_orders.work.qa', label: 'QA release', short: 'QA' },
+      { feature: 'dermat_orders.work.dispatch', label: 'Dispatch', short: 'Dispatch' },
     ],
   },
   {
@@ -116,6 +133,7 @@ export const ACCESS_AREAS: AccessArea[] = [
     label: 'Masters',
     department: 'Admin',
     pages: 'Departments, dropdown lists',
+    independent: true,
     abilities: [
       { feature: 'dermat_departments.view', label: 'See departments', short: 'Departments' },
       { feature: 'dermat_departments.manage', label: 'Add and edit departments', short: 'Edit depts' },
@@ -171,12 +189,13 @@ export function setAbility(features: string[], feature: string, enabled: boolean
   if (enabled) {
     const next = new Set(features)
     next.add(feature)
-    if (base && base !== feature && area?.key !== 'overview' && area?.key !== 'masters') next.add(base)
+    for (const required of area?.requires ?? []) next.add(required)
+    if (base && base !== feature && !area?.independent) next.add(base)
     return [...next]
   }
   let next = expandWildcard(features, feature)
   const removing = new Set([feature])
-  if (base === feature && area && area.key !== 'overview' && area.key !== 'masters') for (const ability of area.abilities) removing.add(ability.feature)
+  if (base === feature && area && !area.independent) for (const ability of area.abilities) removing.add(ability.feature)
   for (const ability of removing) next = expandWildcard(next, ability)
   return next.filter((entry) => !removing.has(entry))
 }

@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from 'react'
+import { useGranted } from '../../dermat_departments/components/useGranted'
 import Link from 'next/link'
 import { AlertTriangle, ChevronRight, IndianRupee, Receipt, Search, Wallet } from 'lucide-react'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
@@ -50,6 +51,7 @@ function day(value: string | null): string {
 
 export function DuesPage() {
   const t = useT()
+  const granted = useGranted()
   const [view, setView] = React.useState<'due' | 'all'>('due')
   const [search, setSearch] = React.useState('')
   const [data, setData] = React.useState<{ items: Row[]; summary: Summary } | null>(null)
@@ -187,10 +189,12 @@ export function DuesPage() {
                       </Link>
                       {row.priced && row.due > 0.5 && row.status !== 'cancelled' ? (
                         <div className="flex flex-wrap items-center gap-2 px-5 pb-3">
+                          {granted.has('dermat_accounts.record') ? (
                           <Button type="button" size="sm" variant="outline" onClick={() => setPaying(row)}>
                             <IndianRupee className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
                             {t('dermat_accounts.recordPayment', 'Record payment')}
                           </Button>
+                          ) : null}
                           <WhatsAppMenu
                             phone={row.customerPhone}
                             recipient={row.customerName}

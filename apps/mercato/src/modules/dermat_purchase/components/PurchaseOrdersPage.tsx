@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from 'react'
+import { useGranted } from '../../dermat_departments/components/useGranted'
 import Link from 'next/link'
 import { ChevronRight, FilePen, FileText, PackageCheck, Plus, Search, Stamp, Truck } from 'lucide-react'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
@@ -34,6 +35,7 @@ type Row = {
 
 export function PurchaseOrdersPage() {
   const t = useT()
+  const granted = useGranted()
   const [view, setView] = React.useState<View>('open')
   const [search, setSearch] = React.useState('')
   const [items, setItems] = React.useState<Row[] | null>(null)
@@ -111,12 +113,14 @@ export function PurchaseOrdersPage() {
             </div>
             <div className="flex flex-wrap items-center gap-2">
               <ExportButton onExport={exportPos} />
+              {granted.has('dermat_purchase.manage') ? (
               <Link href="/backend/purchase/orders/new">
                 <Button type="button">
                   <Plus className="mr-1.5 h-4 w-4" aria-hidden="true" />
                   {t('dermat_purchase.list.new', 'New purchase order')}
                 </Button>
               </Link>
+              ) : null}
             </div>
           </header>
 

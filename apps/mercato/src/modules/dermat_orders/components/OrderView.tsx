@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from 'react'
+import { useGranted } from '../../dermat_departments/components/useGranted'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { ArrowLeft, Ban, CheckCircle2, Copy, FileStack, History, Layers, Lock, Package, Pencil, UserRound } from 'lucide-react'
@@ -149,6 +150,7 @@ function Info({ label, children }: { label: string; children: React.ReactNode })
 
 export function OrderView({ orderId }: { orderId: string }) {
   const t = useT()
+  const granted = useGranted()
   const router = useRouter()
   const { runMutation } = useGuardedMutation({ contextId: `dermat-order-view-${orderId}` })
   const stageRunner = useStageAction(`dermat-order-stage-${orderId}`)
@@ -305,13 +307,15 @@ export function OrderView({ orderId }: { orderId: string }) {
                 label={t('dermat_orders.view.export', 'Export order file')}
                 onExport={() => openServerExport(`/api/dermat_orders/orders/export?orderId=${encodeURIComponent(order.id)}`)}
               />
+              {granted.has('dermat_orders.manage') ? (
               <Button asChild variant="outline" size="sm">
                 <Link href={`/backend/orders/new?copyFrom=${order.id}`}>
                   <Copy className="mr-1.5 h-4 w-4" />
                   {t('dermat_orders.view.repeat', 'Repeat order')}
                 </Link>
               </Button>
-              {order.status !== 'cancelled' && order.status !== 'completed' ? (
+              ) : null}
+              {order.status !== 'cancelled' && order.status !== 'completed' && granted.has('dermat_orders.manage') ? (
                 <>
                   <Button type="button" variant="destructive-ghost" size="sm" onClick={() => setCancelOpen(true)}>
                     <Ban className="mr-1.5 h-4 w-4" />

@@ -255,3 +255,12 @@ export async function findOrder(ctx: OrderContext, id: string): Promise<DermatOr
   if (!order) throw new OrderError('Order not found', 404)
   return order
 }
+
+type RbacLike = { userHasAllFeatures: (userId: string, features: string[], scope: { tenantId: string; organizationId: string }) => Promise<boolean> }
+
+export async function hasFeatures(ctx: OrderContext, features: string[]): Promise<boolean> {
+  const subject = typeof ctx.auth?.sub === 'string' ? ctx.auth.sub : ctx.userId
+  if (!subject) return false
+  const rbac = ctx.container.resolve('rbacService') as RbacLike
+  return rbac.userHasAllFeatures(subject, features, { tenantId: ctx.tenantId, organizationId: ctx.organizationId })
+}

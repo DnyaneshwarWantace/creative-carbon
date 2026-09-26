@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from 'react'
+import { useGranted } from '../../dermat_departments/components/useGranted'
 import { ListSelectItems } from '../../dermat_lists/components/ListSelectItems'
 import { FileText, IndianRupee, Plus, Printer, Truck, X } from 'lucide-react'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
@@ -58,6 +59,7 @@ export function OrderMoneyCard({ order, onChanged }: { order: Order; onChanged: 
   }
 
   const t = useT()
+  const granted = useGranted()
   const { runMutation } = useGuardedMutation({ contextId: `dermat-order-money-${order.id}` })
   const [open, setOpen] = React.useState(false)
   const [voiding, setVoiding] = React.useState<OrderPayment | null>(null)
@@ -138,7 +140,7 @@ export function OrderMoneyCard({ order, onChanged }: { order: Order; onChanged: 
             <Truck className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
             {t('dermat_orders.money.challan', 'Delivery challan')}
           </Button>
-          {order.status !== 'cancelled' ? (
+          {order.status !== 'cancelled' && granted.has('dermat_accounts.record') ? (
             <Button type="button" size="sm" onClick={() => setOpen(true)}>
               <Plus className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
               {t('dermat_orders.money.record', 'Record payment')}

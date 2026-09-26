@@ -15,7 +15,8 @@ import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '
 import { StatusBadge } from '@open-mercato/ui/primitives/status-badge'
 import { apiCall } from '@open-mercato/ui/backend/utils/apiCall'
 import { flash } from '@open-mercato/ui/backend/FlashMessages'
-import { HOLD_PARTIES, STAGES, WORK_STATE_LABEL, stageDef, workState, type StageField, type WorkState } from '../lib/stages'
+import { HOLD_PARTIES, STAGES, WORK_STATE_LABEL, stageDef, stageWorkFeature, workState, type StageField, type WorkState } from '../lib/stages'
+import { useGranted } from '../../dermat_departments/components/useGranted'
 import { StageDocuments } from './StageDocuments'
 import { cn } from '@open-mercato/shared/lib/utils'
 import { STAGE_VARIANT, formatDate, formatDateTime, formatQty } from './format'
@@ -78,7 +79,9 @@ function display(field: StageField, value: unknown): string {
   return String(value)
 }
 
-export function StageWorkArea({ order, stage, people, canWork, busy, shortCount, onAction, variant = 'sheet' }: StageWorkAreaProps) {
+export function StageWorkArea({ order, stage, people, canWork: canWorkProp, busy, shortCount, onAction, variant = 'sheet' }: StageWorkAreaProps) {
+  const granted = useGranted()
+  const canWork = canWorkProp && Boolean(stage) && granted.has(stageWorkFeature(stage?.key ?? ''))
   const router = useRouter()
   const t = useT()
   const def = stage ? stageDef(stage.key) : undefined
@@ -475,6 +478,11 @@ export function StageWorkArea({ order, stage, people, canWork, busy, shortCount,
           />
         ) : null}
 
+        {!canWork && granted.ready && canWorkProp && (stage.status === 'open' || stage.status === 'on_hold') ? (
+          <p className="rounded-md border border-status-info-border bg-status-info-bg px-3 py-2 text-xs text-status-info-text">
+            {t('dermat_orders.sheet.viewOnly', 'View only: {department} works on this stage. Your role can see it but not change it.', { department: def.department })}
+          </p>
+        ) : null}
         {mode === 'form' ? (
           <div className="space-y-4">
             {def.fields.map((field) => (

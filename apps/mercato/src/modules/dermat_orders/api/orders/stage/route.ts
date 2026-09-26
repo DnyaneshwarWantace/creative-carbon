@@ -5,7 +5,8 @@ import type { OpenApiRouteDoc } from '@open-mercato/shared/lib/openapi'
 import { stageActionSchema } from '../../../data/validators'
 import { DermatOrderStage } from '../../../data/entities'
 import { applyStageAction, serializeOrder } from '../../../lib/engine'
-import { findOrder, resolveOrderContext } from '../../../lib/server'
+import { findOrder, hasFeatures, resolveOrderContext } from '../../../lib/server'
+import { stageDef, stageWorkFeature } from '../../../lib/stages'
 import { enforceOrderLock, orderErrorResponse, runGuarded } from '../../../lib/guard'
 import { STORE_STAGE_KEYS, consumeForStage, type StoreStage } from '../../../../dermat_store/lib/service'
 import { resolveStoreContext } from '../../../../dermat_store/lib/server'
@@ -21,6 +22,12 @@ async function POST(req: Request) {
   if ('error' in ctx) return NextResponse.json({ error: ctx.error }, { status: ctx.status })
   const parsed = stageActionSchema.safeParse(await req.json().catch(() => null))
   if (!parsed.success) return NextResponse.json({ error: 'Invalid stage action', details: parsed.error.flatten() }, { status: 400 })
+  const allowed =
+    (await hasFeatures(ctx, [stageWorkFeature(parsed.data.stageKey)])) || (parsed.data.action === 'assign' && (await hasFeatures(ctx, ['dermat_orders.manage'])))
+  if (!allowed) {
+    const def = stageDef(parsed.data.stageKey)
+    return NextResponse.json({ error: `Only the ${def?.department ?? 'responsible'} department can work on ${def?.label ?? 'this stage'}` }, { status: 403 })
+  }
   try {
     const order = await findOrder(ctx, parsed.data.orderId)
     if (parsed.data.action !== 'assign' && parsed.data.action !== 'save') enforceOrderLock(order, req)

@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from 'react'
+import { useGranted } from '../../dermat_departments/components/useGranted'
 import { ListSelectItems } from '../../dermat_lists/components/ListSelectItems'
 import Link from 'next/link'
 import { Ban, IndianRupee, Pencil, Plus, Search } from 'lucide-react'
@@ -37,6 +38,7 @@ function monthStart(): string {
 
 export function PaymentsPage() {
   const t = useT()
+  const granted = useGranted()
   const { runMutation } = useGuardedMutation({ contextId: 'dermat-payments-page' })
   const [from, setFrom] = React.useState(monthStart())
   const [to, setTo] = React.useState('')
@@ -119,10 +121,12 @@ export function PaymentsPage() {
             </div>
             <div className="flex shrink-0 flex-wrap items-center gap-2">
               <ExportButton onExport={exportAll} />
+              {granted.has('dermat_accounts.record') ? (
               <Button type="button" onClick={() => setDialog({ payment: null })}>
                 <Plus className="mr-1.5 h-4 w-4" aria-hidden="true" />
                 {t('dermat_accounts.pay.new', 'Record payment')}
               </Button>
+              ) : null}
             </div>
           </header>
 
