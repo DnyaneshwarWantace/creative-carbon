@@ -7,8 +7,10 @@ export const setup: ModuleSetupConfig = {
     quality_assurance: ['dermat_quality.view', 'dermat_quality.rules'],
     research: ['dermat_quality.view'],
     production_staff: ['dermat_quality.view'],
+    operator: ['dermat_quality.view'],
     supervisor: ['dermat_quality.view'],
     procurement: ['dermat_quality.view'],
+    pm_store: ['dermat_quality.view'],
   },
 }
 

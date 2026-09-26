@@ -5,6 +5,8 @@ export const setup: ModuleSetupConfig = {
     sales: ['customers.companies.view', 'customers.companies.manage', 'customers.people.view', 'customers.people.manage'],
     accounts: ['customers.companies.view'],
     supervisor: ['customers.companies.view'],
+    research: ['customers.companies.view'],
+    quality_assurance: ['customers.companies.view'],
   },
 }
 

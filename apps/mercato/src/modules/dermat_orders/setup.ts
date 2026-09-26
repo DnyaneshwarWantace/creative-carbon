@@ -12,6 +12,7 @@ export const setup: ModuleSetupConfig = {
     pm_store: [...worker, 'dermat_orders.work.dispatch'],
     production_staff: [...worker, 'dermat_orders.work.production'],
     supervisor: [...worker, 'dermat_orders.work.planning', 'dermat_orders.work.production'],
+    operator: [...worker, 'dermat_orders.work.production'],
     quality_control: ['dermat_orders.view'],
     quality_assurance: [...worker, 'dermat_orders.work.artwork', 'dermat_orders.work.qa'],
     employee: ['dermat_orders.view'],

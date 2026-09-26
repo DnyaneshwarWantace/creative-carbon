@@ -5,7 +5,7 @@ import { enforceCommandOptimisticLock } from '@open-mercato/shared/lib/crud/opti
 import { checkListSchema, checkSaveSchema } from '../../data/validators'
 import { QcError } from '../../lib/service'
 import { checkView, evaluateResult, findCheck } from '../../lib/checks'
-import { currentUserName, productSummaries, qcErrorResponse, resolveQcContext, runGuarded } from '../../lib/server'
+import { canTestQc, currentUserName, productSummaries, qcErrorResponse, resolveQcContext, runGuarded } from '../../lib/server'
 
 export const metadata = {
   GET: { requireAuth: true, requireFeatures: ['dermat_quality.view'] },
@@ -88,6 +88,7 @@ async function GET(req: Request) {
 async function PUT(req: Request) {
   const ctx = await resolveQcContext(req)
   if ('error' in ctx) return NextResponse.json({ error: ctx.error }, { status: ctx.status })
+  if (!(await canTestQc(ctx))) return NextResponse.json({ error: 'Only QC chemists or microbiologists can change a QC check' }, { status: 403 })
   const parsed = checkSaveSchema.safeParse(await req.json().catch(() => null))
   if (!parsed.success) return NextResponse.json({ error: 'Invalid QC data' }, { status: 400 })
   try {

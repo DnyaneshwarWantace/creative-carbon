@@ -7,8 +7,12 @@ export const setup: ModuleSetupConfig = {
     operator: ['dermat_store.view', 'dermat_store.request'],
     production_staff: ['dermat_store.view', 'dermat_store.request'],
     supervisor: ['dermat_store.view', 'dermat_store.request'],
+    research: ['dermat_store.view', 'dermat_store.request'],
     procurement: ['dermat_store.view'],
     quality_control: ['dermat_store.view'],
+    quality_assurance: ['dermat_store.view'],
+    sales: ['dermat_store.view'],
+    accounts: ['dermat_store.view'],
   },
 }
 

@@ -5,7 +5,7 @@ import { enforceCommandOptimisticLock } from '@open-mercato/shared/lib/crud/opti
 import { retestSchema } from '../../../data/validators'
 import { QcError, computeStatus } from '../../../lib/service'
 import { checkView, findCheck } from '../../../lib/checks'
-import { currentUserName, qcErrorResponse, resolveQcContext, runGuarded } from '../../../lib/server'
+import { canTestQc, currentUserName, qcErrorResponse, resolveQcContext, runGuarded } from '../../../lib/server'
 import { applyInwardDecision } from '../../../../dermat_purchase/lib/inward'
 
 export const metadata = {
@@ -15,6 +15,7 @@ export const metadata = {
 async function POST(req: Request) {
   const ctx = await resolveQcContext(req)
   if ('error' in ctx) return NextResponse.json({ error: ctx.error }, { status: ctx.status })
+  if (!(await canTestQc(ctx))) return NextResponse.json({ error: 'Only QC chemists or microbiologists can change a QC check' }, { status: 403 })
   const parsed = retestSchema.safeParse(await req.json().catch(() => null))
   if (!parsed.success) return NextResponse.json({ error: 'Write why it is re-tested' }, { status: 400 })
   try {

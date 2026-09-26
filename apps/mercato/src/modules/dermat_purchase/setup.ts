@@ -8,6 +8,7 @@ export const setup: ModuleSetupConfig = {
     pm_store: ['dermat_purchase.view', 'dermat_purchase.receive'],
     supervisor: ['dermat_purchase.view', 'dermat_purchase.approve'],
     quality_control: ['dermat_purchase.view'],
+    quality_assurance: ['dermat_purchase.view'],
     production_staff: ['dermat_purchase.view'],
   },
 }

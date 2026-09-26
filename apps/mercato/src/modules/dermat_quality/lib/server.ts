@@ -17,6 +17,7 @@ export type QcContext = {
   tenantId: string
   organizationId: string
   userId: string | null
+  auth?: { sub?: unknown } | null
 }
 
 export async function resolveQcContext(req: Request): Promise<QcContext | { error: string; status: number }> {
@@ -28,7 +29,7 @@ export async function resolveQcContext(req: Request): Promise<QcContext | { erro
   if (!organizationId) return { error: 'Select an organization first', status: 400 }
   const em = (container.resolve('em') as EntityManager).fork()
   const userId = [auth.sub, auth.userId].find((value): value is string => typeof value === 'string' && UUID_RE.test(value)) ?? null
-  return { container, em, tenantId: auth.tenantId, organizationId, userId }
+  return { container, em, tenantId: auth.tenantId, organizationId, userId, auth }
 }
 
 export async function currentUserName(ctx: QcContext): Promise<string | null> {
@@ -76,4 +77,12 @@ export async function runGuarded<T>(
   const result = await run()
   await guard.runAfterSuccess()
   return result
+}
+
+export async function canTestQc(ctx: { container: { resolve: (name: string) => unknown }; auth?: { sub?: unknown } | null; userId?: string | null; tenantId: string; organizationId: string }): Promise<boolean> {
+  const subject = typeof ctx.auth?.sub === 'string' ? ctx.auth.sub : ctx.userId
+  if (!subject) return false
+  const rbac = ctx.container.resolve('rbacService') as { userHasAllFeatures: (id: string, features: string[], scope: { tenantId: string; organizationId: string }) => Promise<boolean> }
+  const scope = { tenantId: ctx.tenantId, organizationId: ctx.organizationId }
+  return (await rbac.userHasAllFeatures(subject, ['dermat_quality.chemical'], scope)) || (await rbac.userHasAllFeatures(subject, ['dermat_quality.micro'], scope))
 }

@@ -39,40 +39,106 @@ function errorText(result: unknown, fallback: string): string {
   return body?.error ?? body?.message ?? fallback
 }
 
-function AddPersonDialog({ open, onOpenChange, roles, organizationId, onSaved }: { open: boolean; onOpenChange: (open: boolean) => void; roles: Role[]; organizationId: string | null; onSaved: () => void }) {
+type PersonDialogState = { person: Person | null } | null
+
+function PersonDialog({ state, onClose, roles, acls, organizationId, onSaved }: { state: PersonDialogState; onClose: () => void; roles: Role[]; acls: Record<string, RoleAcl>; organizationId: string | null; onSaved: () => void }) {
   const t = useT()
-  const { runMutation } = useGuardedMutation({ contextId: 'dermat-access-add-person' })
+  const { runMutation } = useGuardedMutation({ contextId: 'dermat-access-person' })
+  const person = state?.person ?? null
   const [name, setName] = React.useState('')
   const [email, setEmail] = React.useState('')
-  const [role, setRole] = React.useState('')
+  const [roleNames, setRoleNames] = React.useState<string[]>([])
+  const [custom, setCustom] = React.useState(false)
+  const [features, setFeatures] = React.useState<string[]>([])
+  const [aclVersion, setAclVersion] = React.useState<string | null>(null)
+  const [loading, setLoading] = React.useState(false)
   const [saving, setSaving] = React.useState(false)
 
+  const roleFeatures = React.useCallback(
+    (names: string[]) => {
+      const set = new Set<string>()
+      for (const role of roles.filter((entry) => names.includes(entry.name))) for (const feature of acls[role.id]?.features ?? []) set.add(feature)
+      return [...set]
+    },
+    [roles, acls],
+  )
+
   React.useEffect(() => {
-    if (!open) return
-    setName('')
-    setEmail('')
-    setRole('')
-  }, [open])
+    if (!state) return
+    setName(person?.name ?? '')
+    setEmail(person?.email ?? '')
+    setRoleNames(person?.roles ?? [])
+    setCustom(false)
+    setFeatures(roleFeatures(person?.roles ?? []))
+    setAclVersion(null)
+    if (!person) return
+    setLoading(true)
+    apiCall<{ hasCustomAcl?: boolean; features?: string[]; updatedAt?: string | null }>(`/api/auth/users/acl?userId=${person.id}`, undefined, { fallback: { hasCustomAcl: false } })
+      .then((call) => {
+        if (call.result?.hasCustomAcl) {
+          setCustom(true)
+          setFeatures(call.result.features ?? [])
+          setAclVersion(call.result.updatedAt ?? null)
+        }
+      })
+      .finally(() => setLoading(false))
+  }, [state, person, roleFeatures])
+
+  if (!state) return null
+
+  const toggleRole = (roleName: string, checked: boolean) => {
+    const next = checked ? [...roleNames, roleName] : roleNames.filter((entry) => entry !== roleName)
+    setRoleNames(next)
+    if (!custom) setFeatures(roleFeatures(next))
+  }
 
   const save = async () => {
-    if (!name.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim()) || !role) {
-      flash(t('dermat_departments.access.addMissing', 'Enter a name, a valid email and pick a department role.'), 'error')
+    if (!name.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+      flash(t('dermat_departments.access.addMissing', 'Enter a name and a valid email.'), 'error')
       return
     }
-    const body = { name: name.trim(), email: email.trim().toLowerCase(), roles: [role], sendInviteEmail: true, ...(organizationId ? { organizationId } : {}) }
+    if (!roleNames.length) {
+      flash(t('dermat_departments.access.pickRoleError', 'Pick at least one department role.'), 'error')
+      return
+    }
     setSaving(true)
     try {
-      const call = await runMutation({
-        context: { resourceKind: 'auth.user', resourceId: 'new' },
-        mutationPayload: body,
-        operation: () => apiCall('/api/auth/users', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) }),
+      let userId = person?.id ?? null
+      const userBody = person
+        ? { id: person.id, name: name.trim(), roles: roleNames }
+        : { name: name.trim(), email: email.trim().toLowerCase(), roles: roleNames, sendInviteEmail: true, ...(organizationId ? { organizationId } : {}) }
+      const request = () => apiCall<{ id?: string; error?: string }>('/api/auth/users', { method: person ? 'PUT' : 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(userBody) })
+      const userCall = await runMutation({
+        context: { resourceKind: 'auth.user', resourceId: person?.id ?? 'new' },
+        mutationPayload: userBody,
+        operation: () => (person?.updatedAt ? withScopedApiRequestHeaders(buildOptimisticLockHeader(person.updatedAt), request) : request()),
       })
-      if (!call.ok) {
-        flash(errorText(call.result, t('dermat_departments.access.addError', 'Could not add this person.')), 'error')
+      if (!userCall.ok) {
+        flash(errorText(userCall.result, t('dermat_departments.access.personError', 'Could not save this person.')), 'error')
         return
       }
-      flash(t('dermat_departments.access.added', '{name} added. They get an email to set their password.', { name: body.name }), 'success')
-      onOpenChange(false)
+      userId = userId ?? userCall.result?.id ?? null
+      if (userId && (custom || person)) {
+        const aclBody = { userId, features: custom ? features : [] }
+        const aclRequest = () => apiCall('/api/auth/users/acl', { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify(aclBody) })
+        const aclCall = await runMutation({
+          context: { resourceKind: 'auth.user_acl', resourceId: userId },
+          mutationPayload: aclBody,
+          operation: () => (aclVersion ? withScopedApiRequestHeaders(buildOptimisticLockHeader(aclVersion), aclRequest) : aclRequest()),
+        })
+        if (!aclCall.ok) {
+          flash(errorText(aclCall.result, t('dermat_departments.access.aclError', 'Person saved, but their personal access could not be saved.')), 'error')
+          onSaved()
+          return
+        }
+      }
+      flash(
+        person
+          ? t('dermat_departments.access.personSaved', '{name} saved. They see the change on their next page load.', { name: name.trim() })
+          : t('dermat_departments.access.added', '{name} added. They get an email to set their password.', { name: name.trim() }),
+        'success',
+      )
+      onClose()
       onSaved()
     } finally {
       setSaving(false)
@@ -80,8 +146,9 @@ function AddPersonDialog({ open, onOpenChange, roles, organizationId, onSaved }:
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open onOpenChange={(open) => (open ? undefined : onClose())}>
       <DialogContent
+        className="max-h-screen overflow-y-auto sm:max-w-3xl"
         onKeyDown={(event) => {
           if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) {
             event.preventDefault()
@@ -90,40 +157,88 @@ function AddPersonDialog({ open, onOpenChange, roles, organizationId, onSaved }:
         }}
       >
         <DialogHeader>
-          <DialogTitle>{t('dermat_departments.access.addTitle', 'Add a person')}</DialogTitle>
-          <DialogDescription>{t('dermat_departments.access.addHint', 'They get an invite email to set their own password. Their role decides which pages they see.')}</DialogDescription>
+          <DialogTitle>{person ? t('dermat_departments.access.editPerson', 'Edit {name}', { name: person.name || person.email }) : t('dermat_departments.access.addTitle', 'Add a person')}</DialogTitle>
+          <DialogDescription>
+            {t('dermat_departments.access.personHint', 'Give one or more department roles. Their access is what those roles allow, unless you switch on custom access for this person.')}
+          </DialogDescription>
         </DialogHeader>
-        <div className="space-y-4">
-          <div className="space-y-1">
-            <Label htmlFor="person-name">{t('dermat_departments.access.name', 'Full name *')}</Label>
-            <Input id="person-name" value={name} onChange={(event) => setName(event.target.value)} />
+        <div className="space-y-5">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div className="space-y-1">
+              <Label htmlFor="person-name">{t('dermat_departments.access.name', 'Full name *')}</Label>
+              <Input id="person-name" value={name} onChange={(event) => setName(event.target.value)} />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="person-email">{t('dermat_departments.access.email', 'Work email *')}</Label>
+              <Input id="person-email" type="email" value={email} disabled={Boolean(person)} onChange={(event) => setEmail(event.target.value)} />
+            </div>
           </div>
-          <div className="space-y-1">
-            <Label htmlFor="person-email">{t('dermat_departments.access.email', 'Work email *')}</Label>
-            <Input id="person-email" type="email" value={email} onChange={(event) => setEmail(event.target.value)} />
-          </div>
-          <div className="space-y-1">
-            <Label>{t('dermat_departments.access.role', 'Department role *')}</Label>
-            <Select value={role} onValueChange={setRole}>
-              <SelectTrigger>
-                <SelectValue placeholder={t('dermat_departments.access.pickRole', 'Pick a role')} />
-              </SelectTrigger>
-              <SelectContent>
-                {roles.map((entry) => (
-                  <SelectItem key={entry.id} value={entry.name}>
-                    {roleLabel(entry.name)}
-                  </SelectItem>
+          <fieldset className="space-y-2">
+            <legend className="text-sm font-medium">{t('dermat_departments.access.rolesLegend', 'Department roles *')}</legend>
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+              {roles.map((role) => {
+                const id = `person-role-${role.id}`
+                return (
+                  <div key={role.id} className="flex items-center gap-2">
+                    <Checkbox id={id} checked={roleNames.includes(role.name)} onCheckedChange={(value) => toggleRole(role.name, value === true)} />
+                    <Label htmlFor={id} className="text-sm font-normal">
+                      {roleLabel(role.name)}
+                    </Label>
+                  </div>
+                )
+              })}
+            </div>
+          </fieldset>
+          <div className="space-y-3 rounded-lg border p-3">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-sm font-medium">{t('dermat_departments.access.customTitle', 'Custom access for this person')}</p>
+                <p className="text-xs text-muted-foreground">
+                  {custom
+                    ? t('dermat_departments.access.customOn', 'Only the ticks below apply to this person. Role changes no longer affect them.')
+                    : t('dermat_departments.access.customOff', 'Off: this person gets exactly what their roles allow (shown below).')}
+                </p>
+              </div>
+              <Switch
+                checked={custom}
+                disabled={loading}
+                aria-label={t('dermat_departments.access.customToggle', 'Custom access for this person')}
+                onCheckedChange={(checked) => {
+                  setCustom(checked)
+                  if (!checked) setFeatures(roleFeatures(roleNames))
+                }}
+              />
+            </div>
+            {loading ? (
+              <p className="text-xs text-muted-foreground">{t('dermat_departments.access.loadingAccess', 'Loading their access…')}</p>
+            ) : (
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                {ACCESS_AREAS.map((area) => (
+                  <fieldset key={area.key} className="space-y-1.5 rounded-md border p-3">
+                    <legend className="px-1 text-xs font-semibold">{area.label}</legend>
+                    {area.abilities.map((ability) => {
+                      const id = `person-${area.key}-${ability.feature}`
+                      return (
+                        <div key={ability.feature} className="flex items-start gap-2">
+                          <Checkbox id={id} checked={hasFeature(features, false, ability.feature)} disabled={!custom} onCheckedChange={(value) => setFeatures(setAbility(features, ability.feature, value === true))} />
+                          <Label htmlFor={id} className="text-xs font-normal leading-4">
+                            {ability.label}
+                          </Label>
+                        </div>
+                      )
+                    })}
+                  </fieldset>
                 ))}
-              </SelectContent>
-            </Select>
+              </div>
+            )}
           </div>
         </div>
         <DialogFooter>
-          <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>
+          <Button type="button" variant="outline" onClick={onClose} disabled={saving}>
             {t('common.cancel', 'Cancel')}
           </Button>
-          <Button type="button" onClick={() => void save()} disabled={saving}>
-            {saving ? t('dermat_departments.access.adding', 'Adding…') : t('dermat_departments.access.add', 'Add and send invite')}
+          <Button type="button" onClick={() => void save()} disabled={saving || loading}>
+            {saving ? t('dermat_departments.access.saving', 'Saving…') : person ? t('dermat_departments.access.savePerson', 'Save person') : t('dermat_departments.access.add', 'Add and send invite')}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -142,7 +257,8 @@ export function AccessPage() {
   const [roleId, setRoleId] = React.useState<string | null>(null)
   const [draft, setDraft] = React.useState<string[] | null>(null)
   const [saving, setSaving] = React.useState(false)
-  const [addOpen, setAddOpen] = React.useState(false)
+  const [personDialog, setPersonDialog] = React.useState<PersonDialogState>(null)
+  const [personal, setPersonal] = React.useState<Record<string, string[]>>({})
 
   const load = React.useCallback(async () => {
     const [roleCall, userCall] = await Promise.all([
@@ -161,7 +277,14 @@ export function AccessPage() {
     })
     setRoles(list)
     setAcls(map)
-    setPeople(userCall.result?.items ?? [])
+    const personList = userCall.result?.items ?? []
+    setPeople(personList)
+    const personalCalls = await Promise.all(personList.map((person) => apiCall<{ hasCustomAcl?: boolean; features?: string[] }>(`/api/auth/users/acl?userId=${person.id}`, undefined, { fallback: { hasCustomAcl: false } })))
+    const personalMap: Record<string, string[]> = {}
+    personList.forEach((person, index) => {
+      if (personalCalls[index].result?.hasCustomAcl) personalMap[person.id] = personalCalls[index].result?.features ?? []
+    })
+    setPersonal(personalMap)
     setRoleId((current) => current ?? list[0]?.id ?? null)
   }, [t])
 
@@ -266,7 +389,7 @@ export function AccessPage() {
                 <SegmentedControlItem value="roles">{t('dermat_departments.access.tabRoles', 'Roles')}</SegmentedControlItem>
                 <SegmentedControlItem value="people">{t('dermat_departments.access.tabPeople', 'People ({count})', { count: people.length })}</SegmentedControlItem>
               </SegmentedControl>
-              <Button type="button" size="sm" onClick={() => setAddOpen(true)}>
+              <Button type="button" size="sm" onClick={() => setPersonDialog({ person: null })}>
                 <UserPlus className="mr-1.5 h-4 w-4" aria-hidden="true" />
                 {t('dermat_departments.access.addPerson', 'Add person')}
               </Button>
@@ -408,16 +531,19 @@ export function AccessPage() {
                 <thead className="bg-muted/40 text-xs text-muted-foreground">
                   <tr>
                     <th className="px-3 py-2 text-left font-semibold">{t('dermat_departments.access.person', 'Person')}</th>
-                    <th className="px-3 py-2 text-left font-semibold">{t('dermat_departments.access.role', 'Department role')}</th>
+                    <th className="px-3 py-2 text-left font-semibold">{t('dermat_departments.access.rolesCol', 'Department roles')}</th>
                     <th className="px-3 py-2 text-left font-semibold">{t('dermat_departments.access.canSee', 'Can open')}</th>
                     <th className="px-3 py-2 text-left font-semibold">{t('dermat_departments.access.active', 'Can sign in')}</th>
+                    <th className="px-3 py-2" />
                   </tr>
                 </thead>
                 <tbody className="divide-y">
                   {people.map((person) => {
-                    const role = roles.find((entry) => person.roleIds.includes(entry.id))
-                    const acl = role ? acls[role.id] : undefined
-                    const areas = ACCESS_AREAS.filter((area) => areaSummary(acl?.features ?? [], Boolean(acl?.isSuperAdmin), area).level !== 'none')
+                    const personRoles = roles.filter((entry) => person.roleIds.includes(entry.id))
+                    const custom = personal[person.id]
+                    const effective = custom ?? [...new Set(personRoles.flatMap((entry) => acls[entry.id]?.features ?? []))]
+                    const superAdmin = !custom && personRoles.some((entry) => acls[entry.id]?.isSuperAdmin)
+                    const areas = ACCESS_AREAS.filter((area) => areaSummary(effective, superAdmin, area).level !== 'none')
                     return (
                       <tr key={person.id} className="align-top">
                         <td className="px-3 py-2">
@@ -425,22 +551,18 @@ export function AccessPage() {
                           {person.name ? <p className="text-xs text-muted-foreground">{person.email}</p> : null}
                         </td>
                         <td className="px-3 py-2">
-                          <Select
-                            value={role?.name ?? ''}
-                            onValueChange={(value) => void updatePerson(person, { roles: [value] }, t('dermat_departments.access.roleChanged', '{name} is now {role}', { name: person.name || person.email, role: roleLabel(value) }))}
-                          >
-                            <SelectTrigger className="h-8 w-52">
-                              <SelectValue placeholder={t('dermat_departments.access.noRole', 'No role')} />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {roles.map((entry) => (
-                                <SelectItem key={entry.id} value={entry.name}>
+                          <div className="flex flex-wrap gap-1">
+                            {personRoles.length ? (
+                              personRoles.map((entry) => (
+                                <span key={entry.id} className="rounded-sm bg-muted px-1.5 py-0.5 text-xs">
                                   {roleLabel(entry.name)}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                          {person.roles.length > 1 ? <p className="mt-1 text-xs text-muted-foreground">{t('dermat_departments.access.moreRoles', 'Also: {roles}', { roles: person.roles.filter((name) => name !== role?.name).map(roleLabel).join(', ') })}</p> : null}
+                                </span>
+                              ))
+                            ) : (
+                              <span className="text-xs text-status-warning-text">{t('dermat_departments.access.noRole', 'No role')}</span>
+                            )}
+                          </div>
+                          {custom ? <StatusBadge variant="info">{t('dermat_departments.access.customBadge', 'Custom access')}</StatusBadge> : null}
                         </td>
                         <td className="px-3 py-2 text-xs text-muted-foreground">{areas.length ? areas.map((area) => area.label).join(' · ') : '—'}</td>
                         <td className="px-3 py-2">
@@ -459,6 +581,11 @@ export function AccessPage() {
                             {person.isConfirmed ? <Check className="h-4 w-4 text-status-success-icon" aria-hidden="true" /> : <StatusBadge variant="neutral">{t('dermat_departments.access.off', 'Off')}</StatusBadge>}
                           </div>
                         </td>
+                        <td className="px-3 py-2 text-right">
+                          <Button type="button" variant="outline" size="sm" onClick={() => setPersonDialog({ person })}>
+                            {t('dermat_departments.access.edit', 'Edit')}
+                          </Button>
+                        </td>
                       </tr>
                     )
                   })}
@@ -467,7 +594,7 @@ export function AccessPage() {
             </div>
           ) : null}
         </div>
-        <AddPersonDialog open={addOpen} onOpenChange={setAddOpen} roles={roles} organizationId={orgId} onSaved={() => void load()} />
+        <PersonDialog state={personDialog} onClose={() => setPersonDialog(null)} roles={roles} acls={acls} organizationId={orgId} onSaved={() => void load()} />
       </PageBody>
     </Page>
   )
