@@ -30,6 +30,8 @@ const UI_FEATURES = [
   'dermat_quality.micro',
   'dermat_quality.rules',
   'dermat_lists.manage',
+  'dermat_rnd.request',
+  'dermat_rnd.manage',
   'catalog.products.manage',
 ]
 

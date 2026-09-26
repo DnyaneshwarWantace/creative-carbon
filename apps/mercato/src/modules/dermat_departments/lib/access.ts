@@ -73,6 +73,17 @@ export const ACCESS_AREAS: AccessArea[] = [
     ],
   },
   {
+    key: 'rnd',
+    label: 'R&D requests',
+    department: 'R&D',
+    pages: 'R&D requests, samples sent to clients',
+    abilities: [
+      { feature: 'dermat_rnd.view', label: 'See R&D requests and samples', short: 'View' },
+      { feature: 'dermat_rnd.request', label: 'Raise requests and record client feedback', short: 'Request' },
+      { feature: 'dermat_rnd.manage', label: 'Work requests: make and send samples', short: 'Work' },
+    ],
+  },
+  {
     key: 'planning',
     label: 'Planning',
     department: 'Planning',

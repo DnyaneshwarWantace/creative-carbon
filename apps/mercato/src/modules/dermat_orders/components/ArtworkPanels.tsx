@@ -81,7 +81,7 @@ export function PackItemsPanel({ order, stage, editable, busy, onStatus }: { ord
   )
 }
 
-export function SampleRoundsPanel({ stage, editable, busy, onNewRound }: { stage: Stage; editable: boolean; busy: boolean; onNewRound: (note: string) => void }) {
+export function SampleRoundsPanel({ stage, editable, busy, onNewRound, orderId }: { stage: Stage; editable: boolean; busy: boolean; onNewRound: (note: string) => void; orderId?: string }) {
   const t = useT()
   const [open, setOpen] = React.useState(false)
   const [note, setNote] = React.useState('')
@@ -91,6 +91,11 @@ export function SampleRoundsPanel({ stage, editable, busy, onNewRound }: { stage
     <div className="space-y-2 rounded-lg border bg-muted/20 p-3">
       <div className="flex items-center justify-between gap-2">
         <p className="text-sm font-medium">{t('dermat_orders.sample.round', 'Sample round {round}', { round: current })}</p>
+        {orderId && !(stage.data as Record<string, unknown> | undefined)?.rd_number ? (
+          <Link href={`/backend/sales/samples?new=1&orderId=${orderId}`} className="text-xs font-medium text-primary hover:underline">
+            {t('dermat_orders.sample.raiseRd', 'Raise R&D request (gives the R&D no.)')}
+          </Link>
+        ) : null}
         {editable && !open ? (
           <Button type="button" size="sm" variant="outline" onClick={() => setOpen(true)} disabled={busy}>
             <RefreshCcw className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />

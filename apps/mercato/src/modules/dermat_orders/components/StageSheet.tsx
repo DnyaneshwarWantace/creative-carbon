@@ -468,7 +468,7 @@ export function StageWorkArea({ order, stage, people, canWork: canWorkProp, busy
 
         {stage.key === 'qc_qa' ? <QaReleaseReview order={order} /> : null}
 
-        {stage.key === 'sampling' ? <SampleRoundsPanel stage={stage} editable={editable} busy={busy} onNewRound={(text) => run({ action: 'new_round', note: text })} /> : null}
+        {stage.key === 'sampling' ? <SampleRoundsPanel orderId={order.id} stage={stage} editable={editable} busy={busy} onNewRound={(text) => run({ action: 'new_round', note: text })} /> : null}
 
         {mode === 'form' && (stage.key === 'manufacturing' || stage.key === 'filling') ? (
           <ProductionPanel
