@@ -52,6 +52,7 @@ const SECTIONS: Array<{ title: string; hint: string; icon: typeof Building2; fie
     fields: [
       { key: 'signatory', label: 'Authorised signatory', placeholder: 'Name and designation' },
       { key: 'piValidityDays', label: 'Proforma valid for (days)', type: 'number' },
+      { key: 'grnOverPercent', label: 'Goods receiving: allow up to % more than the PO', type: 'number' },
       { key: 'piTerms', label: 'Proforma terms', wide: true, area: 5 },
       { key: 'invoiceTerms', label: 'Tax invoice terms', wide: true, area: 5 },
     ],
@@ -78,7 +79,7 @@ export function CompanyPage() {
     if (!company) return
     setBusy(true)
     try {
-      const body = { ...values, piValidityDays: Number(values.piValidityDays || 15) }
+      const body = { ...values, piValidityDays: Number(values.piValidityDays || 15), grnOverPercent: Number(values.grnOverPercent || 0) }
       const request = () => apiCall<CompanyView & { error?: string }>('/api/dermat_accounts/company', { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) })
       const call = await runMutation({
         context: { company: company.id },

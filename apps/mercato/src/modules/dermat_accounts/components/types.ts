@@ -61,6 +61,7 @@ export type CompanyView = {
   piTerms: string | null
   invoiceTerms: string | null
   piValidityDays: number
+  grnOverPercent?: number
   updatedAt: string | null
 }
 

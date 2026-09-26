@@ -225,13 +225,15 @@ export function PlanningBoard() {
     reservation({ action: 'reserve_needed', entries }, t('dermat_planning.board.reservedAll', 'Reserved for every picked order.'))
   }
 
-  const raisePo = () => {
+  const buyTarget = (path: string, extra = '') => {
     const buy = (rows ?? []).filter((row) => row.toOrder > 0)
     if (!buy.length) return
     const itemsParam = buy.map((row) => `${row.productId}:${row.toOrder}`).join(',')
     const ordersParam = pickedOrders.map((order) => `${order.id}:${encodeURIComponent(order.orderNo)}`).join(',')
-    router.push(`/backend/purchase/orders/new?items=${itemsParam}${ordersParam ? `&orders=${ordersParam}` : ''}`)
+    router.push(`${path}?items=${itemsParam}${ordersParam ? `&orders=${ordersParam}` : ''}${extra}`)
   }
+  const raisePo = () => buyTarget('/backend/purchase/orders/new')
+  const raiseIndent = () => buyTarget('/backend/purchase/indents', '&source=planning')
 
   const savePlan = async () => {
     if (!saving?.name.trim()) {
@@ -571,6 +573,9 @@ export function PlanningBoard() {
                         ], rows ?? [])
                       }
                     />
+                    <Button type="button" variant="outline" onClick={raiseIndent} disabled={!(rows ?? []).some((row) => row.toOrder > 0)}>
+                      {t('dermat_planning.board.raiseIndent', 'Raise indent for what to buy')}
+                    </Button>
                     <Button type="button" variant="outline" onClick={raisePo} disabled={!(rows ?? []).some((row) => row.toOrder > 0)}>
                       <ShoppingCart className="mr-1.5 h-4 w-4" aria-hidden="true" />
                       {t('dermat_planning.board.raisePo', 'Raise PO for what to buy')}

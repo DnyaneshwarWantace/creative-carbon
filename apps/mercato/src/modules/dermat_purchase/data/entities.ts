@@ -260,3 +260,74 @@ export class GoodsReceiptLine {
   @Property({ name: 'updated_at', type: Date, onCreate: () => new Date(), onUpdate: () => new Date() })
   updatedAt: Date = new Date()
 }
+
+export type IndentStatus = 'submitted' | 'approved' | 'rejected' | 'ordered' | 'cancelled'
+export type IndentSource = 'department' | 'planning' | 'low_stock'
+export type IndentLine = { productId: string; quantity: number; unit: string | null; note: string | null }
+
+@Entity({ tableName: 'dermat_purchase_indents' })
+@Index({ name: 'dermat_purchase_indents_scope_idx', properties: ['organizationId', 'tenantId', 'status'] })
+@Unique({ name: 'dermat_purchase_indents_code_uq', properties: ['organizationId', 'tenantId', 'code'] })
+export class PurchaseIndent {
+  [OptionalProps]?: 'status' | 'source' | 'department' | 'neededBy' | 'notes' | 'orderRefs' | 'requestedByName' | 'approvedByName' | 'approvedAt' | 'decisionNote' | 'poRefs' | 'history' | 'createdAt' | 'updatedAt' | 'deletedAt'
+
+  @PrimaryKey({ type: 'uuid', defaultRaw: 'gen_random_uuid()' })
+  id!: string
+
+  @Property({ name: 'organization_id', type: 'uuid' })
+  organizationId!: string
+
+  @Property({ name: 'tenant_id', type: 'uuid' })
+  tenantId!: string
+
+  @Property({ type: 'text' })
+  code!: string
+
+  @Property({ type: 'text', default: 'submitted' })
+  status: IndentStatus = 'submitted'
+
+  @Property({ type: 'text', default: 'department' })
+  source: IndentSource = 'department'
+
+  @Property({ type: 'text', nullable: true })
+  department?: string | null
+
+  @Property({ name: 'needed_by', type: 'text', nullable: true })
+  neededBy?: string | null
+
+  @Property({ type: 'text', nullable: true })
+  notes?: string | null
+
+  @Property({ type: 'json' })
+  lines!: IndentLine[]
+
+  @Property({ name: 'order_refs', type: 'json', nullable: true })
+  orderRefs?: Array<{ orderId: string; orderNo: string }> | null
+
+  @Property({ name: 'requested_by_name', type: 'text', nullable: true })
+  requestedByName?: string | null
+
+  @Property({ name: 'approved_by_name', type: 'text', nullable: true })
+  approvedByName?: string | null
+
+  @Property({ name: 'approved_at', type: Date, nullable: true })
+  approvedAt?: Date | null
+
+  @Property({ name: 'decision_note', type: 'text', nullable: true })
+  decisionNote?: string | null
+
+  @Property({ name: 'po_refs', type: 'json', nullable: true })
+  poRefs?: Array<{ poId: string; code: string }> | null
+
+  @Property({ type: 'json', nullable: true })
+  history?: History[] | null
+
+  @Property({ name: 'created_at', type: Date, onCreate: () => new Date() })
+  createdAt: Date = new Date()
+
+  @Property({ name: 'updated_at', type: Date, onCreate: () => new Date(), onUpdate: () => new Date() })
+  updatedAt: Date = new Date()
+
+  @Property({ name: 'deleted_at', type: Date, nullable: true })
+  deletedAt?: Date | null
+}

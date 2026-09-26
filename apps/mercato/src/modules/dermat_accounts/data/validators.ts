@@ -66,6 +66,7 @@ export const companyInputSchema = z.object({
   piTerms: text(3000),
   invoiceTerms: text(3000),
   piValidityDays: z.coerce.number().int().min(1).max(365).default(15),
+  grnOverPercent: z.coerce.number().int().min(0).max(50).default(0),
 })
 
 export const piCreateSchema = z.object({

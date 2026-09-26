@@ -9,6 +9,8 @@ import { performerId, runCommand, type StoreContext } from '../../dermat_store/l
 import { ensureStockRecords } from '../../dermat_store/lib/stockSetup'
 import { GoodsReceipt, GoodsReceiptLine, PurchaseOrder, PurchaseOrderLine, type GrnStatus, type PoStatus } from '../data/entities'
 import type { GrnInput, PoInput } from '../data/validators'
+import { linkIndentsToPo, notifyApprovers } from './indents'
+import { loadCompany } from '../../dermat_accounts/lib/documents'
 
 const EPSILON = 0.000001
 
@@ -37,7 +39,7 @@ function stamp<T extends { history?: Array<{ action: string; by: string | null; 
   record.history = [...(record.history ?? []), { action, by, at: new Date().toISOString(), note }]
 }
 
-export async function nextCode(ctx: Scope, table: 'dermat_pos' | 'dermat_grns', kind: 'PO' | 'GR'): Promise<string> {
+export async function nextCode(ctx: Scope, table: 'dermat_pos' | 'dermat_grns' | 'dermat_purchase_indents', kind: 'PO' | 'GR' | 'IND'): Promise<string> {
   const prefix = `DER/${kind}/${financialYear(new Date())}/`
   const [row] = await ctx.em.getConnection().execute<Array<{ max: number | null }>>(
     `select max(nullif(substring(code from length(?) + 1), '')::int) as max from ${table} where tenant_id = ? and organization_id = ? and code like ?`,
@@ -131,6 +133,8 @@ export async function createPo(ctx: OrderContext, input: PoInput): Promise<Purch
   await ctx.em.flush()
   await writeLines(ctx, po, input.lines)
   await ctx.em.flush()
+  if (input.indentIds.length) await linkIndentsToPo(ctx, input.indentIds, po)
+  if (po.status === 'pending_approval') await notifyApprovers(ctx, { type: 'dermat_purchase.po.submitted', title: `PO ${po.code} needs approval`, body: `${vendor.name}${byName ? ` · raised by ${byName}` : ''}`, href: `/backend/purchase/orders/${po.id}`, sourceId: po.id })
   return po
 }
 
@@ -155,9 +159,11 @@ export async function updatePo(ctx: OrderContext, po: PurchaseOrder, input: PoIn
 export async function submitPo(ctx: OrderContext, po: PurchaseOrder) {
   if (po.status !== 'draft') throw new PurchaseError('Only a draft can be sent for approval', 409)
   po.status = 'pending_approval'
-  stamp(po, 'submitted', await currentUserName(ctx), null)
+  const byName = await currentUserName(ctx)
+  stamp(po, 'submitted', byName, null)
   po.updatedAt = new Date()
   await ctx.em.flush()
+  await notifyApprovers(ctx, { type: 'dermat_purchase.po.submitted', title: `PO ${po.code} needs approval`, body: `${po.vendorName}${byName ? ` · raised by ${byName}` : ''}`, href: `/backend/purchase/orders/${po.id}`, sourceId: po.id })
 }
 
 export async function approvePo(ctx: OrderContext, po: PurchaseOrder, note: string | null) {
@@ -258,10 +264,18 @@ export async function createGrn(ctx: StoreContext, input: GrnInput): Promise<Goo
     merged.set(line.id, (merged.get(line.id) ?? 0) + entry.quantity)
   }
   const products = await loadProducts(ctx, poLines.map((line) => line.productId))
+  const overPercent = Number((await loadCompany(ctx))?.grnOverPercent ?? 0)
   for (const [lineId, quantity] of merged) {
     const line = poLines.find((candidate) => candidate.id === lineId)!
     const open = num(line.quantity) - num(line.receivedQty)
-    if (quantity > open + EPSILON) throw new PurchaseError(`${products.get(line.productId)?.title ?? 'A line'}: only ${round(open)} ${line.unit} is still to come on this PO`)
+    const allowance = (num(line.quantity) * overPercent) / 100
+    if (quantity > open + allowance + EPSILON) {
+      throw new PurchaseError(
+        overPercent
+          ? `${products.get(line.productId)?.title ?? 'A line'}: only ${round(open)} ${line.unit} is still to come on this PO (up to ${round(open + allowance)} with the ${overPercent}% allowance)`
+          : `${products.get(line.productId)?.title ?? 'A line'}: only ${round(open)} ${line.unit} is still to come on this PO`,
+      )
+    }
   }
   const warehouse = await dermatWarehouse(ctx)
   if (!warehouse) throw new PurchaseError('The store locations are missing. Set them up under Masters → Stores.', 409)

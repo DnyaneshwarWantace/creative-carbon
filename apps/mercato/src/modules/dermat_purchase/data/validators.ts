@@ -19,6 +19,7 @@ export const poInputSchema = z.object({
   orderRefs: z.array(z.object({ orderId: z.string().uuid(), orderNo: z.string().max(60) })).max(50).default([]),
   lines: z.array(poLineSchema).min(1).max(200),
   submit: z.boolean().default(false),
+  indentIds: z.array(z.string().uuid()).max(50).default([]),
 })
 
 export const poUpdateSchema = poInputSchema.extend({ id: z.string().uuid() })
@@ -69,3 +70,26 @@ export const grnListSchema = z.object({
 
 export type PoInput = z.infer<typeof poInputSchema>
 export type GrnInput = z.infer<typeof grnInputSchema>
+
+export const indentInputSchema = z.object({
+  department: z.string().trim().max(120).optional().nullable(),
+  source: z.enum(['department', 'planning', 'low_stock']).default('department'),
+  neededBy: day.optional().nullable(),
+  notes: z.string().trim().max(2000).optional().nullable(),
+  orderRefs: z.array(z.object({ orderId: z.string().uuid(), orderNo: z.string().max(60) })).max(50).default([]),
+  lines: z.array(z.object({ productId: z.string().uuid(), quantity: z.coerce.number().positive().max(100_000_000), note: z.string().trim().max(500).optional().nullable() })).min(1).max(200),
+})
+
+export const indentActionSchema = z.object({
+  id: z.string().uuid(),
+  action: z.enum(['approve', 'reject', 'cancel']),
+  note: z.string().trim().max(1000).optional().nullable(),
+})
+
+export const indentListSchema = z.object({
+  id: z.string().uuid().optional(),
+  view: z.enum(['to_approve', 'approved', 'ordered', 'closed', 'all']).default('all'),
+  search: z.string().trim().max(200).optional(),
+})
+
+export type IndentInput = z.infer<typeof indentInputSchema>

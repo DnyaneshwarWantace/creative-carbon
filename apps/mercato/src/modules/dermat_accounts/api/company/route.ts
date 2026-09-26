@@ -47,6 +47,7 @@ async function PUT(req: Request) {
       profile.piTerms = clean(parsed.data.piTerms)
       profile.invoiceTerms = clean(parsed.data.invoiceTerms)
       profile.piValidityDays = parsed.data.piValidityDays
+      profile.grnOverPercent = parsed.data.grnOverPercent
       profile.updatedAt = new Date()
       ctx.em.persist(profile)
       await ctx.em.flush()

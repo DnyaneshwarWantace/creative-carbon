@@ -16,6 +16,7 @@ const UI_FEATURES = [
   'dermat_accounts.record',
   'customers.companies.manage',
   'dermat_purchase.manage',
+  'dermat_purchase.indent',
   'dermat_purchase.approve',
   'dermat_purchase.receive',
   'dermat_vendors.manage',

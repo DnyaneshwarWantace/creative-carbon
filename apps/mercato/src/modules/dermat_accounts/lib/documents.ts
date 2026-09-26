@@ -24,6 +24,7 @@ export const DEFAULT_COMPANY = {
   piTerms: '1. Prices are ex-works unless stated.\n2. Advance as mentioned confirms the order; balance before dispatch.\n3. Delivery date is counted from advance receipt and artwork approval.\n4. Subject to local jurisdiction.' as string | null,
   invoiceTerms: '1. Goods once dispatched will not be taken back.\n2. Interest @ 18% p.a. on payments delayed beyond the due date.\n3. Subject to local jurisdiction.' as string | null,
   piValidityDays: 15,
+  grnOverPercent: 0,
 }
 
 export type CompanyView = typeof DEFAULT_COMPANY & { id: string | null; updatedAt: string | null }
@@ -64,6 +65,7 @@ export function companyView(profile: CompanyProfile | null): CompanyView {
     piTerms: profile.piTerms ?? null,
     invoiceTerms: profile.invoiceTerms ?? null,
     piValidityDays: profile.piValidityDays,
+    grnOverPercent: profile.grnOverPercent,
     updatedAt: profile.updatedAt.toISOString(),
   }
 }

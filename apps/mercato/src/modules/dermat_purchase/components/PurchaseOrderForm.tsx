@@ -162,6 +162,7 @@ export function PurchaseOrderForm({ poId }: { poId?: string }) {
       notes: notes.trim() || null,
       terms: terms.trim() || null,
       orderRefs,
+      indentIds: existing ? [] : (params?.get('indents') ?? '').split(',').filter((id) => /^[0-9a-f-]{36}$/i.test(id)),
       submit,
       lines: valid.map((line) => ({ productId: line.productId, quantity: Number(line.quantity), rate: Number(line.rate), gstPercent: Number(line.gstPercent) })),
     }
