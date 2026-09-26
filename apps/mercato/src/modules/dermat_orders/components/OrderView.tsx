@@ -23,6 +23,7 @@ import { ORDER_VARIANT, PAYMENT_TERMS_LABEL, STAGE_VARIANT, daysUntil, formatDat
 import { StageSheet, type StageActionRequest } from './StageSheet'
 import { useStageAction } from './useStageAction'
 import { useOrderMaterials } from './useOrderMaterials'
+import { OrderMoneyCard } from './OrderMoneyCard'
 import type { Order, Stage } from './types'
 
 
@@ -411,6 +412,8 @@ export function OrderView({ orderId }: { orderId: string }) {
               ) : null}
             </CardContent>
           </Card>
+
+          <OrderMoneyCard order={order} onChanged={load} />
 
           <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
             <Card className="overflow-hidden lg:col-span-2">

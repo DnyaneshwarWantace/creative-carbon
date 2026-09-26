@@ -5,6 +5,12 @@ import { blockingChecks, checksForOrder, ensureChecksForStage, retireStageChecks
 import { requestsForOrder, storeBlocking } from '../../dermat_store/lib/service'
 import { reservationsForOrder } from '../../dermat_planning/lib/service'
 import { USE_EXISTING_BULK, existingBulkProblem } from './productionStock'
+import { paymentView, paymentsFor, received, recordAdvanceFromStage } from '../../dermat_accounts/lib/service'
+import { priceLine, priceOrder } from './pricing'
+
+function pricedLine(line: DermatOrderLine) {
+  return { quantity: Number(line.quantity), rate: line.rate == null ? null : Number(line.rate), gstPercent: Number(line.gstPercent ?? 18), discountPercent: Number(line.discountPercent ?? 0) }
+}
 import {
   OrderError,
   approvedPackBoms,
@@ -183,12 +189,26 @@ export async function applyStageAction(ctx: OrderContext, order: DermatOrder, in
         const without = lines.filter((line) => boms.get(line.productId)?.status !== 'approved').map((line) => products.get(line.productId)?.title ?? 'a product')
         if (without.length) throw new OrderError(`Approve the BOM first for: ${without.join(', ')}`, 400)
       }
+      if (def.key === 'dispatch') {
+        const orderLines = await ctx.em.find(DermatOrderLine, { orderId: order.id })
+        const totals = priceOrder(orderLines.map(pricedLine), order.pricesIncludeGst)
+        const paid = received(await paymentsFor(ctx, [order.id]))
+        const due = Math.round((totals.total - paid) * 100) / 100
+        const override = String(stage.data?.dispatch_override ?? '').trim()
+        if (due > 0.5 && !override) {
+          throw new OrderError(`₹${due.toLocaleString('en-IN')} is still due on this order. Record the payment in Accounts, or write a reason under "Dispatch before full payment".`, 400, { due })
+        }
+        if (due > 0.5) logEvent(ctx, order, 'payment_override', def.key, `Dispatched with ₹${due.toLocaleString('en-IN')} due: ${override}`, byName)
+      }
       stage.status = 'done'
       stage.completedAt = new Date()
       stage.completedByName = byName
       stage.holdReason = null
       stage.holdParty = null
       logEvent(ctx, order, 'completed', def.key, note, byName)
+      if (def.key === 'advance' && (await recordAdvanceFromStage(ctx, order, stage.data ?? {}, byName))) {
+        logEvent(ctx, order, 'payment', def.key, `Advance ₹${Number(stage.data?.advance_amount).toLocaleString('en-IN')} recorded in Accounts`, byName)
+      }
       await afterOpened(ctx, order, openReadyStages(stages), byName)
       break
     }
@@ -296,13 +316,14 @@ export async function serializeOrder(ctx: OrderContext, order: DermatOrder) {
     ctx.em.find(DermatOrderEvent, { orderId: order.id }, { orderBy: { createdAt: 'desc' }, limit: 200 }),
   ])
   const productIds = lines.map((line) => line.productId)
-  const [customers, products, boms, qc, store, reservations] = await Promise.all([
+  const [customers, products, boms, qc, store, reservations, payments] = await Promise.all([
     loadCustomers(ctx, [order.customerId]),
     loadProducts(ctx, productIds),
     approvedPackBoms(ctx, productIds),
     checksForOrder(ctx, order.id),
     requestsForOrder(ctx, order.id),
     reservationsForOrder(ctx, order.id),
+    paymentsFor(ctx, [order.id]),
   ])
   const qcOnly = Object.values(qc).flat().map((check) => check.productId).filter((id) => !products.has(id))
   if (qcOnly.length) for (const [id, product] of await loadProducts(ctx, qcOnly)) products.set(id, product)
@@ -340,9 +361,19 @@ export async function serializeOrder(ctx: OrderContext, order: DermatOrder) {
       mrp: line.mrp == null ? null : Number(line.mrp),
       quantity: Number(line.quantity),
       rate: line.rate == null ? null : Number(line.rate),
+      gstPercent: Number(line.gstPercent ?? 18),
+      discountPercent: Number(line.discountPercent ?? 0),
+      price: priceLine(pricedLine(line), order.pricesIncludeGst),
       batchNo: line.batchNo ?? null,
       specs: line.specs ?? {},
     })),
+    pricesIncludeGst: order.pricesIncludeGst,
+    totals: priceOrder(lines.map(pricedLine), order.pricesIncludeGst),
+    payments: (() => {
+      const total = priceOrder(lines.map(pricedLine), order.pricesIncludeGst).total
+      const paid = received(payments)
+      return { received: paid, due: Math.round((total - paid) * 100) / 100, items: payments.map(paymentView) }
+    })(),
     stages: views,
     qc: Object.fromEntries(
       Object.entries(qc).map(([key, list]) => [

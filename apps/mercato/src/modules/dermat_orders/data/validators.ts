@@ -12,6 +12,8 @@ export const orderLineInputSchema = z.object({
   mrp: z.coerce.number().min(0).max(10_000_000).optional().nullable(),
   quantity: z.coerce.number().positive().max(100_000_000),
   rate: z.coerce.number().min(0).max(10_000_000).optional().nullable(),
+  gstPercent: z.coerce.number().min(0).max(40).default(18),
+  discountPercent: z.coerce.number().min(0).max(100).default(0),
   batchNo: optionalText(60),
   specs: z.object({ production: specSection, primary: specSection, secondary: specSection }).optional(),
 })
@@ -29,6 +31,7 @@ export const orderInputSchema = z.object({
   productRemarks: optionalText(2000),
   billingRemarks: optionalText(2000),
   packingRemarks: optionalText(2000),
+  pricesIncludeGst: z.boolean().default(false),
   lines: z.array(orderLineInputSchema).min(1).max(50),
 })
 

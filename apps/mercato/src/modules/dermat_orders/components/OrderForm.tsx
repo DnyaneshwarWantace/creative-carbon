@@ -21,6 +21,7 @@ import { useGuardedMutation } from '@open-mercato/ui/backend/injection/useGuarde
 import { flash } from '@open-mercato/ui/backend/FlashMessages'
 import { ErrorMessage, LoadingMessage } from '@open-mercato/ui/backend/detail'
 import { LINE_SPEC_SECTIONS, PARTY_SIDE } from '../lib/specs'
+import { priceOrder } from '../lib/pricing'
 import { SearchPicker, type PickerOption } from './SearchPicker'
 import { formatDate, formatQty, todayIso, PAYMENT_TERMS_LABEL } from './format'
 import { loadBomStatus, loadCustomer, loadCustomerOrders, loadProductDetails, searchCustomers, searchFinishedGoods } from './loaders'
@@ -35,6 +36,8 @@ type LineDraft = {
   mrp: string
   quantity: string
   rate: string
+  gstPercent: string
+  discountPercent: string
   batchNo: string
   specs: Record<string, Record<string, string>>
   open: boolean
@@ -52,6 +55,7 @@ type Header = {
   productRemarks: string
   billingRemarks: string
   packingRemarks: string
+  pricesIncludeGst: boolean
 }
 
 const EMPTY_HEADER: Header = {
@@ -66,13 +70,14 @@ const EMPTY_HEADER: Header = {
   productRemarks: '',
   billingRemarks: '',
   packingRemarks: '',
+  pricesIncludeGst: false,
 }
 
 let lineCounter = 0
 
 function newLine(): LineDraft {
   lineCounter += 1
-  return { key: `line-${lineCounter}`, product: null, bom: undefined, brandName: '', packSize: '', mrp: '', quantity: '', rate: '', batchNo: '', specs: {}, open: false }
+  return { key: `line-${lineCounter}`, product: null, bom: undefined, brandName: '', packSize: '', mrp: '', quantity: '', rate: '', gstPercent: '18', discountPercent: '', batchNo: '', specs: {}, open: false }
 }
 
 function linesFromOrder(order: Order, keepBatch: boolean): LineDraft[] {
@@ -85,6 +90,8 @@ function linesFromOrder(order: Order, keepBatch: boolean): LineDraft[] {
     mrp: line.mrp == null ? '' : String(line.mrp),
     quantity: String(line.quantity),
     rate: line.rate == null ? '' : String(line.rate),
+    gstPercent: String(line.gstPercent ?? 18),
+    discountPercent: line.discountPercent ? String(line.discountPercent) : '',
     batchNo: keepBatch ? (line.batchNo ?? '') : '',
     specs: line.specs ?? {},
   }))
@@ -176,6 +183,7 @@ export function OrderForm({ orderId, copyFrom, customerId }: { orderId?: string;
           productRemarks: order.productRemarks ?? '',
           billingRemarks: order.billingRemarks ?? '',
           packingRemarks: order.packingRemarks ?? '',
+          pricesIncludeGst: order.pricesIncludeGst ?? false,
         })
         setLines(linesFromOrder(order, true))
       } else {
@@ -189,6 +197,7 @@ export function OrderForm({ orderId, copyFrom, customerId }: { orderId?: string;
           productRemarks: order.productRemarks ?? '',
           billingRemarks: order.billingRemarks ?? '',
           packingRemarks: order.packingRemarks ?? '',
+          pricesIncludeGst: order.pricesIncludeGst ?? false,
         })
         setLines(linesFromOrder(order, false))
       }
@@ -286,6 +295,10 @@ export function OrderForm({ orderId, copyFrom, customerId }: { orderId?: string;
   }
 
   const totalPieces = lines.reduce((sum, line) => sum + (toNumber(line.quantity) ?? 0), 0)
+  const orderTotals = priceOrder(
+    lines.filter((line) => line.product).map((line) => ({ quantity: toNumber(line.quantity) ?? 0, rate: toNumber(line.rate), gstPercent: toNumber(line.gstPercent) ?? 18, discountPercent: toNumber(line.discountPercent) ?? 0 })),
+    header.pricesIncludeGst,
+  )
   const locked = existing?.linesLocked ?? false
 
   const save = async () => {
@@ -320,6 +333,8 @@ export function OrderForm({ orderId, copyFrom, customerId }: { orderId?: string;
         mrp: toNumber(line.mrp),
         quantity: toNumber(line.quantity),
         rate: toNumber(line.rate),
+        gstPercent: toNumber(line.gstPercent) ?? 18,
+        discountPercent: toNumber(line.discountPercent) ?? 0,
         batchNo: line.batchNo || null,
         specs: line.specs,
       })),
@@ -548,9 +563,21 @@ export function OrderForm({ orderId, copyFrom, customerId }: { orderId?: string;
                     : t('dermat_orders.form.productsHint', 'Search the Finished Good by internal ID or name. Quantity is in pieces. Open "Specs" for the client’s order form.')}
                 </CardDescription>
               </div>
-              <span className="text-sm text-muted-foreground">
-                {t('dermat_orders.form.totalPieces', 'Total {count} pcs', { count: formatQty(totalPieces, 0) })}
-              </span>
+              <div className="flex flex-col items-end gap-1 text-right">
+                <span className="text-sm text-muted-foreground">
+                  {t('dermat_orders.form.totalPieces', 'Total {count} pcs', { count: formatQty(totalPieces, 0) })}
+                  {orderTotals.total > 0 ? <span className="ml-2 font-semibold text-foreground">₹{formatQty(orderTotals.total, 2)}</span> : null}
+                </span>
+                {orderTotals.total > 0 ? (
+                  <span className="text-xs text-muted-foreground">
+                    {t('dermat_orders.form.taxBreak', '₹{taxable} + GST ₹{gst}', { taxable: formatQty(orderTotals.taxable, 2), gst: formatQty(orderTotals.gst, 2) })}
+                  </span>
+                ) : null}
+                <label className="inline-flex cursor-pointer items-center gap-1.5 text-xs text-muted-foreground">
+                  <input type="checkbox" className="h-3.5 w-3.5 rounded-sm border-input" checked={header.pricesIncludeGst} onChange={(event) => patchHeader({ pricesIncludeGst: event.target.checked })} />
+                  {t('dermat_orders.form.includesGst', 'Rates include GST')}
+                </label>
+              </div>
             </CardHeader>
             <CardContent className="space-y-3 pt-4">
               {lines.map((line, index) => {
@@ -598,6 +625,23 @@ export function OrderForm({ orderId, copyFrom, customerId }: { orderId?: string;
                       </Field>
                       <Field label={t('dermat_orders.form.rate', 'Rate (₹/pc)')} className="md:col-span-1">
                         <Input type="number" min={0} step="any" className="text-right" value={line.rate} onChange={(event) => patchLine(line.key, { rate: event.target.value })} />
+                      </Field>
+                      <Field label={t('dermat_orders.form.gst', 'GST %')} className="md:col-span-1">
+                        <Select value={line.gstPercent} onValueChange={(value) => patchLine(line.key, { gstPercent: value })}>
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {['0', '5', '12', '18', '28'].map((rate) => (
+                              <SelectItem key={rate} value={rate}>
+                                {rate}%
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </Field>
+                      <Field label={t('dermat_orders.form.discount', 'Disc. %')} className="md:col-span-1">
+                        <Input type="number" min={0} max={100} step="any" className="text-right" value={line.discountPercent} onChange={(event) => patchLine(line.key, { discountPercent: event.target.value })} placeholder="0" />
                       </Field>
                       <Field label={t('dermat_orders.form.batchNo', 'Batch no.')} className="md:col-span-1">
                         <Input value={line.batchNo} onChange={(event) => patchLine(line.key, { batchNo: event.target.value })} />

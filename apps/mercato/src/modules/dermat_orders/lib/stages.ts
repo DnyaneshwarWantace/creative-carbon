@@ -243,6 +243,7 @@ export const STAGES: StageDef[] = [
       { key: 'transporter', label: 'Transporter', type: 'text' },
       { key: 'lr_number', label: 'LR / docket no.', type: 'text' },
       { key: 'delivered_on', label: 'Delivered on', type: 'date' },
+      { key: 'dispatch_override', label: 'Dispatch before full payment: reason', type: 'textarea', placeholder: 'Only if money is still due, e.g. owner approved, 30 days credit' },
       { key: 'remarks', label: 'Remarks', type: 'textarea' },
     ],
   },

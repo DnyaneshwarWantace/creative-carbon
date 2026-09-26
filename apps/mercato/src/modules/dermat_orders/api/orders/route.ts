@@ -71,6 +71,7 @@ function applyHeader(order: DermatOrder, input: OrderInput) {
   order.productRemarks = clean(input.productRemarks)
   order.billingRemarks = clean(input.billingRemarks)
   order.packingRemarks = clean(input.packingRemarks)
+  order.pricesIncludeGst = input.pricesIncludeGst
 }
 
 function writeLines(ctx: OrderContext, order: DermatOrder, input: OrderInput) {
@@ -87,6 +88,8 @@ function writeLines(ctx: OrderContext, order: DermatOrder, input: OrderInput) {
         mrp: line.mrp == null ? null : String(line.mrp),
         quantity: String(line.quantity),
         rate: line.rate == null ? null : String(line.rate),
+        gstPercent: String(line.gstPercent),
+        discountPercent: String(line.discountPercent),
         batchNo: clean(line.batchNo),
         specs: cleanSpecs(line.specs),
       }),

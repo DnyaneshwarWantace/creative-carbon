@@ -34,8 +34,25 @@ export type OrderLine = {
   mrp: number | null
   quantity: number
   rate: number | null
+  gstPercent: number
+  discountPercent: number
+  price: { gross: number; discount: number; taxable: number; gst: number; total: number }
   batchNo: string | null
   specs: Record<string, Record<string, string>>
+}
+
+export type OrderPayment = {
+  id: string
+  kind: 'advance' | 'balance' | 'other'
+  amount: number
+  paidOn: string
+  mode: string | null
+  reference: string | null
+  note: string | null
+  byName: string | null
+  voided: boolean
+  voidReason: string | null
+  createdAt: string
 }
 
 export type Stage = {
@@ -105,6 +122,9 @@ export type Order = {
   qc: Record<string, OrderQcCheck[]>
   store: Record<string, OrderStoreRequest[]>
   reservations: Array<{ productId: string; title: string; unit: string | null; quantity: number; since: string }>
+  pricesIncludeGst: boolean
+  totals: { gross: number; discount: number; taxable: number; gst: number; total: number }
+  payments: { received: number; due: number; items: OrderPayment[] }
   events: OrderEvent[]
 }
 

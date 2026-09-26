@@ -21,6 +21,7 @@ export class DermatOrder {
     | 'productRemarks'
     | 'billingRemarks'
     | 'packingRemarks'
+    | 'pricesIncludeGst'
     | 'createdByName'
     | 'createdAt'
     | 'updatedAt'
@@ -74,6 +75,9 @@ export class DermatOrder {
   @Property({ name: 'packing_remarks', type: 'text', nullable: true })
   packingRemarks?: string | null
 
+  @Property({ name: 'prices_include_gst', type: 'boolean', default: false })
+  pricesIncludeGst: boolean = false
+
   @Property({ type: 'text', default: 'booked' })
   status: OrderStatus = 'booked'
 
@@ -94,7 +98,7 @@ export class DermatOrder {
 @Index({ name: 'dermat_order_lines_order_idx', properties: ['orderId'] })
 @Index({ name: 'dermat_order_lines_product_idx', properties: ['productId'] })
 export class DermatOrderLine {
-  [OptionalProps]?: 'brandName' | 'packSize' | 'mrp' | 'rate' | 'batchNo' | 'specs' | 'createdAt' | 'updatedAt'
+  [OptionalProps]?: 'brandName' | 'packSize' | 'mrp' | 'rate' | 'gstPercent' | 'discountPercent' | 'batchNo' | 'specs' | 'createdAt' | 'updatedAt'
 
   @PrimaryKey({ type: 'uuid', defaultRaw: 'gen_random_uuid()' })
   id!: string
@@ -128,6 +132,12 @@ export class DermatOrderLine {
 
   @Property({ type: 'numeric', precision: 12, scale: 2, nullable: true })
   rate?: string | null
+
+  @Property({ name: 'gst_percent', type: 'numeric', precision: 6, scale: 2, default: '18' })
+  gstPercent: string = '18'
+
+  @Property({ name: 'discount_percent', type: 'numeric', precision: 6, scale: 2, default: '0' })
+  discountPercent: string = '0'
 
   @Property({ name: 'batch_no', type: 'text', nullable: true })
   batchNo?: string | null
