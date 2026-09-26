@@ -10,6 +10,7 @@ import { Label } from '@open-mercato/ui/primitives/label'
 import { Textarea } from '@open-mercato/ui/primitives/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@open-mercato/ui/primitives/select'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@open-mercato/ui/primitives/dialog'
+import { useRouter } from 'next/navigation'
 import { apiCall } from '@open-mercato/ui/backend/utils/apiCall'
 import { useGuardedMutation } from '@open-mercato/ui/backend/injection/useGuardedMutation'
 import { flash } from '@open-mercato/ui/backend/FlashMessages'
@@ -25,6 +26,32 @@ function rupees(value: number): string {
 }
 
 export function OrderMoneyCard({ order, onChanged }: { order: Order; onChanged: () => void }) {
+  const router = useRouter()
+  const [piBusy, setPiBusy] = React.useState(false)
+  const openProforma = async () => {
+    setPiBusy(true)
+    try {
+      const list = await apiCall<{ items?: Array<{ id: string; status: string }> }>(`/api/dermat_accounts/proformas?orderId=${encodeURIComponent(order.id)}`, undefined, { fallback: { items: [] } })
+      const current = (list.result?.items ?? []).find((pi) => pi.status !== 'cancelled')
+      if (current) {
+        router.push(`/backend/accounts/proformas/${current.id}`)
+        return
+      }
+      const body = { orderId: order.id }
+      const call = await runMutation({
+        context: { orderId: order.id, document: 'proforma' },
+        mutationPayload: body,
+        operation: () => apiCall<{ id?: string; error?: string }>('/api/dermat_accounts/proformas', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) }),
+      })
+      if (!call.ok || !call.result?.id) {
+        flash(call.result?.error ?? t('dermat_orders.money.piError', 'Could not make the proforma invoice.'), 'error')
+        return
+      }
+      router.push(`/backend/accounts/proformas/${call.result.id}`)
+    } finally {
+      setPiBusy(false)
+    }
+  }
   const t = useT()
   const { runMutation } = useGuardedMutation({ contextId: `dermat-order-money-${order.id}` })
   const [open, setOpen] = React.useState(false)
@@ -84,7 +111,7 @@ export function OrderMoneyCard({ order, onChanged }: { order: Order; onChanged: 
           {t('dermat_orders.money.title', 'Money & documents')}
         </h2>
         <div className="flex flex-wrap gap-2">
-          <Button type="button" variant="outline" size="sm" onClick={() => printDoc(order, 'proforma')}>
+          <Button type="button" variant="outline" size="sm" onClick={() => void openProforma()} disabled={piBusy}>
             <FileText className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
             {t('dermat_orders.money.pi', 'Proforma invoice')}
           </Button>

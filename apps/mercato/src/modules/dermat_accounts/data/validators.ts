@@ -17,3 +17,58 @@ export const paymentVoidSchema = z.object({ id: z.string().uuid(), reason: z.str
 export const duesQuerySchema = z.object({ view: z.enum(['due', 'all']).default('due'), search: z.string().trim().max(120).optional() })
 
 export type PaymentInput = z.infer<typeof paymentInputSchema>
+
+const text = (max: number) => z.string().trim().max(max).optional().nullable()
+const isoDay = z.string().regex(/^\d{4}-\d{2}-\d{2}$/)
+
+export const companyInputSchema = z.object({
+  name: z.string().trim().min(1).max(200),
+  legalName: text(200),
+  gstin: z.string().trim().max(15).regex(/^$|^[0-9]{2}[A-Z0-9]{13}$/, 'GSTIN is 15 characters').optional().nullable(),
+  pan: text(10),
+  address: text(500),
+  phone: text(60),
+  email: text(200),
+  website: text(200),
+  bankName: text(120),
+  bankBranch: text(120),
+  bankAccount: text(40),
+  bankIfsc: text(20),
+  upiId: text(80),
+  signatory: text(120),
+  piTerms: text(3000),
+  invoiceTerms: text(3000),
+  piValidityDays: z.coerce.number().int().min(1).max(365).default(15),
+})
+
+export const piCreateSchema = z.object({
+  orderId: z.string().uuid(),
+  piDate: isoDay.optional().nullable(),
+  validUntil: isoDay.optional().nullable(),
+  advancePercent: z.coerce.number().min(0).max(100).optional().nullable(),
+  terms: text(3000),
+  bankDetails: text(1000),
+  notes: text(2000),
+})
+
+export const piUpdateSchema = z.object({
+  id: z.string().uuid(),
+  piDate: isoDay.optional(),
+  validUntil: isoDay.optional().nullable(),
+  advancePercent: z.coerce.number().min(0).max(100).optional().nullable(),
+  terms: text(3000),
+  bankDetails: text(1000),
+  notes: text(2000),
+  refreshLines: z.boolean().optional(),
+})
+
+export const piActionSchema = z.object({ id: z.string().uuid(), action: z.enum(['send', 'cancel']), reason: text(500) })
+
+export const piListSchema = z.object({
+  id: z.string().uuid().optional(),
+  orderId: z.string().uuid().optional(),
+  status: z.enum(['draft', 'sent', 'cancelled']).optional(),
+  search: z.string().trim().max(120).optional(),
+  page: z.coerce.number().int().min(1).default(1),
+  pageSize: z.coerce.number().int().min(1).max(100).default(50),
+})

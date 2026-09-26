@@ -1,10 +1,12 @@
 import { NextResponse } from 'next/server'
+import { CrudHttpError } from '@open-mercato/shared/lib/crud/errors'
 import { runRouteMutationGuards } from '@open-mercato/shared/lib/crud/route-mutation-guard'
 import type { OrderContext } from '../../dermat_orders/lib/server'
 import { AccountsError } from './service'
 
 export function accountsErrorResponse(error: unknown) {
   if (error instanceof AccountsError) return NextResponse.json({ error: error.message }, { status: error.status })
+  if (error instanceof CrudHttpError) return NextResponse.json(error.body, { status: error.status })
   throw error
 }
 
