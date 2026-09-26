@@ -23,7 +23,7 @@ async function POST(req: Request) {
   const parsed = stageActionSchema.safeParse(await req.json().catch(() => null))
   if (!parsed.success) return NextResponse.json({ error: 'Invalid stage action', details: parsed.error.flatten() }, { status: 400 })
   const allowed =
-    (await hasFeatures(ctx, [stageWorkFeature(parsed.data.stageKey)])) || (parsed.data.action === 'assign' && (await hasFeatures(ctx, ['dermat_orders.manage'])))
+    (await hasFeatures(ctx, [stageWorkFeature(parsed.data.stageKey)])) || ((parsed.data.action === 'assign' || parsed.data.action === 'delivered') && (await hasFeatures(ctx, ['dermat_orders.manage'])))
   if (!allowed) {
     const def = stageDef(parsed.data.stageKey)
     return NextResponse.json({ error: `Only the ${def?.department ?? 'responsible'} department can work on ${def?.label ?? 'this stage'}` }, { status: 403 })

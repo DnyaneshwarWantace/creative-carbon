@@ -257,6 +257,7 @@ export function StageQueue({ stageKey }: { stageKey: string }) {
           </Tabs>
         </div>
         <DataTable
+          perspective={{ tableId: `dermat_orders.work.${stageKey}` }}
           title={
             tab === 'active'
               ? t('dermat_orders.queue.titleTodo', '{count} orders to work on', { count: total })

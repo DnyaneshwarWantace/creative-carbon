@@ -175,6 +175,7 @@ export function QcChecksPage() {
           </div>
         </div>
         <DataTable
+          perspective={{ tableId: 'dermat_quality.checks' }}
           title={t('dermat_quality.list.title', 'QC checks')}
           columns={columns}
           data={rows}

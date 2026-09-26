@@ -319,6 +319,8 @@ export function ProductsPage() {
           </Tabs>
         </div>
         <DataTable
+          key={`products-${kind}`}
+          perspective={{ tableId: `dermat_products.${kind}` }}
           title={config.title}
           columns={columns}
           data={rows}

@@ -367,3 +367,13 @@ export const QA_ARTWORK_CHECKS = [
   { key: 'legal', label: 'Legal text: manufacturer, licence no., address, customer care' },
   { key: 'barcode', label: 'Barcode readable and correct' },
 ] as const
+
+export type OrderHeadline = 'booked' | 'confirmed' | 'updated' | 'completed' | 'delivered' | 'cancelled'
+
+export function orderHeadline(status: string, revisedAt: Date | string | null | undefined, dispatchData: Record<string, unknown> | null | undefined): OrderHeadline {
+  if (status === 'cancelled') return 'cancelled'
+  if (typeof dispatchData?.delivered_on === 'string' && dispatchData.delivered_on) return 'delivered'
+  if (status === 'completed') return 'completed'
+  if (revisedAt) return 'updated'
+  return status === 'booked' ? 'booked' : 'confirmed'
+}

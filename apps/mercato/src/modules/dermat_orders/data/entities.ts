@@ -3,6 +3,7 @@ import { OptionalProps } from '@mikro-orm/core'
 
 export type OrderStatus = 'booked' | 'confirmed' | 'completed' | 'cancelled'
 export type OrderType = 'new' | 'repeat' | 'revision'
+export type OrderPriority = 'normal' | 'urgent'
 
 @Entity({ tableName: 'dermat_orders' })
 @Index({ name: 'dermat_orders_org_tenant_idx', properties: ['organizationId', 'tenantId'] })
@@ -22,6 +23,12 @@ export class DermatOrder {
     | 'billingRemarks'
     | 'packingRemarks'
     | 'pricesIncludeGst'
+    | 'priority'
+    | 'billingAddress'
+    | 'shippingAddress'
+    | 'revisedAt'
+    | 'revisedByName'
+    | 'revisionNote'
     | 'createdByName'
     | 'createdAt'
     | 'updatedAt'
@@ -81,6 +88,24 @@ export class DermatOrder {
   @Property({ type: 'text', default: 'booked' })
   status: OrderStatus = 'booked'
 
+  @Property({ type: 'text', default: 'normal' })
+  priority: OrderPriority = 'normal'
+
+  @Property({ name: 'billing_address', type: 'text', nullable: true })
+  billingAddress?: string | null
+
+  @Property({ name: 'shipping_address', type: 'text', nullable: true })
+  shippingAddress?: string | null
+
+  @Property({ name: 'revised_at', type: Date, nullable: true })
+  revisedAt?: Date | null
+
+  @Property({ name: 'revised_by_name', type: 'text', nullable: true })
+  revisedByName?: string | null
+
+  @Property({ name: 'revision_note', type: 'text', nullable: true })
+  revisionNote?: string | null
+
   @Property({ name: 'created_by_name', type: 'text', nullable: true })
   createdByName?: string | null
 
@@ -98,7 +123,7 @@ export class DermatOrder {
 @Index({ name: 'dermat_order_lines_order_idx', properties: ['orderId'] })
 @Index({ name: 'dermat_order_lines_product_idx', properties: ['productId'] })
 export class DermatOrderLine {
-  [OptionalProps]?: 'brandName' | 'packSize' | 'mrp' | 'rate' | 'gstPercent' | 'discountPercent' | 'batchNo' | 'specs' | 'createdAt' | 'updatedAt'
+  [OptionalProps]?: 'brandName' | 'packSize' | 'mrp' | 'rate' | 'gstPercent' | 'discountPercent' | 'batchNo' | 'sampleNeeded' | 'rdNumber' | 'specs' | 'createdAt' | 'updatedAt'
 
   @PrimaryKey({ type: 'uuid', defaultRaw: 'gen_random_uuid()' })
   id!: string
@@ -141,6 +166,12 @@ export class DermatOrderLine {
 
   @Property({ name: 'batch_no', type: 'text', nullable: true })
   batchNo?: string | null
+
+  @Property({ name: 'sample_needed', type: 'boolean', default: false })
+  sampleNeeded: boolean = false
+
+  @Property({ name: 'rd_number', type: 'text', nullable: true })
+  rdNumber?: string | null
 
   @Property({ type: 'json', nullable: true })
   specs?: Record<string, Record<string, string>> | null

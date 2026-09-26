@@ -382,6 +382,7 @@ export default function DermatDepartmentsPage() {
     <Page>
       <PageBody>
         <DataTable
+          perspective={{ tableId: 'dermat_departments.list' }}
           title={t('dermat_departments.list.title', 'Departments')}
           columns={columns}
           disableRowClick

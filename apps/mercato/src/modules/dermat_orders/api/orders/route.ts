@@ -5,7 +5,7 @@ import type { OpenApiRouteDoc } from '@open-mercato/shared/lib/openapi'
 import { DermatOrder, DermatOrderLine, DermatOrderStage } from '../../data/entities'
 import { orderInputSchema, orderListQuerySchema, orderUpdateSchema, type OrderInput } from '../../data/validators'
 import { createStages, logEvent, openReadyStages, serializeOrder, stageViews } from '../../lib/engine'
-import { isFinished } from '../../lib/stages'
+import { isFinished, orderHeadline } from '../../lib/stages'
 import {
   OrderError,
   currentUserName,
@@ -70,9 +70,54 @@ function applyHeader(order: DermatOrder, input: OrderInput) {
   order.billingRemarks = clean(input.billingRemarks)
   order.packingRemarks = clean(input.packingRemarks)
   order.pricesIncludeGst = input.pricesIncludeGst
+  order.priority = input.priority
+  order.billingAddress = clean(input.billingAddress)
+  order.shippingAddress = clean(input.shippingAddress)
 }
 
-function writeLines(ctx: OrderContext, order: DermatOrder, input: OrderInput) {
+const FIRST_BATCH_NO = 57001
+
+async function nextBatchNumbers(ctx: OrderContext, count: number): Promise<string[]> {
+  if (count <= 0) return []
+  const [row] = await ctx.em.getConnection().execute<Array<{ top: string | null }>>(
+    `select max(n) as top from (
+       select nullif(regexp_replace(l.batch_no, '[^0-9]', '', 'g'), '')::bigint as n
+         from dermat_order_lines l where l.tenant_id = ? and l.organization_id = ? and l.batch_no ~ '^[0-9]{3,9}$'
+       union all
+       select nullif(regexp_replace(s.data->>'batch_no', '[^0-9]', '', 'g'), '')::bigint
+         from dermat_order_stages s where s.tenant_id = ? and s.organization_id = ? and s.stage_key = 'manufacturing' and (s.data->>'batch_no') ~ '^[0-9]{3,9}$'
+     ) numbers`,
+    [ctx.tenantId, ctx.organizationId, ctx.tenantId, ctx.organizationId],
+    'all',
+    ctx.em.getTransactionContext(),
+  )
+  const start = Math.max(FIRST_BATCH_NO, Number(row?.top ?? 0) + 1)
+  return Array.from({ length: count }, (_, index) => String(start + index))
+}
+
+function describeChanges(before: { header: Record<string, unknown>; lines: Array<{ productId: string; quantity: number; rate: number | null }> }, input: OrderInput, titles: Map<string, string>): string {
+  const labels: Record<string, string> = { deliveryDate: 'delivery date', customerPoRef: 'customer PO', salesManager: 'sales manager', paymentTerms: 'payment terms', paymentRemarks: 'payment remarks', priority: 'priority', shippingAddress: 'shipping address', billingAddress: 'billing address', productRemarks: 'product remarks', packingRemarks: 'packing remarks', billingRemarks: 'billing remarks' }
+  const changes: string[] = []
+  for (const [key, label] of Object.entries(labels)) {
+    const was = before.header[key] ?? null
+    const now = (input as Record<string, unknown>)[key] ?? null
+    if (String(was ?? '') !== String(now ?? '')) changes.push(`${label}: ${was ?? '—'} → ${now ?? '—'}`)
+  }
+  for (const line of input.lines) {
+    const old = before.lines.find((entry) => entry.productId === line.productId)
+    const name = titles.get(line.productId) ?? 'product'
+    if (!old) changes.push(`added ${name} × ${line.quantity}`)
+    else {
+      if (old.quantity !== Number(line.quantity)) changes.push(`${name} qty ${old.quantity} → ${line.quantity}`)
+      if ((old.rate ?? null) !== (line.rate ?? null)) changes.push(`${name} rate ${old.rate ?? '—'} → ${line.rate ?? '—'}`)
+    }
+  }
+  for (const old of before.lines) if (!input.lines.some((line) => line.productId === old.productId)) changes.push(`removed ${titles.get(old.productId) ?? 'product'}`)
+  return changes.join('; ')
+}
+
+async function writeLines(ctx: OrderContext, order: DermatOrder, input: OrderInput) {
+  const numbers = await nextBatchNumbers(ctx, input.lines.filter((line) => !clean(line.batchNo)).length)
   input.lines.forEach((line, index) => {
     ctx.em.persist(
       ctx.em.create(DermatOrderLine, {
@@ -88,7 +133,9 @@ function writeLines(ctx: OrderContext, order: DermatOrder, input: OrderInput) {
         rate: line.rate == null ? null : String(line.rate),
         gstPercent: String(line.gstPercent),
         discountPercent: String(line.discountPercent),
-        batchNo: clean(line.batchNo),
+        batchNo: clean(line.batchNo) ?? numbers.shift() ?? null,
+        sampleNeeded: line.sampleNeeded,
+        rdNumber: clean(line.rdNumber),
         specs: cleanSpecs(line.specs),
       }),
     )
@@ -111,9 +158,9 @@ async function GET(req: Request) {
   const connection = ctx.em.getConnection()
   const [countRow] = await connection.execute<Array<{ total: string }>>(`select count(*) as total from dermat_orders o where ${where.join(' and ')}`, params)
   const orders = await connection.execute<
-    Array<{ id: string; order_no: string; order_date: string; delivery_date: string | null; customer_id: string; status: string; order_type: string; sales_manager: string | null; created_at: Date }>
+    Array<{ id: string; order_no: string; order_date: string; delivery_date: string | null; customer_id: string; status: string; order_type: string; sales_manager: string | null; priority: string; revised_at: Date | null; created_at: Date }>
   >(
-    `select o.id, o.order_no, o.order_date::text as order_date, o.delivery_date::text as delivery_date, o.customer_id, o.status, o.order_type, o.sales_manager, o.created_at
+    `select o.id, o.order_no, o.order_date::text as order_date, o.delivery_date::text as delivery_date, o.customer_id, o.status, o.order_type, o.sales_manager, o.priority, o.revised_at, o.created_at
        from dermat_orders o where ${where.join(' and ')}
       order by o.created_at desc limit ? offset ?`,
     [...params, query.pageSize, (query.page - 1) * query.pageSize],
@@ -144,6 +191,8 @@ async function GET(req: Request) {
         customerId: order.customer_id,
         customerName: customers.get(order.customer_id)?.name ?? '',
         status: order.status,
+        headline: orderHeadline(order.status, order.revised_at, stages.find((stage) => stage.orderId === order.id && stage.stageKey === 'dispatch')?.data),
+        priority: order.priority,
         orderType: order.order_type,
         salesManager: order.sales_manager,
         products: orderLines.map((line) => ({
@@ -189,7 +238,7 @@ async function POST(req: Request) {
         applyHeader(created, input)
         em.persist(created)
         await em.flush()
-        writeLines(txCtx, created, input)
+        await writeLines(txCtx, created, input)
         const stages = createStages(txCtx, created, byName)
         logEvent(txCtx, created, 'created', 'order', created.orderType === 'repeat' ? 'Repeat order' : null, byName)
         for (const opened of openReadyStages(stages)) logEvent(txCtx, created, 'opened', opened, null, null)
@@ -223,11 +272,25 @@ async function PUT(req: Request) {
       await ctx.em.transactional(async (em) => {
         const txCtx = { ...ctx, em: em as EntityManager }
         const fresh = await findOrder(txCtx, order.id)
+        const oldLines = await em.find(DermatOrderLine, { orderId: fresh.id })
+        const before = {
+          header: { deliveryDate: fresh.deliveryDate, customerPoRef: fresh.customerPoRef, salesManager: fresh.salesManager, paymentTerms: fresh.paymentTerms, paymentRemarks: fresh.paymentRemarks, priority: fresh.priority, shippingAddress: fresh.shippingAddress, billingAddress: fresh.billingAddress, productRemarks: fresh.productRemarks, packingRemarks: fresh.packingRemarks, billingRemarks: fresh.billingRemarks },
+          lines: oldLines.map((line) => ({ productId: line.productId, quantity: Number(line.quantity), rate: line.rate == null ? null : Number(line.rate) })),
+        }
+        const titles = new Map([...(await loadProducts(txCtx, [...oldLines.map((line) => line.productId), ...input.lines.map((line) => line.productId)])).entries()].map(([id, product]) => [id, product.title]))
+        const summary = describeChanges(before, input, titles)
+        const keptBatch = new Map(oldLines.map((line) => [line.productId, line.batchNo ?? null]))
+        const withBatches = { ...input, lines: input.lines.map((line) => ({ ...line, batchNo: clean(line.batchNo) ?? keptBatch.get(line.productId) ?? null })) }
         applyHeader(fresh, input)
         fresh.updatedAt = new Date()
+        if (summary || clean(input.revisionNote)) {
+          fresh.revisedAt = new Date()
+          fresh.revisedByName = byName
+          fresh.revisionNote = [clean(input.revisionNote), summary].filter(Boolean).join(' — ').slice(0, 2000)
+        }
         await em.nativeDelete(DermatOrderLine, { orderId: fresh.id })
-        writeLines(txCtx, fresh, input)
-        logEvent(txCtx, fresh, 'edited', null, null, byName)
+        await writeLines(txCtx, fresh, withBatches)
+        logEvent(txCtx, fresh, 'edited', null, [clean(input.revisionNote), summary].filter(Boolean).join(' — ') || null, byName)
         await em.flush()
       })
       return NextResponse.json({ ok: true })

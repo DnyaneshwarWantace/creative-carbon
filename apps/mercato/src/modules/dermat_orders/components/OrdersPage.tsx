@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from 'react'
+import { ViewsButton } from '../../dermat_products/components/ViewsPanel'
 import { useGranted } from '../../dermat_departments/components/useGranted'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
@@ -52,90 +53,6 @@ function readColumns(): string[] {
   return DEFAULT_VIEW.columns
 }
 
-function ColumnsMenu({ visible, onChange }: { visible: string[]; onChange: (next: string[]) => void }) {
-  const t = useT()
-  const [open, setOpen] = React.useState(false)
-  const [filter, setFilter] = React.useState('')
-  const sections = React.useMemo(() => {
-    const map = new Map<string, SheetColumn[]>()
-    const needle = filter.trim().toLowerCase()
-    for (const column of ALL_COLUMNS) {
-      if (needle && !column.label.toLowerCase().includes(needle) && !column.section.toLowerCase().includes(needle)) continue
-      map.set(column.section, [...(map.get(column.section) ?? []), column])
-    }
-    return [...map.entries()]
-  }, [filter])
-  const shown = new Set(visible)
-  const toggle = (key: string) => onChange(shown.has(key) ? visible.filter((entry) => entry !== key) : [...visible, key])
-  const activeView = SHEET_VIEWS.find((view) => view.columns.length === visible.length && view.columns.every((key, index) => visible[index] === key))
-  return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <Button type="button" variant="outline">
-          <Columns3 className="mr-1.5 h-4 w-4" aria-hidden="true" />
-          {t('dermat_orders.book.columns', 'View & columns')}
-          <span className="ml-1.5 rounded-full bg-primary/10 px-1.5 py-0.5 text-xs font-semibold text-primary tabular-nums">{visible.length}</span>
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent align="end" className="flex w-96 flex-col p-0">
-        <div className="space-y-2 border-b p-3">
-          <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{t('dermat_orders.book.views', 'Views')}</p>
-          <div className="grid grid-cols-2 gap-1.5">
-            {SHEET_VIEWS.map((view) => (
-              <button
-                key={view.key}
-                type="button"
-                onClick={() => onChange(view.columns)}
-                className={cn(
-                  'rounded-md border px-2.5 py-2 text-left transition-colors hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-                  activeView?.key === view.key ? 'border-primary bg-primary/5' : 'border-border',
-                )}
-              >
-                <span className="block text-xs font-semibold">{view.label}</span>
-                <span className="block text-xs text-muted-foreground">{view.hint}</span>
-              </button>
-            ))}
-            <button
-              type="button"
-              onClick={() => onChange(ALL_COLUMNS.map((column) => column.key))}
-              className="rounded-md border border-border px-2.5 py-2 text-left transition-colors hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            >
-              <span className="block text-xs font-semibold">{t('dermat_orders.book.everything', 'Everything')}</span>
-              <span className="block text-xs text-muted-foreground">{t('dermat_orders.book.everythingHint', 'Every field of every stage')}</span>
-            </button>
-          </div>
-        </div>
-        <div className="border-b p-3">
-          <div className="relative">
-            <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
-            <Input id="order-book-column-filter" value={filter} onChange={(event) => setFilter(event.target.value)} className="h-8 pl-8 text-xs" placeholder={t('dermat_orders.book.findColumn', 'Find a column to add, e.g. fragrance, LR no., shift')} />
-          </div>
-        </div>
-        <div className="max-h-80 space-y-3 overflow-y-auto p-3">
-          {sections.map(([section, columns]) => (
-            <div key={section} className="space-y-1">
-              <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{section}</p>
-              {columns.map((column) => (
-                <label key={column.key} className="flex cursor-pointer items-center gap-2 rounded-sm px-1 py-0.5 text-sm hover:bg-muted/40">
-                  <Checkbox checked={shown.has(column.key)} onCheckedChange={() => toggle(column.key)} />
-                  <span>{column.label}</span>
-                </label>
-              ))}
-            </div>
-          ))}
-        </div>
-        <div className="flex justify-between border-t p-2">
-          <Button type="button" variant="ghost" size="sm" onClick={() => onChange(DEFAULT_VIEW.columns)}>
-            {t('dermat_orders.book.reset', 'Back to master sheet')}
-          </Button>
-          <Button type="button" size="sm" onClick={() => setOpen(false)}>
-            {t('dermat_orders.book.done', 'Done')}
-          </Button>
-        </div>
-      </PopoverContent>
-    </Popover>
-  )
-}
 
 function ActionCell({ order, onOpen }: { order: SheetOrder; onOpen: (orderId: string, stageKey: string) => void }) {
   const t = useT()
@@ -378,7 +295,15 @@ export function OrdersPage() {
                   {t('dermat_orders.book.board', 'Board')}
                 </SegmentedControlItem>
               </SegmentedControl>
-              {view === 'table' ? <ColumnsMenu visible={visible} onChange={changeColumns} /> : null}
+              {view === 'table' ? (
+                <ViewsButton
+                  tableId="dermat_orders.order_book"
+                  columns={ALL_COLUMNS.map((column) => ({ key: column.key, label: column.label, group: column.section }))}
+                  visible={visible}
+                  onChange={changeColumns}
+                  builtIn={SHEET_VIEWS.map((entry) => ({ id: entry.key, name: entry.label, columns: entry.columns }))}
+                />
+              ) : null}
               {view === 'table' ? (
                 <EditTableBar editing={table.editing} dirtyCount={table.dirtyCount} saving={table.saving} onEdit={table.startEditing} onCancel={table.cancelEditing} onSave={() => void table.saveAll()} />
               ) : null}

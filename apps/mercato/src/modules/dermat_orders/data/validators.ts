@@ -15,6 +15,8 @@ export const orderLineInputSchema = z.object({
   gstPercent: z.coerce.number().min(0).max(40).default(18),
   discountPercent: z.coerce.number().min(0).max(100).default(0),
   batchNo: optionalText(60),
+  sampleNeeded: z.boolean().default(false),
+  rdNumber: optionalText(60),
   specs: z.object({ production: specSection, primary: specSection, secondary: specSection }).optional(),
 })
 
@@ -32,15 +34,18 @@ export const orderInputSchema = z.object({
   billingRemarks: optionalText(2000),
   packingRemarks: optionalText(2000),
   pricesIncludeGst: z.boolean().default(false),
+  priority: z.enum(['normal', 'urgent']).default('normal'),
+  billingAddress: optionalText(1000),
+  shippingAddress: optionalText(1000),
   lines: z.array(orderLineInputSchema).min(1).max(50),
 })
 
-export const orderUpdateSchema = orderInputSchema.extend({ id: z.string().uuid() })
+export const orderUpdateSchema = orderInputSchema.extend({ id: z.string().uuid(), revisionNote: optionalText(500) })
 
 export const stageActionSchema = z.object({
   orderId: z.string().uuid(),
   stageKey: z.enum(STAGE_KEYS as [string, ...string[]]),
-  action: z.enum(['start', 'checklist', 'rework', 'reject_batch', 'save', 'complete', 'hold', 'resume', 'revert', 'skip', 'assign', 'step', 'pm_status', 'new_round']),
+  action: z.enum(['start', 'checklist', 'rework', 'reject_batch', 'save', 'complete', 'hold', 'resume', 'revert', 'skip', 'assign', 'step', 'pm_status', 'new_round', 'delivered']),
   stepKey: z.string().max(60).optional(),
   productId: z.string().uuid().optional(),
   pmStatus: z.string().max(60).optional(),

@@ -22,6 +22,7 @@ import { flash } from '@open-mercato/ui/backend/FlashMessages'
 import { ExportButton } from '../../dermat_products/components/ExportButton'
 import { downloadCsv } from '../../dermat_products/lib/csvExport'
 import { ListSelectItems } from '../../dermat_lists/components/ListSelectItems'
+import { ViewsButton } from '../../dermat_products/components/ViewsPanel'
 
 type Place = 'rm' | 'pm' | 'production' | 'fg'
 type View = 'all' | 'under_test' | 'expiring' | 'hold'
@@ -59,6 +60,41 @@ function expiryTone(days: number | null, warn: number): string {
   if (days < 0) return 'font-medium text-status-error-text'
   if (days <= warn) return 'font-medium text-status-warning-text'
   return ''
+}
+
+
+type StockColumn = {
+  key: string
+  label: string
+  align?: 'right'
+  item: (item: Item) => React.ReactNode
+  lot?: (lot: Lot, item: Item) => React.ReactNode
+  itemClass?: (item: Item) => string
+  lotClass?: (lot: Lot) => string
+}
+
+const DEFAULT_STOCK_COLUMNS = ['onHand', 'underTest', 'reserved', 'free', 'expiry']
+
+function stockColumns(warnDays: number): StockColumn[] {
+  return [
+    { key: 'onHand', label: 'On hand', align: 'right', item: (item) => qty(item.onHand, item.unit), lot: (lot, item) => qty(lot.onHand, item.unit) },
+    { key: 'underTest', label: 'Under QC test', align: 'right', item: (item) => (item.underTest ? qty(item.underTest, item.unit) : '—'), itemClass: (item) => (item.underTest ? 'text-status-warning-text' : 'text-muted-foreground'), lot: (lot, item) => (lot.status === 'quarantine' ? qty(lot.onHand, item.unit) : '') },
+    { key: 'onHold', label: 'Rejected / on hold', align: 'right', item: (item) => (item.onHold ? qty(item.onHold, item.unit) : '—'), itemClass: (item) => (item.onHold ? 'text-status-error-text' : 'text-muted-foreground'), lot: (lot, item) => (lot.status === 'hold' || lot.status === 'expired' ? qty(lot.onHand, item.unit) : '') },
+    { key: 'reserved', label: 'Reserved for orders', align: 'right', item: (item) => (item.reserved ? qty(item.reserved, item.unit) : '—'), itemClass: () => 'text-muted-foreground' },
+    { key: 'free', label: 'Free to use', align: 'right', item: (item) => qty(item.free, item.unit), itemClass: () => 'font-semibold', lot: (lot, item) => qty(lot.free, item.unit) },
+    {
+      key: 'expiry',
+      label: 'Next expiry',
+      item: (item) => day(item.lots.map((lot) => lot.expiresAt).filter(Boolean).sort()[0] ?? null),
+      itemClass: (item) => expiryTone(item.nextExpiryDays, warnDays),
+      lot: (lot) => `${day(lot.expiresAt)}${lot.daysToExpiry !== null ? ` · ${lot.daysToExpiry < 0 ? 'expired' : `${lot.daysToExpiry} d`}` : ''}`,
+      lotClass: (lot) => expiryTone(lot.daysToExpiry, warnDays),
+    },
+    { key: 'unit', label: 'Unit', item: (item) => item.unit ?? '—' },
+    { key: 'batches', label: 'Batches', align: 'right', item: (item) => String(item.lots.length) },
+    { key: 'mfg', label: 'Mfg date', item: () => '', lot: (lot) => day(lot.manufacturedAt) },
+    { key: 'since', label: 'In store since', item: () => '', lot: (lot) => day(lot.receivedAt) },
+  ]
 }
 
 type DialogState =
@@ -301,6 +337,9 @@ export function StockPage() {
   const [open, setOpen] = React.useState<Set<string>>(new Set())
   const [dialog, setDialog] = React.useState<DialogState>(null)
   const [canAdjust, setCanAdjust] = React.useState(false)
+  const [columnKeys, setColumnKeys] = React.useState<string[]>(DEFAULT_STOCK_COLUMNS)
+  const allColumns = React.useMemo(() => stockColumns(book?.expiryWarningDays ?? 90), [book?.expiryWarningDays])
+  const shownColumns = columnKeys.map((key) => allColumns.find((column) => column.key === key)).filter((column): column is StockColumn => Boolean(column))
 
   const load = React.useCallback(async () => {
     const call = await apiCall<Book & { error?: string }>(`/api/dermat_store/stock?place=${place}&view=${view}${search.trim() ? `&q=${encodeURIComponent(search.trim())}` : ''}`)
@@ -371,6 +410,17 @@ export function StockPage() {
                   {t('dermat_store.stock.ledger', 'Stock ledger')}
                 </Link>
               </Button>
+              <ViewsButton
+                tableId="dermat_store.stock"
+                columns={allColumns.map((column) => ({ key: column.key, label: column.label, group: t('dermat_store.stock.columnsGroup', 'Stock') }))}
+                visible={columnKeys}
+                onChange={setColumnKeys}
+                builtIn={[
+                  { id: 'standard', name: t('dermat_store.stock.viewStandard', 'Standard'), columns: DEFAULT_STOCK_COLUMNS },
+                  { id: 'qc', name: t('dermat_store.stock.viewQc', 'QC status'), columns: ['onHand', 'underTest', 'onHold', 'free'] },
+                  { id: 'expiry', name: t('dermat_store.stock.viewExpiry', 'Batches and expiry'), columns: ['onHand', 'batches', 'mfg', 'since', 'expiry'] },
+                ]}
+              />
               <ExportButton size="sm" label={t('dermat_store.stock.export', 'Export')} onExport={exportCsv} disabled={!book?.items.length} />
               {canAdjust ? (
                 <Button type="button" size="sm" onClick={() => setDialog({ kind: 'in', item: null, lot: null })}>
@@ -423,17 +473,17 @@ export function StockPage() {
                   <tr>
                     <th className="w-8 px-2 py-2" />
                     <th className="px-3 py-2 text-left font-semibold">{t('dermat_store.stock.colMaterial', 'Material')}</th>
-                    <th className="px-3 py-2 text-right font-semibold">{t('dermat_store.stock.colOnHand', 'On hand')}</th>
-                    <th className="px-3 py-2 text-right font-semibold">{t('dermat_store.stock.colTest', 'Under test')}</th>
-                    <th className="px-3 py-2 text-right font-semibold">{t('dermat_store.stock.colReserved', 'Reserved')}</th>
-                    <th className="px-3 py-2 text-right font-semibold">{t('dermat_store.stock.colFree', 'Free to use')}</th>
-                    <th className="px-3 py-2 text-left font-semibold">{t('dermat_store.stock.colExpiry', 'Next expiry')}</th>
+                    {shownColumns.map((column) => (
+                      <th key={column.key} className={cn('px-3 py-2 font-semibold', column.align === 'right' ? 'text-right' : 'text-left')}>
+                        {column.label}
+                      </th>
+                    ))}
+                    {canAdjust ? <th className="w-28 px-3 py-2" /> : null}
                   </tr>
                 </thead>
                 <tbody className="divide-y">
                   {book.items.map((item) => {
                     const expanded = open.has(item.productId)
-                    const next = item.lots.map((lot) => lot.expiresAt).filter(Boolean).sort()[0] ?? null
                     return (
                       <React.Fragment key={item.productId}>
                         <tr className="hover:bg-muted/30">
@@ -443,12 +493,14 @@ export function StockPage() {
                               aria-expanded={expanded}
                               aria-label={expanded ? t('dermat_store.stock.hideBatches', 'Hide batches') : t('dermat_store.stock.showBatches', 'Show batches')}
                               className="rounded p-1 hover:bg-muted"
-                              onClick={() => setOpen((prev) => {
-                                const nextSet = new Set(prev)
-                                if (nextSet.has(item.productId)) nextSet.delete(item.productId)
-                                else nextSet.add(item.productId)
-                                return nextSet
-                              })}
+                              onClick={() =>
+                                setOpen((prev) => {
+                                  const nextSet = new Set(prev)
+                                  if (nextSet.has(item.productId)) nextSet.delete(item.productId)
+                                  else nextSet.add(item.productId)
+                                  return nextSet
+                                })
+                              }
                             >
                               {expanded ? <ChevronDown className="h-4 w-4" aria-hidden="true" /> : <ChevronRight className="h-4 w-4" aria-hidden="true" />}
                             </button>
@@ -457,15 +509,14 @@ export function StockPage() {
                             <Link href={`/backend/products/${item.productId}`} className="font-medium hover:underline">
                               {item.title}
                             </Link>
-                            <span className="block text-xs text-muted-foreground">
-                              <span className="font-mono">{item.code ?? '—'}</span> · {t('dermat_store.stock.batches', '{count} batch(es)', { count: item.lots.length })}
-                            </span>
+                            <span className="block font-mono text-xs text-muted-foreground">{item.code ?? '—'}</span>
                           </td>
-                          <td className="px-3 py-2 text-right tabular-nums">{qty(item.onHand, item.unit)}</td>
-                          <td className={cn('px-3 py-2 text-right tabular-nums', item.underTest ? 'text-status-warning-text' : 'text-muted-foreground')}>{item.underTest ? qty(item.underTest, item.unit) : '—'}</td>
-                          <td className="px-3 py-2 text-right tabular-nums text-muted-foreground">{item.reserved ? qty(item.reserved, item.unit) : '—'}</td>
-                          <td className="px-3 py-2 text-right font-semibold tabular-nums">{qty(item.free, item.unit)}</td>
-                          <td className={cn('px-3 py-2 tabular-nums', expiryTone(item.nextExpiryDays, book.expiryWarningDays))}>{day(next)}</td>
+                          {shownColumns.map((column) => (
+                            <td key={column.key} className={cn('px-3 py-2 tabular-nums', column.align === 'right' && 'text-right', column.itemClass?.(item))}>
+                              {column.item(item)}
+                            </td>
+                          ))}
+                          {canAdjust ? <td /> : null}
                         </tr>
                         {expanded
                           ? item.lots.map((lot) => (
@@ -474,35 +525,27 @@ export function StockPage() {
                                 <td className="px-3 py-2">
                                   <span className="font-mono">{lot.lotNumber ?? t('dermat_store.stock.noLot', 'no batch no.')}</span>{' '}
                                   <StatusBadge variant={LOT_STATUS[lot.status]?.variant ?? 'neutral'}>{LOT_STATUS[lot.status]?.label ?? lot.status}</StatusBadge>
-                                  <span className="block text-muted-foreground">
-                                    {t('dermat_store.stock.lotDates', 'Mfg {mfg} · in store since {since}', { mfg: day(lot.manufacturedAt), since: day(lot.receivedAt) })}
-                                  </span>
                                 </td>
-                                <td className="px-3 py-2 text-right tabular-nums">{qty(lot.onHand, item.unit)}</td>
-                                <td />
-                                <td />
-                                <td className="px-3 py-2 text-right tabular-nums">{qty(lot.free, item.unit)}</td>
-                                <td className="px-3 py-2">
-                                  <div className="flex flex-wrap items-center justify-between gap-2">
-                                    <span className={cn('tabular-nums', expiryTone(lot.daysToExpiry, book.expiryWarningDays))}>
-                                      {day(lot.expiresAt)}
-                                      {lot.daysToExpiry !== null ? ` · ${lot.daysToExpiry < 0 ? t('dermat_store.stock.expiredAgo', 'expired') : t('dermat_store.stock.daysLeft', '{days} d', { days: lot.daysToExpiry })}` : ''}
+                                {shownColumns.map((column) => (
+                                  <td key={column.key} className={cn('px-3 py-2 tabular-nums', column.align === 'right' && 'text-right', column.lotClass?.(lot))}>
+                                    {column.lot ? column.lot(lot, item) : null}
+                                  </td>
+                                ))}
+                                {canAdjust ? (
+                                  <td className="px-3 py-2">
+                                    <span className="flex justify-end gap-1">
+                                      <Button type="button" variant="ghost" size="sm" className="h-7 px-2" onClick={() => setDialog({ kind: 'in', item, lot })} aria-label={t('dermat_store.stock.addTo', 'Add to batch {lot}', { lot: lot.lotNumber ?? '' })}>
+                                        <Plus className="h-3.5 w-3.5" aria-hidden="true" />
+                                      </Button>
+                                      <Button type="button" variant="ghost" size="sm" className="h-7 px-2" disabled={lot.free <= 0} onClick={() => setDialog({ kind: 'out', item, lot })} aria-label={t('dermat_store.stock.removeFrom', 'Remove from batch {lot}', { lot: lot.lotNumber ?? '' })}>
+                                        <Minus className="h-3.5 w-3.5" aria-hidden="true" />
+                                      </Button>
+                                      <Button type="button" variant="ghost" size="sm" className="h-7 px-2" disabled={lot.status !== 'available' || lot.free <= 0} onClick={() => setDialog({ kind: 'move', item, lot })} aria-label={t('dermat_store.stock.moveBatch', 'Move batch {lot}', { lot: lot.lotNumber ?? '' })}>
+                                        <ArrowRightLeft className="h-3.5 w-3.5" aria-hidden="true" />
+                                      </Button>
                                     </span>
-                                    {canAdjust ? (
-                                      <span className="flex gap-1">
-                                        <Button type="button" variant="ghost" size="sm" className="h-7 px-2" onClick={() => setDialog({ kind: 'in', item, lot })} aria-label={t('dermat_store.stock.addTo', 'Add to batch {lot}', { lot: lot.lotNumber ?? '' })}>
-                                          <Plus className="h-3.5 w-3.5" aria-hidden="true" />
-                                        </Button>
-                                        <Button type="button" variant="ghost" size="sm" className="h-7 px-2" disabled={lot.free <= 0} onClick={() => setDialog({ kind: 'out', item, lot })} aria-label={t('dermat_store.stock.removeFrom', 'Remove from batch {lot}', { lot: lot.lotNumber ?? '' })}>
-                                          <Minus className="h-3.5 w-3.5" aria-hidden="true" />
-                                        </Button>
-                                        <Button type="button" variant="ghost" size="sm" className="h-7 px-2" disabled={lot.status !== 'available' || lot.free <= 0} onClick={() => setDialog({ kind: 'move', item, lot })} aria-label={t('dermat_store.stock.moveBatch', 'Move batch {lot}', { lot: lot.lotNumber ?? '' })}>
-                                          <ArrowRightLeft className="h-3.5 w-3.5" aria-hidden="true" />
-                                        </Button>
-                                      </span>
-                                    ) : null}
-                                  </div>
-                                </td>
+                                  </td>
+                                ) : null}
                               </tr>
                             ))
                           : null}
@@ -511,7 +554,7 @@ export function StockPage() {
                   })}
                   {!book.items.length ? (
                     <tr>
-                      <td colSpan={7} className="px-3 py-10 text-center text-sm text-muted-foreground">
+                      <td colSpan={shownColumns.length + (canAdjust ? 3 : 2)} className="px-3 py-10 text-center text-sm text-muted-foreground">
                         {search || view !== 'all' ? t('dermat_store.stock.noMatch', 'Nothing matches this filter.') : t('dermat_store.stock.empty', 'Nothing is in the {place} yet. Stock arrives through GRNs, production, or Add stock.', { place: book.label })}
                       </td>
                     </tr>

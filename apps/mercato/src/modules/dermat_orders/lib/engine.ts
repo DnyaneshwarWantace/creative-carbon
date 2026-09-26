@@ -1,7 +1,7 @@
 import { DermatOrder, DermatOrderEvent, DermatOrderLine, DermatOrderStage } from '../data/entities'
 import type { StageActionInput } from '../data/validators'
 import { activeOptions } from '../../dermat_lists/lib/service'
-import { QA_ARTWORK_CHECKS, STAGES, isFinished, missingRequired, missingSteps, stageDef, stepStates } from './stages'
+import { orderHeadline, QA_ARTWORK_CHECKS, STAGES, isFinished, missingRequired, missingSteps, stageDef, stepStates } from './stages'
 import { blockingChecks, checksForOrder, closeFailedChecks, ensureChecksForStage, retireStageChecks, type StageQcSummary } from '../../dermat_quality/lib/service'
 import { requestsForOrder, storeBlocking } from '../../dermat_store/lib/service'
 import { reservationsForOrder } from '../../dermat_planning/lib/service'
@@ -155,6 +155,18 @@ export async function applyStageAction(ctx: OrderContext, order: DermatOrder, in
       if ((stage.data as Record<string, unknown> | null)?.__started) throw new OrderError(`${def.label} is already in progress`, 409)
       markStarted()
       logEvent(ctx, order, 'started', def.key, note, byName)
+      break
+    }
+    case 'delivered': {
+      if (def.key !== 'dispatch') throw new OrderError('Only Dispatch can be marked delivered')
+      if (stage.status !== 'done') throw new OrderError('Complete Dispatch first, then mark it delivered', 409)
+      const deliveredOn = typeof input.data?.delivered_on === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(input.data.delivered_on) ? input.data.delivered_on : new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' })
+      const dispatched = typeof stage.data?.dispatch_date === 'string' ? stage.data.dispatch_date : null
+      if (dispatched && deliveredOn < dispatched) throw new OrderError('Delivery date is before the dispatch date')
+      const steps = { ...((stage.data?.__steps as Record<string, unknown> | undefined) ?? {}), delivered: { done: true, at: new Date().toISOString(), by: byName } }
+      stage.data = { ...(stage.data ?? {}), delivered_on: deliveredOn, __steps: steps }
+      order.updatedAt = new Date()
+      logEvent(ctx, order, 'delivered', def.key, [`Delivered on ${deliveredOn}`, note].filter(Boolean).join(' · '), byName)
       break
     }
     case 'assign': {
@@ -494,6 +506,13 @@ export async function serializeOrder(ctx: OrderContext, order: DermatOrder) {
     billingRemarks: order.billingRemarks ?? null,
     packingRemarks: order.packingRemarks ?? null,
     status: order.status,
+    headline: orderHeadline(order.status, order.revisedAt, stages.find((stage) => stage.stageKey === 'dispatch')?.data),
+    priority: order.priority,
+    billingAddress: order.billingAddress ?? null,
+    shippingAddress: order.shippingAddress ?? null,
+    revisedAt: order.revisedAt ? order.revisedAt.toISOString() : null,
+    revisedByName: order.revisedByName ?? null,
+    revisionNote: order.revisionNote ?? null,
     onHold: views.some((stage) => stage.status === 'on_hold'),
     createdByName: order.createdByName ?? null,
     createdAt: order.createdAt.toISOString(),
@@ -514,6 +533,8 @@ export async function serializeOrder(ctx: OrderContext, order: DermatOrder) {
       discountPercent: Number(line.discountPercent ?? 0),
       price: priceLine(pricedLine(line), order.pricesIncludeGst),
       batchNo: line.batchNo ?? null,
+      sampleNeeded: line.sampleNeeded,
+      rdNumber: line.rdNumber ?? null,
       specs: line.specs ?? {},
     })),
     pricesIncludeGst: order.pricesIncludeGst,

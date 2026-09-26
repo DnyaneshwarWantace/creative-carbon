@@ -8,15 +8,7 @@ import { ListEmptyState } from '@open-mercato/ui/backend/filters/ListEmptyState'
 import type { LegacyColumnDef as ColumnDef } from '@tanstack/react-table/legacy'
 import { RowActions } from '@open-mercato/ui/backend/RowActions'
 import { Button } from '@open-mercato/ui/primitives/button'
-import { Input } from '@open-mercato/ui/primitives/input'
 import { BooleanIcon } from '@open-mercato/ui/backend/ValueIcons'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@open-mercato/ui/primitives/select'
 import { Plus } from 'lucide-react'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { apiCall, withScopedApiRequestHeaders } from '@open-mercato/ui/backend/utils/apiCall'
@@ -47,127 +39,13 @@ type VendorRow = {
   updated_at: string
 }
 
+const CATEGORY_TEXT: Record<string, string> = { rm_supplier: 'Raw material', pm_supplier: 'Packing material', both: 'RM and PM' }
+
 type ResponsePayload = {
   items: VendorRow[]
   total: number
   page: number
   totalPages: number
-}
-
-type EditableField =
-  | 'name'
-  | 'code'
-  | 'gstNumber'
-  | 'contactPerson'
-  | 'contactPhone'
-  | 'contactEmail'
-  | 'paymentTerms'
-  | 'category'
-
-const FIELD_TO_COLUMN: Record<EditableField, keyof VendorRow> = {
-  name: 'name',
-  code: 'code',
-  gstNumber: 'gst_number',
-  contactPerson: 'contact_person',
-  contactPhone: 'contact_phone',
-  contactEmail: 'contact_email',
-  paymentTerms: 'payment_terms',
-  category: 'category',
-}
-
-function InlineCell({
-  row,
-  field,
-  onCommit,
-}: {
-  row: VendorRow
-  field: EditableField
-  onCommit: (row: VendorRow, field: EditableField, value: string) => Promise<void>
-}) {
-  const columnKey = FIELD_TO_COLUMN[field]
-  const initial = row[columnKey]
-  const [value, setValue] = React.useState(initial == null ? '' : String(initial))
-  const [saving, setSaving] = React.useState(false)
-
-  React.useEffect(() => {
-    setValue(initial == null ? '' : String(initial))
-  }, [initial])
-
-  const commit = React.useCallback(async () => {
-    const original = initial == null ? '' : String(initial)
-    if (value === original) return
-    setSaving(true)
-    try {
-      await onCommit(row, field, value)
-    } finally {
-      setSaving(false)
-    }
-  }, [field, initial, onCommit, row, value])
-
-  return (
-    <Input
-      value={value}
-      disabled={saving}
-      onChange={(event) => setValue(event.target.value)}
-      onBlur={commit}
-      onKeyDown={(event) => {
-        if (event.key === 'Enter') {
-          event.preventDefault()
-          ;(event.target as HTMLInputElement).blur()
-        }
-        if (event.key === 'Escape') {
-          setValue(initial == null ? '' : String(initial))
-          ;(event.target as HTMLInputElement).blur()
-        }
-      }}
-      className="h-8 border-transparent bg-transparent px-2 hover:border-input focus:border-input"
-    />
-  )
-}
-
-function InlineSelectCell({
-  row,
-  field,
-  options,
-  onCommit,
-}: {
-  row: VendorRow
-  field: EditableField
-  options: readonly string[]
-  onCommit: (row: VendorRow, field: EditableField, value: string) => Promise<void>
-}) {
-  const columnKey = FIELD_TO_COLUMN[field]
-  const initial = row[columnKey]
-  const value = initial == null ? '' : String(initial)
-  const [saving, setSaving] = React.useState(false)
-
-  const handleChange = React.useCallback(
-    async (nextValue: string) => {
-      if (nextValue === value) return
-      setSaving(true)
-      try {
-        await onCommit(row, field, nextValue)
-      } finally {
-        setSaving(false)
-      }
-    },
-    [field, onCommit, row, value]
-  )
-
-  return (
-    <Select value={value} onValueChange={handleChange} disabled={saving}>
-      <SelectTrigger className="h-8 border-transparent bg-transparent px-2 hover:border-input focus:border-input">
-        <SelectValue />
-      </SelectTrigger>
-      <SelectContent>
-        {options.map((option) => (
-          <SelectItem key={option} value={option}>
-            {option}
-          </SelectItem>
-        ))}
-      </SelectContent>
-    </Select>
-  )
 }
 
 export default function DermatVendorsPage() {
@@ -238,47 +116,6 @@ export default function DermatVendorsPage() {
     }
   }, [page, search, filters, reloadToken, scopeVersion, t])
 
-  const handleInlineCommit = React.useCallback(
-    async (row: VendorRow, field: EditableField, value: string) => {
-      try {
-        const payload: Record<string, unknown> = { id: row.id, [field]: value }
-        await runMutation({
-          operation: async () => {
-            const call = await withScopedApiRequestHeaders(
-              buildOptimisticLockHeader(row.updated_at),
-              () => apiCall(`/api/dermat_vendors/vendors`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload),
-              }),
-            )
-            if (!call.ok) {
-              throw Object.assign(new Error('[internal] dermat_vendors.update failed'), {
-                status: call.status,
-                ...((call.result as Record<string, unknown> | null) ?? {}),
-              })
-            }
-            return call
-          },
-          context: {
-            formId: mutationContextId,
-            resourceKind: 'dermat_vendors.vendor',
-            resourceId: row.id,
-            retryLastMutation,
-          },
-          mutationPayload: payload,
-        })
-
-        setReloadToken((tokenValue) => tokenValue + 1)
-      } catch (error) {
-        if (surfaceRecordConflict(error, t, { onRefresh: () => setReloadToken((tokenValue) => tokenValue + 1) })) return
-        flash(t('dermat_vendors.flash.updateError', 'Failed to update vendor'), 'error')
-        setReloadToken((tokenValue) => tokenValue + 1)
-      }
-    },
-    [mutationContextId, retryLastMutation, runMutation, t]
-  )
-
   const handleDelete = React.useCallback(
     async (row: VendorRow) => {
       const confirmed = await confirmDialog({
@@ -331,62 +168,45 @@ export default function DermatVendorsPage() {
         accessorKey: 'name',
         header: t('dermat_vendors.list.columns.name', 'Name'),
         cell: ({ row }) => (
-          <InlineCell row={row.original} field="name" onCommit={handleInlineCommit} />
+          <Link href={`/backend/dermat_vendors/${row.original.id}`} className="font-medium hover:underline">
+            {row.original.name}
+          </Link>
         ),
       },
       {
         accessorKey: 'code',
         header: t('dermat_vendors.list.columns.code', 'Code'),
-        cell: ({ row }) => (
-          <InlineCell row={row.original} field="code" onCommit={handleInlineCommit} />
-        ),
+        cell: ({ row }) => <span className="text-sm">{row.original.code || '—'}</span>,
       },
       {
         accessorKey: 'gst_number',
         header: t('dermat_vendors.list.columns.gstNumber', 'GST number'),
-        cell: ({ row }) => (
-          <InlineCell row={row.original} field="gstNumber" onCommit={handleInlineCommit} />
-        ),
+        cell: ({ row }) => <span className="text-sm">{row.original.gst_number || '—'}</span>,
       },
       {
         accessorKey: 'category',
         header: t('dermat_vendors.list.columns.category', 'Category'),
-        cell: ({ row }) => (
-          <InlineSelectCell
-            row={row.original}
-            field="category"
-            options={VENDOR_CATEGORIES}
-            onCommit={handleInlineCommit}
-          />
-        ),
+        cell: ({ row }) => <span className="text-sm">{CATEGORY_TEXT[row.original.category ?? ''] ?? row.original.category ?? '—'}</span>,
       },
       {
         accessorKey: 'contact_person',
         header: t('dermat_vendors.list.columns.contactPerson', 'Contact person'),
-        cell: ({ row }) => (
-          <InlineCell row={row.original} field="contactPerson" onCommit={handleInlineCommit} />
-        ),
+        cell: ({ row }) => <span className="text-sm">{row.original.contact_person || '—'}</span>,
       },
       {
         accessorKey: 'contact_phone',
         header: t('dermat_vendors.list.columns.contactPhone', 'Contact phone'),
-        cell: ({ row }) => (
-          <InlineCell row={row.original} field="contactPhone" onCommit={handleInlineCommit} />
-        ),
+        cell: ({ row }) => <span className="text-sm">{row.original.contact_phone || '—'}</span>,
       },
       {
         accessorKey: 'contact_email',
         header: t('dermat_vendors.list.columns.contactEmail', 'Contact email'),
-        cell: ({ row }) => (
-          <InlineCell row={row.original} field="contactEmail" onCommit={handleInlineCommit} />
-        ),
+        cell: ({ row }) => <span className="text-sm">{row.original.contact_email || '—'}</span>,
       },
       {
         accessorKey: 'payment_terms',
         header: t('dermat_vendors.list.columns.paymentTerms', 'Payment terms'),
-        cell: ({ row }) => (
-          <InlineCell row={row.original} field="paymentTerms" onCommit={handleInlineCommit} />
-        ),
+        cell: ({ row }) => <span className="text-sm">{row.original.payment_terms || '—'}</span>,
       },
       {
         accessorKey: 'is_active',
@@ -395,7 +215,7 @@ export default function DermatVendorsPage() {
         cell: ({ getValue }) => <BooleanIcon value={Boolean(getValue())} />,
       },
     ],
-    [t, handleInlineCommit]
+    [t]
   )
 
   const filterDefs = React.useMemo<FilterDef[]>(
@@ -427,6 +247,7 @@ export default function DermatVendorsPage() {
     <Page>
       <PageBody>
         <DataTable
+          perspective={{ tableId: 'dermat_vendors.list' }}
           title={t('dermat_vendors.list.title', 'Vendors')}
           columns={columns}
           data={rows}

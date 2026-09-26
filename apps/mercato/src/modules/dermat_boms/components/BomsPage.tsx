@@ -156,6 +156,8 @@ export function BomsPage() {
           </Tabs>
         </div>
         <DataTable
+          key={`boms-${kind}`}
+          perspective={{ tableId: `dermat_boms.${kind}` }}
           title={kind === 'formula' ? t('dermat_boms.list.formulaTitle', 'Formulas') : t('dermat_boms.list.packTitle', 'Pack BOMs')}
           columns={columns}
           data={rows}
