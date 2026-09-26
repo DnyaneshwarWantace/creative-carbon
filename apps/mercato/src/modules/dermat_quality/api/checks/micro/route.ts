@@ -5,6 +5,7 @@ import { enforceCommandOptimisticLock } from '@open-mercato/shared/lib/crud/opti
 import { decideSchema } from '../../../data/validators'
 import { checkView, decidePart, findCheck } from '../../../lib/checks'
 import { qcErrorResponse, resolveQcContext, runGuarded } from '../../../lib/server'
+import { applyInwardDecision } from '../../../../dermat_purchase/lib/inward'
 
 export const metadata = {
   POST: { requireAuth: true, requireFeatures: ['dermat_quality.micro'] },
@@ -21,6 +22,7 @@ async function POST(req: Request) {
     return await runGuarded(ctx, req, { resourceKind: 'dermat_quality.check', resourceId: check.id, operation: 'custom', payload: parsed.data }, async () => {
       await decidePart(ctx, check, 'micro', parsed.data.result, parsed.data.note ?? null)
       await ctx.em.flush()
+      if (check.operation === 'purchase_receipt') await applyInwardDecision(req, check.id)
       return NextResponse.json(await checkView(ctx, check))
     })
   } catch (error) {

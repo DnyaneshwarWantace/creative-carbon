@@ -138,3 +138,37 @@ export async function blockingChecks(scope: QcScope, orderId: string, stageKey: 
   const checks = await scope.em.find(QcCheck, { orderId, stageKey, tenantId: scope.tenantId, organizationId: scope.organizationId, deletedAt: null })
   return checks.filter((check) => check.status !== 'passed')
 }
+
+export async function createInwardCheck(
+  scope: QcScope,
+  input: { grnId: string; grnCode: string; productId: string; lotNumber: string; byName: string | null },
+): Promise<QcCheck | null> {
+  await ensureDefaultRules(scope)
+  const rule = await resolveRule(scope, 'purchase_receipt', input.productId)
+  if (!rule || !rule.isActive) return null
+  const results: QcResult[] = (rule.parameters ?? [])
+    .filter((param) => (param.test === 'micro' ? rule.requiresMicro : rule.requiresChemical))
+    .map((param) => ({ ...param, observation: '', remark: '' }))
+  const check = scope.em.create(QcCheck, {
+    organizationId: scope.organizationId,
+    tenantId: scope.tenantId,
+    code: await nextCode(scope, 'dermat_quality_checks', 'QC', 4),
+    operation: 'purchase_receipt',
+    productId: input.productId,
+    orderId: input.grnId,
+    orderNo: input.grnCode,
+    stageKey: 'grn',
+    batchNo: input.lotNumber,
+    ruleId: rule.id,
+    requiresChemical: rule.requiresChemical,
+    requiresMicro: rule.requiresMicro,
+    chemicalStatus: rule.requiresChemical ? 'pending' : 'na',
+    microStatus: rule.requiresMicro ? 'pending' : 'na',
+    status: rule.requiresChemical || rule.requiresMicro ? 'pending' : 'passed',
+    results,
+    history: [{ action: 'created', by: input.byName, at: new Date().toISOString(), note: `Inward material from ${input.grnCode} · ${rule.code} ${rule.title}` }],
+  })
+  scope.em.persist(check)
+  await scope.em.flush()
+  return check
+}

@@ -33,7 +33,8 @@ This app is **Dermat India's ERP** (cosmetics contract manufacturer) built on Op
 | Artwork & PM | own sidebar group `dermat-03b-artwork.nav.group` → `/backend/work/artwork` | `dermat_orders` | — |
 | Store requests (production asks RM / PM store, issue by batch, receive, use, return) | Store → Store requests `/backend/store/requests`, `/backend/store/requests/<id>`, `/backend/store/requests/new?orderId&stageKey`; Production → Material from store `/backend/production/material` | `dermat_store` (spec `.ai/specs/2026-09-26-dermat-store-requests.md`); stock helpers `dermat_products/lib/stock.ts` | stock moves only through wms commands |
 | Planning board and reserved stock (several orders / BOMs → one total; reserve, clear, move; never expires) | Planning → Planning board `/backend/planning` (`?orders=`), Reserved stock `/backend/planning/reservations` | `dermat_planning` (spec `.ai/specs/2026-09-26-dermat-planning.md`) | core `/backend/wms/reservations` nulled; reservations are Dermat rows, not wms reservations |
-| Purchase / GRN, inward QC checks from GRN, production batches | not rebuilt yet | — | build as new `dermat_*` modules |
+| Purchase (PO with approval, GRN into "under test" stock, inward QC approves / rejects the batch, return to vendor) | Purchase → Purchase orders `/backend/purchase/orders` (`/new?items=&orders=`, `/<id>`, `/<id>/edit`), Goods receiving `/backend/purchase/grns` (`/new?poId=`, `/<id>`) | `dermat_purchase` (spec `.ai/specs/2026-09-26-dermat-purchase.md`) | only `available` batches count as usable stock |
+| Production batches (one bulk feeding several orders), morning email, dashboard | not built yet | — | build as new `dermat_*` modules |
 
 Every route override lives in `apps/mercato/src/modules.ts` under the `dermat_customers` entry. Add new ones there.
 

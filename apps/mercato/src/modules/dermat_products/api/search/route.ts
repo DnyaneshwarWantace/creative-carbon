@@ -21,6 +21,10 @@ const querySchema = z.object({
     .pipe(z.array(z.enum(KIND_CODES)).min(1)),
   q: z.string().trim().max(200).optional(),
   limit: z.coerce.number().int().min(1).max(100).default(50),
+  ids: z
+    .string()
+    .transform((value) => value.split(',').filter((id) => /^[0-9a-f-]{36}$/i.test(id)))
+    .optional(),
 })
 
 const itemSchema = z.object({
@@ -48,6 +52,7 @@ async function GET(req: Request) {
     kinds: parsed.data.kinds,
     query: parsed.data.q,
     limit: parsed.data.limit,
+    ids: parsed.data.ids,
   })
   return NextResponse.json({ items })
 }

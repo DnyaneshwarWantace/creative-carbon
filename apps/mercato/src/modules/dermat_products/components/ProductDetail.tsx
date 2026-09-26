@@ -64,6 +64,10 @@ type StoreRequestRow = {
   product: { required: number; issued: number; received: number; used: number; returned: number; unit: string } | null
 }
 
+type PurchaseRow = { id: string; code: string; vendorName: string; poDate: string; expectedDate: string | null; status: string; product: { quantity: number; received: number; rate: number; unit: string } | null }
+const PO_VARIANT: Record<string, StatusBadgeVariant> = { draft: 'neutral', pending_approval: 'warning', approved: 'info', partly_received: 'info', received: 'success', cancelled: 'error' }
+const PO_LABEL: Record<string, string> = { draft: 'Draft', pending_approval: 'Waiting approval', approved: 'Approved', partly_received: 'Partly received', received: 'Received', cancelled: 'Cancelled' }
+
 const REQUEST_VARIANT: Record<StoreRequestRow['status'], StatusBadgeVariant> = { requested: 'warning', partly_issued: 'info', issued: 'info', received: 'success', used: 'neutral', cancelled: 'error' }
 const REQUEST_LABEL: Record<StoreRequestRow['status'], string> = { requested: 'Requested', partly_issued: 'Partly issued', issued: 'Issued', received: 'Received', used: 'Used', cancelled: 'Cancelled' }
 
@@ -140,6 +144,7 @@ export function ProductDetail({ productId }: { productId: string }) {
   const [orders, setOrders] = React.useState<OrderRow[] | null>(null)
   const [packing, setPacking] = React.useState<Packing[]>([])
   const [requests, setRequests] = React.useState<StoreRequestRow[] | null>(null)
+  const [purchases, setPurchases] = React.useState<PurchaseRow[] | null>(null)
   const [parent, setParent] = React.useState<{ id: string; title: string } | null>(null)
 
   const kind = (text(read(product, 'custom_fieldset_code')) as ProductKind) || null
@@ -170,6 +175,9 @@ export function ProductDetail({ productId }: { productId: string }) {
       if (itemKind === 'raw_material' || itemKind === 'packing_material') {
         apiCall<{ items?: StoreRequestRow[] }>(`/api/dermat_store/requests?productId=${encodeURIComponent(productId)}&pageSize=20`, undefined, { fallback: { items: [] } }).then((call) => {
           if (!cancelled) setRequests(call.result?.items ?? [])
+        })
+        apiCall<{ items?: PurchaseRow[] }>(`/api/dermat_purchase/orders?productId=${encodeURIComponent(productId)}&pageSize=20`, undefined, { fallback: { items: [] } }).then((call) => {
+          if (!cancelled) setPurchases(call.result?.items ?? [])
         })
       }
 
@@ -462,6 +470,50 @@ export function ProductDetail({ productId }: { productId: string }) {
                   <Empty>{t('dermat_products.detail.noMovements', 'No stock movements yet.')}</Empty>
                 )}
               </Section>
+
+              {purchases ? (
+                <Section
+                  icon={FileStack}
+                  title={t('dermat_products.detail.purchases', 'Purchase orders')}
+                  description={t('dermat_products.detail.purchasesHint', 'Ordered from vendors, and how much has arrived')}
+                  action={
+                    <Link href={`/backend/purchase/orders/new?items=${productId}:0`} className="text-xs font-medium text-primary hover:underline">
+                      {t('dermat_products.detail.raisePo', 'Raise PO')}
+                    </Link>
+                  }
+                  flush
+                >
+                  {purchases.length ? (
+                    <ul className="divide-y text-sm">
+                      {purchases.map((po) => (
+                        <li key={po.id}>
+                          <Link href={`/backend/purchase/orders/${po.id}`} className="flex items-center justify-between gap-3 px-4 py-2.5 hover:bg-muted/40">
+                            <span className="min-w-0">
+                              <span className="block font-mono text-xs font-semibold">{po.code}</span>
+                              <span className="block truncate text-xs text-muted-foreground">
+                                {po.vendorName} · {date(po.poDate)}
+                              </span>
+                            </span>
+                            <span className="flex shrink-0 items-center gap-3">
+                              {po.product ? (
+                                <span className="text-right text-xs tabular-nums text-muted-foreground">
+                                  <span className="block font-mono text-foreground">
+                                    {qty(po.product.received)} / {qty(po.product.quantity)} {po.product.unit}
+                                  </span>
+                                  ₹{qty(po.product.rate, 2)} / {po.product.unit}
+                                </span>
+                              ) : null}
+                              <StatusBadge variant={PO_VARIANT[po.status] ?? 'neutral'}>{PO_LABEL[po.status] ?? po.status}</StatusBadge>
+                            </span>
+                          </Link>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <Empty>{t('dermat_products.detail.noPurchases', 'Never ordered from a vendor yet.')}</Empty>
+                  )}
+                </Section>
+              ) : null}
 
               {requests ? (
                 <Section

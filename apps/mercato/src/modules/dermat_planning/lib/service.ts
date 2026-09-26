@@ -4,7 +4,8 @@ import { approvedPackBoms, currentUserName, loadCustomers, loadProducts, type Or
 import { STAGES, financialYear } from '../../dermat_orders/lib/stages'
 import { BomHeader } from '../../dermat_boms/data/entities'
 import { explodeBom } from '../../dermat_boms/lib/explode'
-import { LOCATION_CODES, dermatWarehouse, lotsAtLocation, variantsForProducts, type StockScope } from '../../dermat_products/lib/stock'
+import { LOCATION_CODES, dermatWarehouse, isUsable, lotsAtLocation, variantsForProducts, type StockScope } from '../../dermat_products/lib/stock'
+import { openPurchaseFor } from '../../dermat_purchase/lib/service'
 import { PlanningLog, PlanningReservation } from '../data/entities'
 import type { PlanItemInput } from '../data/validators'
 
@@ -42,17 +43,32 @@ export async function reservationsFor(ctx: Scope, filter: { orderIds?: string[];
   return ctx.em.find(PlanningReservation, where, { orderBy: { since: 'asc' } })
 }
 
-export async function storeStock(ctx: Scope, productIds: string[]): Promise<Map<string, number>> {
-  const result = new Map<string, number>()
-  if (!productIds.length) return result
+async function storeLots(ctx: Scope, productIds: string[]) {
   const scope = stockScope(ctx)
   const [warehouse, variants] = await Promise.all([dermatWarehouse(scope), variantsForProducts(scope, productIds)])
-  if (!warehouse) return result
+  if (!warehouse) return { variants, lots: [] as Awaited<ReturnType<typeof lotsAtLocation>> }
   const variantIds = Array.from(variants.values())
   const locations = [warehouse.locations.get(LOCATION_CODES.rm), warehouse.locations.get(LOCATION_CODES.pm)].filter((id): id is string => Boolean(id))
   const lots = (await Promise.all(locations.map((location) => lotsAtLocation(scope, variantIds, location)))).flat()
+  return { variants, lots }
+}
+
+export async function storeStock(ctx: Scope, productIds: string[]): Promise<Map<string, number>> {
+  const result = new Map<string, number>()
+  if (!productIds.length) return result
+  const { variants, lots } = await storeLots(ctx, productIds)
   for (const [productId, variantId] of variants) {
-    result.set(productId, round(lots.filter((lot) => lot.variantId === variantId).reduce((sum, lot) => sum + lot.onHand, 0)))
+    result.set(productId, round(lots.filter((lot) => lot.variantId === variantId && isUsable(lot)).reduce((sum, lot) => sum + lot.onHand, 0)))
+  }
+  return result
+}
+
+export async function underTestStock(ctx: Scope, productIds: string[]): Promise<Map<string, number>> {
+  const result = new Map<string, number>()
+  if (!productIds.length) return result
+  const { variants, lots } = await storeLots(ctx, productIds)
+  for (const [productId, variantId] of variants) {
+    result.set(productId, round(lots.filter((lot) => lot.variantId === variantId && lot.status === 'quarantine').reduce((sum, lot) => sum + lot.onHand, 0)))
   }
   return result
 }
@@ -208,6 +224,10 @@ export type CalcRow = {
   reservedOther: number
   free: number
   short: number
+  underTest: number
+  onOrder: number
+  toOrder: number
+  openPos: Array<{ poId: string; code: string; open: number; expectedDate: string | null; vendorName: string }>
   status: 'reserved' | 'available' | 'partial' | 'short'
   sources: CalcSource[]
   holders: Array<{ orderId: string; orderNo: string; quantity: number; since: string }>
@@ -246,7 +266,12 @@ export async function calculate(ctx: OrderContext, items: PlanItemInput[]) {
     }
   }
   const materialIds = Array.from(totals.keys())
-  const [stock, reservations] = await Promise.all([storeStock(ctx, materialIds), reservationsFor(ctx, { productIds: materialIds })])
+  const [stock, reservations, testing, purchases] = await Promise.all([
+    storeStock(ctx, materialIds),
+    reservationsFor(ctx, { productIds: materialIds }),
+    underTestStock(ctx, materialIds),
+    openPurchaseFor(ctx, materialIds),
+  ])
   const rows: CalcRow[] = materialIds.map((productId) => {
     const total = totals.get(productId)!
     const own = reservations.filter((entry) => entry.productId === productId)
@@ -274,6 +299,10 @@ export async function calculate(ctx: OrderContext, items: PlanItemInput[]) {
       reservedOther: round(reservedAll - reservedHere),
       free,
       short,
+      underTest: testing.get(productId) ?? 0,
+      onOrder: round((purchases.get(productId) ?? []).reduce((sum, entry) => sum + entry.open, 0)),
+      toOrder: round(Math.max(0, short - (testing.get(productId) ?? 0) - (purchases.get(productId) ?? []).reduce((sum, entry) => sum + entry.open, 0))),
+      openPos: purchases.get(productId) ?? [],
       status,
       sources,
       holders: own.map((entry) => ({ orderId: entry.orderId, orderNo: entry.orderNo, quantity: round(num(entry.quantity)), since: entry.since.toISOString() })),

@@ -46,14 +46,18 @@ export async function variantsForProducts(scope: StockScope, productIds: string[
   return result
 }
 
-export type LotStock = { variantId: string; lotId: string | null; lotNumber: string | null; onHand: number; free: number; expiresAt: string | null }
+export type LotStock = { variantId: string; lotId: string | null; lotNumber: string | null; onHand: number; free: number; expiresAt: string | null; status: string }
+
+export function isUsable(lot: LotStock): boolean {
+  return lot.status === 'available'
+}
 
 export async function lotsAtLocation(scope: StockScope, variantIds: string[], locationId: string): Promise<LotStock[]> {
   const ids = uuids(variantIds)
   if (!ids.length) return []
-  const rows = await run<Array<{ catalog_variant_id: string; lot_id: string | null; lot_number: string | null; on_hand: string; free: string; expires_at: Date | null }>>(
+  const rows = await run<Array<{ catalog_variant_id: string; lot_id: string | null; lot_number: string | null; on_hand: string; free: string; expires_at: Date | null; status: string | null }>>(
     scope,
-    `select b.catalog_variant_id, b.lot_id, lot.lot_number, b.quantity_on_hand as on_hand,
+    `select b.catalog_variant_id, b.lot_id, lot.lot_number, coalesce(lot.status, 'available') as status, b.quantity_on_hand as on_hand,
             (b.quantity_on_hand - b.quantity_reserved - b.quantity_allocated) as free, lot.expires_at
        from wms_inventory_balances b
        left join wms_inventory_lots lot on lot.id = b.lot_id
@@ -69,5 +73,6 @@ export async function lotsAtLocation(scope: StockScope, variantIds: string[], lo
     onHand: Number(row.on_hand),
     free: Number(row.free),
     expiresAt: row.expires_at ? new Date(row.expires_at).toISOString() : null,
+    status: row.status ?? 'available',
   }))
 }

@@ -4,7 +4,7 @@ import { approvedPackBoms, currentUserName, loadProducts, type OrderContext } fr
 import { financialYear, stageDef } from '../../dermat_orders/lib/stages'
 import { BomHeader } from '../../dermat_boms/data/entities'
 import { explodeBom } from '../../dermat_boms/lib/explode'
-import { LOCATION_CODES, dermatWarehouse, lotsAtLocation, variantsForProducts, type StockScope } from '../../dermat_products/lib/stock'
+import { LOCATION_CODES, dermatWarehouse, isUsable, lotsAtLocation, variantsForProducts, type StockScope } from '../../dermat_products/lib/stock'
 import { consumeReservation, freeFor, reservationsFor } from '../../dermat_planning/lib/service'
 import { StoreRequest, StoreRequestLine, type LineIssue, type RequestStatus, type StoreKey } from '../data/entities'
 import type { IssueInput, RequestCreateInput, ReturnInput } from '../data/validators'
@@ -169,7 +169,7 @@ export async function suggestLines(ctx: StoreContext, orderId: string, stageKey:
       required,
       requested: already,
       suggested: round(Math.max(0, required - already)),
-      inStore: round(stockRows.filter((entry) => entry.variantId === variantId).reduce((sum, entry) => sum + entry.onHand, 0)),
+      inStore: round(stockRows.filter((entry) => entry.variantId === variantId && isUsable(entry)).reduce((sum, entry) => sum + entry.onHand, 0)),
       reservedForOrder: round(reservations.filter((entry) => entry.productId === productId).reduce((sum, entry) => sum + num(entry.quantity), 0)),
     }
   })
@@ -271,7 +271,7 @@ export async function issueMaterial(ctx: StoreContext, request: StoreRequest, in
         409,
       )
     }
-    const refreshed = (await lotsAtLocation(scopeOf(ctx), [line.variantId], from)).filter((lot) => !entry.lotId || lot.lotId === entry.lotId)
+    const refreshed = (await lotsAtLocation(scopeOf(ctx), [line.variantId], from)).filter((lot) => isUsable(lot) && (!entry.lotId || lot.lotId === entry.lotId))
     let remaining = entry.quantity
     const issued: LineIssue[] = []
     try {
@@ -533,8 +533,8 @@ export async function requestView(ctx: StoreContext, request: StoreRequest, with
         withProduction: round(num(line.receivedQty) - num(line.usedQty) - num(line.returnedQty)),
         issues: line.issues ?? [],
         reservedForOrder: round(reservedForOrder),
-        lots: lots.map((lot) => ({ lotId: lot.lotId, lotNumber: lot.lotNumber, onHand: lot.onHand, free: round(lot.free), expiresAt: lot.expiresAt })),
-        inStore: round(lots.reduce((sum, lot) => sum + lot.onHand, 0)),
+        lots: lots.filter(isUsable).map((lot) => ({ lotId: lot.lotId, lotNumber: lot.lotNumber, onHand: lot.onHand, free: round(lot.free), expiresAt: lot.expiresAt })),
+        inStore: round(lots.filter(isUsable).reduce((sum, lot) => sum + lot.onHand, 0)),
         free: round(freeByProduct.get(line.productId)?.free ?? 0),
         heldByOthers: (freeByProduct.get(line.productId)?.holders ?? []).map((holder) => ({ orderId: holder.orderId, orderNo: holder.orderNo, quantity: round(num(holder.quantity)) })),
       }

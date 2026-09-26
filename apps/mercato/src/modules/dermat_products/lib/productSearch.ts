@@ -16,6 +16,7 @@ export type ProductSearchInput = {
   query?: string | null
   limit: number
   activeOnly?: boolean
+  ids?: string[]
 }
 
 export function normalizeCode(value: string): string {
@@ -32,6 +33,10 @@ export async function searchProducts(em: EntityManager, input: ProductSearchInpu
   const params: unknown[] = [input.tenantId, input.organizationId, `{${input.kinds.join(',')}}`]
   let filter = ''
   let order = 'p.title asc'
+  if (input.ids?.length) {
+    filter += ' and p.id = any(?::uuid[])'
+    params.push(`{${input.ids.join(',')}}`)
+  }
   const orderParams: unknown[] = []
   if (term) {
     const conditions = ['p.title ilike ?']
@@ -41,7 +46,7 @@ export async function searchProducts(em: EntityManager, input: ProductSearchInpu
       conditions.push(`regexp_replace(lower(coalesce(p.sku, '')), '[^a-z0-9]', '', 'g') like ?`)
       params.push(`%${compact}%`, `%${compact}%`)
     }
-    filter = `and (${conditions.join(' or ')})`
+    filter += ` and (${conditions.join(' or ')})`
     order = `case
         when regexp_replace(lower(coalesce(code.value_text, '')), '[^a-z0-9]', '', 'g') = ? then 0
         when regexp_replace(lower(coalesce(code.value_text, '')), '[^a-z0-9]', '', 'g') like ? then 1

@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 import Link from 'next/link'
-import { useSearchParams } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import {
   AlertTriangle,
   ArrowRightLeft,
@@ -17,6 +17,7 @@ import {
   Plus,
   Save,
   Search,
+  ShoppingCart,
   Trash2,
   X,
 } from 'lucide-react'
@@ -50,6 +51,7 @@ type MoveState = { productId: string; title: string; unit: string | null; fromOr
 export function PlanningBoard() {
   const t = useT()
   const params = useSearchParams()
+  const router = useRouter()
   const { runMutation } = useGuardedMutation({ contextId: 'dermat-planning-board' })
   const [orders, setOrders] = React.useState<PlanningOrder[] | null>(null)
   const [scope, setScope] = React.useState<'planning' | 'all'>('planning')
@@ -219,6 +221,14 @@ export function PlanningBoard() {
     const due = new Map(pickedOrders.map((order) => [order.id, order.deliveryDate ?? '9999']))
     entries.sort((a, b) => (due.get(a.orderId) ?? '').localeCompare(due.get(b.orderId) ?? ''))
     reservation({ action: 'reserve_needed', entries }, t('dermat_planning.board.reservedAll', 'Reserved for every picked order.'))
+  }
+
+  const raisePo = () => {
+    const buy = (rows ?? []).filter((row) => row.toOrder > 0)
+    if (!buy.length) return
+    const itemsParam = buy.map((row) => `${row.productId}:${row.toOrder}`).join(',')
+    const ordersParam = pickedOrders.map((order) => `${order.id}:${encodeURIComponent(order.orderNo)}`).join(',')
+    router.push(`/backend/purchase/orders/new?items=${itemsParam}${ordersParam ? `&orders=${ordersParam}` : ''}`)
   }
 
   const savePlan = async () => {
@@ -536,6 +546,10 @@ export function PlanningBoard() {
                       <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
                       <Input id="planning-material-search" className="h-9 pl-9" value={materialSearch} onChange={(event) => setMaterialSearch(event.target.value)} placeholder={t('dermat_planning.board.materialSearch', 'Find a material')} />
                     </div>
+                    <Button type="button" variant="outline" onClick={raisePo} disabled={!(rows ?? []).some((row) => row.toOrder > 0)}>
+                      <ShoppingCart className="mr-1.5 h-4 w-4" aria-hidden="true" />
+                      {t('dermat_planning.board.raisePo', 'Raise PO for what to buy')}
+                    </Button>
                     <Button type="button" onClick={reserveAll} disabled={busy || !pickedOrderIds.length || !rows?.length}>
                       <Lock className="mr-1.5 h-4 w-4" aria-hidden="true" />
                       {t('dermat_planning.board.reserveAll', 'Reserve all that is free')}
@@ -603,7 +617,15 @@ export function PlanningBoard() {
                                 <td className="px-3 py-3 text-right tabular-nums text-muted-foreground">{row.reservedOther ? qty(row.reservedOther) : '—'}</td>
                                 <td className="px-3 py-3 text-right tabular-nums">{qty(row.free)}</td>
                                 <td className="px-3 py-3 text-right tabular-nums">{row.reservedHere ? qty(row.reservedHere) : '—'}</td>
-                                <td className={cn('px-3 py-3 text-right font-semibold tabular-nums', row.short > 0 ? 'text-status-error-text' : 'text-muted-foreground')}>{row.short > 0 ? qty(row.short) : '—'}</td>
+                                <td className="px-3 py-3 text-right tabular-nums">
+                                  <span className={cn('font-semibold', row.short > 0 ? 'text-status-error-text' : 'text-muted-foreground')}>{row.short > 0 ? qty(row.short) : '—'}</span>
+                                  {row.short > 0 && (row.onOrder > 0 || row.underTest > 0) ? (
+                                    <span className="block text-xs text-muted-foreground">
+                                      {[row.underTest > 0 ? `${qty(row.underTest)} in QC` : null, row.onOrder > 0 ? `${qty(row.onOrder)} on PO` : null].filter(Boolean).join(' · ')}
+                                    </span>
+                                  ) : null}
+                                  {row.toOrder > 0 ? <span className="block text-xs font-medium text-status-error-text">{t('dermat_planning.board.toBuy', 'buy {qty}', { qty: qty(row.toOrder) })}</span> : null}
+                                </td>
                                 <td className="px-4 py-3 text-right">
                                   <StatusBadge variant={ROW_STATUS[row.status].variant}>{ROW_STATUS[row.status].label}</StatusBadge>
                                 </td>
@@ -708,6 +730,29 @@ export function PlanningBoard() {
                                           })}
                                         </tbody>
                                       </table>
+                                      {row.openPos.length || row.underTest > 0 ? (
+                                        <div className="border-t border-border px-3 py-2.5">
+                                          <p className="text-xs font-medium">{t('dermat_planning.board.coming', 'Coming in')}</p>
+                                          <ul className="mt-1.5 flex flex-wrap gap-2">
+                                            {row.underTest > 0 ? (
+                                              <li className="inline-flex items-center gap-1.5 rounded-md border border-border bg-status-warning-bg px-2 py-1 text-xs text-status-warning-text">
+                                                {t('dermat_planning.board.inQc', '{qty} in the store under QC test', { qty: qty(row.underTest, row.unit) })}
+                                              </li>
+                                            ) : null}
+                                            {row.openPos.map((po) => (
+                                              <li key={po.poId}>
+                                                <Link href={`/backend/purchase/orders/${po.poId}`} className="inline-flex items-center gap-1.5 rounded-md border border-border bg-card px-2 py-1 text-xs hover:bg-muted">
+                                                  <span className="font-mono font-semibold">{po.code}</span>
+                                                  <span className="text-muted-foreground">
+                                                    {qty(po.open, row.unit)} · {po.vendorName}
+                                                    {po.expectedDate ? ` · due ${shortDate(po.expectedDate)}` : ''}
+                                                  </span>
+                                                </Link>
+                                              </li>
+                                            ))}
+                                          </ul>
+                                        </div>
+                                      ) : null}
                                       {outside.length ? (
                                         <div className="border-t border-border bg-status-warning-bg/40 px-3 py-2.5">
                                           <p className="text-xs font-medium">{t('dermat_planning.board.heldElsewhere', 'Also held for orders outside this plan')}</p>

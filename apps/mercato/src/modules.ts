@@ -258,6 +258,7 @@ export const enabledModules: ModuleEntry[] = [
   { id: 'dermat_quality', from: '@app' },
   { id: 'dermat_store', from: '@app' },
   { id: 'dermat_planning', from: '@app' },
+  { id: 'dermat_purchase', from: '@app' },
   { id: 'dermat_vendors', from: '@app' },
   { id: 'ratelimit_probe', from: '@app' },
 ]

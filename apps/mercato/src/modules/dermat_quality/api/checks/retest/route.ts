@@ -6,6 +6,7 @@ import { retestSchema } from '../../../data/validators'
 import { QcError, computeStatus } from '../../../lib/service'
 import { checkView, findCheck } from '../../../lib/checks'
 import { currentUserName, qcErrorResponse, resolveQcContext, runGuarded } from '../../../lib/server'
+import { applyInwardDecision } from '../../../../dermat_purchase/lib/inward'
 
 export const metadata = {
   POST: { requireAuth: true, requireFeatures: ['dermat_quality.view'] },
@@ -29,6 +30,7 @@ async function POST(req: Request) {
       check.history = [...(check.history ?? []), { action: 'retest', by: await currentUserName(ctx), at: new Date().toISOString(), note: parsed.data.note }]
       check.updatedAt = new Date()
       await ctx.em.flush()
+      if (check.operation === 'purchase_receipt') await applyInwardDecision(req, check.id)
       return NextResponse.json(await checkView(ctx, check))
     })
   } catch (error) {

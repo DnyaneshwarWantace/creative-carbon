@@ -28,6 +28,10 @@ export type CalcRow = {
   reservedOther: number
   free: number
   short: number
+  underTest: number
+  onOrder: number
+  toOrder: number
+  openPos: Array<{ poId: string; code: string; open: number; expectedDate: string | null; vendorName: string }>
   status: 'reserved' | 'available' | 'partial' | 'short'
   sources: CalcSource[]
   holders: Array<{ orderId: string; orderNo: string; quantity: number; since: string }>
