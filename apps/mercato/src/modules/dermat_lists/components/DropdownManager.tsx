@@ -20,7 +20,7 @@ type Option = { value: string; active: boolean; locked: boolean }
 type ListView = { key: string; label: string; department: string; usedIn: string; fixed: string | null; customised: boolean; options: Option[]; updatedAt: string | null; updatedByName: string | null }
 type Draft = Option & { id: number; original: string | null }
 
-const DEPARTMENT_ORDER = ['Sales', 'Accounts', 'R&D', 'Artwork', 'Planning', 'Purchase', 'Production', 'QC', 'QA', 'Masters']
+const DEPARTMENT_ORDER = ['Sales', 'Accounts', 'R&D', 'Artwork', 'Planning', 'Purchase', 'Store', 'Production', 'QC', 'QA', 'Masters']
 
 let draftCounter = 0
 function toDrafts(options: Option[]): Draft[] {

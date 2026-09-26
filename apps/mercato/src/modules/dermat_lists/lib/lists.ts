@@ -1,4 +1,4 @@
-export type ListDepartment = 'Sales' | 'Accounts' | 'R&D' | 'Artwork' | 'Planning' | 'Purchase' | 'Production' | 'QC' | 'QA' | 'Masters'
+export type ListDepartment = 'Sales' | 'Accounts' | 'R&D' | 'Artwork' | 'Planning' | 'Purchase' | 'Store' | 'Production' | 'QC' | 'QA' | 'Masters'
 
 export type ListDef = {
   key: string
@@ -84,6 +84,13 @@ export const LIST_DEFS: ListDef[] = [
     department: 'Production',
     usedIn: 'Manufacturing and filling stages',
     defaults: ['A', 'B', 'C', 'General'],
+  },
+  {
+    key: 'stock_adjust_reasons',
+    label: 'Stock adjustment reasons',
+    department: 'Store',
+    usedIn: 'Store stock: add or remove stock by hand',
+    defaults: ['Opening stock', 'Physical count difference', 'Found in store', 'Damaged', 'Expired', 'Spillage / loss', 'Issued to R&D', 'Issued for other use'],
   },
   {
     key: 'qc_classes',

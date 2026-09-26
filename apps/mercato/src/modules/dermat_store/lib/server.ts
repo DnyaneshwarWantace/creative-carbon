@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { ZodError } from 'zod'
 import type { EntityManager } from '@mikro-orm/postgresql'
 import { createRequestContainer } from '@open-mercato/shared/lib/di/container'
 import { getAuthFromRequest } from '@open-mercato/shared/lib/auth/server'
@@ -67,20 +68,21 @@ export function storeErrorResponse(error: unknown) {
     if (body?.error === 'insufficient_stock') return NextResponse.json({ error: 'Not enough free stock in that batch' }, { status: 409 })
     return NextResponse.json(error.body, { status: error.status })
   }
+  if (error instanceof ZodError) return NextResponse.json({ error: `Stock change rejected: ${error.issues.map((issue) => `${issue.path.join('.')} ${issue.message}`).join('; ')}` }, { status: 400 })
   throw error
 }
 
 export async function runGuarded<T>(
   ctx: StoreContext,
   req: Request,
-  input: { resourceId: string; operation: 'create' | 'update' | 'delete' | 'custom'; payload: Record<string, unknown> },
+  input: { resourceId: string; operation: 'create' | 'update' | 'delete' | 'custom'; payload: Record<string, unknown>; resourceKind?: string },
   run: () => Promise<T>,
 ): Promise<T | Response> {
   const guard = await runRouteMutationGuards({
     container: ctx.container,
     req,
     auth: { userId: ctx.userId ?? 'system', tenantId: ctx.tenantId, organizationId: ctx.organizationId },
-    input: { resourceKind: 'dermat_store.request', resourceId: input.resourceId, operation: input.operation, mutationPayload: input.payload },
+    input: { resourceKind: input.resourceKind ?? 'dermat_store.request', resourceId: input.resourceId, operation: input.operation, mutationPayload: input.payload },
   })
   if (!guard.ok) return guard.response
   const result = await run()

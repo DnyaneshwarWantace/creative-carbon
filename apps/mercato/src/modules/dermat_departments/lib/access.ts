@@ -91,11 +91,12 @@ export const ACCESS_AREAS: AccessArea[] = [
     key: 'store',
     label: 'Store',
     department: 'Store',
-    pages: 'Store requests, material from store',
+    pages: 'Store requests, stock, stock ledger',
     abilities: [
       { feature: 'dermat_store.view', label: 'See store requests', short: 'View' },
       { feature: 'dermat_store.request', label: 'Ask for material, confirm receipt, return leftover', short: 'Request' },
       { feature: 'dermat_store.issue', label: 'Issue material from the store', short: 'Issue' },
+      { feature: 'dermat_store.adjust', label: 'Add or remove stock by hand, move stock between stores', short: 'Adjust' },
     ],
   },
   {
