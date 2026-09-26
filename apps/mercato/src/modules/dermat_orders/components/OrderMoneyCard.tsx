@@ -3,7 +3,7 @@
 import * as React from 'react'
 import { useGranted } from '../../dermat_departments/components/useGranted'
 import { ListSelectItems } from '../../dermat_lists/components/ListSelectItems'
-import { FileText, IndianRupee, Plus, Printer, Truck, X } from 'lucide-react'
+import { FileText, IndianRupee, Package, Plus, Printer, Truck, X } from 'lucide-react'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { cn } from '@open-mercato/shared/lib/utils'
 import { Button } from '@open-mercato/ui/primitives/button'
@@ -139,6 +139,10 @@ export function OrderMoneyCard({ order, onChanged }: { order: Order; onChanged: 
           <Button type="button" variant="outline" size="sm" onClick={() => printDoc(order, 'challan', company)}>
             <Truck className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
             {t('dermat_orders.money.challan', 'Delivery challan')}
+          </Button>
+          <Button type="button" variant="outline" size="sm" onClick={() => printDoc(order, 'packing_list', company)}>
+            <Package className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
+            {t('dermat_orders.money.packingList', 'Packing list')}
           </Button>
           {order.status !== 'cancelled' && granted.has('dermat_accounts.record') ? (
             <Button type="button" size="sm" onClick={() => setOpen(true)}>

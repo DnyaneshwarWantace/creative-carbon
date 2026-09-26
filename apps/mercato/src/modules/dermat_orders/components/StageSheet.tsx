@@ -18,6 +18,7 @@ import { flash } from '@open-mercato/ui/backend/FlashMessages'
 import { HOLD_PARTIES, STAGES, WORK_STATE_LABEL, stageDef, stageWorkFeature, workState, type StageField, type WorkState } from '../lib/stages'
 import { useGranted } from '../../dermat_departments/components/useGranted'
 import { StageDocuments } from './StageDocuments'
+import { SuggestInput } from '../../dermat_lists/components/SuggestInput'
 import { cn } from '@open-mercato/shared/lib/utils'
 import { STAGE_VARIANT, formatDate, formatDateTime, formatQty } from './format'
 import { ProductionPanel } from './ProductionPanel'
@@ -156,6 +157,7 @@ export function StageWorkArea({ order, stage, people, canWork: canWorkProp, busy
       )
     }
     if (field.type === 'textarea') return <Textarea rows={3} value={value} onChange={(event) => set(event.target.value)} />
+    if (field.type === 'text' && field.listKey) return <SuggestInput listKey={field.listKey} value={value} placeholder={field.placeholder} onChange={(event) => set(event.target.value)} />
     return (
       <Input
         type={field.type === 'date' ? 'date' : field.type === 'time' ? 'time' : field.type === 'number' ? 'number' : 'text'}

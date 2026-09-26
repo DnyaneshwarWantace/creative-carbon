@@ -1,6 +1,6 @@
 import type { Order } from './types'
 
-export type DocKind = 'proforma' | 'invoice' | 'challan'
+export type DocKind = 'proforma' | 'invoice' | 'challan' | 'packing_list'
 
 export type DocCompany = { name: string; legalName?: string | null; gstin?: string | null; address?: string | null; phone?: string | null; email?: string | null; signatory?: string | null }
 
@@ -49,12 +49,13 @@ export function buildDocHtml(order: Order, kind: DocKind, company?: DocCompany |
   const dispatch = stageData(order, 'dispatch')
   const mfg = stageData(order, 'manufacturing')
   const packing = stageData(order, 'packing')
-  const title = kind === 'proforma' ? 'Proforma invoice' : kind === 'invoice' ? 'Tax invoice' : 'Delivery challan'
+  const shipping = kind === 'challan' || kind === 'packing_list'
+  const title = kind === 'proforma' ? 'Proforma invoice' : kind === 'invoice' ? 'Tax invoice' : kind === 'packing_list' ? 'Packing list' : 'Delivery challan'
   const number =
-    kind === 'proforma' ? (advance.pi_number ? String(advance.pi_number) : order.orderNo) : kind === 'invoice' ? String(billing.invoice_number ?? '—') : `DC-${order.orderNo}`
-  const date = kind === 'invoice' ? day(billing.invoice_date) : kind === 'challan' ? day(dispatch.dispatch_date) : day(order.orderDate)
+    kind === 'proforma' ? (advance.pi_number ? String(advance.pi_number) : order.orderNo) : kind === 'invoice' ? String(billing.invoice_number ?? '—') : kind === 'packing_list' ? `PL-${order.orderNo}` : `DC-${order.orderNo}`
+  const date = kind === 'invoice' ? day(billing.invoice_date) : shipping ? day(dispatch.dispatch_date) : day(order.orderDate)
 
-  const priced = kind !== 'challan'
+  const priced = !shipping
   const rows = order.lines
     .map((line, index) => {
       const name = `<strong>${esc(line.product?.title ?? '—')}</strong>${line.product?.code ? `<div class="code">${esc(line.product.code)}</div>` : ''}${line.packSize ? `<div class="muted">${esc(line.packSize)}${line.brandName ? ` · ${esc(line.brandName)}` : ''}</div>` : ''}`
@@ -84,11 +85,11 @@ export function buildDocHtml(order: Order, kind: DocKind, company?: DocCompany |
         }
         ${kind === 'invoice' ? `<div><span>Received so far</span><span>₹ ${money(order.payments.received)}</span></div><div class="due"><span>Balance due</span><span>₹ ${money(Math.max(0, order.payments.due))}</span></div>` : ''}
       </div>`
-    : `<div class="totals"><div class="grand"><span>Total pieces</span><span>${num(order.lines.reduce((sum, line) => sum + line.quantity, 0))}</span></div>${packing.shippers ? `<div><span>Shipper boxes</span><span>${esc(packing.shippers)}</span></div>` : ''}</div>`
+    : `<div class="totals"><div class="grand"><span>Total pieces</span><span>${num(order.lines.reduce((sum, line) => sum + line.quantity, 0))}</span></div>${dispatch.packages || packing.shippers ? `<div><span>Boxes / shippers</span><span>${esc(dispatch.packages ?? packing.shippers)}</span></div>` : ''}${kind === 'packing_list' && packing.location ? `<div><span>Packed at</span><span>${esc(packing.location)}</span></div>` : ''}</div>`
 
   const transport =
-    kind === 'challan'
-      ? `<div class="box"><h3>Transport</h3><div>${esc(dispatch.transporter ?? '—')}</div><div class="code">LR ${esc(dispatch.lr_number ?? '—')}</div></div>`
+    shipping
+      ? `<div class="box"><h3>Transport</h3><div>${esc(dispatch.transporter ?? '—')}</div><div class="code">LR ${esc(dispatch.lr_number ?? '—')}${dispatch.vehicle_no ? ` · Vehicle ${esc(dispatch.vehicle_no)}` : ''}</div>${dispatch.eway_bill_no ? `<div class="code">E-way bill ${esc(dispatch.eway_bill_no)}${dispatch.eway_bill_date ? ` · ${day(dispatch.eway_bill_date)}` : ''}</div>` : ''}</div>`
       : `<div class="box"><h3>Terms</h3><div>${esc(order.paymentRemarks ?? order.paymentTerms ?? '—')}</div>${order.customerPoRef ? `<div class="code">Customer PO ${esc(order.customerPoRef)}</div>` : ''}</div>`
 
   return `<!doctype html><html><head><meta charset="utf-8"><title>${esc(title)} ${esc(number)}</title>
@@ -111,14 +112,14 @@ export function buildDocHtml(order: Order, kind: DocKind, company?: DocCompany |
     <div class="doc"><div class="kind">${esc(title)}</div><div class="no">${esc(number)}</div><div class="muted">${date} · Order ${esc(order.orderNo)}</div></div>
   </div>
   <div class="grid">
-    <div class="box"><h3>${kind === 'challan' ? 'Deliver to' : 'Bill to'}</h3><strong>${esc(order.customer?.name ?? '—')}</strong>${order.customer?.gstin ? `<div class="code">GSTIN ${esc(order.customer.gstin)}</div>` : ''}${order.customer?.phone ? `<div class="muted">${esc(order.customer.phone)}</div>` : ''}</div>
+    <div class="box"><h3>${shipping ? 'Deliver to' : 'Bill to'}</h3><strong>${esc(order.customer?.name ?? '—')}</strong>${(shipping ? order.shippingAddress : order.billingAddress) ? `<div class="muted">${esc(shipping ? order.shippingAddress : order.billingAddress)}</div>` : ''}${order.customer?.gstin ? `<div class="code">GSTIN ${esc(order.customer.gstin)}</div>` : ''}${order.customer?.phone ? `<div class="muted">${esc(order.customer.phone)}</div>` : ''}</div>
     ${transport}
   </div>
   <table><thead>${head}</thead><tbody>${rows}</tbody></table>
   ${totals}
   ${kind === 'invoice' && order.billingRemarks ? `<p class="muted" style="margin-top:16px">${esc(order.billingRemarks)}</p>` : ''}
-  ${kind === 'challan' && order.packingRemarks ? `<p class="muted" style="margin-top:16px">${esc(order.packingRemarks)}</p>` : ''}
-  <div class="sign"><div>${kind === 'challan' ? 'Received by (name, stamp)' : 'Customer signature'}</div><div>For ${signName(company)}${company?.signatory ? `<br>${esc(company.signatory)}` : ''}</div></div>
+  ${shipping && order.packingRemarks ? `<p class="muted" style="margin-top:16px">${esc(order.packingRemarks)}</p>` : ''}
+  <div class="sign"><div>${shipping ? 'Received by (name, stamp)' : 'Customer signature'}</div><div>For ${signName(company)}${company?.signatory ? `<br>${esc(company.signatory)}` : ''}</div></div>
   <script>window.addEventListener('load', function () { setTimeout(function () { window.print() }, 200) })</script>
   </body></html>`
 }

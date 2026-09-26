@@ -6,6 +6,7 @@ import { Input } from '@open-mercato/ui/primitives/input'
 import { Textarea } from '@open-mercato/ui/primitives/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@open-mercato/ui/primitives/select'
 import { useListOptions } from '../../dermat_lists/components/useListOptions'
+import { SuggestInput } from '../../dermat_lists/components/SuggestInput'
 
 export type EditKind = 'text' | 'number' | 'date' | 'time' | 'select' | 'textarea'
 export type EditOption = string | { value: string; label: string }
@@ -46,6 +47,9 @@ export function EditField({ kind, value, options, listKey, dirty, align, onChang
   }
   if (kind === 'textarea') {
     return <Textarea rows={2} value={value} className={cn('min-w-56 text-xs', tone)} onChange={(event) => onChange(event.target.value)} />
+  }
+  if (kind === 'text' && listKey) {
+    return <SuggestInput listKey={listKey} value={value} className={cn('h-7 min-w-36 text-xs', align === 'right' && 'text-right', tone)} onChange={(event) => onChange(event.target.value)} />
   }
   return (
     <Input
