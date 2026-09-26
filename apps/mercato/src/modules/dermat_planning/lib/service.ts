@@ -235,7 +235,13 @@ export type CalcRow = {
 
 export async function calculate(ctx: OrderContext, items: PlanItemInput[]) {
   const productIds = Array.from(new Set(items.map((item) => item.productId)))
-  const [boms, products] = await Promise.all([approvedPackBoms(ctx, productIds), loadProducts(ctx, productIds)])
+  const products = await loadProducts(ctx, productIds)
+  const bomCache = new Map<string, Awaited<ReturnType<typeof approvedPackBoms>>>()
+  const bomFor = async (productId: string, orderId: string | null) => {
+    const key = orderId ?? ''
+    if (!bomCache.has(key)) bomCache.set(key, await approvedPackBoms(ctx, productIds, orderId))
+    return bomCache.get(key)!.get(productId)
+  }
   const orderIds = Array.from(new Set(items.map((item) => item.orderId).filter((id): id is string => Boolean(id))))
   const orders = orderIds.length ? await ctx.em.find(DermatOrder, { id: { $in: orderIds }, tenantId: ctx.tenantId, organizationId: ctx.organizationId }) : []
   const orderNos = new Map(orders.map((order) => [order.id, order.orderNo]))
@@ -243,7 +249,7 @@ export async function calculate(ctx: OrderContext, items: PlanItemInput[]) {
   const missingBoms: string[] = []
   const headers = new Map<string, BomHeader | null>()
   for (const item of items) {
-    const bom = boms.get(item.productId)
+    const bom = await bomFor(item.productId, item.orderId)
     const product = products.get(item.productId)
     if (!bom || bom.status !== 'approved') {
       missingBoms.push(product?.title ?? item.productId)
@@ -252,7 +258,7 @@ export async function calculate(ctx: OrderContext, items: PlanItemInput[]) {
     if (!headers.has(bom.id)) headers.set(bom.id, await ctx.em.findOne(BomHeader, { id: bom.id }))
     const header = headers.get(bom.id)
     if (!header) continue
-    const { requirements } = await explodeBom(ctx, header, item.quantity)
+    const { requirements } = await explodeBom(ctx, header, item.quantity, item.orderId)
     const sourceKey = item.orderId ?? item.key
     const label = item.orderId ? (orderNos.get(item.orderId) ?? 'Order') : `What-if · ${product?.title ?? ''}`
     for (const row of requirements) {
@@ -328,6 +334,11 @@ export async function planningOrders(ctx: OrderContext) {
     approvedPackBoms(ctx, productIds),
     reservationsFor(ctx, { orderIds: ids }),
   ])
+  const orderBoms = await ctx.em.getConnection().execute<Array<{ order_id: string; product_id: string; status: string }>>(
+    `select distinct on (order_id, product_id) order_id, product_id, status from dermat_bom_headers
+      where order_id = any(?::uuid[]) and deleted_at is null and status <> 'superseded' order by order_id, product_id, (status = 'approved') desc, version desc`,
+    [`{${ids.join(',')}}`],
+  )
   const labels = new Map(STAGES.map((stage) => [stage.key, stage.label]))
   return orders.map((order) => {
     const own = stages.filter((stage) => stage.orderId === order.id)
@@ -351,7 +362,7 @@ export async function planningOrders(ctx: OrderContext) {
           title: products.get(line.productId)?.title ?? '—',
           code: products.get(line.productId)?.code ?? null,
           quantity: num(line.quantity),
-          bomApproved: boms.get(line.productId)?.status === 'approved',
+          bomApproved: (orderBoms.find((entry) => entry.order_id === order.id && entry.product_id === line.productId)?.status ?? boms.get(line.productId)?.status) === 'approved',
         })),
     }
   })

@@ -13,6 +13,7 @@ export const metadata = {
 const querySchema = z.object({
   bomId: z.string().uuid(),
   quantity: z.coerce.number().positive().max(10_000_000).optional(),
+  orderId: z.string().uuid().optional(),
 })
 
 async function GET(req: Request) {
@@ -23,7 +24,7 @@ async function GET(req: Request) {
   try {
     const bom = await findBom(ctx, parsed.data.bomId)
     const quantity = parsed.data.quantity ?? Number(bom.batchSize)
-    const result = await explodeBom(ctx, bom, quantity)
+    const result = await explodeBom(ctx, bom, quantity, parsed.data.orderId ?? bom.orderId ?? null)
     return NextResponse.json({ quantity, unit: bom.batchUnit, ...result })
   } catch (error) {
     return bomErrorResponse(error)

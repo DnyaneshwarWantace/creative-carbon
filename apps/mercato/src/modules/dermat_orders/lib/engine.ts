@@ -238,6 +238,7 @@ export async function applyStageAction(ctx: OrderContext, order: DermatOrder, in
         const boms = await approvedPackBoms(
           ctx,
           lines.map((line) => line.productId),
+          order.id,
         )
         const products = await loadProducts(
           ctx,
@@ -376,7 +377,7 @@ export async function serializeOrder(ctx: OrderContext, order: DermatOrder) {
   const [customers, products, boms, qc, store, reservations, payments] = await Promise.all([
     loadCustomers(ctx, [order.customerId]),
     loadProducts(ctx, productIds),
-    approvedPackBoms(ctx, productIds),
+    approvedPackBoms(ctx, productIds, order.id),
     checksForOrder(ctx, order.id),
     requestsForOrder(ctx, order.id),
     reservationsForOrder(ctx, order.id),

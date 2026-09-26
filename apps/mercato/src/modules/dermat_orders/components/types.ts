@@ -21,7 +21,7 @@ export type ProductInfo = {
   mrp: number | null
 }
 
-export type BomRef = { id: string; version: number; status: string } | null
+export type BomRef = { id: string; version: number; status: string; orderId?: string | null } | null
 
 export type OrderLine = {
   id: string

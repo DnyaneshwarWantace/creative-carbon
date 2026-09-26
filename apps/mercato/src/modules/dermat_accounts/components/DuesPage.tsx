@@ -12,6 +12,8 @@ import { Spinner } from '@open-mercato/ui/primitives/spinner'
 import { SegmentedControl, SegmentedControlItem } from '@open-mercato/ui/primitives/segmented-control'
 import { StatusBadge, type StatusBadgeVariant } from '@open-mercato/ui/primitives/status-badge'
 import { apiCall } from '@open-mercato/ui/backend/utils/apiCall'
+import { ExportButton } from '../../dermat_products/components/ExportButton'
+import { downloadCsv } from '../../dermat_products/lib/csvExport'
 
 type Row = {
   orderId: string
@@ -61,16 +63,36 @@ export function DuesPage() {
     }
   }, [view, search])
 
+  const exportDues = () => {
+    downloadCsv(view === 'due' ? 'dues' : 'order-payments', [
+      { header: 'Order', value: (row) => row.orderNo },
+      { header: 'Order date', value: (row) => row.orderDate },
+      { header: 'Delivery', value: (row) => row.deliveryDate ?? '' },
+      { header: 'Customer', value: (row) => row.customerName },
+      { header: 'Payment terms', value: (row) => row.paymentTerms ?? '' },
+      { header: 'Order status', value: (row) => row.status },
+      { header: 'Order value (₹)', value: (row) => (row.priced ? row.total : '') },
+      { header: 'Received (₹)', value: (row) => row.received },
+      { header: 'Due (₹)', value: (row) => (row.priced ? row.due : '') },
+      { header: 'Last payment (₹)', value: (row) => row.lastPayment?.amount ?? '' },
+      { header: 'Last paid on', value: (row) => row.lastPayment?.paidOn ?? '' },
+      { header: 'Rates entered', value: (row) => (row.priced ? 'Yes' : 'No') },
+    ], data?.items ?? [])
+  }
+
   return (
     <Page>
       <PageBody>
         <div className="mx-auto flex max-w-6xl flex-col gap-6 pb-16">
-          <header className="space-y-1">
-            <p className="text-overline font-semibold uppercase tracking-widest text-muted-foreground">{t('dermat_accounts.eyebrow', 'Accounts')}</p>
-            <h1 className="text-2xl font-bold tracking-tight">{t('dermat_accounts.title', 'Payments and dues')}</h1>
-            <p className="max-w-2xl text-sm text-muted-foreground">
-              {t('dermat_accounts.lede', 'What every order is worth (after discount and GST), what has come in and what is still due. Record payments on the order page.')}
-            </p>
+          <header className="flex flex-wrap items-end justify-between gap-4">
+            <div className="space-y-1">
+              <p className="text-overline font-semibold uppercase tracking-widest text-muted-foreground">{t('dermat_accounts.eyebrow', 'Accounts')}</p>
+              <h1 className="text-2xl font-bold tracking-tight">{t('dermat_accounts.title', 'Payments and dues')}</h1>
+              <p className="max-w-2xl text-sm text-muted-foreground">
+                {t('dermat_accounts.lede', 'What every order is worth (after discount and GST), what has come in and what is still due. Record payments on the order page.')}
+              </p>
+            </div>
+            <ExportButton disabled={!data?.items.length} onExport={exportDues} />
           </header>
 
           {data ? (

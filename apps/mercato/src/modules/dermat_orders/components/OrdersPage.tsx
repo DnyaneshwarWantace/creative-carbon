@@ -15,6 +15,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { StatusBadge } from '@open-mercato/ui/primitives/status-badge'
 import { apiCall } from '@open-mercato/ui/backend/utils/apiCall'
 import { flash } from '@open-mercato/ui/backend/FlashMessages'
+import { ExportButton } from '../../dermat_products/components/ExportButton'
+import { openServerExport } from '../../dermat_products/lib/csvExport'
 import { STAGES } from '../lib/stages'
 import { ORDER_VARIANT, STAGE_VARIANT, daysUntil, formatDate, formatQty } from './format'
 import type { OrderListItem } from './types'
@@ -154,6 +156,17 @@ export function OrdersPage() {
     [t],
   )
 
+  const exportOrders = () => {
+    const params = new URLSearchParams()
+    if (tab !== 'all') params.set('status', tab)
+    if (stage !== 'all') {
+      params.set('stage', stage)
+      params.set('stageStatus', 'active')
+    }
+    if (search.trim()) params.set('search', search.trim())
+    openServerExport(`/api/dermat_orders/orders/export?${params.toString()}`)
+  }
+
   return (
     <Page>
       <PageBody>
@@ -195,12 +208,15 @@ export function OrdersPage() {
           }}
           searchPlaceholder={t('dermat_orders.list.search', 'Search order no., customer, product ID or batch no.')}
           actions={
-            <Button asChild>
-              <Link href="/backend/orders/new">
-                <Plus className="mr-2 h-4 w-4" />
-                {t('dermat_orders.list.new', 'New order')}
-              </Link>
-            </Button>
+            <div className="flex flex-wrap items-center gap-2">
+              <ExportButton onExport={exportOrders} />
+              <Button asChild>
+                <Link href="/backend/orders/new">
+                  <Plus className="mr-2 h-4 w-4" />
+                  {t('dermat_orders.list.new', 'New order')}
+                </Link>
+              </Button>
+            </div>
           }
           pagination={{ page, pageSize: PAGE_SIZE, total, totalPages, onPageChange: setPage }}
           isLoading={isLoading}

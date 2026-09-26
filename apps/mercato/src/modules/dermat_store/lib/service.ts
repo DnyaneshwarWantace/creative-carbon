@@ -114,7 +114,7 @@ export type SuggestRow = {
 
 export async function suggestLines(ctx: OrderContext, orderId: string, stageKey: StoreStage): Promise<{ rows: SuggestRow[]; missingBoms: string[] }> {
   const lines = await ctx.em.find(DermatOrderLine, { orderId })
-  const boms = await approvedPackBoms(ctx, lines.map((line) => line.productId))
+  const boms = await approvedPackBoms(ctx, lines.map((line) => line.productId), orderId)
   const products = await loadProducts(ctx, lines.map((line) => line.productId))
   const totals = new Map<string, { title: string; code: string | null; kind: string | null; unit: string | null; quantity: number }>()
   const missingBoms: string[] = []
@@ -126,7 +126,7 @@ export async function suggestLines(ctx: OrderContext, orderId: string, stageKey:
     }
     const header = await ctx.em.findOne(BomHeader, { id: bom.id })
     if (!header) continue
-    const { requirements } = await explodeBom(ctx, header, Number(line.quantity))
+    const { requirements } = await explodeBom(ctx, header, Number(line.quantity), orderId)
     for (const row of requirements) {
       const current = totals.get(row.productId)
       totals.set(row.productId, { title: row.name, code: row.code, kind: row.kind, unit: row.unit, quantity: (current?.quantity ?? 0) + row.quantity })

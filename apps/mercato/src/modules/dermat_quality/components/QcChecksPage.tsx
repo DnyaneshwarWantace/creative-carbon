@@ -12,6 +12,8 @@ import { StatusBadge } from '@open-mercato/ui/primitives/status-badge'
 import { apiCall } from '@open-mercato/ui/backend/utils/apiCall'
 import { flash } from '@open-mercato/ui/backend/FlashMessages'
 import { CHECK_VARIANT, OPERATION_LABEL, PART_LABEL, PART_VARIANT, when } from './shared'
+import { ExportButton } from '../../dermat_products/components/ExportButton'
+import { downloadCsv, fetchAllPages } from '../../dermat_products/lib/csvExport'
 
 type Row = {
   id: string
@@ -122,6 +124,28 @@ export function QcChecksPage() {
     [t],
   )
 
+  const exportChecks = async () => {
+    const params = new URLSearchParams()
+    if (tab !== 'all') params.set('status', tab)
+    if (operation !== 'all') params.set('operation', operation)
+    if (search.trim()) params.set('search', search.trim())
+    const items = await fetchAllPages<Row>(`/api/dermat_quality/checks?${params.toString()}`)
+    downloadCsv(`qc-checks-${tab}`, [
+      { header: 'QC no.', value: (row) => row.code },
+      { header: 'Stage', value: (row) => OPERATION_LABEL[row.operation] ?? row.operation },
+      { header: 'Product ID', value: (row) => row.productCode ?? '' },
+      { header: 'Product', value: (row) => row.productTitle },
+      { header: 'Order', value: (row) => row.orderNo ?? '' },
+      { header: 'Batch', value: (row) => row.batchNo ?? '' },
+      { header: 'Result', value: (row) => row.status },
+      { header: 'Chemical', value: (row) => PART_LABEL[row.chemicalStatus] ?? row.chemicalStatus },
+      { header: 'Chemical by', value: (row) => row.chemicalBy ?? '' },
+      { header: 'Micro', value: (row) => PART_LABEL[row.microStatus] ?? row.microStatus },
+      { header: 'Micro by', value: (row) => row.microBy ?? '' },
+      { header: 'Created', value: (row) => row.createdAt.slice(0, 10) },
+    ], items)
+  }
+
   return (
     <Page>
       <PageBody>
@@ -161,6 +185,7 @@ export function QcChecksPage() {
             setPage(1)
           }}
           searchPlaceholder={t('dermat_quality.list.search', 'Search QC no., order no., batch or product')}
+          actions={<ExportButton onExport={exportChecks} />}
           pagination={{ page, pageSize: PAGE_SIZE, total, totalPages, onPageChange: setPage }}
           isLoading={isLoading}
         />

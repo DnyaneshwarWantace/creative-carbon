@@ -11,7 +11,9 @@ import { StatusBadge } from '@open-mercato/ui/primitives/status-badge'
 import { EmptyState } from '@open-mercato/ui/primitives/empty-state'
 import { Spinner } from '@open-mercato/ui/primitives/spinner'
 import { apiCall } from '@open-mercato/ui/backend/utils/apiCall'
-import { GRN_STATUS, day, type GrnStatus } from './shared'
+import { GRN_STATUS, day, type GrnStatus, type GrnView } from './shared'
+import { ExportButton } from '../../dermat_products/components/ExportButton'
+import { downloadCsv, fetchAllPages, fetchDetails } from '../../dermat_products/lib/csvExport'
 
 type View = 'under_test' | 'approved' | 'rejected' | 'all'
 type Row = { id: string; code: string; poId: string; poCode: string; vendorName: string; grnDate: string; invoiceNo: string | null; status: GrnStatus; lineCount: number; passed: number; failed: number; items: string[] }
@@ -49,14 +51,46 @@ export function GrnsPage() {
     { view: 'rejected', label: t('dermat_purchase.grns.rejected', 'Rejected'), icon: <PackageX className="h-4 w-4" />, tone: 'bg-status-error-bg text-status-error-icon' },
   ]
 
+  const exportGrns = async () => {
+    const params = new URLSearchParams({ view })
+    if (search.trim()) params.set('search', search.trim())
+    const list = await fetchAllPages<{ id: string }>(`/api/dermat_purchase/grns?${params.toString()}`)
+    const grns = await fetchDetails<GrnView>(list.map((row) => row.id), (id) => `/api/dermat_purchase/grns?id=${encodeURIComponent(id)}`)
+    const rows = grns.flatMap((grn) => grn.lines.map((line) => ({ grn, line })))
+    downloadCsv(`grn-${view}`, [
+      { header: 'GRN', value: (row) => row.grn.code },
+      { header: 'GRN date', value: (row) => row.grn.grnDate },
+      { header: 'PO', value: (row) => row.grn.poCode },
+      { header: 'Vendor', value: (row) => row.grn.vendorName },
+      { header: 'Invoice no.', value: (row) => row.grn.invoiceNo ?? '' },
+      { header: 'Invoice date', value: (row) => row.grn.invoiceDate ?? '' },
+      { header: 'Material ID', value: (row) => row.line.code ?? '' },
+      { header: 'Material', value: (row) => row.line.title },
+      { header: 'Store', value: (row) => row.line.store },
+      { header: 'Qty', value: (row) => row.line.quantity },
+      { header: 'Unit', value: (row) => row.line.unit },
+      { header: 'Rate (₹)', value: (row) => row.line.rate ?? '' },
+      { header: 'Batch / lot', value: (row) => row.line.lotNumber },
+      { header: 'Mfg date', value: (row) => row.line.mfgDate ?? '' },
+      { header: 'Expiry', value: (row) => row.line.expiryDate ?? '' },
+      { header: 'QC', value: (row) => row.line.qcStatus },
+      { header: 'QC no.', value: (row) => row.line.check?.code ?? '' },
+      { header: 'Returned to vendor', value: (row) => row.line.returnedQty },
+      { header: 'Received by', value: (row) => row.grn.receivedByName ?? '' },
+    ], rows)
+  }
+
   return (
     <Page>
       <PageBody>
         <div className="mx-auto flex max-w-6xl flex-col gap-6 pb-12">
-          <header className="space-y-1">
-            <p className="text-overline font-semibold uppercase tracking-widest text-muted-foreground">{t('dermat_purchase.eyebrow', 'Purchase')}</p>
-            <h1 className="text-2xl font-bold tracking-tight">{t('dermat_purchase.grns.title', 'Goods receiving (GRN)')}</h1>
-            <p className="max-w-2xl text-sm text-muted-foreground">{t('dermat_purchase.grns.lede', 'Every delivery against a PO. Stock stays "under QC test" until QC approves the batch; rejected batches go back to the vendor.')}</p>
+          <header className="flex flex-wrap items-end justify-between gap-4">
+            <div className="space-y-1">
+              <p className="text-overline font-semibold uppercase tracking-widest text-muted-foreground">{t('dermat_purchase.eyebrow', 'Purchase')}</p>
+              <h1 className="text-2xl font-bold tracking-tight">{t('dermat_purchase.grns.title', 'Goods receiving (GRN)')}</h1>
+              <p className="max-w-2xl text-sm text-muted-foreground">{t('dermat_purchase.grns.lede', 'Every delivery against a PO. Stock stays "under QC test" until QC approves the batch; rejected batches go back to the vendor.')}</p>
+            </div>
+            <ExportButton onExport={exportGrns} />
           </header>
 
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">

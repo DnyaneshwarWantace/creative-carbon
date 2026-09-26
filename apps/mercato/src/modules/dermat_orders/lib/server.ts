@@ -198,18 +198,26 @@ export async function loadProducts(ctx: OrderContext, ids: string[]): Promise<Ma
   return result
 }
 
-export async function approvedPackBoms(ctx: OrderContext, productIds: string[]): Promise<Map<string, { id: string; version: number; status: string }>> {
+export async function approvedPackBoms(
+  ctx: Pick<OrderContext, 'em' | 'tenantId' | 'organizationId'>,
+  productIds: string[],
+  orderId?: string | null,
+): Promise<Map<string, { id: string; version: number; status: string; orderId: string | null }>> {
   const unique = Array.from(new Set(productIds.filter((id) => UUID_RE.test(id))))
-  const result = new Map<string, { id: string; version: number; status: string }>()
+  const result = new Map<string, { id: string; version: number; status: string; orderId: string | null }>()
   if (!unique.length) return result
-  const rows = await ctx.em.getConnection().execute<Array<{ product_id: string; id: string; version: number; status: string }>>(
-    `select distinct on (product_id) product_id, id, version, status
+  const scoped = Boolean(orderId && UUID_RE.test(orderId))
+  const rows = await ctx.em.getConnection().execute<Array<{ product_id: string; id: string; version: number; status: string; order_id: string | null }>>(
+    `select distinct on (product_id) product_id, id, version, status, order_id
        from dermat_bom_headers
       where product_id = any(?::uuid[]) and tenant_id = ? and organization_id = ? and deleted_at is null and status <> 'superseded'
-      order by product_id, (status = 'approved') desc, version desc`,
-    [`{${unique.join(',')}}`, ctx.tenantId, ctx.organizationId],
+        and ${scoped ? '(order_id is null or order_id = ?)' : 'order_id is null'}
+      order by product_id, (order_id is not null) desc, (status = 'approved') desc, version desc`,
+    scoped ? [`{${unique.join(',')}}`, ctx.tenantId, ctx.organizationId, orderId] : [`{${unique.join(',')}}`, ctx.tenantId, ctx.organizationId],
+    'all',
+    ctx.em.getTransactionContext(),
   )
-  for (const row of rows) result.set(row.product_id, { id: row.id, version: row.version, status: row.status })
+  for (const row of rows) result.set(row.product_id, { id: row.id, version: row.version, status: row.status, orderId: row.order_id })
   return result
 }
 

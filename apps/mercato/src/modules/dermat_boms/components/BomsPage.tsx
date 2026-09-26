@@ -18,6 +18,8 @@ import type { BomKind } from '../lib/bomKinds'
 import { STATUS_VARIANT } from './BomEditor'
 import { formatQty } from './MaterialPicker'
 import type { BomListItem } from './types'
+import { ExportButton } from '../../dermat_products/components/ExportButton'
+import { downloadCsv, fetchAllPages } from '../../dermat_products/lib/csvExport'
 
 type ListResponse = { items?: BomListItem[]; total?: number; totalPages?: number }
 
@@ -70,7 +72,11 @@ export function BomsPage() {
           </span>
         ),
       },
-      { id: 'version', header: t('dermat_boms.list.version', 'Version'), cell: ({ row }) => `v${row.original.version}` },
+      {
+        id: 'version',
+        header: t('dermat_boms.list.version', 'Version'),
+        cell: ({ row }) => (row.original.orderNo ? `v${row.original.version} · ${t('dermat_boms.list.forOrder', 'only {order}', { order: row.original.orderNo })}` : `v${row.original.version}`),
+      },
       {
         id: 'status',
         header: t('dermat_boms.list.status', 'Status'),
@@ -117,6 +123,27 @@ export function BomsPage() {
     return [...base, ...percent, ...tail]
   }, [kind, t])
 
+  const exportBoms = async () => {
+    const params = new URLSearchParams({ kind })
+    if (search.trim()) params.set('search', search.trim())
+    const items = await fetchAllPages<BomListItem>(`/api/dermat_boms/boms?${params.toString()}`)
+    downloadCsv(kind === 'formula' ? 'formulas' : 'pack-boms', [
+      { header: 'BOM', value: (row) => row.code },
+      { header: 'Product ID', value: (row) => row.productCode ?? '' },
+      { header: 'Product', value: (row) => row.productName },
+      { header: 'Only for order', value: (row) => row.orderNo ?? '' },
+      { header: 'Version', value: (row) => row.version },
+      { header: 'Status', value: (row) => row.status },
+      { header: 'Batch size', value: (row) => row.batchSize },
+      { header: 'Batch unit', value: (row) => row.batchUnit },
+      { header: 'Lines', value: (row) => row.lineCount },
+      { header: 'Total %', value: (row) => row.totalPercent ?? '' },
+      { header: 'Created by', value: (row) => row.createdByName ?? '' },
+      { header: 'Approved by', value: (row) => row.approvedByName ?? '' },
+      { header: 'Last changed', value: (row) => row.updatedAt.slice(0, 10) },
+    ], items)
+  }
+
   return (
     <Page>
       <PageBody>
@@ -140,12 +167,15 @@ export function BomsPage() {
           }}
           searchPlaceholder={t('dermat_boms.list.search', 'Search by product name or internal ID')}
           actions={
-            <Button asChild>
-              <Link href="/backend/boms/new">
-                <Plus className="mr-2 h-4 w-4" />
-                {t('dermat_boms.list.new', 'New BOM')}
-              </Link>
-            </Button>
+            <div className="flex flex-wrap items-center gap-2">
+              <ExportButton onExport={exportBoms} />
+              <Button asChild>
+                <Link href="/backend/boms/new">
+                  <Plus className="mr-2 h-4 w-4" />
+                  {t('dermat_boms.list.new', 'New BOM')}
+                </Link>
+              </Button>
+            </div>
           }
           pagination={{ page, pageSize: PAGE_SIZE, total, totalPages, onPageChange: setPage }}
           isLoading={isLoading}

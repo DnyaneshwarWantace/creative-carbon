@@ -21,7 +21,7 @@ export type BulkPlanLine = { lineId: string; fgId: string; pieces: number; bulkI
 
 export async function bulkPlan(ctx: OrderContext, orderId: string): Promise<BulkPlanLine[]> {
   const lines = await ctx.em.find(DermatOrderLine, { orderId }, { orderBy: { position: 'asc' } })
-  const boms = await approvedPackBoms(ctx, lines.map((line) => line.productId))
+  const boms = await approvedPackBoms(ctx, lines.map((line) => line.productId), orderId)
   const plan: BulkPlanLine[] = []
   for (const line of lines) {
     const bom = boms.get(line.productId)
@@ -294,7 +294,7 @@ export type PackItem = { productId: string; title: string; code: string | null; 
 
 export async function packItems(ctx: OrderContext, orderId: string): Promise<PackItem[]> {
   const lines = await ctx.em.find(DermatOrderLine, { orderId })
-  const boms = await approvedPackBoms(ctx, lines.map((line) => line.productId))
+  const boms = await approvedPackBoms(ctx, lines.map((line) => line.productId), orderId)
   const totals = new Map<string, number>()
   for (const line of lines) {
     const bom = boms.get(line.productId)

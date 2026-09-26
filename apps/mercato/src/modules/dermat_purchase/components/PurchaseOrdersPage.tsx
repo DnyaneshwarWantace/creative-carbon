@@ -12,7 +12,9 @@ import { StatusBadge } from '@open-mercato/ui/primitives/status-badge'
 import { EmptyState } from '@open-mercato/ui/primitives/empty-state'
 import { Spinner } from '@open-mercato/ui/primitives/spinner'
 import { apiCall } from '@open-mercato/ui/backend/utils/apiCall'
-import { PO_STATUS, day, money, type PoStatus } from './shared'
+import { PO_STATUS, day, money, type PoStatus, type PoView } from './shared'
+import { ExportButton } from '../../dermat_products/components/ExportButton'
+import { downloadCsv, fetchAllPages, fetchDetails } from '../../dermat_products/lib/csvExport'
 
 type View = 'pending_approval' | 'open' | 'draft' | 'received' | 'all'
 type Row = {
@@ -64,6 +66,37 @@ export function PurchaseOrdersPage() {
     { view: 'received', label: t('dermat_purchase.list.closed', 'Received or cancelled'), hint: t('dermat_purchase.list.closedHint', 'Everything arrived'), icon: <PackageCheck className="h-4 w-4" />, tone: 'bg-status-success-bg text-status-success-icon' },
   ]
 
+  const exportPos = async () => {
+    const params = new URLSearchParams({ view })
+    if (search.trim()) params.set('search', search.trim())
+    const list = await fetchAllPages<{ id: string }>(`/api/dermat_purchase/orders?${params.toString()}`)
+    const pos = await fetchDetails<PoView>(list.map((row) => row.id), (id) => `/api/dermat_purchase/orders?id=${encodeURIComponent(id)}`)
+    const rows = pos.flatMap((po) => po.lines.map((line) => ({ po, line })))
+    downloadCsv(`purchase-orders-${view}`, [
+      { header: 'PO', value: (row) => row.po.code },
+      { header: 'PO date', value: (row) => row.po.poDate },
+      { header: 'Expected', value: (row) => row.po.expectedDate ?? '' },
+      { header: 'Vendor', value: (row) => row.po.vendorName },
+      { header: 'Vendor GSTIN', value: (row) => row.po.vendorGstin ?? '' },
+      { header: 'PO status', value: (row) => row.po.status },
+      { header: 'For orders', value: (row) => row.po.orderRefs.map((ref) => ref.orderNo).join(', ') },
+      { header: 'Material ID', value: (row) => row.line.code ?? '' },
+      { header: 'Material', value: (row) => row.line.title },
+      { header: 'Qty', value: (row) => row.line.quantity },
+      { header: 'Unit', value: (row) => row.line.unit },
+      { header: 'Rate (₹)', value: (row) => row.line.rate },
+      { header: 'GST %', value: (row) => row.line.gstPercent },
+      { header: 'Amount (₹)', value: (row) => row.line.amount },
+      { header: 'GST (₹)', value: (row) => row.line.gst },
+      { header: 'Received', value: (row) => row.line.received },
+      { header: 'Still to come', value: (row) => row.line.open },
+      { header: 'PO total (₹)', value: (row) => row.po.total },
+      { header: 'Raised by', value: (row) => row.po.createdByName ?? '' },
+      { header: 'Approved by', value: (row) => row.po.approvedByName ?? '' },
+      { header: 'GRNs', value: (row) => row.po.grns.map((grn) => grn.code).join(', ') },
+    ], rows)
+  }
+
   return (
     <Page>
       <PageBody>
@@ -76,12 +109,15 @@ export function PurchaseOrdersPage() {
                 {t('dermat_purchase.list.lede', 'Raise a PO, get it approved, then receive the goods against it. Received material stays "under QC test" until QC approves it.')}
               </p>
             </div>
-            <Link href="/backend/purchase/orders/new">
-              <Button type="button">
-                <Plus className="mr-1.5 h-4 w-4" aria-hidden="true" />
-                {t('dermat_purchase.list.new', 'New purchase order')}
-              </Button>
-            </Link>
+            <div className="flex flex-wrap items-center gap-2">
+              <ExportButton onExport={exportPos} />
+              <Link href="/backend/purchase/orders/new">
+                <Button type="button">
+                  <Plus className="mr-1.5 h-4 w-4" aria-hidden="true" />
+                  {t('dermat_purchase.list.new', 'New purchase order')}
+                </Button>
+              </Link>
+            </div>
           </header>
 
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">

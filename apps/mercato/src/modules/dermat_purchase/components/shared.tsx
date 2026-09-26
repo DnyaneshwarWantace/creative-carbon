@@ -30,6 +30,8 @@ export type PoView = {
   vendorId: string
   vendorName: string
   vendorGstin: string | null
+  vendorPhone: string | null
+  vendorContact: string | null
   poDate: string
   expectedDate: string | null
   status: PoStatus

@@ -119,3 +119,81 @@ export function printDoc(order: Order, kind: DocKind): boolean {
   popup.document.close()
   return true
 }
+
+type CoaCheck = {
+  code: string
+  operation: string
+  productTitle: string
+  batchNo: string | null
+  status: string
+  chemicalStatus: string
+  microStatus: string
+  chemicalBy: string | null
+  chemicalAt: string | null
+  microBy: string | null
+  microAt: string | null
+  results: Array<{ name: string; class: string; spec: string; test: string; observation: string; remark: string }>
+}
+
+export function buildCoaHtml(order: Order, checks: CoaCheck[]): string {
+  const mfg = stageData(order, 'manufacturing')
+  const qa = order.stages.find((stage) => stage.key === 'qc_qa')
+  const qaData = stageData(order, 'qc_qa')
+  const allPassed = checks.length > 0 && checks.every((check) => check.status === 'passed')
+  const lineRows = order.lines
+    .map((line) => `<tr><td><strong>${esc(line.product?.title ?? '—')}</strong>${line.product?.code ? `<div class="code">${esc(line.product.code)}</div>` : ''}</td><td>${esc(line.packSize ?? '—')}</td><td class="mono">${esc(mfg.batch_no ?? '—')}</td><td>${day(mfg.mfg_date)}</td><td>${expiryFor(mfg.mfg_date, line.specs?.production?.expiry_month)}</td><td class="r">${num(line.quantity)} pcs</td></tr>`)
+    .join('')
+  const sections = checks
+    .map((check) => {
+      const title = check.operation === 'bulk' ? 'Bulk (semi-finished)' : check.operation === 'packing' ? 'Finished good' : check.operation === 'filling' ? 'After filling' : check.operation
+      const rows = check.results
+        .map((row) => `<tr><td>${esc(row.name)}</td><td>${esc(row.class)}</td><td>${esc(row.spec || '—')}</td><td><strong>${esc(row.observation || '—')}</strong></td><td>${row.test === 'micro' ? 'Micro' : 'Chemical'}</td><td>${esc(row.remark || '')}</td></tr>`)
+        .join('')
+      const sign = [
+        check.chemicalStatus !== 'na' ? `Chemical: <strong>${esc(check.chemicalStatus)}</strong>${check.chemicalBy ? ` · ${esc(check.chemicalBy)}` : ''}${check.chemicalAt ? ` · ${day(check.chemicalAt)}` : ''}` : '',
+        check.microStatus !== 'na' ? `Micro: <strong>${esc(check.microStatus)}</strong>${check.microBy ? ` · ${esc(check.microBy)}` : ''}${check.microAt ? ` · ${day(check.microAt)}` : ''}` : '',
+      ]
+        .filter(Boolean)
+        .join(' &nbsp;|&nbsp; ')
+      return `<h2>${esc(title)} <span class="code">${esc(check.code)} · ${esc(check.productTitle)}${check.batchNo ? ` · batch ${esc(check.batchNo)}` : ''}</span></h2>
+        <table><thead><tr><th>Parameter</th><th>Class</th><th>Specification</th><th>Observation</th><th>Test</th><th>Remark</th></tr></thead><tbody>${rows}</tbody></table>
+        <p class="muted">${sign}</p>`
+    })
+    .join('')
+  return `<!doctype html><html><head><meta charset="utf-8"><title>COA ${esc(order.orderNo)}</title>
+  <style>
+    *{box-sizing:border-box} body{font-family:-apple-system,Segoe UI,Helvetica,Arial,sans-serif;color:#1c1917;margin:0;padding:32px;font-size:12px}
+    .top{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #1c1917;padding-bottom:14px}
+    h1{font-size:20px;margin:0} h2{font-size:13px;margin:22px 0 4px} .muted{color:#57534e;font-size:11px} .code,.mono{font-family:ui-monospace,Menlo,monospace;font-size:10px;color:#57534e;font-weight:400}
+    .doc{text-align:right} .doc .kind{font-size:11px;text-transform:uppercase;letter-spacing:.1em;color:#78716c} .doc .no{font-family:ui-monospace,Menlo,monospace;font-size:15px;font-weight:700}
+    table{width:100%;border-collapse:collapse;margin-top:6px} th{font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:#78716c;text-align:left;border-bottom:1px solid #1c1917;padding:5px}
+    td{padding:6px 5px;border-bottom:1px solid #e7e5e4;vertical-align:top} .r{text-align:right}
+    .verdict{margin-top:22px;padding:10px 12px;border:2px solid ${allPassed ? '#15803d' : '#b91c1c'};border-radius:6px;font-weight:700;font-size:13px}
+    .sign{display:flex;justify-content:space-between;margin-top:48px} .sign div{width:30%;border-top:1px solid #a8a29e;padding-top:4px;text-align:center;color:#78716c}
+    @media print{body{padding:14mm}}
+  </style></head><body>
+  <div class="top">
+    <div><h1>DERMAT INDIA</h1><div class="muted">Certificate of Analysis</div></div>
+    <div class="doc"><div class="kind">COA</div><div class="no">${esc(order.orderNo)}</div><div class="muted">${esc(order.customer?.name ?? '')}</div></div>
+  </div>
+  <table style="margin-top:16px"><thead><tr><th>Product</th><th>Pack</th><th>Batch</th><th>Mfg.</th><th>Exp.</th><th class="r">Quantity</th></tr></thead><tbody>${lineRows}</tbody></table>
+  ${sections || '<p class="muted" style="margin-top:18px">No QC results recorded for this order.</p>'}
+  <div class="verdict">${allPassed ? 'Result: COMPLIES with specification' : 'Result: NOT RELEASED — QC not complete or failed'}${qa?.status === 'done' ? ` · Released by QA ${esc(qa.completedByName ?? '')} on ${day(qaData.released_on ?? qa.completedAt)}` : ''}</div>
+  <div class="sign"><div>QC Chemical</div><div>QC Micro</div><div>QA Head</div></div>
+  <script>window.addEventListener('load', function () { setTimeout(function () { window.print() }, 250) })</script>
+  </body></html>`
+}
+
+export async function printCoa(order: Order, load: (id: string) => Promise<CoaCheck | null>): Promise<boolean> {
+  const popup = window.open('', '_blank', 'width=960,height=1100')
+  if (!popup) return false
+  popup.document.write('<p style="font-family:sans-serif;padding:24px">Preparing the certificate…</p>')
+  const ids = [...(order.qc?.manufacturing ?? []), ...(order.qc?.filling ?? []), ...(order.qc?.packing ?? [])].map((check) => check.id)
+  const checks = (await Promise.all(ids.map(load))).filter((check): check is CoaCheck => Boolean(check))
+  popup.document.open()
+  popup.document.write(buildCoaHtml(order, checks))
+  popup.document.close()
+  return true
+}
+
+export type { CoaCheck }

@@ -12,7 +12,9 @@ import { EmptyState } from '@open-mercato/ui/primitives/empty-state'
 import { SegmentedControl, SegmentedControlItem } from '@open-mercato/ui/primitives/segmented-control'
 import { Spinner } from '@open-mercato/ui/primitives/spinner'
 import { apiCall } from '@open-mercato/ui/backend/utils/apiCall'
-import { Meter, STATUS_LABEL, STATUS_VARIANT, StageIcon, StockRoute, ago, type RequestListItem } from './shared'
+import { Meter, STATUS_LABEL, STATUS_VARIANT, StageIcon, StockRoute, ago, type RequestListItem, type RequestView } from './shared'
+import { ExportButton } from '../../dermat_products/components/ExportButton'
+import { downloadCsv, fetchAllPages, fetchDetails } from '../../dermat_products/lib/csvExport'
 
 type View = 'to_issue' | 'to_receive' | 'done' | 'all'
 type Mode = 'store' | 'production'
@@ -77,6 +79,35 @@ export function StoreRequestsPage({ mode = 'store' }: { mode?: Mode }) {
     }
   }, [query, view])
 
+  const exportRequests = async () => {
+    const params = new URLSearchParams({ view })
+    if (store !== 'all') params.set('store', store)
+    if (search.trim()) params.set('search', search.trim())
+    const list = await fetchAllPages<RequestListItem>(`/api/dermat_store/requests?${params.toString()}`)
+    const requests = await fetchDetails<RequestView>(list.map((row) => row.id), (id) => `/api/dermat_store/requests?id=${encodeURIComponent(id)}`)
+    const rows = requests.flatMap((request) => request.lines.map((line) => ({ request, line })))
+    downloadCsv(`store-requests-${view}`, [
+      { header: 'Request', value: (row) => row.request.code },
+      { header: 'Date', value: (row) => row.request.createdAt.slice(0, 10) },
+      { header: 'Order', value: (row) => row.request.orderNo },
+      { header: 'Stage', value: (row) => row.request.stageLabel },
+      { header: 'Store', value: (row) => row.request.storeLabel },
+      { header: 'Status', value: (row) => STATUS_LABEL[row.request.status] ?? row.request.status },
+      { header: 'Material ID', value: (row) => row.line.code ?? '' },
+      { header: 'Material', value: (row) => row.line.title },
+      { header: 'Unit', value: (row) => row.line.unit },
+      { header: 'Required', value: (row) => row.line.required },
+      { header: 'Issued', value: (row) => row.line.issued },
+      { header: 'Received', value: (row) => row.line.received },
+      { header: 'Used', value: (row) => row.line.used },
+      { header: 'Returned', value: (row) => row.line.returned },
+      { header: 'With production', value: (row) => row.line.withProduction },
+      { header: 'Batches issued', value: (row) => row.line.issues.map((issue) => `${issue.lotNumber ?? ''} ${issue.quantity}`.trim()).join('; ') },
+      { header: 'Requested by', value: (row) => row.request.requestedByName ?? '' },
+      { header: 'Received by', value: (row) => row.request.receivedByName ?? '' },
+    ], rows)
+  }
+
   return (
     <Page>
       <PageBody>
@@ -95,6 +126,7 @@ export function StoreRequestsPage({ mode = 'store' }: { mode?: Mode }) {
                   : t('dermat_store.list.lede', 'Production asks from the order stage. Issue by batch: stock moves to PRODUCTION at once, and the order reservation is used first.')}
               </p>
             </div>
+            <ExportButton onExport={exportRequests} />
           </header>
 
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">

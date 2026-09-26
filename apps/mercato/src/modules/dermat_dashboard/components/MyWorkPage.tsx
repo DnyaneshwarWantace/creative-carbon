@@ -10,6 +10,8 @@ import { EmptyState } from '@open-mercato/ui/primitives/empty-state'
 import { Spinner } from '@open-mercato/ui/primitives/spinner'
 import { SegmentedControl, SegmentedControlItem } from '@open-mercato/ui/primitives/segmented-control'
 import { apiCall } from '@open-mercato/ui/backend/utils/apiCall'
+import { ExportButton } from '../../dermat_products/components/ExportButton'
+import { downloadCsv } from '../../dermat_products/lib/csvExport'
 
 type WorkItem = {
   orderId: string
@@ -114,12 +116,33 @@ export function MyWorkPage() {
                 {t('dermat_dashboard.my.lede', 'The order steps you are responsible for. The same list is emailed every morning.')}
               </p>
             </div>
-            {canSeeEveryone ? (
-              <SegmentedControl value={scope} onValueChange={(value) => setScope(value as typeof scope)} aria-label={t('dermat_dashboard.my.scope', 'Whose work')}>
-                <SegmentedControlItem value="mine">{t('dermat_dashboard.my.mine', 'Mine')}</SegmentedControlItem>
-                <SegmentedControlItem value="everyone">{t('dermat_dashboard.my.everyone', 'Everyone')}</SegmentedControlItem>
-              </SegmentedControl>
-            ) : null}
+            <div className="flex flex-wrap items-center gap-2">
+              {canSeeEveryone ? (
+                <SegmentedControl value={scope} onValueChange={(value) => setScope(value as typeof scope)} aria-label={t('dermat_dashboard.my.scope', 'Whose work')}>
+                  <SegmentedControlItem value="mine">{t('dermat_dashboard.my.mine', 'Mine')}</SegmentedControlItem>
+                  <SegmentedControlItem value="everyone">{t('dermat_dashboard.my.everyone', 'Everyone')}</SegmentedControlItem>
+                </SegmentedControl>
+              ) : null}
+              <ExportButton
+                disabled={!items?.length}
+                onExport={() =>
+                  downloadCsv(scope === 'mine' ? 'my-pending-work' : 'team-pending-work', [
+                    { header: 'Order', value: (item) => item.orderNo },
+                    { header: 'Customer', value: (item) => item.customerName },
+                    { header: 'Stage', value: (item) => item.stageLabel },
+                    { header: 'Department', value: (item) => item.department },
+                    { header: 'Responsible', value: (item) => item.responsibleName ?? '' },
+                    { header: 'Status', value: (item) => (item.status === 'on_hold' ? 'On hold' : 'In progress') },
+                    { header: 'On hold with', value: (item) => item.holdParty ?? '' },
+                    { header: 'Hold reason', value: (item) => item.holdReason ?? '' },
+                    { header: 'Days waiting', value: (item) => item.days },
+                    { header: 'Stuck', value: (item) => (item.stuck ? 'Yes' : '') },
+                    { header: 'Delivery', value: (item) => item.deliveryDate ?? '' },
+                    { header: 'Late', value: (item) => (item.overdue ? 'Yes' : '') },
+                  ], items ?? [])
+                }
+              />
+            </div>
           </header>
 
           {!items ? (

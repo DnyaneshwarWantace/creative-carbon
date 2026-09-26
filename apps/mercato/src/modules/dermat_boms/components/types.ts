@@ -57,10 +57,14 @@ export type BomView = {
   updatedAt: string
   totalPercent: number | null
   items: BomItemView[]
-  versions: Array<{ id: string; code: string; version: number; status: string }>
+  orderId: string | null
+  orderNo: string | null
+  versions: Array<{ id: string; code: string; version: number; status: string; orderNo?: string | null }>
 }
 
 export type BomListItem = {
+  orderId?: string | null
+  orderNo?: string | null
   id: string
   code: string
   productId: string

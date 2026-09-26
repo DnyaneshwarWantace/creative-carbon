@@ -51,7 +51,9 @@ export type BomView = {
   updatedAt: string
   totalPercent: number | null
   items: BomItemView[]
-  versions: Array<{ id: string; code: string; version: number; status: string }>
+  orderId: string | null
+  orderNo: string | null
+  versions: Array<{ id: string; code: string; version: number; status: string; orderNo: string | null }>
 }
 
 function roundTo(value: number, digits: number): number {
@@ -233,7 +235,9 @@ export async function serializeBom(ctx: BomRequestContext, bom: BomHeader): Prom
     updatedAt: bom.updatedAt.toISOString(),
     totalPercent: kind === 'formula' ? sumPercent(itemViews) : null,
     items: itemViews,
-    versions: versions.map((entry) => ({ id: entry.id, code: entry.code, version: entry.version, status: entry.status })),
+    orderId: bom.orderId ?? null,
+    orderNo: bom.orderNo ?? null,
+    versions: versions.map((entry) => ({ id: entry.id, code: entry.code, version: entry.version, status: entry.status, orderNo: entry.orderNo ?? null })),
   }
 }
 

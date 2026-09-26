@@ -23,6 +23,8 @@ type ListRow = {
   product_kind: string
   version: number
   status: string
+  order_id: string | null
+  order_no: string | null
   batch_size: string
   batch_unit: string
   created_by_name: string | null
@@ -79,7 +81,7 @@ async function GET(req: Request) {
   const connection = (ctx.em as EntityManager).getConnection()
   const [countRow] = await connection.execute<Array<{ total: string }>>(`select count(*) as total ${from}`, params)
   const rows = await connection.execute<ListRow[]>(
-    `select h.id, h.code, h.product_id, h.product_kind, h.version, h.status, h.batch_size, h.batch_unit,
+    `select h.id, h.code, h.product_id, h.product_kind, h.version, h.status, h.batch_size, h.batch_unit, h.order_id, h.order_no,
             h.created_by_name, h.approved_by_name, h.updated_at, p.title, code.value_text as item_code,
             (select count(*) from dermat_bom_items i where i.bom_id = h.id) as line_count,
             (select sum(i.percent) from dermat_bom_items i where i.bom_id = h.id) as total_percent
@@ -99,6 +101,8 @@ async function GET(req: Request) {
       productCode: row.item_code,
       version: row.version,
       status: row.status,
+      orderId: row.order_id ?? null,
+      orderNo: row.order_no ?? null,
       batchSize: Number(row.batch_size),
       batchUnit: row.batch_unit,
       lineCount: Number(row.line_count),
@@ -124,6 +128,7 @@ async function POST(req: Request) {
     const { product, kind } = await resolveProductKind(ctx, input.productId)
     const existingDraft = await ctx.em.findOne(BomHeader, {
       productId: input.productId,
+      orderId: null,
       status: 'draft',
       tenantId: ctx.tenantId,
       organizationId: ctx.organizationId,

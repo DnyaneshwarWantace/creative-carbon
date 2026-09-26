@@ -8,7 +8,7 @@ export type BomStatus = 'draft' | 'approved' | 'superseded'
 @Index({ name: 'dermat_bom_headers_product_idx', properties: ['productId'] })
 @Unique({ name: 'dermat_bom_headers_org_code_uq', properties: ['organizationId', 'tenantId', 'code'] })
 export class BomHeader {
-  [OptionalProps]?: 'version' | 'status' | 'notes' | 'createdByName' | 'approvedByName' | 'approvedAt' | 'createdAt' | 'updatedAt' | 'deletedAt'
+  [OptionalProps]?: 'version' | 'status' | 'notes' | 'orderId' | 'orderNo' | 'createdByName' | 'approvedByName' | 'approvedAt' | 'createdAt' | 'updatedAt' | 'deletedAt'
 
   @PrimaryKey({ type: 'uuid', defaultRaw: 'gen_random_uuid()' })
   id!: string
@@ -18,6 +18,12 @@ export class BomHeader {
 
   @Property({ name: 'tenant_id', type: 'uuid' })
   tenantId!: string
+
+  @Property({ name: 'order_id', type: 'uuid', nullable: true })
+  orderId?: string | null
+
+  @Property({ name: 'order_no', type: 'text', nullable: true })
+  orderNo?: string | null
 
   @Property({ type: 'text' })
   code!: string

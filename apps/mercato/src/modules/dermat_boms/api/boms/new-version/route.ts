@@ -23,6 +23,7 @@ async function POST(req: Request) {
     const source = await findBom(ctx, parsed.data.id)
     const draft = await ctx.em.findOne(BomHeader, {
       productId: source.productId,
+      orderId: source.orderId ?? null,
       status: 'draft',
       tenantId: ctx.tenantId,
       organizationId: ctx.organizationId,
@@ -44,6 +45,8 @@ async function POST(req: Request) {
           code: await nextBomCode(txCtx),
           productId: source.productId,
           productKind: source.productKind,
+          orderId: source.orderId ?? null,
+          orderNo: source.orderNo ?? null,
           version: (latest?.version ?? source.version) + 1,
           status: 'draft',
           batchSize: source.batchSize,

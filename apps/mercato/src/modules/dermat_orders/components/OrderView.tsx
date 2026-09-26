@@ -27,6 +27,10 @@ import { useStageAction } from './useStageAction'
 import { useOrderMaterials } from './useOrderMaterials'
 import { OrderMoneyCard } from './OrderMoneyCard'
 import type { Order, Stage } from './types'
+import { ExportButton } from '../../dermat_products/components/ExportButton'
+import { WhatsAppMenu } from '../../dermat_products/components/WhatsAppMenu'
+import { customerMessages } from './customerMessages'
+import { openServerExport } from '../../dermat_products/lib/csvExport'
 
 
 const KIND_LABEL: Record<string, string> = { raw_material: 'RM', packing_material: 'PM', bulk: 'Bulk', finished_goods: 'FG' }
@@ -273,6 +277,12 @@ export function OrderView({ orderId }: { orderId: string }) {
               </p>
             </div>
             <div className="flex flex-wrap items-center gap-2">
+              <WhatsAppMenu phone={order.customer?.phone} recipient={order.customer?.name ?? t('dermat_orders.view.customer', 'Customer')} messages={customerMessages(order)} />
+              <ExportButton
+                size="sm"
+                label={t('dermat_orders.view.export', 'Export order file')}
+                onExport={() => openServerExport(`/api/dermat_orders/orders/export?orderId=${encodeURIComponent(order.id)}`)}
+              />
               <Button asChild variant="outline" size="sm">
                 <Link href={`/backend/orders/new?copyFrom=${order.id}`}>
                   <Copy className="mr-1.5 h-4 w-4" />

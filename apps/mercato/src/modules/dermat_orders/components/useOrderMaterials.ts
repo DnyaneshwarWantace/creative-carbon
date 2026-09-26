@@ -26,7 +26,7 @@ export function useOrderMaterials(order: Order | null): OrderMaterials | null {
           continue
         }
         const call = await apiCall<{ tree?: TreeNode; requirements?: Requirement[] }>(
-          `/api/dermat_boms/tree?bomId=${encodeURIComponent(line.bom.id)}&quantity=${line.quantity}`,
+          `/api/dermat_boms/tree?bomId=${encodeURIComponent(line.bom.id)}&quantity=${line.quantity}&orderId=${encodeURIComponent(order.id)}`,
           undefined,
           { fallback: {} },
         )

@@ -41,6 +41,8 @@ import { buildOptimisticLockHeader } from '@open-mercato/ui/backend/utils/optimi
 import { useGuardedMutation } from '@open-mercato/ui/backend/injection/useGuardedMutation'
 import { flash } from '@open-mercato/ui/backend/FlashMessages'
 import { PLANNING_STATUS, ROW_STATUS, age, daysUntil, qty, shortDate, type CalcRow, type PlanItem, type PlanningOrder, type SavedPlan } from './shared'
+import { ExportButton } from '../../dermat_products/components/ExportButton'
+import { downloadCsv } from '../../dermat_products/lib/csvExport'
 
 type Selected = Record<string, { orderId: string; productId: string; quantity: string }>
 type Extra = { key: string; productId: string; title: string; unit: string | null; quantity: string }
@@ -546,6 +548,29 @@ export function PlanningBoard() {
                       <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
                       <Input id="planning-material-search" className="h-9 pl-9" value={materialSearch} onChange={(event) => setMaterialSearch(event.target.value)} placeholder={t('dermat_planning.board.materialSearch', 'Find a material')} />
                     </div>
+                    <ExportButton
+                      disabled={!rows?.length}
+                      onExport={() =>
+                        downloadCsv('material-plan', [
+                          { header: 'Material ID', value: (row) => row.code ?? '' },
+                          { header: 'Material', value: (row) => row.title },
+                          { header: 'Type', value: (row) => row.kind ?? '' },
+                          { header: 'Unit', value: (row) => row.unit ?? '' },
+                          { header: 'Needed', value: (row) => row.required },
+                          { header: 'In store', value: (row) => row.inStore },
+                          { header: 'Reserved for these orders', value: (row) => row.reservedHere },
+                          { header: 'Held by other orders', value: (row) => row.reservedOther },
+                          { header: 'Free', value: (row) => row.free },
+                          { header: 'Short', value: (row) => row.short },
+                          { header: 'Under QC test', value: (row) => row.underTest },
+                          { header: 'On order (open POs)', value: (row) => row.onOrder },
+                          { header: 'To order', value: (row) => row.toOrder },
+                          { header: 'Status', value: (row) => ROW_STATUS[row.status].label },
+                          { header: 'Needed for', value: (row) => row.sources.map((source) => `${source.orderNo ?? source.label}: ${source.required}`).join('; ') },
+                          { header: 'Open POs', value: (row) => row.openPos.map((po) => `${po.code} ${po.vendorName} ${po.open}`).join('; ') },
+                        ], rows ?? [])
+                      }
+                    />
                     <Button type="button" variant="outline" onClick={raisePo} disabled={!(rows ?? []).some((row) => row.toOrder > 0)}>
                       <ShoppingCart className="mr-1.5 h-4 w-4" aria-hidden="true" />
                       {t('dermat_planning.board.raisePo', 'Raise PO for what to buy')}

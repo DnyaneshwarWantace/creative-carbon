@@ -15,6 +15,8 @@ import { flash } from '@open-mercato/ui/backend/FlashMessages'
 import { PRODUCT_KINDS, type ProductKind } from '../lib/kinds'
 import { KIND_CONFIG, kindFromSlug } from '../lib/kindConfig'
 import { ImportPanel } from './ImportPanel'
+import { ExportButton } from './ExportButton'
+import { downloadCsv, fetchAllPages } from '../lib/csvExport'
 
 type Row = Record<string, unknown> & { id: string }
 type CategoryNode = { id: string; name: string; children?: CategoryNode[]; descendantIds?: string[] }
@@ -180,6 +182,35 @@ export function ProductsPage() {
 
   const createHref = `/backend/products/new/${config.slug}`
 
+  const exportProducts = async () => {
+    const ids = categoryIds?.[kind] ?? []
+    const items = search.trim()
+      ? rows
+      : ids.length
+        ? await fetchAllPages<Row>(`/api/catalog/products?${new URLSearchParams({ categoryIds: ids.join(','), sortField: 'title', sortDir: 'asc' }).toString()}`)
+        : []
+    const levels: Record<string, Stock> = {}
+    for (let start = 0; start < items.length; start += 100) {
+      const chunk = items.slice(start, start + 100).map((item) => item.id)
+      const call = await apiCall<{ items?: Record<string, Stock> }>(`/api/dermat_products/stock?productIds=${chunk.join(',')}`, undefined, { fallback: { items: {} } })
+      Object.assign(levels, call.result?.items ?? {})
+    }
+    const value = (row: Row, key: string) => {
+      const text = cell(row, key)
+      return text === '—' ? '' : text
+    }
+    downloadCsv(config.title, [
+      { header: config.codeLabel, value: (row) => value(row, 'item_code') },
+      { header: t('dermat_products.list.name', 'Name'), value: (row) => value(row, 'title') },
+      ...config.fields.map((field) => ({ header: field.label, value: (row: Row) => value(row, field.key) })),
+      { header: t('dermat_products.export.unit', 'Unit'), value: (row) => value(row, 'default_unit') },
+      { header: t('dermat_products.export.onHand', 'On hand'), value: (row) => levels[row.id]?.onHand ?? 0 },
+      { header: t('dermat_products.export.reserved', 'Reserved'), value: (row) => levels[row.id]?.reserved ?? 0 },
+      { header: t('dermat_products.export.available', 'Available'), value: (row) => levels[row.id]?.available ?? 0 },
+      { header: t('dermat_products.list.sku', 'SKU'), value: (row) => value(row, 'sku') },
+    ], items)
+  }
+
   return (
     <Page>
       <PageBody>
@@ -206,7 +237,8 @@ export function ProductsPage() {
           }}
           searchPlaceholder={t('dermat_products.list.search', 'Search by {label} or name (e.g. AP 293)', { label: config.codeLabel })}
           actions={
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
+              <ExportButton onExport={exportProducts} />
               <Button asChild variant="outline">
                 <Link href="/backend/catalog/categories">
                   <FolderTree className="mr-2 h-4 w-4" />

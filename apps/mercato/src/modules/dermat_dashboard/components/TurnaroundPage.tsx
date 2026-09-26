@@ -10,6 +10,8 @@ import { EmptyState } from '@open-mercato/ui/primitives/empty-state'
 import { Spinner } from '@open-mercato/ui/primitives/spinner'
 import { SegmentedControl, SegmentedControlItem } from '@open-mercato/ui/primitives/segmented-control'
 import { apiCall } from '@open-mercato/ui/backend/utils/apiCall'
+import { ExportButton } from '../../dermat_products/components/ExportButton'
+import { downloadCsv } from '../../dermat_products/lib/csvExport'
 
 type Data = {
   days: number
@@ -37,6 +39,27 @@ export function TurnaroundPage() {
   const maxStage = Math.max(1, ...(data?.stages ?? []).map((row) => row.averageDays))
   const maxPerson = Math.max(1, ...(data?.people ?? []).map((row) => row.averageDays ?? 0))
 
+  const exportTurnaround = () => {
+    if (!data) return
+    type Line = { section: string; name: string; department: string; order: string; completed: number | string; average: number | string; slowest: number | string; openNow: number | string; oldestOpen: number | string }
+    const lines: Line[] = [
+      ...data.stages.map((row) => ({ section: 'Stage', name: row.label, department: row.department, order: '', completed: row.completed, average: row.averageDays, slowest: row.slowestDays, openNow: '', oldestOpen: '' })),
+      ...data.people.map((row) => ({ section: 'Person', name: row.name, department: '', order: '', completed: row.completed, average: row.averageDays ?? '', slowest: '', openNow: row.openNow, oldestOpen: row.oldestOpenDays })),
+      ...data.slowest.map((row) => ({ section: 'Slowest step', name: row.person, department: row.stageLabel, order: row.orderNo, completed: row.completedAt.slice(0, 10), average: row.days, slowest: '', openNow: '', oldestOpen: '' })),
+    ]
+    downloadCsv(`turnaround-${days}-days`, [
+      { header: 'Section', value: (row) => row.section },
+      { header: 'Stage / person', value: (row) => row.name },
+      { header: 'Department / stage', value: (row) => row.department },
+      { header: 'Order', value: (row) => row.order },
+      { header: 'Steps finished / done on', value: (row) => row.completed },
+      { header: 'Average days / days taken', value: (row) => row.average },
+      { header: 'Slowest days', value: (row) => row.slowest },
+      { header: 'Open now', value: (row) => row.openNow },
+      { header: 'Oldest open (days)', value: (row) => row.oldestOpen },
+    ], lines)
+  }
+
   return (
     <Page>
       <PageBody>
@@ -47,11 +70,14 @@ export function TurnaroundPage() {
               <h1 className="text-2xl font-bold tracking-tight">{t('dermat_dashboard.tat.title', 'Turnaround')}</h1>
               <p className="max-w-2xl text-sm text-muted-foreground">{t('dermat_dashboard.tat.lede', 'How many days each stage and each person takes to clear a step, from finished steps.')}</p>
             </div>
-            <SegmentedControl value={days} onValueChange={setDays} aria-label={t('dermat_dashboard.tat.period', 'Period')}>
-              <SegmentedControlItem value="30">30 d</SegmentedControlItem>
-              <SegmentedControlItem value="90">90 d</SegmentedControlItem>
-              <SegmentedControlItem value="180">180 d</SegmentedControlItem>
-            </SegmentedControl>
+            <div className="flex flex-wrap items-center gap-2">
+              <SegmentedControl value={days} onValueChange={setDays} aria-label={t('dermat_dashboard.tat.period', 'Period')}>
+                <SegmentedControlItem value="30">30 d</SegmentedControlItem>
+                <SegmentedControlItem value="90">90 d</SegmentedControlItem>
+                <SegmentedControlItem value="180">180 d</SegmentedControlItem>
+              </SegmentedControl>
+              <ExportButton disabled={!data?.completedSteps} onExport={exportTurnaround} />
+            </div>
           </header>
 
           {!data ? (

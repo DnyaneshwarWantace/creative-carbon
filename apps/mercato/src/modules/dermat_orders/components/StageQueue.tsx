@@ -12,6 +12,8 @@ import { Tabs, TabsList, TabsTrigger } from '@open-mercato/ui/primitives/tabs'
 import { StatusBadge } from '@open-mercato/ui/primitives/status-badge'
 import { apiCall } from '@open-mercato/ui/backend/utils/apiCall'
 import { flash } from '@open-mercato/ui/backend/FlashMessages'
+import { ExportButton } from '../../dermat_products/components/ExportButton'
+import { openServerExport } from '../../dermat_products/lib/csvExport'
 import { stageDef } from '../lib/stages'
 import { STAGE_VARIANT, daysUntil, formatDate, formatQty } from './format'
 import { StageSheet, type StageActionRequest } from './StageSheet'
@@ -178,6 +180,13 @@ export function StageQueue({ stageKey }: { stageKey: string }) {
     [stageKey, tab, t],
   )
 
+  const exportStage = () => {
+    const params = new URLSearchParams({ stage: stageKey, stageStatus: tab })
+    if (tab !== 'done') params.set('status', 'open')
+    if (search.trim()) params.set('search', search.trim())
+    openServerExport(`/api/dermat_orders/orders/export?${params.toString()}`)
+  }
+
   if (!def) return null
   const selected = order?.stages.find((entry) => entry.key === stageKey) ?? null
 
@@ -216,6 +225,7 @@ export function StageQueue({ stageKey }: { stageKey: string }) {
             setPage(1)
           }}
           searchPlaceholder={t('dermat_orders.list.search', 'Search order no., customer, product ID or batch no.')}
+          actions={<ExportButton onExport={exportStage} />}
           pagination={{ page, pageSize: PAGE_SIZE, total, totalPages, onPageChange: setPage }}
           isLoading={isLoading}
         />

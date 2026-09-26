@@ -14,7 +14,7 @@ import { apiCall } from '@open-mercato/ui/backend/utils/apiCall'
 import { useGuardedMutation } from '@open-mercato/ui/backend/injection/useGuardedMutation'
 import { flash } from '@open-mercato/ui/backend/FlashMessages'
 import { formatDate, todayIso } from './format'
-import { printDoc } from './printDocs'
+import { printCoa, printDoc, type CoaCheck } from './printDocs'
 import type { Order, OrderPayment } from './types'
 
 const MODES = ['NEFT / RTGS', 'UPI', 'Cheque', 'Cash', 'Other']
@@ -81,7 +81,7 @@ export function OrderMoneyCard({ order, onChanged }: { order: Order; onChanged: 
       <header className="flex flex-wrap items-center justify-between gap-3 border-b bg-muted/20 px-4 py-3">
         <h2 className="flex items-center gap-2 text-sm font-bold">
           <IndianRupee className="h-4 w-4 text-primary" aria-hidden="true" />
-          {t('dermat_orders.money.title', 'Money')}
+          {t('dermat_orders.money.title', 'Money & documents')}
         </h2>
         <div className="flex flex-wrap gap-2">
           <Button type="button" variant="outline" size="sm" onClick={() => printDoc(order, 'proforma')}>
@@ -91,6 +91,16 @@ export function OrderMoneyCard({ order, onChanged }: { order: Order; onChanged: 
           <Button type="button" variant="outline" size="sm" onClick={() => printDoc(order, 'invoice')} disabled={!order.stages.find((stage) => stage.key === 'billing')?.data?.invoice_number}>
             <Printer className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
             {t('dermat_orders.money.invoice', 'Tax invoice')}
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={!Object.values(order.qc ?? {}).some((list) => list.length)}
+            onClick={() => printCoa(order, async (id) => (await apiCall<CoaCheck>(`/api/dermat_quality/checks?id=${encodeURIComponent(id)}`)).result ?? null)}
+          >
+            <FileText className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
+            {t('dermat_orders.money.coa', 'COA')}
           </Button>
           <Button type="button" variant="outline" size="sm" onClick={() => printDoc(order, 'challan')}>
             <Truck className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />

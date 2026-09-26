@@ -31,6 +31,7 @@ async function POST(req: Request) {
         const txCtx = { ...ctx, em: em as EntityManager }
         const previous = await em.find(BomHeader, {
           productId: bom.productId,
+          orderId: bom.orderId ?? null,
           status: 'approved',
           tenantId: ctx.tenantId,
           organizationId: ctx.organizationId,

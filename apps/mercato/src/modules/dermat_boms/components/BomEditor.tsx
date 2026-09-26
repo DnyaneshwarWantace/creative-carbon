@@ -51,6 +51,8 @@ import { BomLinks } from './BomLinks'
 import { FillPlan } from './FillPlan'
 import { openPrintSheet } from './printSheet'
 import type { BomView, ComponentOption } from './types'
+import { ExportButton } from '../../dermat_products/components/ExportButton'
+import { downloadCsv } from '../../dermat_products/lib/csvExport'
 
 type Row = {
   key: string
@@ -199,6 +201,19 @@ export function BomEditor({ bomId, productId }: { bomId?: string; productId?: st
   const t = useT()
   const router = useRouter()
   const { runMutation } = useGuardedMutation({ contextId: `dermat-bom-${bomId ?? 'new'}` })
+
+  const copyForOrder = async (productId: string) => {
+    const orderId = state?.bom?.orderId
+    if (!orderId) return
+    const body = { orderId, productId }
+    const call = await runMutation({
+      context: { orderCopy: productId },
+      mutationPayload: body,
+      operation: () => apiCall<{ id?: string; error?: string }>('/api/dermat_boms/boms/order-copy', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) }),
+    })
+    if (call.result?.id) router.push(`/backend/boms/${call.result.id}`)
+    else flash(call.result?.error ?? t('dermat_boms.orderCopyError', 'Could not make the order BOM.'), 'error')
+  }
   const [state, setState] = React.useState<EditorState | null>(null)
   const [loadError, setLoadError] = React.useState<string | null>(null)
   const [busy, setBusy] = React.useState(false)
@@ -496,6 +511,23 @@ export function BomEditor({ bomId, productId }: { bomId?: string; productId?: st
     }
   }
 
+  const handleExport = () => {
+    if (!state) return
+    const size = numberOf(state.batchSize)
+    const unit = state.bom?.batchUnit ?? BOM_KINDS[state.kind].defaultBatchUnit ?? state.product.unit ?? 'kg'
+    downloadCsv(`bom-${state.product.code ?? state.product.title}-v${state.bom?.version ?? 1}`, [
+      { header: 'Material ID', value: (row) => row.code ?? '' },
+      { header: 'Material', value: (row) => row.name },
+      { header: 'Type', value: (row) => row.componentKind ?? '' },
+      { header: state.kind === 'formula' ? 'RM %' : 'Per piece', value: (row) => rowValue(row) },
+      { header: `Qty for ${formatQty(size, 3)} ${unit}`, value: (row) => batchQuantity(state.kind, size, rowValue(row), unit, row.unit, row.specificGravity) },
+      { header: 'Unit', value: (row) => row.unit ?? '' },
+      { header: 'Fill', value: (row) => (row.usesFill ? `${numberOf(row.fillQty)} ${row.fillUnit}` : '') },
+      { header: 'On hand', value: (row) => row.onHand ?? '' },
+      { header: 'Remark', value: (row) => row.remark ?? '' },
+    ], state.rows)
+  }
+
   const handlePrint = () => {
     if (!state) return
     const size = numberOf(state.batchSize)
@@ -669,12 +701,36 @@ export function BomEditor({ bomId, productId }: { bomId?: string; productId?: st
                       className="rounded border bg-muted/30 px-2 py-0.5 hover:bg-muted"
                     >
                       v{entry.version} · {t(`dermat_boms.status.${entry.status}`, entry.status)}
+                      {entry.orderNo ? ` · ${entry.orderNo}` : ''}
                     </Link>
                   ))}
                 </div>
               ) : null}
+              {state.bom?.orderId ? (
+                <div className="mt-2 rounded-md border border-status-info-border bg-status-info-bg px-3 py-2 text-xs text-status-info-text">
+                  <p>
+                    {t('dermat_boms.orderOnly', 'This BOM is only for order')}{' '}
+                    <Link href={`/backend/orders/${state.bom.orderId}`} className="font-mono font-semibold underline">
+                      {state.bom.orderNo}
+                    </Link>
+                    . {t('dermat_boms.orderOnlyHint', 'The standard BOM of this product is not changed.')}
+                  </p>
+                  {state.rows.some((row) => row.componentKind === 'bulk') ? (
+                    <p className="mt-1 flex flex-wrap items-center gap-2">
+                      {state.rows
+                        .filter((row) => row.componentKind === 'bulk')
+                        .map((row) => (
+                          <button key={row.key} type="button" className="font-medium underline" onClick={() => copyForOrder(row.componentProductId)}>
+                            {t('dermat_boms.orderFormula', 'Change the formula of {name} for this order', { name: row.name })}
+                          </button>
+                        ))}
+                    </p>
+                  ) : null}
+                </div>
+              ) : null}
             </div>
             <div className="flex flex-wrap items-center gap-2">
+              <ExportButton size="sm" onExport={handleExport} disabled={!state.rows.length} />
               <Button type="button" variant="outline" size="sm" onClick={handlePrint} disabled={!state.rows.length}>
                 <Printer className="mr-1.5 h-4 w-4" />
                 {t('dermat_boms.print.button', 'Print / PDF')}

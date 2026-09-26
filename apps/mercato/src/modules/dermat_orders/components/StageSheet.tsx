@@ -2,6 +2,7 @@
 
 import * as React from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { Check, CheckCircle2, CirclePause, CirclePlay, FileStack, Lock, PackagePlus, RotateCcw, SkipForward } from 'lucide-react'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { Button } from '@open-mercato/ui/primitives/button'
@@ -11,6 +12,8 @@ import { Textarea } from '@open-mercato/ui/primitives/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@open-mercato/ui/primitives/select'
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@open-mercato/ui/primitives/sheet'
 import { StatusBadge } from '@open-mercato/ui/primitives/status-badge'
+import { apiCall } from '@open-mercato/ui/backend/utils/apiCall'
+import { flash } from '@open-mercato/ui/backend/FlashMessages'
 import { HOLD_PARTIES, STAGES, stageDef, type StageField } from '../lib/stages'
 import { cn } from '@open-mercato/shared/lib/utils'
 import { STAGE_VARIANT, formatDate, formatDateTime, formatQty } from './format'
@@ -60,6 +63,7 @@ function display(field: StageField, value: unknown): string {
 }
 
 export function StageWorkArea({ order, stage, people, canWork, busy, shortCount, onAction, variant = 'sheet' }: StageWorkAreaProps) {
+  const router = useRouter()
   const t = useT()
   const def = stage ? stageDef(stage.key) : undefined
   const [values, setValues] = React.useState<Record<string, string>>({})
@@ -81,6 +85,15 @@ export function StageWorkArea({ order, stage, people, canWork, busy, shortCount,
 
   const editable = canWork && (stage.status === 'open' || stage.status === 'on_hold') && order.status !== 'cancelled'
   const nextLabels = STAGES.filter((entry) => entry.after.includes(stage.key)).map((entry) => entry.label)
+  const onOrderCopy = async (productId: string) => {
+    const call = await apiCall<{ id?: string; error?: string }>('/api/dermat_boms/boms/order-copy', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ orderId: order.id, productId }),
+    })
+    if (call.result?.id) router.push(`/backend/boms/${call.result.id}`)
+    else flash(call.result?.error ?? t('dermat_orders.sheet.orderBomError', 'Could not make the order BOM.'), 'error')
+  }
   const finished = stage.status === 'done' || stage.status === 'skipped'
   const dataPayload = () => {
     const data: Record<string, string | number | null> = {}
@@ -213,6 +226,12 @@ export function StageWorkArea({ order, stage, people, canWork, busy, shortCount,
               {order.lines.map((line) => (
                 <li key={line.id} className="flex items-center justify-between gap-2 px-3 py-2">
                   <span className="min-w-0 truncate">{line.product?.title ?? '—'}</span>
+                  {line.bom && editable && !line.bom.orderId ? (
+                    <button type="button" className="shrink-0 text-xs text-primary hover:underline" onClick={() => onOrderCopy(line.productId)}>
+                      {t('dermat_orders.sheet.orderBom', 'Change for this order')}
+                    </button>
+                  ) : null}
+                  {line.bom?.orderId ? <span className="shrink-0 rounded-sm bg-status-info-bg px-1.5 py-0.5 text-xs text-status-info-text">{t('dermat_orders.sheet.orderBomTag', 'order BOM')}</span> : null}
                   {line.bom ? (
                     <Link href={`/backend/boms/${line.bom.id}`} className="shrink-0 hover:underline">
                       <StatusBadge variant={line.bom.status === 'approved' ? 'success' : 'warning'}>

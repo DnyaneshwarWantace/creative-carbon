@@ -19,6 +19,8 @@ import { apiCall } from '@open-mercato/ui/backend/utils/apiCall'
 import { useGuardedMutation } from '@open-mercato/ui/backend/injection/useGuardedMutation'
 import { flash } from '@open-mercato/ui/backend/FlashMessages'
 import { age, ageDays, qty, type PlanningOrder } from './shared'
+import { ExportButton } from '../../dermat_products/components/ExportButton'
+import { downloadCsv } from '../../dermat_products/lib/csvExport'
 
 type Reservation = {
   id: string
@@ -123,9 +125,46 @@ export function ReservationsPage() {
                 {t('dermat_planning.res.lede', 'Stock held for an order stays in the store and is not deducted. Other orders cannot use it until you clear it or move it to them. Reservations never expire.')}
               </p>
             </div>
-            <Link href="/backend/planning" className="text-sm font-medium text-primary hover:underline">
-              {t('dermat_planning.res.toBoard', 'Open the planning board →')}
-            </Link>
+            <div className="flex flex-wrap items-center gap-3">
+              <Link href="/backend/planning" className="text-sm font-medium text-primary hover:underline">
+                {t('dermat_planning.res.toBoard', 'Open the planning board →')}
+              </Link>
+              <ExportButton
+                label={t('dermat_planning.res.export', 'Export reservations')}
+                disabled={!items?.length}
+                onExport={() =>
+                  downloadCsv('reserved-stock', [
+                    { header: 'Order', value: (row) => row.orderNo },
+                    { header: 'Material ID', value: (row) => row.code ?? '' },
+                    { header: 'Material', value: (row) => row.title },
+                    { header: 'Type', value: (row) => row.kind ?? '' },
+                    { header: 'Reserved', value: (row) => row.quantity },
+                    { header: 'Unit', value: (row) => row.unit ?? '' },
+                    { header: 'In store now', value: (row) => row.inStore },
+                    { header: 'Reserved since', value: (row) => row.since.slice(0, 10) },
+                    { header: 'Days held', value: (row) => ageDays(row.since) },
+                    { header: 'Reserved by', value: (row) => row.byName ?? '' },
+                    { header: 'Note', value: (row) => row.note ?? '' },
+                  ], items ?? [])
+                }
+              />
+              <ExportButton
+                label={t('dermat_planning.res.exportHistory', 'Export history')}
+                disabled={!history.length}
+                onExport={() =>
+                  downloadCsv('reservation-history', [
+                    { header: 'When', value: (row) => row.at.slice(0, 16).replace('T', ' ') },
+                    { header: 'Action', value: (row) => ACTION_LABEL[row.action] ?? row.action },
+                    { header: 'Order', value: (row) => row.orderNo },
+                    { header: 'Moved to', value: (row) => row.toOrderNo ?? '' },
+                    { header: 'Material', value: (row) => row.title },
+                    { header: 'Qty', value: (row) => row.quantity },
+                    { header: 'By', value: (row) => row.byName ?? '' },
+                    { header: 'Note', value: (row) => row.note ?? '' },
+                  ], history)
+                }
+              />
+            </div>
           </header>
 
           <div className="grid grid-cols-2 gap-3 md:grid-cols-4">

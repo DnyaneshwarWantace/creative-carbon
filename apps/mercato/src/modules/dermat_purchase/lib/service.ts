@@ -182,9 +182,10 @@ export async function cancelPo(ctx: OrderContext, po: PurchaseOrder, note: strin
 }
 
 export async function poView(ctx: OrderContext, po: PurchaseOrder) {
-  const [lines, grns] = await Promise.all([
+  const [lines, grns, vendor] = await Promise.all([
     ctx.em.find(PurchaseOrderLine, { poId: po.id }, { orderBy: { position: 'asc' } }),
     ctx.em.find(GoodsReceipt, { poId: po.id, deletedAt: null }, { orderBy: { createdAt: 'asc' } }),
+    ctx.em.findOne(Vendor, { id: po.vendorId, tenantId: ctx.tenantId, organizationId: ctx.organizationId }),
   ])
   const products = await loadProducts(ctx, lines.map((line) => line.productId))
   const view = lines.map((line) => {
@@ -214,6 +215,8 @@ export async function poView(ctx: OrderContext, po: PurchaseOrder) {
     vendorId: po.vendorId,
     vendorName: po.vendorName,
     vendorGstin: po.vendorGstin ?? null,
+    vendorPhone: vendor?.contactPhone ?? null,
+    vendorContact: vendor?.contactPerson ?? null,
     poDate: po.poDate,
     expectedDate: po.expectedDate ?? null,
     status: po.status,

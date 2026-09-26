@@ -20,6 +20,8 @@ import { flash } from '@open-mercato/ui/backend/FlashMessages'
 import { ErrorMessage, LoadingMessage } from '@open-mercato/ui/backend/detail'
 import { GRN_STATUS, HISTORY_LABEL, PO_STATUS, day, money, qty, when, type PoView } from './shared'
 import { printPurchaseOrder } from './printPo'
+import { WhatsAppMenu, type WhatsAppMessage } from '../../dermat_products/components/WhatsAppMenu'
+import { dateText, rupeeText } from '../../dermat_products/lib/whatsapp'
 
 function steps(po: PoView): StepIndicatorStep[] {
   const order = ['draft', 'pending_approval', 'approved', 'partly_received', 'received']
@@ -30,6 +32,64 @@ function steps(po: PoView): StepIndicatorStep[] {
     label,
     status: po.status === 'cancelled' ? (index === 0 ? 'complete' : index === 1 ? 'error' : 'pending') : index < reached || (index === reached && po.status === 'received') ? 'complete' : index === reached ? 'current' : 'pending',
   }))
+}
+
+function vendorMessages(po: PoView): WhatsAppMessage[] {
+  const greeting = `Dear ${po.vendorContact ?? po.vendorName},`
+  const itemLines = po.lines.map((line, index) => `${index + 1}. ${line.code ? `${line.code} ` : ''}${line.title}: ${qty(line.quantity)} ${line.unit} @ ${rupeeText(line.rate)}`)
+  const open = po.lines.filter((line) => line.open > 0)
+  const messages: WhatsAppMessage[] = []
+  if (po.status === 'approved' || po.status === 'partly_received') {
+    messages.push({
+      key: 'send',
+      label: 'Send the purchase order',
+      hint: `${po.code} · ${po.lines.length} items · ${rupeeText(po.total)}`,
+      text: [
+        greeting,
+        '',
+        `Please supply the following against our PO ${po.code} dated ${dateText(po.poDate)}:`,
+        ...itemLines,
+        '',
+        `Total with GST: ${rupeeText(po.total)}`,
+        po.expectedDate ? `Needed by: ${dateText(po.expectedDate)}` : null,
+        po.terms ? `Terms: ${po.terms}` : null,
+        '',
+        'Please send the COA and invoice with the material and mention the PO number on the invoice.',
+        '',
+        'Thank you,',
+        'Dermat India – Purchase',
+      ]
+        .filter((line): line is string => line !== null)
+        .join('\n'),
+    })
+  }
+  if (open.length && (po.status === 'approved' || po.status === 'partly_received')) {
+    messages.push({
+      key: 'follow',
+      label: 'Ask when the pending material will come',
+      hint: `${open.length} items still to come`,
+      text: [
+        greeting,
+        '',
+        `Against PO ${po.code}, the following is still pending:`,
+        ...open.map((line) => `• ${line.title}: ${qty(line.open)} ${line.unit}`),
+        '',
+        'Please confirm the dispatch date.',
+        '',
+        'Thank you,',
+        'Dermat India – Purchase',
+      ].join('\n'),
+    })
+  }
+  if (po.status === 'draft' || po.status === 'pending_approval') {
+    messages.push({
+      key: 'rates',
+      label: 'Confirm rates and availability',
+      hint: `${po.lines.length} items before we place the order`,
+      text: [greeting, '', 'Please confirm the rate and stock for:', ...itemLines, '', 'Thank you,', 'Dermat India – Purchase'].join('\n'),
+    })
+  }
+  return messages
 }
 
 export function PurchaseOrderPage({ poId }: { poId: string }) {
@@ -135,6 +195,7 @@ export function PurchaseOrderPage({ poId }: { poId: string }) {
                 </p>
               </div>
               <div className="flex flex-wrap gap-2">
+                <WhatsAppMenu phone={po.vendorPhone} recipient={po.vendorContact ? `${po.vendorContact} (${po.vendorName})` : po.vendorName} messages={vendorMessages(po)} />
                 <Button type="button" variant="ghost" onClick={() => printPurchaseOrder(po)}>
                   <Printer className="mr-1.5 h-4 w-4" aria-hidden="true" />
                   {t('dermat_purchase.detail.print', 'Print PO')}

@@ -12,6 +12,8 @@ import { StatusBadge } from '@open-mercato/ui/primitives/status-badge'
 import { apiCall } from '@open-mercato/ui/backend/utils/apiCall'
 import { LoadingMessage } from '@open-mercato/ui/backend/detail'
 import { OPERATION_LABEL } from './shared'
+import { ExportButton } from '../../dermat_products/components/ExportButton'
+import { downloadCsv } from '../../dermat_products/lib/csvExport'
 
 type Rule = {
   id: string
@@ -24,7 +26,7 @@ type Rule = {
   requiresChemical: boolean
   requiresMicro: boolean
   isActive: boolean
-  parameters: Array<{ key: string; test: string }>
+  parameters: Array<{ key: string; name: string; class: string; spec: string; test: string }>
 }
 
 export function QcRulesPage() {
@@ -56,12 +58,35 @@ export function QcRulesPage() {
                 {t('dermat_quality.rules.hint', 'Each test point has a default rule. Add a rule for one product when it needs its own parameters or specifications.')}
               </p>
             </div>
-            <Button asChild>
-              <Link href="/backend/qc/rules/new">
-                <Plus className="mr-2 h-4 w-4" />
-                {t('dermat_quality.rules.new', 'Rule for a product')}
-              </Link>
-            </Button>
+            <div className="flex flex-wrap items-center gap-2">
+              <ExportButton
+                disabled={!rules.length}
+                onExport={() =>
+                  downloadCsv(
+                    'qc-rules',
+                    [
+                      { header: 'Rule', value: (row) => row.rule.code },
+                      { header: 'Test point', value: (row) => OPERATION_LABEL[row.rule.operation] ?? row.rule.operation },
+                      { header: 'For product', value: (row) => (row.rule.productId ? `${row.rule.productCode ?? ''} ${row.rule.productTitle ?? ''}`.trim() : 'All products (default)') },
+                      { header: 'Chemical needed', value: (row) => (row.rule.requiresChemical ? 'Yes' : 'No') },
+                      { header: 'Micro needed', value: (row) => (row.rule.requiresMicro ? 'Yes' : 'No') },
+                      { header: 'Active', value: (row) => (row.rule.isActive ? 'Yes' : 'No') },
+                      { header: 'Parameter', value: (row) => row.param?.name ?? '' },
+                      { header: 'Test', value: (row) => row.param?.test ?? '' },
+                      { header: 'Class', value: (row) => row.param?.class ?? '' },
+                      { header: 'Specification', value: (row) => row.param?.spec ?? '' },
+                    ],
+                    rules.flatMap((rule): Array<{ rule: Rule; param: Rule['parameters'][number] | null }> => (rule.parameters.length ? rule.parameters.map((param) => ({ rule, param })) : [{ rule, param: null }])),
+                  )
+                }
+              />
+              <Button asChild>
+                <Link href="/backend/qc/rules/new">
+                  <Plus className="mr-2 h-4 w-4" />
+                  {t('dermat_quality.rules.new', 'Rule for a product')}
+                </Link>
+              </Button>
+            </div>
           </div>
           {Object.entries(OPERATION_LABEL).map(([operation, label]) => {
             const list = rules.filter((rule) => rule.operation === operation)

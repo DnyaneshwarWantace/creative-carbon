@@ -34,23 +34,32 @@ function round(value: number): number {
   return Math.round(value * 10000) / 10000
 }
 
-async function currentBomFor(ctx: BomRequestContext, productId: string): Promise<BomHeader | null> {
+async function currentBomFor(ctx: BomRequestContext, productId: string, orderId?: string | null): Promise<BomHeader | null> {
   const candidates = await ctx.em.find(
     BomHeader,
-    { productId, tenantId: ctx.tenantId, organizationId: ctx.organizationId, deletedAt: null, status: { $in: ['approved', 'draft'] } },
+    {
+      productId,
+      tenantId: ctx.tenantId,
+      organizationId: ctx.organizationId,
+      deletedAt: null,
+      status: { $in: ['approved', 'draft'] },
+      ...(orderId ? { $or: [{ orderId }, { orderId: null }] } : { orderId: null }),
+    },
     { orderBy: { version: 'desc' } },
   )
-  return candidates.find((entry) => entry.status === 'approved') ?? candidates[0] ?? null
+  const own = orderId ? candidates.filter((entry) => entry.orderId === orderId) : []
+  const pool = own.length ? own : candidates.filter((entry) => !entry.orderId)
+  return pool.find((entry) => entry.status === 'approved') ?? pool[0] ?? null
 }
 
-export async function explodeBom(ctx: BomRequestContext, root: BomHeader, quantity: number) {
+export async function explodeBom(ctx: BomRequestContext, root: BomHeader, quantity: number, orderId?: string | null) {
   const headers = new Map<string, BomHeader | null>([[root.productId, root]])
   const itemsByBom = new Map<string, BomItem[]>()
   const productIds = new Set<string>([root.productId])
 
   async function load(productId: string, depth: number, path: Set<string>): Promise<void> {
     if (depth > MAX_DEPTH) return
-    if (!headers.has(productId)) headers.set(productId, await currentBomFor(ctx, productId))
+    if (!headers.has(productId)) headers.set(productId, await currentBomFor(ctx, productId, orderId ?? root.orderId ?? null))
     const header = headers.get(productId)
     if (!header) return
     if (!itemsByBom.has(header.id)) {
