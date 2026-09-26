@@ -2,16 +2,20 @@
 
 import * as React from 'react'
 import Link from 'next/link'
-import { ArrowLeft, ArrowRight, CheckCircle2, Circle, CircleDot, FlaskConical, Package, Truck } from 'lucide-react'
+import { ArrowLeft, ArrowRight, CheckCircle2, Circle, CircleDot, FlaskConical, Package, Printer, Truck } from 'lucide-react'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { cn } from '@open-mercato/shared/lib/utils'
 import { Page, PageBody } from '@open-mercato/ui/backend/Page'
 import { ErrorMessage, LoadingMessage } from '@open-mercato/ui/backend/detail'
 import { StatusBadge } from '@open-mercato/ui/primitives/status-badge'
+import { Button } from '@open-mercato/ui/primitives/button'
+import { flash } from '@open-mercato/ui/backend/FlashMessages'
 import { apiCall } from '@open-mercato/ui/backend/utils/apiCall'
 import { stageDef } from '../lib/stages'
 import { formatDate, formatDateTime, formatQty } from './format'
 import { BATCH_STATUS, type BatchRow } from './BatchRegister'
+import { printBatchRecord } from './batchRecord'
+import type { DocCompany } from './printDocs'
 
 type Step = { key: string; status: string; openedAt: string | null; completedAt: string | null; completedByName: string | null; responsibleName: string | null; fields: Record<string, unknown>; ticks: string[]; rework: Array<Record<string, unknown>> }
 type Material = { requestCode: string; requestId: string; stageKey: string; store: string | null; productId: string; title: string; code: string | null; unit: string; required: number; issued: number; used: number; returned: number; lots: Array<{ lotNumber: string | null; quantity: number; used: number; returned: number; at: string; by: string | null }> }
@@ -107,6 +111,19 @@ export function BatchPage({ batchNo }: { batchNo: string }) {
                 </span>
               </p>
             </div>
+            <div className="flex shrink-0 flex-col items-end gap-3">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={async () => {
+                const call = await apiCall<DocCompany>('/api/dermat_accounts/company', undefined, { fallback: null as unknown as DocCompany })
+                if (!printBatchRecord(batch, call.ok ? call.result ?? null : null)) flash(t('dermat_orders.batch.popup', 'Allow pop-ups to print the batch record.'), 'error')
+              }}
+            >
+              <Printer className="mr-1.5 h-4 w-4" aria-hidden="true" />
+              {t('dermat_orders.batch.print', 'Print batch record')}
+            </Button>
             <dl className="grid shrink-0 grid-cols-3 gap-4 text-sm">
               <div>
                 <dt className="text-xs text-muted-foreground">{t('dermat_orders.batch.bulk', 'Bulk')}</dt>
@@ -123,6 +140,7 @@ export function BatchPage({ batchNo }: { batchNo: string }) {
                 </dd>
               </div>
             </dl>
+            </div>
           </header>
 
           <section aria-label={t('dermat_orders.batch.flow', 'Production flow')} className="grid grid-cols-1 items-stretch gap-3 lg:grid-cols-11">

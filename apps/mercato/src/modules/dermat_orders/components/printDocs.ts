@@ -4,7 +4,7 @@ export type DocKind = 'proforma' | 'invoice' | 'challan' | 'packing_list'
 
 export type DocCompany = { name: string; legalName?: string | null; gstin?: string | null; address?: string | null; phone?: string | null; email?: string | null; signatory?: string | null }
 
-function companyHeader(company: DocCompany | null | undefined, subtitle: string): string {
+export function companyHeader(company: DocCompany | null | undefined, subtitle: string): string {
   if (!company) return `<div><h1>DERMAT INDIA</h1><div class="muted">${subtitle}</div></div>`
   const lines = [company.address ? company.address.replace(/\n/g, '<br>') : '', [company.phone ? `Phone ${company.phone}` : '', company.email ?? ''].filter(Boolean).join(' · ')].filter(Boolean)
   return `<div><h1>${esc(company.legalName || company.name)}</h1><div class="muted">${lines.map((line) => esc(line).replace(/&lt;br&gt;/g, '<br>')).join('<br>')}</div>${company.gstin ? `<div class="code">GSTIN ${esc(company.gstin)}</div>` : ''}<div class="muted">${subtitle}</div></div>`

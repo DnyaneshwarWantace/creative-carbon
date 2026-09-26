@@ -189,7 +189,8 @@ export const STAGES: StageDef[] = [
     ],
     fields: [
       { key: 'material_status', label: 'Material status', type: 'select', options: ['All available', 'Purchase raised', 'Waiting for material'], listKey: 'material_status', required: true },
-      { key: 'planned_for', label: 'Planned for (week of)', type: 'date' },
+      { key: 'planned_for', label: 'Manufacturing planned on', type: 'date' },
+      { key: 'planned_vessel', label: 'Planned vessel', type: 'text', listKey: 'vessels' },
       { key: 'remarks', label: 'Remarks', type: 'textarea' },
     ],
   },
