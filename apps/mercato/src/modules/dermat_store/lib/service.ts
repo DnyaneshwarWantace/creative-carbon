@@ -328,16 +328,58 @@ export async function issueMaterial(ctx: StoreContext, request: StoreRequest, in
   await ctx.em.flush()
 }
 
-export async function receiveMaterial(ctx: StoreContext, request: StoreRequest, note: string | null): Promise<void> {
+export async function receiveMaterial(ctx: StoreContext, request: StoreRequest, note: string | null, counted?: Array<{ lineId: string; received: number }>): Promise<void> {
   if (request.status === 'cancelled' || request.status === 'used') throw new StoreError('This request is closed', 409)
   const lines = await loadLines(ctx, request.id)
   if (!awaitingReceipt(lines)) throw new StoreError('Nothing has been sent that is not already received', 409)
-  for (const line of lines) line.receivedQty = line.issuedQty
   const byName = await currentUserName(ctx)
+  const shortNotes: string[] = []
+  let place: Awaited<ReturnType<typeof locationsOrFail>> | null = null
+  for (const line of lines) {
+    const pending = round(num(line.issuedQty) - num(line.receivedQty))
+    if (pending <= EPSILON) continue
+    const entry = counted?.find((item) => item.lineId === line.id)
+    const received = entry ? round(entry.received) : pending
+    if (received > pending + EPSILON) throw new StoreError(`More than was sent for one material: sent ${pending} ${line.unit}, you entered ${received}`)
+    let short = round(pending - received)
+    if (short > EPSILON) {
+      place = place ?? (await locationsOrFail(ctx))
+      const back = storeLocation(place.locations, request.store)
+      const issues = [...(line.issues ?? [])]
+      for (const issue of [...issues].reverse()) {
+        if (short <= EPSILON) break
+        const open = round(issue.quantity - issue.used - issue.returned)
+        const quantity = Math.min(short, open)
+        if (quantity <= EPSILON) continue
+        await runCommand(ctx, 'wms.inventory.move', {
+          warehouseId: place.warehouseId,
+          fromLocationId: place.production,
+          toLocationId: back,
+          catalogVariantId: line.variantId,
+          ...(issue.lotId ? { lotId: issue.lotId } : {}),
+          quantity: round(quantity),
+          type: 'transfer',
+          reason: `Short on receipt for ${request.orderNo} (${request.code}): never reached production${note ? ` · ${note}` : ''}`,
+          reasonCode: 'store_short_receipt',
+          referenceType: 'transfer',
+          referenceId: randomUUID(),
+          performedBy: performerId(ctx),
+          metadata: { storeRequestId: request.id, storeRequestCode: request.code, orderId: request.orderId, orderNo: request.orderNo },
+        })
+        issue.quantity = round(issue.quantity - quantity)
+        short = round(short - quantity)
+      }
+      line.issues = issues.filter((issue) => issue.quantity > EPSILON || issue.used > EPSILON || issue.returned > EPSILON)
+      const moved = round(pending - received - short)
+      line.issuedQty = String(round(num(line.issuedQty) - moved))
+      shortNotes.push(`${round(pending - received)} ${line.unit} short of ${round(pending)} sent`)
+    }
+    line.receivedQty = String(round(num(line.receivedQty) + received))
+  }
   request.receivedByName = byName
   request.receivedAt = new Date()
   request.status = computeStatus(request, lines)
-  history(request, 'received', byName, note)
+  history(request, shortNotes.length ? 'received_short' : 'received', byName, [shortNotes.length ? `Received less than sent: ${shortNotes.join('; ')}` : null, note].filter(Boolean).join(' — ') || null)
   request.updatedAt = new Date()
   await ctx.em.flush()
 }

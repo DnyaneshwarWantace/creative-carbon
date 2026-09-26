@@ -35,7 +35,7 @@ import {
 } from './shared'
 
 type IssueDraft = Record<string, { lotId: string; quantity: string }>
-type Dialogs = 'return' | 'cancel' | null
+type Dialogs = 'return' | 'cancel' | 'receive' | null
 
 const ANY_LOT = '__any__'
 
@@ -59,6 +59,7 @@ export function StoreRequestPage({ requestId }: { requestId: string }) {
   const [issuing, setIssuing] = React.useState(false)
   const [draft, setDraft] = React.useState<IssueDraft>({})
   const [returns, setReturns] = React.useState<Record<string, string>>({})
+  const [counted, setCounted] = React.useState<Record<string, string>>({})
   const [note, setNote] = React.useState('')
   const [dialog, setDialog] = React.useState<Dialogs>(null)
   const [busy, setBusy] = React.useState(false)
@@ -86,6 +87,28 @@ export function StoreRequestPage({ requestId }: { requestId: string }) {
     }
     setDraft(next)
     setIssuing(true)
+  }
+
+  const submitReceive = async () => {
+    if (!request) return
+    const lines: Array<{ lineId: string; received: number }> = []
+    let shortAny = false
+    for (const line of request.lines.filter((entry) => entry.issued - entry.received > 0)) {
+      const sent = Math.round((line.issued - line.received) * 10000) / 10000
+      const value = Number(counted[line.id])
+      if (!Number.isFinite(value) || value < 0 || value > sent) {
+        flash(t('dermat_store.detail.receiveInvalid', 'Enter a quantity between 0 and what was sent for {name}', { name: line.title }), 'error')
+        return
+      }
+      if (value < sent) shortAny = true
+      lines.push({ lineId: line.id, received: value })
+    }
+    if (shortAny && !note.trim()) {
+      flash(t('dermat_store.detail.shortNote', 'Write what happened to the missing material'), 'error')
+      return
+    }
+    const ok = await act('/api/dermat_store/requests/receive', { lines, note: note.trim() || null }, shortAny ? t('dermat_store.detail.receivedShort', 'Received. The store has been told what is still missing.') : t('dermat_store.detail.receivedFlash', 'Marked as received.'))
+    if (ok) setDialog(null)
   }
 
   const act = async (path: string, body: Record<string, unknown>, done: string): Promise<boolean> => {
@@ -279,7 +302,15 @@ export function StoreRequestPage({ requestId }: { requestId: string }) {
                   </Button>
                 ) : null}
                 {request.awaitingReceipt && !closed ? (
-                  <Button type="button" onClick={() => act('/api/dermat_store/requests/receive', {}, t('dermat_store.detail.receivedFlash', 'Marked as received.'))} disabled={busy}>
+                  <Button
+                    type="button"
+                    onClick={() => {
+                      setCounted(Object.fromEntries(request.lines.filter((line) => line.issued - line.received > 0).map((line) => [line.id, String(Math.round((line.issued - line.received) * 10000) / 10000)])))
+                      setNote('')
+                      setDialog('receive')
+                    }}
+                    disabled={busy}
+                  >
                     <CheckCircle2 className="mr-1.5 h-4 w-4" aria-hidden="true" />
                     {t('dermat_store.detail.receive', 'Confirm received')}
                   </Button>
@@ -528,18 +559,49 @@ export function StoreRequestPage({ requestId }: { requestId: string }) {
                 event.preventDefault()
                 if (dialog === 'return') submitReturn()
                 if (dialog === 'cancel') submitCancel()
+                if (dialog === 'receive') void submitReceive()
               }
             }}
           >
             <DialogHeader>
-              <DialogTitle>{dialog === 'return' ? t('dermat_store.detail.returnTitle', 'Return leftover to the store') : t('dermat_store.detail.cancelTitle', 'Cancel this request')}</DialogTitle>
+              <DialogTitle>{dialog === 'receive' ? t('dermat_store.detail.receiveTitle', 'Confirm what arrived') : dialog === 'return' ? t('dermat_store.detail.returnTitle', 'Return leftover to the store') : t('dermat_store.detail.cancelTitle', 'Cancel this request')}</DialogTitle>
               <DialogDescription>
-                {dialog === 'return'
+                {dialog === 'receive'
+                  ? t('dermat_store.detail.receiveHint', 'Count what reached production. If less arrived than the store sent, enter the real quantity: the shortfall goes back to the store stock and the store sees it still has to send it.')
+                  : dialog === 'return'
                   ? t('dermat_store.detail.returnHint', 'Stock moves back from PRODUCTION to the {store}, to the same batch.', { store: request.storeLabel })
                   : t('dermat_store.detail.cancelHint', 'Only possible while the store has issued nothing.')}
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-4">
+              {dialog === 'receive'
+                ? request.lines
+                    .filter((line) => line.issued - line.received > 0)
+                    .map((line) => {
+                      const sent = Math.round((line.issued - line.received) * 10000) / 10000
+                      const value = Number(counted[line.id] ?? sent)
+                      const short = Number.isFinite(value) && value < sent
+                      return (
+                        <div key={line.id} className="flex items-center justify-between gap-4">
+                          <Label htmlFor={`receive-${line.id}`} className="min-w-0 flex-1">
+                            <span className="block truncate text-sm font-medium">{line.title}</span>
+                            <span className={short ? 'block text-xs text-status-warning-text' : 'block text-xs text-muted-foreground'}>
+                              {short
+                                ? t('dermat_store.detail.shortBy', 'Sent {sent}, {short} short', { sent: qty(sent, line.unit), short: qty(Math.round((sent - value) * 10000) / 10000, line.unit) })
+                                : t('dermat_store.detail.sent', 'Store sent {sent}', { sent: qty(sent, line.unit) })}
+                            </span>
+                          </Label>
+                          <Input
+                            id={`receive-${line.id}`}
+                            className="w-28 text-right tabular-nums"
+                            inputMode="decimal"
+                            value={counted[line.id] ?? ''}
+                            onChange={(event) => setCounted((prev) => ({ ...prev, [line.id]: event.target.value }))}
+                          />
+                        </div>
+                      )
+                    })
+                : null}
               {dialog === 'return'
                 ? request.lines
                     .filter((line) => line.withProduction > 0)
@@ -563,7 +625,7 @@ export function StoreRequestPage({ requestId }: { requestId: string }) {
                     ))
                 : null}
               <div className="space-y-1.5">
-                <Label htmlFor="store-dialog-note">{t('dermat_store.detail.reason', 'Reason *')}</Label>
+                <Label htmlFor="store-dialog-note">{dialog === 'receive' ? t('dermat_store.detail.receiveNote', 'Note (required if anything is short)') : t('dermat_store.detail.reason', 'Reason *')}</Label>
                 <Textarea id="store-dialog-note" rows={2} value={note} onChange={(event) => setNote(event.target.value)} />
               </div>
             </div>
@@ -571,7 +633,11 @@ export function StoreRequestPage({ requestId }: { requestId: string }) {
               <Button type="button" variant="outline" onClick={() => setDialog(null)} disabled={busy}>
                 {t('common.cancel', 'Cancel')}
               </Button>
-              {dialog === 'return' ? (
+              {dialog === 'receive' ? (
+                <Button type="button" onClick={() => void submitReceive()} disabled={busy}>
+                  {t('dermat_store.detail.receiveConfirm', 'Confirm received')}
+                </Button>
+              ) : dialog === 'return' ? (
                 <Button type="button" onClick={submitReturn} disabled={busy}>
                   {t('dermat_store.detail.returnConfirm', 'Return to store')}
                 </Button>

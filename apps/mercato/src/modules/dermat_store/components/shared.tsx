@@ -93,6 +93,7 @@ export const HISTORY_LABEL: Record<string, string> = {
   requested: 'Asked the store',
   issued: 'Store issued',
   received: 'Production received',
+  received_short: 'Production received less than sent',
   returned: 'Returned to store',
   used: 'Used in production',
   cancelled: 'Cancelled',

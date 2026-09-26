@@ -17,7 +17,11 @@ export const issueSchema = z.object({
   note: z.string().trim().max(1000).optional().nullable(),
 })
 
-export const receiveSchema = z.object({ id: z.string().uuid(), note: z.string().trim().max(1000).optional().nullable() })
+export const receiveSchema = z.object({
+  id: z.string().uuid(),
+  note: z.string().trim().max(1000).optional().nullable(),
+  lines: z.array(z.object({ lineId: z.string().uuid(), received: z.coerce.number().min(0).max(100000000) })).max(200).optional(),
+})
 
 export const returnSchema = z.object({
   id: z.string().uuid(),
