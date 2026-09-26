@@ -458,6 +458,11 @@ export default function DermatVendorsPage() {
             <RowActions
               items={[
                 {
+                  id: 'open',
+                  label: t('dermat_vendors.list.actions.open', 'Open vendor file'),
+                  href: `/backend/dermat_vendors/${row.id}`,
+                },
+                {
                   id: 'delete',
                   label: t('common.delete', 'Delete'),
                   destructive: true,

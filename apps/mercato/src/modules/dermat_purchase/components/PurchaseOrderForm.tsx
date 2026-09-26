@@ -82,6 +82,16 @@ export function PurchaseOrderForm({ poId }: { poId?: string }) {
       .filter(([id, no]) => /^[0-9a-f-]{36}$/i.test(id ?? '') && no)
       .map(([orderId, orderNo]) => ({ orderId, orderNo: decodeURIComponent(orderNo) }))
     setOrderRefs(refs)
+    const presetVendor = params?.get('vendorId') ?? ''
+    if (/^[0-9a-f-]{36}$/i.test(presetVendor)) {
+      ;(async () => {
+        const vendorCall = await apiCall<{ items: VendorOption[] }>(`/api/dermat_purchase/vendors?id=${presetVendor}`, undefined, { fallback: { items: [] } })
+        const found = vendorCall.result?.items?.[0]
+        if (!found) return
+        setVendor(found)
+        if (found.paymentTerms) setTerms((current) => current || found.paymentTerms || '')
+      })()
+    }
     if (!wanted.length) return
     ;(async () => {
       const call = await apiCall<{ items: ProductOption[] }>(`/api/dermat_products/search?kinds=raw_material,packing_material&limit=100&ids=${wanted.map(([id]) => id).join(',')}`, undefined, { fallback: { items: [] } })

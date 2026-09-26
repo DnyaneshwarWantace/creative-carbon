@@ -350,7 +350,9 @@ export function PurchaseOrderPage({ poId }: { poId: string }) {
                     <Building2 className="h-4 w-4" aria-hidden="true" />
                   </span>
                   <div className="min-w-0">
-                    <p className="font-semibold">{po.vendorName}</p>
+                    <Link className="font-semibold hover:underline" href={`/backend/dermat_vendors/${po.vendorId}`}>
+                      {po.vendorName}
+                    </Link>
                     <p className="font-mono text-xs text-muted-foreground">GSTIN {po.vendorGstin ?? '—'}</p>
                   </div>
                 </div>

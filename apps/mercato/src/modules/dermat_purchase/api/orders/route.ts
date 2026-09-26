@@ -51,6 +51,7 @@ async function GET(req: Request) {
       return {
         id: po.id,
         code: po.code,
+        vendorId: po.vendorId,
         vendorName: po.vendorName,
         poDate: po.poDate,
         expectedDate: po.expectedDate ?? null,
