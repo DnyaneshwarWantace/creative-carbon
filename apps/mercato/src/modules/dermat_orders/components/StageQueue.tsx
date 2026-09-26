@@ -20,6 +20,7 @@ import { useStageAction } from './useStageAction'
 import type { Order, Stage } from './types'
 import { StatePill, sheetWorkState, stageEdit, type SheetColumn, type SheetOrder } from './orderBookColumns'
 import { useCellEditor } from './useCellEditor'
+import { EditTableBar } from '../../dermat_products/components/EditTableBar'
 
 type QueueTab = 'active' | 'waiting' | 'done'
 
@@ -72,7 +73,7 @@ export function StageQueue({ stageKey }: { stageKey: string }) {
     }
   }, [stageKey, tab, page, search, reload, t])
 
-  const { renderCell } = useCellEditor({
+  const table = useCellEditor({
     contextId: `dermat-stage-queue-cells-${stageKey}`,
     patchOrder: (orderId, mutate) => setRows((prev) => prev.map((row) => (row.id === orderId ? mutate(row) : row))),
     refresh: () => {
@@ -181,7 +182,7 @@ export function StageQueue({ stageKey }: { stageKey: string }) {
     ...fieldColumns.map<ColumnDef<SheetOrder>>((column) => ({
       id: `field-${column.key}`,
       header: column.label,
-      cell: ({ row }) => <span className="block min-w-24 text-xs">{renderCell(column, { order: row.original, line: null })}</span>,
+      cell: ({ row }) => <span className="block min-w-24 text-xs">{table.renderCell(column, { order: row.original, line: null })}</span>,
     })),
     {
       id: 'other',
@@ -265,14 +266,21 @@ export function StageQueue({ stageKey }: { stageKey: string }) {
           }
           columns={columns}
           data={rows}
-          onRowClick={(row) => openOrder(row.id)}
+          onRowClick={(row) => (table.editing ? undefined : openOrder(row.id))}
           searchValue={search}
           onSearchChange={(value) => {
             setSearch(value)
             setPage(1)
           }}
           searchPlaceholder={t('dermat_orders.list.search', 'Search order no., customer, product ID or batch no.')}
-          actions={<ExportButton onExport={exportStage} />}
+          actions={
+            <span className="flex flex-wrap items-center gap-2">
+              {tab === 'active' ? (
+                <EditTableBar editing={table.editing} dirtyCount={table.dirtyCount} saving={table.saving} onEdit={table.startEditing} onCancel={table.cancelEditing} onSave={() => void table.saveAll()} />
+              ) : null}
+              <ExportButton onExport={exportStage} />
+            </span>
+          }
           pagination={{ page, pageSize: PAGE_SIZE, total, totalPages, onPageChange: setPage }}
           isLoading={isLoading}
         />

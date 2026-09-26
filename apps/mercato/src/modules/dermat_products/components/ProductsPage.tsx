@@ -16,7 +16,8 @@ import { PRODUCT_KINDS, type ProductKind } from '../lib/kinds'
 import { KIND_CONFIG, kindFromSlug } from '../lib/kindConfig'
 import { ImportPanel } from './ImportPanel'
 import { ExportButton } from './ExportButton'
-import { InlineCell } from './InlineCell'
+import { EditField } from './EditField'
+import { EditTableBar } from './EditTableBar'
 import { withScopedApiRequestHeaders } from '@open-mercato/ui/backend/utils/apiCall'
 import { buildOptimisticLockHeader } from '@open-mercato/ui/backend/utils/optimisticLock'
 import { useGuardedMutation } from '@open-mercato/ui/backend/injection/useGuardedMutation'
@@ -156,57 +157,91 @@ export function ProductsPage() {
     }
   }, [categoryIds, kind, page, search, reloadToken, t])
 
-  const saveProduct = React.useCallback(
-    async (row: Row, key: string, raw: string, numeric: boolean): Promise<boolean> => {
-      const trimmed = raw.trim()
-      if (key === 'title' && !trimmed) {
-        flash(t('dermat_products.inline.nameRequired', 'The name cannot be empty.'), 'error')
-        return false
+  const [editing, setEditing] = React.useState(false)
+  const [drafts, setDrafts] = React.useState<Record<string, { row: Row; key: string; numeric: boolean; value: string }>>({})
+  const [savingAll, setSavingAll] = React.useState(false)
+
+  const saveAll = async () => {
+    const byRow = new Map<string, Array<{ row: Row; key: string; numeric: boolean; value: string }>>()
+    for (const draft of Object.values(drafts)) byRow.set(draft.row.id, [...(byRow.get(draft.row.id) ?? []), draft])
+    for (const list of byRow.values()) {
+      for (const draft of list) {
+        if (draft.key === 'title' && !draft.value.trim()) {
+          flash(t('dermat_products.inline.nameRequired', 'The name cannot be empty.'), 'error')
+          return
+        }
+        if (draft.numeric && draft.value.trim() && !Number.isFinite(Number(draft.value))) {
+          flash(t('dermat_products.inline.notNumber', 'Enter a number.'), 'error')
+          return
+        }
       }
-      const value = numeric ? (trimmed === '' ? null : Number(trimmed)) : trimmed || null
-      if (numeric && value !== null && !Number.isFinite(value)) {
-        flash(t('dermat_products.inline.notNumber', 'Enter a number.'), 'error')
-        return false
+    }
+    setSavingAll(true)
+    const failed: typeof drafts = {}
+    const errors: string[] = []
+    let saved = 0
+    for (const [rowId, list] of byRow.entries()) {
+      const row = list[0].row
+      const body: Record<string, unknown> = { id: rowId }
+      for (const draft of list) {
+        const trimmed = draft.value.trim()
+        body[draft.key === 'title' ? 'title' : `cf_${draft.key}`] = draft.numeric ? (trimmed === '' ? null : Number(trimmed)) : trimmed || null
       }
-      const field = key === 'title' ? 'title' : `cf_${key}`
-      const body = { id: row.id, [field]: value }
       const updatedAt = typeof row.updated_at === 'string' ? row.updated_at : null
       const call = await runMutation({
-        context: { productId: row.id, field },
+        context: { productId: rowId },
         mutationPayload: body,
         operation: () => {
           const request = () => apiCall<{ ok?: boolean; error?: string }>('/api/catalog/products', { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) })
           return updatedAt ? withScopedApiRequestHeaders(buildOptimisticLockHeader(updatedAt), request) : request()
         },
       })
-      if (!call.ok) {
-        flash(
-          call.status === 409 ? t('dermat_products.inline.conflict', 'Someone else changed this product. The list is reloaded.') : (call.result?.error ?? t('dermat_products.inline.error', 'Could not save the change.')),
-          'error',
-        )
-        setReloadToken((token) => token + 1)
-        return false
+      if (call.ok) {
+        saved += list.length
+        setRows((prev) => prev.map((entry) => (entry.id === rowId ? { ...entry, ...body, id: rowId } : entry)))
+      } else {
+        list.forEach((draft) => {
+          failed[`${rowId}|${draft.key}`] = draft
+        })
+        errors.push(`${cell(row, 'title')}: ${call.status === 409 ? t('dermat_products.inline.conflict', 'someone else changed it') : (call.result?.error ?? t('dermat_products.inline.error', 'could not save'))}`)
       }
-      setRows((prev) => prev.map((entry) => (entry.id === row.id ? { ...entry, [field]: value, updated_at: new Date().toISOString() } : entry)))
-      setReloadToken((token) => token + 1)
-      return true
-    },
-    [runMutation, t],
-  )
+    }
+    setSavingAll(false)
+    setDrafts(failed)
+    if (errors.length) flash(`${t('dermat_products.inline.savedSome', '{saved} saved, {failed} not saved.', { saved, failed: Object.keys(failed).length })} ${errors.slice(0, 3).join(' · ')}`, 'error')
+    else {
+      flash(t('dermat_products.inline.savedAll', '{count} changes saved', { count: saved }), 'success')
+      setEditing(false)
+    }
+    setReloadToken((token) => token + 1)
+  }
 
   const editable = React.useCallback(
     (row: Row, key: string, numeric = false, className?: string) => {
       const shown = cell(row, key)
+      if (!editing) return <span className={className}>{shown}</span>
+      const original = shown === '—' ? '' : shown
+      const draftKey = `${row.id}|${key}`
+      const draft = drafts[draftKey]
       return (
-        <InlineCell
-          display={<span className={className}>{shown}</span>}
-          value={shown === '—' ? '' : shown}
-          kind={numeric ? 'number' : 'text'}
-          onSave={(next) => saveProduct(row, key, next, numeric)}
-        />
+        <span onClick={(event) => event.stopPropagation()}>
+          <EditField
+            kind={numeric ? 'number' : 'text'}
+            value={draft ? draft.value : original}
+            dirty={Boolean(draft)}
+            onChange={(value) =>
+              setDrafts((prev) => {
+                const next = { ...prev }
+                if (value === original) delete next[draftKey]
+                else next[draftKey] = { row, key, numeric, value }
+                return next
+              })
+            }
+          />
+        </span>
       )
     },
-    [saveProduct],
+    [drafts, editing],
   )
 
   const columns = React.useMemo<ColumnDef<Row>[]>(() => {
@@ -287,7 +322,7 @@ export function ProductsPage() {
           title={config.title}
           columns={columns}
           data={rows}
-          onRowClick={(row) => router.push(`/backend/products/${row.id}`)}
+          onRowClick={(row) => (editing ? undefined : router.push(`/backend/products/${row.id}`))}
           searchValue={search}
           onSearchChange={(value) => {
             setSearch(value)
@@ -296,6 +331,7 @@ export function ProductsPage() {
           searchPlaceholder={t('dermat_products.list.search', 'Search by {label} or name (e.g. AP 293)', { label: config.codeLabel })}
           actions={
             <div className="flex flex-wrap gap-2">
+              <EditTableBar editing={editing} dirtyCount={Object.keys(drafts).length} saving={savingAll} onEdit={() => setEditing(true)} onCancel={() => { setDrafts({}); setEditing(false) }} onSave={() => void saveAll()} />
               <ExportButton onExport={exportProducts} />
               <Button asChild variant="outline">
                 <Link href="/backend/catalog/categories">

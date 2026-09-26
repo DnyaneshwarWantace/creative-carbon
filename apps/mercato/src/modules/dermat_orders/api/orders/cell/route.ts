@@ -14,6 +14,7 @@ export const metadata = {
 }
 
 const ORDER_FIELDS = {
+  orderType: { label: 'Order type', max: 20, choices: ['new', 'repeat', 'revision'] },
   customerPoRef: { label: 'Customer PO', max: 120 },
   salesManager: { label: 'Sales POC', max: 120 },
   deliveryDate: { label: 'Delivery date', max: 10, date: true },
@@ -30,7 +31,7 @@ const LINE_FIELDS = {
   batchNo: { label: 'Batch no.', kind: 'text', max: 60 },
   mrp: { label: 'MRP', kind: 'number', min: 0, maxValue: 10_000_000 },
   rate: { label: 'Rate', kind: 'number', min: 0, maxValue: 10_000_000 },
-  gstPercent: { label: 'GST %', kind: 'number', min: 0, maxValue: 40 },
+  gstPercent: { label: 'GST %', kind: 'number', min: 0, maxValue: 28, choices: [0, 5, 12, 18, 28] },
   discountPercent: { label: 'Discount %', kind: 'number', min: 0, maxValue: 100 },
   quantity: { label: 'Quantity', kind: 'number', min: 1, maxValue: 100_000_000 },
 } as const
@@ -72,6 +73,7 @@ async function POST(req: Request) {
           if (!def) throw new OrderError('This field cannot be edited here')
           const value = text(input.value)
           if (value && value.length > def.max) throw new OrderError(`${def.label} is too long`)
+          if ('choices' in def && (!value || !(def.choices as readonly string[]).includes(value))) throw new OrderError(`Pick a ${def.label.toLowerCase()} from the list`)
           if ('date' in def && value) {
             if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) throw new OrderError('Enter the date as YYYY-MM-DD')
             if (value < fresh.orderDate) throw new OrderError('Delivery date is before the order date')
@@ -99,6 +101,7 @@ async function POST(req: Request) {
               } else {
                 const number = Number(raw)
                 if (!Number.isFinite(number) || number < def.min || number > def.maxValue) throw new OrderError(`${def.label} must be a number from ${def.min} to ${def.maxValue}`)
+                if ('choices' in def && !(def.choices as readonly number[]).includes(number)) throw new OrderError(`${def.label} must be one of ${def.choices.join(', ')}`)
                 ;(line as unknown as Record<string, string | null>)[input.field] = String(number)
                 shown = String(number)
               }
