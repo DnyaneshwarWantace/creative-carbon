@@ -29,6 +29,8 @@ async function GET(req: Request) {
     where.push('c.status = ?')
     params.push(query.status)
   }
+  if (query.lab === 'chemical') where.push(`c.status = 'pending' and c.chemical_status = 'pending'`)
+  if (query.lab === 'micro') where.push(`c.status = 'pending' and c.micro_status = 'pending'`)
   if (query.operation) {
     where.push('c.operation = ?')
     params.push(query.operation)

@@ -31,7 +31,7 @@ type Row = {
   createdAt: string
 }
 
-type Tab = 'pending' | 'failed' | 'passed' | 'all'
+type Tab = 'pending' | 'chemical' | 'micro' | 'failed' | 'passed' | 'all'
 const PAGE_SIZE = 50
 
 export function QcChecksPage() {
@@ -52,7 +52,8 @@ export function QcChecksPage() {
     let cancelled = false
     setIsLoading(true)
     const params = new URLSearchParams({ page: String(page), pageSize: String(PAGE_SIZE) })
-    if (tab !== 'all') params.set('status', tab)
+    if (tab === 'chemical' || tab === 'micro') params.set('lab', tab)
+    else if (tab !== 'all') params.set('status', tab)
     if (operation !== 'all') params.set('operation', operation)
     if (search.trim()) params.set('search', search.trim())
     apiCall<{ items?: Row[]; total?: number; totalPages?: number }>(`/api/dermat_quality/checks?${params.toString()}`, undefined, { fallback: { items: [] } }).then((call) => {
@@ -126,7 +127,8 @@ export function QcChecksPage() {
 
   const exportChecks = async () => {
     const params = new URLSearchParams()
-    if (tab !== 'all') params.set('status', tab)
+    if (tab === 'chemical' || tab === 'micro') params.set('lab', tab)
+    else if (tab !== 'all') params.set('status', tab)
     if (operation !== 'all') params.set('operation', operation)
     if (search.trim()) params.set('search', search.trim())
     const items = await fetchAllPages<Row>(`/api/dermat_quality/checks?${params.toString()}`)
@@ -153,6 +155,8 @@ export function QcChecksPage() {
           <Tabs value={tab} onValueChange={(value) => setTab(value as Tab)} variant="underline">
             <TabsList aria-label={t('dermat_quality.list.tabs', 'QC status')}>
               <TabsTrigger value="pending">{t('dermat_quality.list.pending', 'To test')}</TabsTrigger>
+              <TabsTrigger value="chemical">{t('dermat_quality.list.chemical', 'Chemical to test')}</TabsTrigger>
+              <TabsTrigger value="micro">{t('dermat_quality.list.micro', 'Micro to test')}</TabsTrigger>
               <TabsTrigger value="failed">{t('dermat_quality.list.failed', 'Failed')}</TabsTrigger>
               <TabsTrigger value="passed">{t('dermat_quality.list.passed', 'Passed')}</TabsTrigger>
               <TabsTrigger value="all">{t('dermat_quality.list.all', 'All')}</TabsTrigger>

@@ -58,6 +58,7 @@ export const checkListSchema = z.object({
   id: z.string().uuid().optional(),
   status: z.enum(['pending', 'passed', 'failed', 'reworked', 'rejected']).optional(),
   operation: operationSchema.optional(),
+  lab: z.enum(['chemical', 'micro']).optional(),
   orderId: z.string().uuid().optional(),
   search: z.string().trim().max(200).optional(),
   page: z.coerce.number().int().min(1).default(1),
