@@ -111,7 +111,7 @@ export async function listPeople(ctx: OrderContext): Promise<Array<{ id: string;
     .sort((a, b) => a.name.localeCompare(b.name))
 }
 
-export async function loadCustomers(ctx: OrderContext, ids: string[]): Promise<Map<string, CustomerSummary>> {
+export async function loadCustomers(ctx: Pick<OrderContext, 'em' | 'tenantId' | 'organizationId'>, ids: string[]): Promise<Map<string, CustomerSummary>> {
   const unique = Array.from(new Set(ids.filter((id) => UUID_RE.test(id))))
   const result = new Map<string, CustomerSummary>()
   if (!unique.length) return result

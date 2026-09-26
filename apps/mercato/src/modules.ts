@@ -75,6 +75,7 @@ export const moduleOverrideExamples: ModuleOverrides = {
 // Sidebar is organised by department (client ask): each department group opens
 // with its Work Queue, followed by that department's own pages.
 const dermatSidebarGroupOrder = [
+  'dermat-00-overview.nav.group',
   'dermat-01-sales.nav.group',
   'dermat-02-accounts.nav.group',
   'dermat-03-rnd.nav.group',
@@ -259,6 +260,7 @@ export const enabledModules: ModuleEntry[] = [
   { id: 'dermat_store', from: '@app' },
   { id: 'dermat_planning', from: '@app' },
   { id: 'dermat_purchase', from: '@app' },
+  { id: 'dermat_dashboard', from: '@app' },
   { id: 'dermat_vendors', from: '@app' },
   { id: 'ratelimit_probe', from: '@app' },
 ]
