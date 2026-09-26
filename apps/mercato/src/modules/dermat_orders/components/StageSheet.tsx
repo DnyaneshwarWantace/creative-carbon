@@ -14,6 +14,7 @@ import { StatusBadge } from '@open-mercato/ui/primitives/status-badge'
 import { HOLD_PARTIES, stageDef, stepStates, type StageField } from '../lib/stages'
 import { cn } from '@open-mercato/shared/lib/utils'
 import { STAGE_VARIANT, formatDate, formatDateTime, formatQty } from './format'
+import { ProductionPanel } from './ProductionPanel'
 import type { Order, Stage } from './types'
 
 export type StageActionRequest = {
@@ -115,7 +116,7 @@ export function StageWorkArea({ order, stage, people, canWork, busy, shortCount,
     if (field.type === 'textarea') return <Textarea rows={3} value={value} onChange={(event) => set(event.target.value)} />
     return (
       <Input
-        type={field.type === 'date' ? 'date' : field.type === 'number' ? 'number' : 'text'}
+        type={field.type === 'date' ? 'date' : field.type === 'time' ? 'time' : field.type === 'number' ? 'number' : 'text'}
         step={field.type === 'number' ? 'any' : undefined}
         value={value}
         placeholder={field.placeholder}
@@ -382,6 +383,16 @@ export function StageWorkArea({ order, stage, people, canWork, busy, shortCount,
               })}
             </ul>
           </div>
+        ) : null}
+
+        {mode === 'form' && (stage.key === 'manufacturing' || stage.key === 'filling') ? (
+          <ProductionPanel
+            orderId={order.id}
+            stageKey={stage.key}
+            values={values}
+            editable={editable}
+            onChange={(key, value) => setValues((prev) => ({ ...prev, [key]: value }))}
+          />
         ) : null}
 
         {mode === 'form' ? (

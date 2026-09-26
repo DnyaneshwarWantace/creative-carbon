@@ -172,3 +172,12 @@ export async function createInwardCheck(
   await scope.em.flush()
   return check
 }
+
+export async function retireStageChecks(scope: QcScope, orderId: string, stageKey: string, note: string): Promise<number> {
+  const checks = await scope.em.find(QcCheck, { orderId, stageKey, deletedAt: null, status: { $ne: 'passed' } })
+  for (const check of checks) {
+    check.history = [...(check.history ?? []), { action: 'not_needed', by: null, at: new Date().toISOString(), note }]
+    check.deletedAt = new Date()
+  }
+  return checks.length
+}

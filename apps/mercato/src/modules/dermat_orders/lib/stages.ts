@@ -1,4 +1,4 @@
-export type StageFieldType = 'text' | 'number' | 'date' | 'select' | 'textarea'
+export type StageFieldType = 'text' | 'number' | 'date' | 'time' | 'select' | 'textarea'
 
 export type StageField = {
   key: string
@@ -140,11 +140,16 @@ export const STAGES: StageDef[] = [
       { key: 'manufactured', label: 'Manufacturing done' },
     ],
     fields: [
+      { key: 'bulk_source', label: 'Bulk', type: 'select', options: ['Make a new batch', 'Use bulk already made'] },
       { key: 'batch_no', label: 'Batch no.', type: 'text', required: true },
-      { key: 'batch_size', label: 'Bulk made (kg)', type: 'number', required: true },
+      { key: 'batch_size', label: 'Bulk made / taken (kg)', type: 'number', required: true },
       { key: 'mfg_date', label: 'Mfg. date', type: 'date', required: true },
+      { key: 'shift', label: 'Shift', type: 'select', options: ['A', 'B', 'C', 'General'] },
       { key: 'machine', label: 'Vessel / machine', type: 'text' },
       { key: 'operator', label: 'Operator', type: 'text' },
+      { key: 'start_time', label: 'Started at', type: 'time' },
+      { key: 'end_time', label: 'Finished at', type: 'time' },
+      { key: 'wastage_kg', label: 'Wastage (kg)', type: 'number' },
       { key: 'remarks', label: 'Remarks', type: 'textarea' },
     ],
   },
@@ -160,7 +165,11 @@ export const STAGES: StageDef[] = [
     ],
     fields: [
       { key: 'filled_units', label: 'Units filled', type: 'number', required: true },
+      { key: 'rejected_units', label: 'Rejected units', type: 'number' },
       { key: 'filling_date', label: 'Filling date', type: 'date' },
+      { key: 'shift', label: 'Shift', type: 'select', options: ['A', 'B', 'C', 'General'] },
+      { key: 'machine', label: 'Filling machine', type: 'text' },
+      { key: 'operator', label: 'Operator', type: 'text' },
       { key: 'remarks', label: 'Remarks', type: 'textarea' },
     ],
   },
@@ -178,6 +187,7 @@ export const STAGES: StageDef[] = [
     fields: [
       { key: 'packed_qty', label: 'Packed quantity (pcs)', type: 'number', required: true },
       { key: 'packed_on', label: 'Packed on', type: 'date' },
+      { key: 'shippers', label: 'Shipper boxes', type: 'number' },
       { key: 'location', label: 'Kept at (factory location)', type: 'text' },
       { key: 'remarks', label: 'Remarks', type: 'textarea' },
     ],

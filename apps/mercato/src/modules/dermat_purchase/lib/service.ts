@@ -3,9 +3,10 @@ import type { EntityManager } from '@mikro-orm/postgresql'
 import { Vendor } from '../../dermat_vendors/data/entities'
 import { currentUserName, loadProducts, type OrderContext } from '../../dermat_orders/lib/server'
 import { financialYear } from '../../dermat_orders/lib/stages'
-import { LOCATION_CODES, dermatWarehouse, variantsForProducts } from '../../dermat_products/lib/stock'
+import { LOCATION_CODES, dermatWarehouse } from '../../dermat_products/lib/stock'
 import { createInwardCheck } from '../../dermat_quality/lib/service'
 import { performerId, runCommand, type StoreContext } from '../../dermat_store/lib/server'
+import { ensureStockRecords } from '../../dermat_store/lib/stockSetup'
 import { GoodsReceipt, GoodsReceiptLine, PurchaseOrder, PurchaseOrderLine, type GrnStatus, type PoStatus } from '../data/entities'
 import type { GrnInput, PoInput } from '../data/validators'
 
@@ -261,7 +262,7 @@ export async function createGrn(ctx: StoreContext, input: GrnInput): Promise<Goo
   }
   const warehouse = await dermatWarehouse(ctx)
   if (!warehouse) throw new PurchaseError('The store locations are missing. Set them up under Masters → Stores.', 409)
-  const variants = await variantsForProducts(ctx, poLines.map((line) => line.productId))
+  const variants = await ensureStockRecords(ctx, poLines.map((line) => line.productId))
   const skus = new Map<string, string>()
   if (variants.size) {
     const rows = await ctx.em.getConnection().execute<Array<{ id: string; sku: string | null }>>(

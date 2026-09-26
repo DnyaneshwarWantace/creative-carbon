@@ -10,6 +10,7 @@ import { enforceOrderLock, orderErrorResponse, runGuarded } from '../../../lib/g
 import { STORE_STAGE_KEYS, consumeForStage, type StoreStage } from '../../../../dermat_store/lib/service'
 import { resolveStoreContext } from '../../../../dermat_store/lib/server'
 import { releaseAllForOrder } from '../../../../dermat_planning/lib/service'
+import { onProductionStageDone } from '../../../lib/productionStock'
 
 export const metadata = {
   POST: { requireAuth: true, requireFeatures: ['dermat_orders.stages'] },
@@ -39,6 +40,10 @@ async function POST(req: Request) {
           const batchNo = typeof saved === 'string' || typeof saved === 'number' ? String(saved) : null
           await consumeForStage(storeCtx, order.id, parsed.data.stageKey, batchNo)
         }
+      }
+      if (parsed.data.action === 'complete' && ['manufacturing', 'filling', 'packing', 'dispatch'].includes(parsed.data.stageKey)) {
+        const stockCtx = await resolveStoreContext(req)
+        if (!('error' in stockCtx)) await onProductionStageDone(stockCtx, order.id, parsed.data.stageKey)
       }
       return NextResponse.json(await serializeOrder(ctx, await findOrder({ ...ctx, em: ctx.em.fork() }, order.id)))
     })

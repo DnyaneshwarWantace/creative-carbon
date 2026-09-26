@@ -1,9 +1,10 @@
 import { DermatOrder, DermatOrderEvent, DermatOrderLine, DermatOrderStage } from '../data/entities'
 import type { StageActionInput } from '../data/validators'
 import { STAGES, isFinished, missingRequired, missingSteps, stageDef, stepStates } from './stages'
-import { blockingChecks, checksForOrder, ensureChecksForStage, type StageQcSummary } from '../../dermat_quality/lib/service'
+import { blockingChecks, checksForOrder, ensureChecksForStage, retireStageChecks, type StageQcSummary } from '../../dermat_quality/lib/service'
 import { requestsForOrder, storeBlocking } from '../../dermat_store/lib/service'
 import { reservationsForOrder } from '../../dermat_planning/lib/service'
+import { USE_EXISTING_BULK, existingBulkProblem } from './productionStock'
 import {
   OrderError,
   approvedPackBoms,
@@ -157,9 +158,15 @@ export async function applyStageAction(ctx: OrderContext, order: DermatOrder, in
       if (missing.length) throw new OrderError(`Fill in: ${missing.join(', ')}`, 400, { missing })
       const openSteps = missingSteps(def, stage.data)
       if (openSteps.length) throw new OrderError(`Tick these steps first: ${openSteps.join(', ')}`, 400, { steps: openSteps })
-      const storeBlock = await storeBlocking(ctx, order.id, def.key)
+      const reusingBulk = def.key === 'manufacturing' && stage.data?.bulk_source === USE_EXISTING_BULK
+      if (reusingBulk) {
+        const problem = await existingBulkProblem(ctx, order.id, String(stage.data?.batch_no ?? '').trim())
+        if (problem) throw new OrderError(problem, 400, { bulk: true })
+        await retireStageChecks(ctx, order.id, def.key, `Bulk taken from batch ${String(stage.data?.batch_no ?? '')}, already QC-approved`)
+      }
+      const storeBlock = reusingBulk ? null : await storeBlocking(ctx, order.id, def.key)
       if (storeBlock) throw new OrderError(storeBlock, 400, { store: true })
-      const qcBlocking = await blockingChecks(ctx, order.id, def.key)
+      const qcBlocking = reusingBulk ? [] : await blockingChecks(ctx, order.id, def.key)
       if (qcBlocking.length) {
         throw new OrderError(`QC has not passed yet: ${qcBlocking.map((check) => `${check.code} (${check.status})`).join(', ')}`, 400, { qc: qcBlocking.map((check) => check.id) })
       }

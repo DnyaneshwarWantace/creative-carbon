@@ -9,6 +9,7 @@ import { consumeReservation, freeFor, reservationsFor } from '../../dermat_plann
 import { StoreRequest, StoreRequestLine, type LineIssue, type RequestStatus, type StoreKey } from '../data/entities'
 import type { IssueInput, RequestCreateInput, ReturnInput } from '../data/validators'
 import { StoreError, performerId, runCommand, type StoreContext } from './server'
+import { ensureStockRecords } from './stockSetup'
 
 export type StoreStage = 'manufacturing' | 'filling' | 'packing'
 
@@ -188,7 +189,7 @@ export async function createRequests(ctx: StoreContext, input: RequestCreateInpu
   const merged = new Map<string, number>()
   for (const line of input.lines) merged.set(line.productId, (merged.get(line.productId) ?? 0) + line.quantity)
   const productIds = Array.from(merged.keys())
-  const [products, variants] = await Promise.all([loadProducts(ctx, productIds), variantsForProducts(scopeOf(ctx), productIds)])
+  const [products, variants] = await Promise.all([loadProducts(ctx, productIds), ensureStockRecords(ctx, productIds)])
   const byStore = new Map<StoreKey, string[]>()
   for (const productId of productIds) {
     const product = products.get(productId)
