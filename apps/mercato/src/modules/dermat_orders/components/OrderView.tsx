@@ -20,7 +20,9 @@ import { ErrorMessage, LoadingMessage } from '@open-mercato/ui/backend/detail'
 import { LINE_SPEC_SECTIONS } from '../lib/specs'
 import { STAGES, stageDef } from '../lib/stages'
 import { ORDER_VARIANT, PAYMENT_TERMS_LABEL, STAGE_VARIANT, daysUntil, formatDate, formatDateTime, formatQty } from './format'
-import { StageSheet, type StageActionRequest } from './StageSheet'
+import { type StageActionRequest } from './StageSheet'
+import { StageRecord } from './StageRecord'
+import { subStageProgress } from './subStages'
 import { useStageAction } from './useStageAction'
 import { useOrderMaterials } from './useOrderMaterials'
 import { OrderMoneyCard } from './OrderMoneyCard'
@@ -74,8 +76,9 @@ const ACTION_LABEL: Record<string, string> = {
   cancelled: 'Order cancelled',
 }
 
-function StageCard({ stage, onOpen }: { stage: Stage; onOpen: () => void }) {
+function StageCard({ order, stage, onOpen }: { order: Order; stage: Stage; onOpen: () => void }) {
   const t = useT()
+  const progress = subStageProgress(order, stage)
   return (
     <button
       type="button"
@@ -101,6 +104,19 @@ function StageCard({ stage, onOpen }: { stage: Stage; onOpen: () => void }) {
             ? t('dermat_orders.rail.skipped', 'Skipped')
             : stage.responsibleName ?? (stage.status === 'done' ? stage.completedByName : null) ?? t('dermat_orders.rail.unassigned', 'Not assigned')}
       </div>
+      {progress.total && stage.status !== 'waiting' && stage.status !== 'skipped' ? (
+        <div className="mt-1.5 space-y-1">
+          <div className="flex h-1 overflow-hidden rounded-full bg-input" aria-hidden="true">
+            <span className={cn('h-full rounded-full', stage.status === 'done' ? 'bg-status-success-icon' : 'bg-status-warning-icon')} style={{ width: `${(progress.done / progress.total) * 100}%` }} />
+          </div>
+          <div className="truncate text-xs">
+            <span className="tabular-nums">
+              {progress.done}/{progress.total}
+            </span>
+            {progress.current ? <span className="text-muted-foreground"> · {progress.current}</span> : null}
+          </div>
+        </div>
+      ) : null}
       {stage.days != null && stage.status !== 'waiting' ? (
         <div className={cn('text-xs', stage.status === 'on_hold' ? 'font-semibold text-status-error-text' : 'text-muted-foreground')}>
           {stage.status === 'on_hold' ? `${stage.holdParty ?? t('dermat_orders.rail.hold', 'On hold')} · ` : ''}
@@ -225,7 +241,6 @@ export function OrderView({ orderId }: { orderId: string }) {
   const deliveryIn = daysUntil(order.deliveryDate)
   const totalPieces = order.lines.reduce((sum, line) => sum + line.quantity, 0)
   const shortRows = materials?.rows.filter((row) => row.quantity > row.onHand) ?? []
-  const selectedStage = openStage ? (stagesByKey.get(openStage) ?? null) : null
   const statusLabel = t(`dermat_orders.status.${order.status}`, order.status)
 
   return (
@@ -303,7 +318,7 @@ export function OrderView({ orderId }: { orderId: string }) {
             <CardHeader className="border-b bg-muted/20 pb-3">
               <CardTitle className="text-sm font-bold">{t('dermat_orders.view.stages', 'Stages')}</CardTitle>
               <CardDescription className="text-xs">
-                {t('dermat_orders.view.stagesHint', 'Green = done · Orange = in progress · Red = on hold · Grey = coming. Click a stage to work on it.')}
+                {t('dermat_orders.view.stagesHint', 'Green = done · Orange = in progress · Red = on hold · Grey = coming. Click a stage to jump to it in the order file below.')}
               </CardDescription>
             </CardHeader>
             <CardContent className="overflow-x-auto p-4">
@@ -314,7 +329,7 @@ export function OrderView({ orderId }: { orderId: string }) {
                     {block.kind === 'single' ? (
                       <div className="flex w-36 flex-col justify-center">
                         {stagesByKey.get(block.key) ? (
-                          <StageCard stage={stagesByKey.get(block.key)!} onOpen={() => setOpenStage(block.key)} />
+                          <StageCard order={order} stage={stagesByKey.get(block.key)!} onOpen={() => setOpenStage(block.key)} />
                         ) : null}
                       </div>
                     ) : (
@@ -328,7 +343,7 @@ export function OrderView({ orderId }: { orderId: string }) {
                               <React.Fragment key={key}>
                                 {laneIndex > 0 ? <span className="text-muted-foreground">›</span> : null}
                                 <div className="w-36">
-                                  {stagesByKey.get(key) ? <StageCard stage={stagesByKey.get(key)!} onOpen={() => setOpenStage(key)} /> : null}
+                                  {stagesByKey.get(key) ? <StageCard order={order} stage={stagesByKey.get(key)!} onOpen={() => setOpenStage(key)} /> : null}
                                 </div>
                               </React.Fragment>
                             ))}
@@ -344,6 +359,8 @@ export function OrderView({ orderId }: { orderId: string }) {
               </div>
             </CardContent>
           </Card>
+
+          <StageRecord order={order} people={people} busy={busy} shortCount={materials ? shortRows.length : null} focusKey={openStage} onAction={stageAction} />
 
           <Card>
             <CardHeader className="border-b bg-muted/20 pb-3">
@@ -519,17 +536,6 @@ export function OrderView({ orderId }: { orderId: string }) {
             {STAGES.length} {t('dermat_orders.view.stagesWord', 'stages')}
           </p>
         </div>
-
-        <StageSheet
-          order={order}
-          stage={selectedStage}
-          people={people}
-          canWork
-          busy={busy}
-          shortCount={materials ? shortRows.length : null}
-          onClose={() => setOpenStage(null)}
-          onAction={stageAction}
-        />
 
         <Dialog open={cancelOpen} onOpenChange={setCancelOpen}>
           <DialogContent

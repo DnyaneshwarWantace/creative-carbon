@@ -111,6 +111,19 @@ async function afterOpened(ctx: OrderContext, order: DermatOrder, opened: string
   }
 }
 
+async function assertSubStageOrder(ctx: OrderContext, orderId: string, stageKey: string, stepKey: string, data: Record<string, unknown>) {
+  const needsMaterial = (stageKey === 'manufacturing' && stepKey === 'manufactured' && data.bulk_source !== USE_EXISTING_BULK) || (stageKey === 'filling' && stepKey === 'filled')
+  if (needsMaterial) {
+    const block = await storeBlocking(ctx, orderId, stageKey)
+    if (block) throw new OrderError(`Stage 1 first: ${block}`, 400, { store: true })
+  }
+  if (stageKey === 'packing' && stepKey === 'packed') {
+    if (!stepStates(data).sample?.done) throw new OrderError('Stage 1 first: make the sample of the finished good', 400)
+    const qc = await blockingChecks(ctx, orderId, 'packing')
+    if (qc.length) throw new OrderError(`Stage 2 first: QC has not passed the finished good yet (${qc.map((check) => check.code).join(', ')})`, 400, { qc: qc.map((check) => check.id) })
+  }
+}
+
 export async function applyStageAction(ctx: OrderContext, order: DermatOrder, input: StageActionInput): Promise<void> {
   const def = stageDef(input.stageKey)
   if (!def) throw new OrderError('Unknown stage')
@@ -143,6 +156,17 @@ export async function applyStageAction(ctx: OrderContext, order: DermatOrder, in
       if (!step) throw new OrderError('Unknown step')
       if (stage.status !== 'open' && stage.status !== 'on_hold') throw new OrderError(`${def.label} is not in progress`, 409)
       const done = input.done !== false
+      const index = def.steps.findIndex((entry) => entry.key === step.key)
+      const current = stepStates(stage.data)
+      if (done && !step.optional) {
+        const earlier = def.steps.slice(0, index).filter((entry) => !entry.optional && !current[entry.key]?.done)
+        if (earlier.length) throw new OrderError(`Do these first: ${earlier.map((entry) => entry.label).join(', ')}`, 400, { steps: earlier.map((entry) => entry.key) })
+      }
+      if (!done) {
+        const later = def.steps.slice(index + 1).filter((entry) => current[entry.key]?.done)
+        if (later.length) throw new OrderError(`Undo the later steps first: ${later.map((entry) => entry.label).join(', ')}`, 400)
+      }
+      if (done) await assertSubStageOrder(ctx, order.id, def.key, step.key, stage.data ?? {})
       const states = { ...stepStates(stage.data), [step.key]: { done, at: done ? new Date().toISOString() : null, by: done ? byName : null } }
       stage.data = { ...(stage.data ?? {}), __steps: states }
       logEvent(ctx, order, done ? 'step_done' : 'step_undone', def.key, step.label, byName)
@@ -184,8 +208,6 @@ export async function applyStageAction(ctx: OrderContext, order: DermatOrder, in
       mergeData()
       const missing = missingRequired(def, stage.data ?? {})
       if (missing.length) throw new OrderError(`Fill in: ${missing.join(', ')}`, 400, { missing })
-      const openSteps = missingSteps(def, stage.data)
-      if (openSteps.length) throw new OrderError(`Tick these steps first: ${openSteps.join(', ')}`, 400, { steps: openSteps })
       if (def.key === 'sampling' && stage.data?.client_feedback !== 'Approved') {
         throw new OrderError('The client has not approved the sample. Set feedback to Approved, or start another round with their changes.', 400)
       }
@@ -205,6 +227,8 @@ export async function applyStageAction(ctx: OrderContext, order: DermatOrder, in
       }
       const storeBlock = reusingBulk ? null : await storeBlocking(ctx, order.id, def.key)
       if (storeBlock) throw new OrderError(storeBlock, 400, { store: true })
+      const openSteps = missingSteps(def, stage.data)
+      if (openSteps.length) throw new OrderError(`Tick these steps first: ${openSteps.join(', ')}`, 400, { steps: openSteps })
       const qcBlocking = reusingBulk ? [] : await blockingChecks(ctx, order.id, def.key)
       if (qcBlocking.length) {
         throw new OrderError(`QC has not passed yet: ${qcBlocking.map((check) => `${check.code} (${check.status})`).join(', ')}`, 400, { qc: qcBlocking.map((check) => check.id) })

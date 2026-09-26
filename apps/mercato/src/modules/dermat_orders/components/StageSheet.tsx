@@ -11,10 +11,11 @@ import { Textarea } from '@open-mercato/ui/primitives/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@open-mercato/ui/primitives/select'
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@open-mercato/ui/primitives/sheet'
 import { StatusBadge } from '@open-mercato/ui/primitives/status-badge'
-import { HOLD_PARTIES, stageDef, stepStates, type StageField } from '../lib/stages'
+import { HOLD_PARTIES, STAGES, stageDef, type StageField } from '../lib/stages'
 import { cn } from '@open-mercato/shared/lib/utils'
 import { STAGE_VARIANT, formatDate, formatDateTime, formatQty } from './format'
 import { ProductionPanel } from './ProductionPanel'
+import { SubStageTracker } from './SubStageTracker'
 import { PackItemsPanel, SampleRoundsPanel } from './ArtworkPanels'
 import type { Order, Stage } from './types'
 
@@ -79,6 +80,7 @@ export function StageWorkArea({ order, stage, people, canWork, busy, shortCount,
   if (!stage || !def) return null
 
   const editable = canWork && (stage.status === 'open' || stage.status === 'on_hold') && order.status !== 'cancelled'
+  const nextLabels = STAGES.filter((entry) => entry.after.includes(stage.key)).map((entry) => entry.label)
   const finished = stage.status === 'done' || stage.status === 'skipped'
   const dataPayload = () => {
     const data: Record<string, string | number | null> = {}
@@ -344,49 +346,7 @@ export function StageWorkArea({ order, stage, people, canWork, busy, shortCount,
           </div>
         ) : null}
 
-        {def.steps.length ? (
-          <div className="space-y-2">
-            <Label className="text-xs text-muted-foreground">{t('dermat_orders.sheet.steps', 'Steps')}</Label>
-            <ul className="divide-y rounded-md border">
-              {def.steps.map((step, index) => {
-                const state = stepStates(stage.data)[step.key]
-                const checked = Boolean(state?.done)
-                return (
-                  <li key={step.key}>
-                    <button
-                      type="button"
-                      disabled={!editable || busy}
-                      onClick={() => run({ action: 'step', stepKey: step.key, done: !checked })}
-                      className="flex w-full items-start gap-3 px-3 py-2 text-left text-sm hover:bg-muted/40 disabled:cursor-default disabled:hover:bg-transparent"
-                    >
-                      <span
-                        className={cn(
-                          'mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded border',
-                          checked ? 'border-status-success-border bg-status-success-bg text-status-success-text' : 'border-input',
-                        )}
-                      >
-                        {checked ? <Check className="h-3 w-3" /> : null}
-                      </span>
-                      <span className="min-w-0 flex-1">
-                        <span className={cn(checked && 'text-muted-foreground line-through')}>
-                          {index + 1}. {step.label}
-                        </span>
-                        {step.optional ? (
-                          <span className="ml-1 text-xs text-muted-foreground">{t('dermat_orders.sheet.optional', '(if needed)')}</span>
-                        ) : null}
-                        {checked && state?.at ? (
-                          <span className="block text-xs text-muted-foreground">
-                            {[state.by, formatDateTime(state.at)].filter(Boolean).join(' · ')}
-                          </span>
-                        ) : null}
-                      </span>
-                    </button>
-                  </li>
-                )
-              })}
-            </ul>
-          </div>
-        ) : null}
+        <SubStageTracker order={order} stage={stage} editable={editable} busy={busy} onStep={(stepKey, done) => run({ action: 'step', stepKey, done })} />
 
         {stage.key === 'artwork' && order.packItems?.length ? (
           <PackItemsPanel order={order} stage={stage} editable={editable} busy={busy} onStatus={(productId, pmStatus) => run({ action: 'pm_status', productId, pmStatus })} />
@@ -513,7 +473,9 @@ export function StageWorkArea({ order, stage, people, canWork, busy, shortCount,
               </Button>
               <Button type="button" size="sm" onClick={() => run({ action: 'complete', data: dataPayload() })} disabled={busy}>
                 <CheckCircle2 className="mr-1.5 h-4 w-4" />
-                {t('dermat_orders.sheet.complete', 'Mark done')}
+                {nextLabels.length
+                  ? t('dermat_orders.sheet.completeSend', 'Done — send to {next}', { next: nextLabels.join(' + ') })
+                  : t('dermat_orders.sheet.completeLast', 'Done — close the order')}
               </Button>
             </>
           ) : null}

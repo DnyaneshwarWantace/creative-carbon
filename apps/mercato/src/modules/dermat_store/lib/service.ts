@@ -112,7 +112,7 @@ export type SuggestRow = {
   reservedForOrder: number
 }
 
-export async function suggestLines(ctx: StoreContext, orderId: string, stageKey: StoreStage): Promise<{ rows: SuggestRow[]; missingBoms: string[] }> {
+export async function suggestLines(ctx: OrderContext, orderId: string, stageKey: StoreStage): Promise<{ rows: SuggestRow[]; missingBoms: string[] }> {
   const lines = await ctx.em.find(DermatOrderLine, { orderId })
   const boms = await approvedPackBoms(ctx, lines.map((line) => line.productId))
   const products = await loadProducts(ctx, lines.map((line) => line.productId))
@@ -452,7 +452,11 @@ export async function consumeForStage(ctx: StoreContext, orderId: string, stageK
 export async function storeBlocking(ctx: OrderContext, orderId: string, stageKey: string): Promise<string | null> {
   if (!STORE_STAGE_KEYS.includes(stageKey as StoreStage)) return null
   const requests = await ctx.em.find(StoreRequest, { orderId, stageKey, deletedAt: null, status: { $ne: 'cancelled' } })
-  if (!requests.length) return 'Ask the store for the material first (Store request)'
+  if (!requests.length) {
+    const { rows } = await suggestLines(ctx, orderId, stageKey as StoreStage)
+    if (!rows.some((row) => row.required > 0)) return null
+    return 'Ask the store for the material first (Store request)'
+  }
   const lines = await ctx.em.find(StoreRequestLine, { requestId: { $in: requests.map((request) => request.id) } })
   const waiting = requests.filter((request) => request.status === 'requested')
   if (waiting.length) return `The store has not issued anything yet on ${waiting.map((request) => request.code).join(', ')}`
