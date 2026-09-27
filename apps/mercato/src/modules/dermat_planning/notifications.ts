@@ -56,6 +56,17 @@ export const notificationTypes: NotificationTypeDefinition[] = [
     linkHref: '/backend/planning/reservations',
     expiresAfterHours: 336,
   },
+  {
+    type: 'dermat_planning.reservation.arrived',
+    module: 'dermat_planning',
+    titleKey: 'dermat_planning.notifications.arrived.title',
+    bodyKey: 'dermat_planning.notifications.arrived.body',
+    icon: 'package-check',
+    severity: 'info',
+    actions: [{ id: 'open', labelKey: 'common.open', variant: 'outline', href: '/backend/planning', icon: 'external-link' }],
+    linkHref: '/backend/planning',
+    expiresAfterHours: 336,
+  },
 ]
 
 export default notificationTypes
