@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from 'react'
+import { useGranted } from '../../dermat_departments/components/useGranted'
 import Link from 'next/link'
 import { ArrowRight, CalendarClock, CheckCircle2, PauseCircle } from 'lucide-react'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
@@ -87,12 +88,9 @@ function Row({ item, showPerson }: { item: WorkItem; showPerson: boolean }) {
 export function MyWorkPage() {
   const t = useT()
   const [scope, setScope] = React.useState<'mine' | 'everyone'>('mine')
-  const [canSeeEveryone, setCanSeeEveryone] = React.useState(false)
+  const granted = useGranted()
+  const canSeeEveryone = granted.has('dermat_dashboard.everyone')
   const [items, setItems] = React.useState<WorkItem[] | null>(null)
-
-  React.useEffect(() => {
-    apiCall<{ items: WorkItem[] }>('/api/dermat_dashboard/team-work', undefined, { fallback: { items: [] } }).then((call) => setCanSeeEveryone(call.ok))
-  }, [])
 
   React.useEffect(() => {
     setItems(null)

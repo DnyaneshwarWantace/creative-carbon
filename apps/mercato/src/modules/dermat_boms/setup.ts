@@ -4,6 +4,7 @@ export const setup: ModuleSetupConfig = {
   defaultRoleFeatures: {
     admin: ['dermat_boms.*'],
     research: ['dermat_boms.view', 'dermat_boms.manage', 'dermat_boms.approve'],
+    sales: ['dermat_boms.view'],
     supervisor: ['dermat_boms.view'],
     production_staff: ['dermat_boms.view'],
     operator: ['dermat_boms.view'],

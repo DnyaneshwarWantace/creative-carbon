@@ -136,6 +136,7 @@ export const enabledModules: ModuleEntry[] = [
       routes: {
         pages: {
           '/backend/customers/companies': {
+            load: () => import('./modules/dermat_customers/components/CustomersList').then((mod) => mod.default),
             metadata: {
               pageTitle: 'Customer',
               pageTitleKey: 'dermat_customers.nav.customer',

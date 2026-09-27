@@ -374,11 +374,11 @@ export function IndentsPage() {
                         />
                       ) : null}
                       <div className="min-w-0">
-                        <p className="flex flex-wrap items-center gap-2">
+                        <div className="flex flex-wrap items-center gap-2">
                           <span className="font-mono font-semibold">{indent.code}</span>
                           <StatusBadge variant={STATUS[indent.status].variant}>{STATUS[indent.status].label}</StatusBadge>
                           <span className="text-xs text-muted-foreground">{SOURCE[indent.source] ?? indent.source}</span>
-                        </p>
+                        </div>
                         <p className="text-xs text-muted-foreground">
                           {[indent.department, indent.requestedByName ? t('dermat_purchase.indent.by', 'by {name}', { name: indent.requestedByName }) : null, day(indent.createdAt), indent.neededBy ? t('dermat_purchase.indent.needed', 'needed by {date}', { date: day(indent.neededBy) }) : null].filter(Boolean).join(' · ')}
                         </p>

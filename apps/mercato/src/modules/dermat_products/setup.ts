@@ -5,9 +5,9 @@ const productViewers = ['sales', 'accounts', 'pm_store', 'production_staff', 'su
 
 export const setup: ModuleSetupConfig = {
   defaultRoleFeatures: {
-    ...Object.fromEntries(productViewers.map((role) => [role, ['catalog.products.view']])),
-    research: ['catalog.products.view', 'catalog.products.manage'],
-    procurement: ['catalog.products.view', 'catalog.products.manage'],
+    ...Object.fromEntries(productViewers.map((role) => [role, ['catalog.products.view', 'catalog.categories.view']])),
+    research: ['catalog.products.view', 'catalog.categories.view', 'catalog.products.manage'],
+    procurement: ['catalog.products.view', 'catalog.categories.view', 'catalog.products.manage'],
   },
   seedDefaults: async (ctx) => {
     await seedDermatProducts(ctx.em, { tenantId: ctx.tenantId, organizationId: ctx.organizationId })
