@@ -175,6 +175,20 @@ export const enabledModules: ModuleEntry[] = [
             },
           },
           '/backend/sales/quotes': null,
+          '/backend/wms/location/[id]': null,
+          '/backend/wms/lot/[id]': null,
+          '/backend/wms/sku/[id]': null,
+          '/backend/customers/companies-v2/[id]': null,
+          '/backend/directory/tenants': null,
+          '/backend/directory/tenants/[id]/edit': null,
+          '/backend/directory/tenants/create': null,
+          '/backend/entities/system/[entityId]': null,
+          '/backend/entities/user/[entityId]': null,
+          '/backend/entities/user/[entityId]/records/[recordId]': null,
+          '/backend/entities/user/[entityId]/records/create': null,
+          '/backend/sales/documents/[id]': null,
+          '/backend/sales/quotes/[id]': null,
+          '/backend/sales/orders': null,
           '/backend/config/system-status': null,
           '/backend/config/cache': null,
           '/backend/config/module-telemetry': null,
@@ -199,19 +213,11 @@ export const enabledModules: ModuleEntry[] = [
           '/backend/exchange-rates/create': null,
           '/backend/exchange-rates/[id]': null,
           '/backend/config/currency-fetching': null,
-          '/backend/wms/inventory': {
-            metadata: { pageTitle: 'Stock', pageTitleKey: 'dermat_store.nav.stock', pageGroup: 'Store', pageGroupKey: 'dermat-06-store.nav.group', pageOrder: 10 },
-          },
-          '/backend/wms/lots': {
-            metadata: { pageTitle: 'Batches', pageTitleKey: 'dermat_store.nav.batches', pageGroup: 'Store', pageGroupKey: 'dermat-06-store.nav.group', pageOrder: 20 },
-          },
-          '/backend/wms/movements': {
-            metadata: { pageTitle: 'Stock Ledger', pageTitleKey: 'dermat_store.nav.ledger', pageGroup: 'Store', pageGroupKey: 'dermat-06-store.nav.group', pageOrder: 30 },
-          },
+          '/backend/wms/inventory': null,
+          '/backend/wms/lots': null,
+          '/backend/wms/movements': null,
           '/backend/wms/reservations': null,
-          '/backend/wms/locations': {
-            metadata: { pageTitle: 'Stores', pageTitleKey: 'dermat_store.nav.stores', pageGroup: 'Masters', pageGroupKey: 'dermat-11-masters.nav.group', pageOrder: 40 },
-          },
+          '/backend/wms/locations': null,
           '/backend/wms/warehouses': null,
           '/backend/wms/zones': null,
           '/backend/config/wms': null,
@@ -235,7 +241,7 @@ export const enabledModules: ModuleEntry[] = [
           },
           '/backend/catalog/products/[productId]/variants/create': null,
           '/backend/catalog/products/[productId]/variants/[variantId]': null,
-          '/backend/entities/user': { metadata: { navHidden: true } },
+          '/backend/entities/user': null,
           '/backend/config/settings': { metadata: { navHidden: true } },
           '/backend/config/dictionaries': {
             metadata: {
@@ -273,7 +279,6 @@ export const enabledModules: ModuleEntry[] = [
   { id: 'dermat_vendors', from: '@app' },
   { id: 'dermat_lists', from: '@app' },
   { id: 'dermat_rnd', from: '@app' },
-  { id: 'ratelimit_probe', from: '@app' },
 ]
 
 // Official modules activated via official-modules.json / official-modules.local.json
