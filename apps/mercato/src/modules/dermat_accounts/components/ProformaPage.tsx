@@ -1,6 +1,8 @@
 "use client"
 
 import * as React from 'react'
+import { useGranted } from '../../dermat_departments/components/useGranted'
+import { ViewOnlyNote } from '../../dermat_departments/components/ViewOnlyNote'
 import Link from 'next/link'
 import { ArrowLeft, Ban, CheckCircle2, History, Printer, RefreshCcw, Save } from 'lucide-react'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
@@ -28,6 +30,8 @@ function when(value: string): string {
 
 export function ProformaPage({ id }: { id: string }) {
   const t = useT()
+  const granted = useGranted()
+  const canRecord = !granted.ready || granted.has('dermat_accounts.record')
   const { runMutation } = useGuardedMutation({ contextId: `dermat-pi-${id}` })
   const [pi, setPi] = React.useState<PiView | null>(null)
   const [company, setCompany] = React.useState<CompanyView | null>(null)
@@ -135,7 +139,7 @@ export function ProformaPage({ id }: { id: string }) {
     )
   }
 
-  const editable = pi.status !== 'cancelled'
+  const editable = pi.status !== 'cancelled' && canRecord
   const status = PI_STATUS[pi.status]
   const message = [
     `Dear ${pi.customerName},`,
@@ -186,13 +190,13 @@ export function ProformaPage({ id }: { id: string }) {
                 <Printer className="mr-1.5 h-4 w-4" aria-hidden="true" />
                 {t('dermat_accounts.pi.print', 'Print / PDF')}
               </Button>
-              {pi.status === 'draft' ? (
+              {canRecord && pi.status === 'draft' ? (
                 <Button type="button" onClick={() => send('/api/dermat_accounts/proformas/action', { id, action: 'send' }, t('dermat_accounts.pi.sentFlash', 'Marked as sent; the order Advance stage has the PI no.'))} disabled={busy}>
                   <CheckCircle2 className="mr-1.5 h-4 w-4" aria-hidden="true" />
                   {t('dermat_accounts.pi.markSent', 'Mark as sent')}
                 </Button>
               ) : null}
-              {pi.status !== 'cancelled' ? (
+              {canRecord && pi.status !== 'cancelled' ? (
                 <Button type="button" variant="destructive-ghost" onClick={() => setCancelOpen(true)} disabled={busy}>
                   <Ban className="mr-1.5 h-4 w-4" aria-hidden="true" />
                   {t('dermat_accounts.pi.cancel', 'Cancel')}
@@ -200,6 +204,7 @@ export function ProformaPage({ id }: { id: string }) {
               ) : null}
             </div>
           </header>
+          {!canRecord ? <ViewOnlyNote>{t('dermat_accounts.viewOnly', 'View only: making, issuing and cancelling documents is done by Accounts.')}</ViewOnlyNote> : null}
 
           {pi.status === 'cancelled' ? (
             <p className="rounded-lg border bg-muted/40 p-3 text-sm text-muted-foreground">{t('dermat_accounts.pi.cancelledNote', 'Cancelled: {reason}', { reason: pi.cancelReason ?? '—' })}</p>

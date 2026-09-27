@@ -10,6 +10,7 @@ export function overrideOf(row: DermatStageSetting): StageOverride {
     stageKey: row.stageKey,
     label: row.label ?? null,
     dayLimit: row.dayLimit ?? null,
+    reopenHours: row.reopenHours ?? null,
     hiddenSteps: row.hiddenSteps ?? [],
     requiredFields: row.requiredFields ?? [],
     extraFields: (row.extraFields ?? []) as StageField[],

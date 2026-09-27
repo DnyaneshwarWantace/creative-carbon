@@ -15,7 +15,7 @@ import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '
 import { StatusBadge } from '@open-mercato/ui/primitives/status-badge'
 import { apiCall } from '@open-mercato/ui/backend/utils/apiCall'
 import { flash } from '@open-mercato/ui/backend/FlashMessages'
-import { HOLD_PARTIES, stageList, WORK_STATE_LABEL, stageDef, stageWorkFeature, workState, type StageField, type WorkState } from '../lib/stages'
+import { HOLD_PARTIES, reopenBlock, reopenUntilText, stageList, WORK_STATE_LABEL, stageDef, stageWorkFeature, workState, type StageField, type WorkState } from '../lib/stages'
 import { useGranted } from '../../dermat_departments/components/useGranted'
 import { StageDocuments } from './StageDocuments'
 import { SuggestInput } from '../../dermat_lists/components/SuggestInput'
@@ -85,6 +85,7 @@ function display(field: StageField, value: unknown): string {
 export function StageWorkArea({ order, stage, people, canWork: canWorkProp, busy, shortCount, onAction, variant = 'sheet' }: StageWorkAreaProps) {
   const granted = useGranted()
   const canWork = canWorkProp && Boolean(stage) && granted.has(stageWorkFeature(stage?.key ?? ''))
+  const canReopenLate = canWorkProp && granted.has('dermat_orders.reopen')
   const router = useRouter()
   const t = useT()
   useStageSettings()
@@ -128,6 +129,18 @@ export function StageWorkArea({ order, stage, people, canWork: canWorkProp, busy
     else flash(call.result?.error ?? t('dermat_orders.sheet.orderBomError', 'Could not make the order BOM.'), 'error')
   }
   const finished = stage.status === 'done' || stage.status === 'skipped'
+  const reopenable = finished && stage.key !== 'order'
+  const reopenBlocked = stage.reopen ? reopenBlock(stage.reopen) : null
+  const reopenUntil = stage.reopen ? reopenUntilText(stage.reopen) : null
+  const canReopen = reopenable && ((canWork && !reopenBlocked) || canReopenLate)
+  const backToWaiting = (() => {
+    const later = new Set<string>()
+    const walk = (key: string) => {
+      for (const entry of stageList()) if (entry.after.includes(key) && !later.has(entry.key)) { later.add(entry.key); walk(entry.key) }
+    }
+    walk(stage.key)
+    return order.stages.filter((entry) => later.has(entry.key) && (entry.status === 'open' || entry.status === 'on_hold')).map((entry) => entry.label)
+  })()
   const dataPayload = () => {
     const data: Record<string, string | number | null> = {}
     for (const field of def.fields) {
@@ -537,6 +550,25 @@ export function StageWorkArea({ order, stage, people, canWork: canWorkProp, busy
                 <Input id="hold-follow-up" type="date" value={followUp} onChange={(event) => setFollowUp(event.target.value)} />
               </div>
             ) : null}
+            {mode === 'revert' ? (
+              <div className="space-y-2 text-xs">
+                {reopenBlocked ? (
+                  <p className="rounded-md border border-status-warning-border bg-status-warning-bg px-3 py-2 text-status-warning-text">
+                    {t('dermat_orders.sheet.reopenLate', '{reason} You are reopening it with the manager right; this is written in the order history.', { reason: reopenBlocked })}
+                  </p>
+                ) : null}
+                {stage.reopen?.stockMoved ? (
+                  <p className="rounded-md border border-status-warning-border bg-status-warning-bg px-3 py-2 text-status-warning-text">
+                    {t('dermat_orders.sheet.reopenStock', 'Stock already moved for this stage stays as it is, and finishing the stage again will not move it a second time. If a quantity was wrong, correct it in Store stock.')}
+                  </p>
+                ) : null}
+                {backToWaiting.length ? (
+                  <p className="text-muted-foreground">
+                    {t('dermat_orders.sheet.reopenPauses', 'These go back to waiting and their department is told: {stages}', { stages: backToWaiting.join(', ') })}
+                  </p>
+                ) : null}
+              </div>
+            ) : null}
             <div className="space-y-1.5">
               <Label className="text-xs text-muted-foreground">
                 {mode === 'skip' ? t('dermat_orders.sheet.why', 'Why (optional)') : t('dermat_orders.sheet.reason', 'Reason *')}
@@ -583,7 +615,7 @@ export function StageWorkArea({ order, stage, people, canWork: canWorkProp, busy
         )}
       </div>
 
-      {canWork && order.status !== 'cancelled' && mode === 'form' ? (
+      {(canWork || (reopenable && canReopenLate)) && order.status !== 'cancelled' && mode === 'form' ? (
         <div className={cn('flex flex-wrap justify-end gap-2 border-t p-4', variant === 'page' && 'sticky bottom-0 bg-card')}>
           {stage.status === 'open' ? (
             <>
@@ -633,11 +665,22 @@ export function StageWorkArea({ order, stage, people, canWork: canWorkProp, busy
               </Button>
             </>
           ) : null}
-          {finished && stage.key !== 'order' ? (
-            <Button type="button" variant="outline" size="sm" onClick={() => setMode('revert')} disabled={busy}>
-              <RotateCcw className="mr-1.5 h-4 w-4" />
-              {t('dermat_orders.sheet.reopen', 'Reopen')}
-            </Button>
+          {reopenable ? (
+            <div className="flex w-full flex-wrap items-center justify-end gap-3">
+              <p className="mr-auto text-xs text-muted-foreground">
+                {!reopenBlocked && reopenUntil
+                  ? t('dermat_orders.sheet.reopenUntil', 'Found a mistake? You can reopen this until {time}.', { time: reopenUntil })
+                  : canReopenLate
+                    ? t('dermat_orders.sheet.reopenManager', '{reason} You can still reopen it as a manager.', { reason: reopenBlocked ?? '' })
+                    : t('dermat_orders.sheet.reopenClosed', '{reason} Ask a manager if it must be reopened.', { reason: reopenBlocked ?? '' })}
+              </p>
+              {canReopen ? (
+                <Button type="button" variant="outline" size="sm" onClick={() => setMode('revert')} disabled={busy}>
+                  <RotateCcw className="mr-1.5 h-4 w-4" />
+                  {reopenBlocked ? t('dermat_orders.sheet.reopenAsManager', 'Reopen as manager') : t('dermat_orders.sheet.reopen', 'Reopen')}
+                </Button>
+              ) : null}
+            </div>
           ) : null}
         </div>
       ) : null}

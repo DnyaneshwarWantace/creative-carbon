@@ -26,6 +26,17 @@ export const notificationTypes: NotificationTypeDefinition[] = [
     expiresAfterHours: 336,
   },
   {
+    type: 'dermat_orders.stage.paused',
+    module: 'dermat_orders',
+    titleKey: 'dermat_orders.notifications.paused.title',
+    bodyKey: 'dermat_orders.notifications.paused.body',
+    icon: 'rotate-ccw',
+    severity: 'warning',
+    actions: openAction,
+    linkHref: '/backend/orders/{sourceEntityId}',
+    expiresAfterHours: 336,
+  },
+  {
     type: 'dermat_orders.stage.overdue',
     module: 'dermat_orders',
     titleKey: 'dermat_orders.notifications.overdue.title',

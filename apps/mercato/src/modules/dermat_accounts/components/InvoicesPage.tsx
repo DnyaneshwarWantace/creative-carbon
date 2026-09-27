@@ -1,6 +1,8 @@
 "use client"
 
 import * as React from 'react'
+import { useGranted } from '../../dermat_departments/components/useGranted'
+import { ViewOnlyNote } from '../../dermat_departments/components/ViewOnlyNote'
 import { useRouter } from 'next/navigation'
 import { FileText, Search } from 'lucide-react'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
@@ -31,6 +33,8 @@ function day(value: string | null): string {
 
 export function InvoicesPage() {
   const t = useT()
+  const granted = useGranted()
+  const canRecord = !granted.ready || granted.has('dermat_accounts.record')
   const router = useRouter()
   const { runMutation } = useGuardedMutation({ contextId: 'dermat-invoice-new' })
   const [filter, setFilter] = React.useState<Filter>('all')
@@ -122,6 +126,7 @@ export function InvoicesPage() {
             </div>
             <div className="flex shrink-0 flex-wrap items-center gap-2">
               <ExportButton onExport={exportAll} />
+              {canRecord ? (
               <div className="w-72">
                 <SearchPicker
                   value={null}
@@ -132,8 +137,10 @@ export function InvoicesPage() {
                   disabled={creating}
                 />
               </div>
+              ) : null}
             </div>
           </header>
+          {!canRecord ? <ViewOnlyNote>{t('dermat_accounts.viewOnly', 'View only: making, issuing and cancelling documents is done by Accounts.')}</ViewOnlyNote> : null}
 
           <div className="flex flex-wrap items-center justify-between gap-3">
             <SegmentedControl value={kind} onValueChange={(value) => setKind(value as Kind)} aria-label={t('dermat_accounts.inv.kind', 'Document')}>

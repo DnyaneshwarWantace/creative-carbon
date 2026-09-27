@@ -32,6 +32,7 @@ export const ACCESS_AREAS: AccessArea[] = [
     abilities: [
       { feature: 'dermat_orders.view', label: 'See orders and where they are', short: 'View' },
       { feature: 'dermat_orders.manage', label: 'Book, edit and cancel orders', short: 'Book' },
+      { feature: 'dermat_orders.reopen', label: 'Reopen finished stages after the time limit', short: 'Late reopen' },
     ],
   },
   {

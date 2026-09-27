@@ -1,6 +1,8 @@
 'use client'
 
 import * as React from 'react'
+import { useGranted } from '../../dermat_departments/components/useGranted'
+import { ViewOnlyNote } from '../../dermat_departments/components/ViewOnlyNote'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import {
@@ -199,6 +201,9 @@ async function readProduct(productId: string): Promise<ProductInfo | null> {
 
 export function BomEditor({ bomId, productId }: { bomId?: string; productId?: string }) {
   const t = useT()
+  const granted = useGranted()
+  const canManage = !granted.ready || granted.has('dermat_boms.manage')
+  const canApprove = !granted.ready || granted.has('dermat_boms.approve')
   const router = useRouter()
   const { runMutation } = useGuardedMutation({ contextId: `dermat-bom-${bomId ?? 'new'}` })
 
@@ -269,7 +274,7 @@ export function BomEditor({ bomId, productId }: { bomId?: string; productId?: st
     }
   })
 
-  const editable = !state?.bom || state.bom.status === 'draft'
+  const editable = (!state?.bom || state.bom.status === 'draft') && canManage
 
   const patch = (next: Partial<EditorState>) => {
     setState((prev) => (prev ? { ...prev, ...next } : prev))
@@ -738,13 +743,13 @@ export function BomEditor({ bomId, productId }: { bomId?: string; productId?: st
               <Button asChild variant="ghost" size="sm">
                 <Link href={`/backend/products/${state.product.id}`}>{t('dermat_boms.openProduct', 'Open product')}</Link>
               </Button>
-              {state.bom && status === 'draft' ? (
+              {canManage && state.bom && status === 'draft' ? (
                 <Button type="button" variant="destructive-ghost" size="sm" onClick={handleDelete} disabled={busy}>
                   <Trash2 className="mr-1.5 h-4 w-4" />
                   {t('dermat_boms.delete', 'Delete draft')}
                 </Button>
               ) : null}
-              {state.bom && status !== 'draft' ? (
+              {canManage && state.bom && status !== 'draft' ? (
                 <Button type="button" variant="outline" size="sm" onClick={handleNewVersion} disabled={busy}>
                   <CopyPlus className="mr-1.5 h-4 w-4" />
                   {t('dermat_boms.newVersion', 'Edit as new version')}
@@ -755,7 +760,7 @@ export function BomEditor({ bomId, productId }: { bomId?: string; productId?: st
                   {busy ? t('dermat_boms.saving', 'Saving…') : t('dermat_boms.save', 'Save draft')}
                 </Button>
               ) : null}
-              {state.bom && status === 'draft' ? (
+              {canApprove && state.bom && status === 'draft' ? (
                 <Button type="button" size="sm" onClick={handleApprove} disabled={busy}>
                   <CheckCircle2 className="mr-1.5 h-4 w-4" />
                   {t('dermat_boms.approve', 'Approve')}
@@ -764,6 +769,7 @@ export function BomEditor({ bomId, productId }: { bomId?: string; productId?: st
             </div>
           </div>
 
+          {!canManage ? <ViewOnlyNote>{t('dermat_boms.viewOnly', 'View only: BOMs are made, changed and approved by R&D.')}</ViewOnlyNote> : null}
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
             <Tile
               label={t('dermat_boms.tile.lines', 'Lines')}

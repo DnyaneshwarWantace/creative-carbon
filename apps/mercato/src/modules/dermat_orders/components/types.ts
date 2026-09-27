@@ -1,3 +1,4 @@
+import type { ReopenInfo } from '../lib/stages'
 export type Customer = {
   id: string
   name: string
@@ -72,6 +73,7 @@ export type Stage = {
   completedAt: string | null
   completedByName: string | null
   days: number | null
+  reopen?: ReopenInfo
 }
 
 export type OrderEvent = { id: string; stageKey: string | null; action: string; note: string | null; byName: string | null; at: string }

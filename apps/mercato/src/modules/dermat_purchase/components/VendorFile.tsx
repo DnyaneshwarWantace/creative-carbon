@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from 'react'
+import { useGranted } from '../../dermat_departments/components/useGranted'
 import Link from 'next/link'
 import { ArrowLeft, Mail, MapPin, Pencil, Phone, Plus, ShoppingCart, Truck } from 'lucide-react'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
@@ -194,6 +195,8 @@ function EditVendorDialog({ vendor, open, onOpenChange, onSaved }: { vendor: Ven
 
 export function VendorFile({ vendorId }: { vendorId: string }) {
   const t = useT()
+  const granted = useGranted()
+  const canChange = !granted.ready || granted.has('dermat_vendors.manage')
   const [data, setData] = React.useState<Summary | null>(null)
   const [error, setError] = React.useState<string | null>(null)
   const [tab, setTab] = React.useState<Tab>('pos')
@@ -264,10 +267,12 @@ export function VendorFile({ vendorId }: { vendorId: string }) {
               </p>
             </div>
             <div className="flex shrink-0 flex-wrap gap-2">
+              {canChange ? (
               <Button type="button" variant="outline" size="sm" onClick={() => setEditOpen(true)}>
                 <Pencil className="mr-1.5 h-4 w-4" aria-hidden="true" />
                 {t('dermat_purchase.vendor.edit', 'Edit vendor')}
               </Button>
+              ) : null}
               <Button asChild size="sm">
                 <Link href={`/backend/purchase/orders/new?vendorId=${vendor.id}`}>
                   <Plus className="mr-1.5 h-4 w-4" aria-hidden="true" />

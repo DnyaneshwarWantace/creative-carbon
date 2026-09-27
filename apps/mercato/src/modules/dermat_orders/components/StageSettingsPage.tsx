@@ -25,15 +25,16 @@ type BaseStage = {
   department: string
   hint: string
   dayLimit: number | null
+  reopenHours: number
   steps: Array<{ key: string; label: string; optional?: boolean; locked: boolean }>
   fields: Array<{ key: string; label: string; type: string; required: boolean }>
   documents: Array<{ key: string; label: string; required: 'always' | 'eway' | null }>
 }
 type ExtraField = { key: string; label: string; type: FieldType; options?: string[]; required?: boolean }
 type ExtraDoc = { key: string; label: string; required: boolean }
-type Override = { stageKey: string; label: string | null; dayLimit: number | null; hiddenSteps: string[]; requiredFields: string[]; extraFields: ExtraField[]; documents: Record<string, 'always' | 'optional'>; extraDocuments: ExtraDoc[]; updatedAt: string; updatedByName: string | null }
+type Override = { stageKey: string; label: string | null; dayLimit: number | null; reopenHours: number | null; hiddenSteps: string[]; requiredFields: string[]; extraFields: ExtraField[]; documents: Record<string, 'always' | 'optional'>; extraDocuments: ExtraDoc[]; updatedAt: string; updatedByName: string | null }
 type Payload = { stages: BaseStage[]; overrides: Override[]; fieldTypes: FieldType[] }
-type Draft = { label: string; dayLimit: string; hiddenSteps: string[]; requiredFields: string[]; extraFields: Array<ExtraField & { optionsText: string }>; documents: Record<string, 'always' | 'optional'>; extraDocuments: ExtraDoc[] }
+type Draft = { label: string; dayLimit: string; reopenHours: string; hiddenSteps: string[]; requiredFields: string[]; extraFields: Array<ExtraField & { optionsText: string }>; documents: Record<string, 'always' | 'optional'>; extraDocuments: ExtraDoc[] }
 
 const TYPE_LABEL: Record<FieldType, string> = { text: 'Text', number: 'Number', date: 'Date', textarea: 'Long text', select: 'Dropdown' }
 
@@ -45,6 +46,7 @@ function draftFor(stage: BaseStage, override: Override | undefined): Draft {
   return {
     label: override?.label ?? stage.label,
     dayLimit: String(override?.dayLimit ?? stage.dayLimit ?? ''),
+    reopenHours: String(override?.reopenHours ?? stage.reopenHours),
     hiddenSteps: override?.hiddenSteps ?? [],
     requiredFields: override?.requiredFields ?? [],
     extraFields: (override?.extraFields ?? []).map((field) => ({ ...field, optionsText: (field.options ?? []).join(', ') })),
@@ -100,6 +102,7 @@ export function StageSettingsPage() {
         stageKey: stage.key,
         label: draft.label.trim() || null,
         dayLimit: Number(draft.dayLimit) || null,
+        reopenHours: draft.reopenHours.trim() === '' ? null : Number(draft.reopenHours),
         hiddenSteps: draft.hiddenSteps,
         requiredFields: draft.requiredFields,
         extraFields: draft.extraFields.map((field) => ({ key: field.key, label: field.label.trim(), type: field.type, required: Boolean(field.required), ...(field.type === 'select' ? { options: field.optionsText.split(',').map((option) => option.trim()).filter(Boolean) } : {}) })),
@@ -151,7 +154,7 @@ export function StageSettingsPage() {
             </nav>
 
             <div className="flex flex-col gap-4 lg:col-span-3">
-              <section className="grid grid-cols-1 gap-4 rounded-lg border bg-card p-4 sm:grid-cols-3">
+              <section className="grid grid-cols-1 gap-4 rounded-lg border bg-card p-4 sm:grid-cols-2">
                 <div className="space-y-1.5 sm:col-span-2">
                   <Label htmlFor="stage-label">{t('dermat_orders.stageSettings.name', 'Stage name')}</Label>
                   <Input id="stage-label" value={draft.label} onChange={(event) => patch({ label: event.target.value })} />
@@ -161,6 +164,11 @@ export function StageSettingsPage() {
                   <Label htmlFor="stage-days">{t('dermat_orders.stageSettings.days', 'Days allowed')}</Label>
                   <Input id="stage-days" type="number" min={1} max={365} value={draft.dayLimit} onChange={(event) => patch({ dayLimit: event.target.value })} />
                   <p className="text-xs text-muted-foreground">{t('dermat_orders.stageSettings.daysHint', 'After this the stage shows as late and its team is alerted.')}</p>
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="stage-reopen">{t('dermat_orders.stageSettings.reopen', 'Can be reopened for (hours)')}</Label>
+                  <Input id="stage-reopen" type="number" min={0} max={720} value={draft.reopenHours} onChange={(event) => patch({ reopenHours: event.target.value })} />
+                  <p className="text-xs text-muted-foreground">{t('dermat_orders.stageSettings.reopenHint', 'After a stage is done, its department can reopen it for this long, as long as the next team has not started. 0 = never. Later only a manager can reopen.')}</p>
                 </div>
               </section>
 

@@ -1569,6 +1569,23 @@
           "enumItems": [],
           "mappedType": "uuid"
         },
+        "reopen_hours": {
+          "name": "reopen_hours",
+          "type": "int",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": true,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "integer"
+        },
         "required_fields": {
           "name": "required_fields",
           "type": "jsonb",

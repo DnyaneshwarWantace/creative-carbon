@@ -2,7 +2,7 @@ import { RdRequest } from '../../dermat_rnd/data/entities'
 import { DermatOrder, DermatOrderEvent, DermatOrderLine, DermatOrderStage } from '../data/entities'
 import type { StageActionInput } from '../data/validators'
 import { activeOptions } from '../../dermat_lists/lib/service'
-import { orderHeadline, QA_ARTWORK_CHECKS, STAGES, applyStageOverride, isFinished, missingRequired, missingSteps, stageDef, stepStates } from './stages'
+import { orderHeadline, QA_ARTWORK_CHECKS, STAGES, STOCK_STAGES, applyReopenHours, applyStageOverride, isFinished, missingRequired, missingSteps, reopenBlock, stageDef, stageReopenHours, stepStates, type ReopenInfo } from './stages'
 import { effectiveStageDef, loadStageOverrides, type StageOverrides } from './stageSettings'
 import { blockingChecks, checksForOrder, closeFailedChecks, ensureChecksForStage, retireStageChecks, type StageQcSummary } from '../../dermat_quality/lib/service'
 import { requestsForOrder, storeBlocking } from '../../dermat_store/lib/service'
@@ -150,7 +150,23 @@ async function linkSampleApproval(ctx: OrderContext, order: DermatOrder, data: R
   }
 }
 
-export async function applyStageAction(ctx: OrderContext, order: DermatOrder, input: StageActionInput): Promise<void> {
+export function reopenInfo(order: { status: string }, stages: DermatOrderStage[], stageKey: string, overrides?: StageOverrides): ReopenInfo {
+  const stage = stages.find((entry) => entry.stageKey === stageKey)
+  const hours = overrides ? applyReopenHours(overrides.get(stageKey)) : stageReopenHours(stageKey)
+  const next = STAGES.filter((def) => def.after.includes(stageKey)).map((def) => def.key)
+  const nextStarted = stages
+    .filter((entry) => next.includes(entry.stageKey) && (entry.status === 'on_hold' || (entry.status === 'open' && Boolean((entry.data as Record<string, unknown> | null)?.__started))))
+    .map((entry) => (overrides ? effectiveStageDef(entry.stageKey, overrides) : stageDef(entry.stageKey))?.department ?? entry.stageKey)
+  return {
+    until: stage?.completedAt && hours > 0 ? new Date(stage.completedAt.getTime() + hours * 3600000).toISOString() : null,
+    stockMoved: STOCK_STAGES.includes(stageKey) && stage?.status === 'done',
+    nextStarted: Array.from(new Set(nextStarted)),
+    orderClosed: order.status === 'completed',
+  }
+}
+
+export async function applyStageAction(ctx: OrderContext, order: DermatOrder, input: StageActionInput, options: { reopenAnyTime?: boolean } = {}): Promise<string[]> {
+  const reverted: string[] = []
   const overrides = await loadStageOverrides(ctx)
   const def = effectiveStageDef(input.stageKey, overrides)
   if (!def) throw new OrderError('Unknown stage')
@@ -436,21 +452,30 @@ export async function applyStageAction(ctx: OrderContext, order: DermatOrder, in
         const labels = blocking.map((entry) => stageDef(entry.stageKey)?.label ?? entry.stageKey)
         throw new OrderError(`Reopen these first: ${labels.join(', ')}`, 409)
       }
+      if (def.key === 'order') throw new OrderError('The order itself cannot be reopened; edit the order instead', 409)
+      const info = reopenInfo(order, stages, def.key, overrides)
+      const block = reopenBlock(info)
+      if (block && !options.reopenAnyTime) {
+        throw new OrderError(`${block} Only a manager with the "Reopen finished stages after the time limit" right can reopen ${def.label} now.`, 403, { reopen: info })
+      }
       stage.status = 'open'
       stage.completedAt = null
       stage.completedByName = null
+      if (info.stockMoved) stage.data = { ...(stage.data ?? {}), __stock_posted: true }
       for (const entry of stages) {
         if (later.includes(entry.stageKey) && (entry.status === 'open' || entry.status === 'on_hold')) {
           entry.status = 'waiting'
           entry.openedAt = null
+          reverted.push(entry.stageKey)
         }
       }
-      logEvent(ctx, order, 'reverted', def.key, note, byName)
+      logEvent(ctx, order, 'reverted', def.key, block ? `${note} · Reopened by a manager after the limit (${block})` : note, byName)
       break
     }
   }
   order.status = orderStatusFromStages(order, stages)
   order.updatedAt = new Date()
+  return reverted
 }
 
 export type StageView = {
@@ -468,9 +493,10 @@ export type StageView = {
   completedAt: string | null
   completedByName: string | null
   days: number | null
+  reopen: ReopenInfo
 }
 
-export function stageViews(stages: DermatOrderStage[], overrides?: StageOverrides): StageView[] {
+export function stageViews(stages: DermatOrderStage[], overrides?: StageOverrides, order?: { status: string }): StageView[] {
   const byKey = new Map(stages.map((stage) => [stage.stageKey, stage]))
   const now = Date.now()
   return STAGES.map((base) => {
@@ -493,6 +519,7 @@ export function stageViews(stages: DermatOrderStage[], overrides?: StageOverride
       completedAt: stage?.completedAt ? stage.completedAt.toISOString() : null,
       completedByName: stage?.completedByName ?? null,
       days: opened == null ? null : Math.max(0, Math.round((((closed ?? now) - opened) / DAY_MS) * 10) / 10),
+      reopen: order ? reopenInfo(order, stages, def.key, overrides) : { until: null, stockMoved: false, nextStarted: [], orderClosed: false },
     }
   })
 }
@@ -518,7 +545,7 @@ export async function serializeOrder(ctx: OrderContext, order: DermatOrder) {
   const qcOnly = Object.values(qc).flat().map((check) => check.productId).filter((id) => !products.has(id))
   if (qcOnly.length) for (const [id, product] of await loadProducts(ctx, qcOnly)) products.set(id, product)
   const overrides = await loadStageOverrides(ctx)
-  const views = stageViews(stages, overrides)
+  const views = stageViews(stages, overrides, order)
   return {
     id: order.id,
     orderNo: order.orderNo,

@@ -103,7 +103,7 @@ async function GET(req: Request) {
       .map((id) => orders.find((order) => order.id === id))
       .filter((order): order is DermatOrder => Boolean(order))
       .map((order) => {
-        const views = stageViews(stagesOf.get(order.id) ?? [])
+        const views = stageViews(stagesOf.get(order.id) ?? [], undefined, order)
         const orderTotal = totalOf(order.id)
         const got = receivedOf(order.id)
         const artwork = views.find((view) => view.key === 'artwork')

@@ -38,6 +38,10 @@ export const STAGE_DAY_LIMIT: Record<string, number> = {
   dispatch: 2,
 }
 
+export const DEFAULT_REOPEN_HOURS = 24
+
+export const STOCK_STAGES = ['manufacturing', 'filling', 'packing', 'dispatch']
+
 export const STAGE_WORK_FEATURE: Record<string, string> = {
   order: 'dermat_orders.manage',
   advance: 'dermat_orders.work.accounts',
@@ -335,6 +339,7 @@ export type StageOverride = {
   stageKey: string
   label?: string | null
   dayLimit?: number | null
+  reopenHours?: number | null
   hiddenSteps?: string[] | null
   requiredFields?: string[] | null
   extraFields?: StageField[] | null
@@ -413,11 +418,39 @@ export function stageList(): StageDef[] {
   return STAGES.map((stage) => applyStageOverride(stage, currentOverrides().get(stage.key)))
 }
 
+export function applyReopenHours(override?: StageOverride | null): number {
+  const value = override?.reopenHours
+  return typeof value === 'number' && value >= 0 ? value : DEFAULT_REOPEN_HOURS
+}
+
+export function stageReopenHours(key: string): number {
+  return applyReopenHours(currentOverrides().get(key))
+}
+
 export function stageDayLimit(key: string): number | undefined {
   return applyDayLimit(key, currentOverrides().get(key))
 }
 
 export type StageStatus = 'waiting' | 'open' | 'on_hold' | 'done' | 'skipped'
+
+export type ReopenInfo = { until: string | null; stockMoved: boolean; nextStarted: string[]; orderClosed: boolean }
+
+function reopenTime(iso: string): string {
+  return new Date(iso).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' })
+}
+
+export function reopenBlock(info: ReopenInfo, now = Date.now()): string | null {
+  if (info.orderClosed) return 'The order is already closed.'
+  if (info.stockMoved) return 'Stock was already moved when this stage was done.'
+  if (!info.until) return 'This stage cannot be reopened by the department once it is done.'
+  if (Date.parse(info.until) < now) return `The time to reopen it ended on ${reopenTime(info.until)}.`
+  if (info.nextStarted.length) return `${info.nextStarted.join(', ')} already started work on it.`
+  return null
+}
+
+export function reopenUntilText(info: ReopenInfo): string | null {
+  return info.until ? reopenTime(info.until) : null
+}
 
 export function isFinished(status: string | undefined): boolean {
   return status === 'done' || status === 'skipped'

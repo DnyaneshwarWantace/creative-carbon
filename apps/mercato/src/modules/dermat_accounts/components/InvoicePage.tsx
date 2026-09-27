@@ -1,6 +1,8 @@
 "use client"
 
 import * as React from 'react'
+import { useGranted } from '../../dermat_departments/components/useGranted'
+import { ViewOnlyNote } from '../../dermat_departments/components/ViewOnlyNote'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { ArrowLeft, Ban, CheckCircle2, FileMinus, History, Printer, Save } from 'lucide-react'
@@ -29,6 +31,8 @@ function when(value: string): string {
 
 export function InvoicePage({ id }: { id: string }) {
   const t = useT()
+  const granted = useGranted()
+  const canRecord = !granted.ready || granted.has('dermat_accounts.record')
   const router = useRouter()
   const { runMutation } = useGuardedMutation({ contextId: `dermat-invoice-${id}` })
   const [doc, setDoc] = React.useState<InvoiceView | null>(null)
@@ -173,7 +177,7 @@ export function InvoicePage({ id }: { id: string }) {
         id={`inv-${key}`}
         type={props.type ?? 'text'}
         value={form[key] ?? ''}
-        disabled={doc.status === 'cancelled' || props.disabled}
+        disabled={doc.status === 'cancelled' || !canRecord || props.disabled}
         className={props.upper ? 'uppercase' : undefined}
         onChange={(event) => setForm((prev) => ({ ...prev, [key]: props.upper ? event.target.value.toUpperCase() : event.target.value }))}
       />
@@ -219,19 +223,19 @@ export function InvoicePage({ id }: { id: string }) {
                 <Printer className="mr-1.5 h-4 w-4" aria-hidden="true" />
                 {t('dermat_accounts.inv.print', 'Print / PDF')}
               </Button>
-              {draft ? (
+              {draft && canRecord ? (
                 <Button type="button" onClick={() => send('/api/dermat_accounts/invoices/action', { id, action: 'issue' }, t('dermat_accounts.inv.issued', 'Invoice issued; the order Billing stage has the invoice no.'))} disabled={busy}>
                   <CheckCircle2 className="mr-1.5 h-4 w-4" aria-hidden="true" />
                   {t('dermat_accounts.inv.issue', 'Issue invoice')}
                 </Button>
               ) : null}
-              {!credit && doc.status === 'issued' ? (
+              {canRecord && !credit && doc.status === 'issued' ? (
                 <Button type="button" variant="outline" onClick={() => setMode('credit')} disabled={busy}>
                   <FileMinus className="mr-1.5 h-4 w-4" aria-hidden="true" />
                   {t('dermat_accounts.inv.credit', 'Credit note')}
                 </Button>
               ) : null}
-              {doc.status !== 'cancelled' ? (
+              {canRecord && doc.status !== 'cancelled' ? (
                 <Button type="button" variant="destructive-ghost" onClick={() => setMode('cancel')} disabled={busy}>
                   <Ban className="mr-1.5 h-4 w-4" aria-hidden="true" />
                   {t('dermat_accounts.inv.cancel', 'Cancel')}
@@ -239,6 +243,7 @@ export function InvoicePage({ id }: { id: string }) {
               ) : null}
             </div>
           </header>
+          {!canRecord ? <ViewOnlyNote>{t('dermat_accounts.viewOnly', 'View only: making, issuing and cancelling documents is done by Accounts.')}</ViewOnlyNote> : null}
 
           {doc.status === 'cancelled' ? <p className="rounded-lg border bg-muted/40 p-3 text-sm text-muted-foreground">{t('dermat_accounts.inv.cancelledNote', 'Cancelled: {reason}', { reason: doc.cancelReason ?? '—' })}</p> : null}
           {mode ? (
@@ -331,17 +336,17 @@ export function InvoicePage({ id }: { id: string }) {
                 </div>
                 <div className="space-y-1">
                   <Label htmlFor="inv-bank" className="text-xs text-muted-foreground">{t('dermat_accounts.inv.bank', 'Bank details')}</Label>
-                  <Textarea id="inv-bank" rows={3} value={form.bankDetails ?? ''} disabled={doc.status === 'cancelled'} onChange={(event) => setForm((prev) => ({ ...prev, bankDetails: event.target.value }))} />
+                  <Textarea id="inv-bank" rows={3} value={form.bankDetails ?? ''} disabled={doc.status === 'cancelled' || !canRecord} onChange={(event) => setForm((prev) => ({ ...prev, bankDetails: event.target.value }))} />
                 </div>
                 <div className="space-y-1">
                   <Label htmlFor="inv-terms" className="text-xs text-muted-foreground">{t('dermat_accounts.inv.terms', 'Terms')}</Label>
-                  <Textarea id="inv-terms" rows={4} value={form.terms ?? ''} disabled={doc.status === 'cancelled'} onChange={(event) => setForm((prev) => ({ ...prev, terms: event.target.value }))} />
+                  <Textarea id="inv-terms" rows={4} value={form.terms ?? ''} disabled={doc.status === 'cancelled' || !canRecord} onChange={(event) => setForm((prev) => ({ ...prev, terms: event.target.value }))} />
                 </div>
                 <div className="space-y-1">
                   <Label htmlFor="inv-notes" className="text-xs text-muted-foreground">{t('dermat_accounts.inv.notes', 'Note')}</Label>
-                  <Textarea id="inv-notes" rows={2} value={form.notes ?? ''} disabled={doc.status === 'cancelled'} onChange={(event) => setForm((prev) => ({ ...prev, notes: event.target.value }))} />
+                  <Textarea id="inv-notes" rows={2} value={form.notes ?? ''} disabled={doc.status === 'cancelled' || !canRecord} onChange={(event) => setForm((prev) => ({ ...prev, notes: event.target.value }))} />
                 </div>
-                {doc.status !== 'cancelled' ? (
+                {canRecord && doc.status !== 'cancelled' ? (
                   <div className="flex justify-end">
                     <Button type="button" size="sm" onClick={save} disabled={busy}>
                       <Save className="mr-1.5 h-4 w-4" aria-hidden="true" />

@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from 'react'
+import { useGranted } from '../../dermat_departments/components/useGranted'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import type { LegacyColumnDef as ColumnDef } from '@tanstack/react-table/legacy'
@@ -44,6 +45,8 @@ function formatQuantity(value: number): string {
 
 export function ProductsPage() {
   const t = useT()
+  const granted = useGranted()
+  const canManage = !granted.ready || granted.has('catalog.products.manage')
   const router = useRouter()
   const searchParams = useSearchParams()
   const kind: ProductKind = kindFromSlug(searchParams?.get('tab')) ?? 'raw_material'
@@ -333,8 +336,10 @@ export function ProductsPage() {
           searchPlaceholder={t('dermat_products.list.search', 'Search by {label} or name (e.g. AP 293)', { label: config.codeLabel })}
           actions={
             <div className="flex flex-wrap gap-2">
-              <EditTableBar editing={editing} dirtyCount={Object.keys(drafts).length} saving={savingAll} onEdit={() => setEditing(true)} onCancel={() => { setDrafts({}); setEditing(false) }} onSave={() => void saveAll()} />
+              {canManage ? <EditTableBar editing={editing} dirtyCount={Object.keys(drafts).length} saving={savingAll} onEdit={() => setEditing(true)} onCancel={() => { setDrafts({}); setEditing(false) }} onSave={() => void saveAll()} /> : null}
               <ExportButton onExport={exportProducts} />
+              {canManage ? (
+              <>
               <Button asChild variant="outline">
                 <Link href="/backend/catalog/categories">
                   <FolderTree className="mr-2 h-4 w-4" />
@@ -351,6 +356,8 @@ export function ProductsPage() {
                   {t('dermat_products.list.add', 'Add {kind}', { kind: config.singular })}
                 </Link>
               </Button>
+              </>
+              ) : null}
             </div>
           }
           pagination={{ page, pageSize: PAGE_SIZE, total, totalPages, onPageChange: setPage }}

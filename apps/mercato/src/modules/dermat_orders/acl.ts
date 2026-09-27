@@ -9,6 +9,7 @@ export const features = [
   { id: 'dermat_orders.work.production', title: 'Production work: manufacturing, filling and packing stages', module: 'dermat_orders', dependsOn: ['dermat_orders.stages'] },
   { id: 'dermat_orders.work.qa', title: 'QA release stage', module: 'dermat_orders', dependsOn: ['dermat_orders.stages'] },
   { id: 'dermat_orders.work.dispatch', title: 'Dispatch stage', module: 'dermat_orders', dependsOn: ['dermat_orders.stages'] },
+  { id: 'dermat_orders.reopen', title: 'Reopen any finished stage after its time limit (manager)', module: 'dermat_orders', dependsOn: ['dermat_orders.view'] },
   { id: 'dermat_orders.settings', title: 'Change workflow stages (names, steps, fields, documents, day limits)', module: 'dermat_orders', dependsOn: ['dermat_orders.view'] },
 ]
 

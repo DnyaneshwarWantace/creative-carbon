@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from 'react'
+import { useGranted } from '../../dermat_departments/components/useGranted'
 import Link from 'next/link'
 import { ArrowLeft, FlaskConical, Undo2 } from 'lucide-react'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
@@ -21,6 +22,8 @@ import { GRN_STATUS, HISTORY_LABEL, LINE_QC, day, qty, when, type GrnLineView, t
 
 export function GrnPage({ grnId }: { grnId: string }) {
   const t = useT()
+  const granted = useGranted()
+  const canChange = !granted.ready || granted.has('dermat_purchase.receive')
   const { runMutation } = useGuardedMutation({ contextId: `dermat-grn-${grnId}` })
   const [grn, setGrn] = React.useState<GrnView | null>(null)
   const [error, setError] = React.useState<string | null>(null)
@@ -171,7 +174,7 @@ export function GrnPage({ grnId }: { grnId: string }) {
                           <p className="mt-1 text-xs text-muted-foreground">{t('dermat_purchase.grnDetail.noRule', 'No QC rule: approved on receipt')}</p>
                         )}
                       </div>
-                      {line.qcStatus === 'failed' ? (
+                      {line.qcStatus === 'failed' && canChange ? (
                         <Button type="button" size="sm" variant="outline" onClick={() => setReturning(line)}>
                           <Undo2 className="mr-1 h-3.5 w-3.5" aria-hidden="true" />
                           {t('dermat_purchase.grnDetail.return', 'Return to vendor')}

@@ -8,7 +8,7 @@ import { DermatStageSetting } from '../../data/entities'
 import { stageSettingSchema } from '../../data/validators'
 import { currentUserName, resolveOrderContext, type OrderContext } from '../../lib/server'
 import { overrideOf } from '../../lib/stageSettings'
-import { EXTRA_FIELD_TYPES, LOCKED_STEPS, STAGES, STAGE_DAY_LIMIT, STAGE_DOCUMENTS } from '../../lib/stages'
+import { DEFAULT_REOPEN_HOURS, EXTRA_FIELD_TYPES, LOCKED_STEPS, STAGES, STAGE_DAY_LIMIT, STAGE_DOCUMENTS } from '../../lib/stages'
 
 export const metadata = {
   GET: { requireAuth: true },
@@ -27,6 +27,7 @@ async function payload(ctx: OrderContext) {
       department: stage.department,
       hint: stage.hint,
       dayLimit: STAGE_DAY_LIMIT[stage.key] ?? null,
+      reopenHours: DEFAULT_REOPEN_HOURS,
       steps: stage.steps.map((step) => ({ ...step, locked: (LOCKED_STEPS[stage.key] ?? []).includes(step.key) })),
       fields: stage.fields.map((field) => ({ key: field.key, label: field.label, type: field.type, required: Boolean(field.required) })),
       documents: (STAGE_DOCUMENTS[stage.key] ?? []).map((doc) => ({ key: doc.key, label: doc.label, required: doc.required ?? null })),
@@ -78,6 +79,7 @@ async function PUT(req: Request) {
       const row = existing ?? ctx.em.create(DermatStageSetting, { organizationId: ctx.organizationId, tenantId: ctx.tenantId, stageKey: base.key })
       row.label = input.label?.trim() && input.label.trim() !== base.label ? input.label.trim() : null
       row.dayLimit = input.dayLimit && input.dayLimit !== STAGE_DAY_LIMIT[base.key] ? input.dayLimit : null
+      row.reopenHours = input.reopenHours != null && input.reopenHours !== DEFAULT_REOPEN_HOURS ? input.reopenHours : null
       row.hiddenSteps = input.hiddenSteps
       row.requiredFields = input.requiredFields.filter((key) => !base.fields.find((field) => field.key === key)?.required)
       row.extraFields = input.extraFields.map((field) => ({ key: field.key, label: field.label.trim(), type: field.type, ...(field.type === 'select' ? { options: field.options ?? [] } : {}), required: Boolean(field.required) }))

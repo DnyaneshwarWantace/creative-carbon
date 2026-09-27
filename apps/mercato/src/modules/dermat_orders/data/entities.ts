@@ -286,7 +286,7 @@ export class DermatOrderEvent {
 @Entity({ tableName: 'dermat_stage_settings' })
 @Unique({ name: 'dermat_stage_settings_scope_uq', properties: ['organizationId', 'tenantId', 'stageKey'] })
 export class DermatStageSetting {
-  [OptionalProps]?: 'label' | 'dayLimit' | 'hiddenSteps' | 'requiredFields' | 'extraFields' | 'documents' | 'extraDocuments' | 'updatedByName' | 'createdAt' | 'updatedAt'
+  [OptionalProps]?: 'label' | 'dayLimit' | 'reopenHours' | 'hiddenSteps' | 'requiredFields' | 'extraFields' | 'documents' | 'extraDocuments' | 'updatedByName' | 'createdAt' | 'updatedAt'
 
   @PrimaryKey({ type: 'uuid', defaultRaw: 'gen_random_uuid()' })
   id!: string
@@ -305,6 +305,9 @@ export class DermatStageSetting {
 
   @Property({ name: 'day_limit', type: 'integer', nullable: true })
   dayLimit?: number | null
+
+  @Property({ name: 'reopen_hours', type: 'integer', nullable: true })
+  reopenHours?: number | null
 
   @Property({ name: 'hidden_steps', type: 'json', nullable: true })
   hiddenSteps?: string[] | null

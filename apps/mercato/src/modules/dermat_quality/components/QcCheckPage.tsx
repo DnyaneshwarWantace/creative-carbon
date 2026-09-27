@@ -1,6 +1,8 @@
 "use client"
 
 import * as React from 'react'
+import { useGranted } from '../../dermat_departments/components/useGranted'
+import { ViewOnlyNote } from '../../dermat_departments/components/ViewOnlyNote'
 import Link from 'next/link'
 import { AlertTriangle, ArrowLeft, Archive, CheckCircle2, FlaskConical, History, Microscope, Pipette, RotateCcw, XCircle } from 'lucide-react'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
@@ -44,6 +46,9 @@ function toLocalInput(value: string | null | undefined): string {
 export function QcCheckPage({ checkId }: { checkId: string }) {
   const t = useT()
   const { runMutation } = useGuardedMutation({ contextId: `dermat-qc-${checkId}` })
+  const granted = useGranted()
+  const canPart = (part: Part) => !granted.ready || granted.has(`dermat_quality.${part}`)
+  const canTest = canPart('chemical') || canPart('micro')
   const [check, setCheck] = React.useState<QcCheckView | null>(null)
   const [loadError, setLoadError] = React.useState<string | null>(null)
   const [values, setValues] = React.useState<Record<string, { observation: string; remark: string; instrument: string }>>({})
@@ -213,7 +218,7 @@ export function QcCheckPage({ checkId }: { checkId: string }) {
                 ) : null}
               </p>
             </div>
-            {check.status === 'failed' ? (
+            {check.status === 'failed' && canTest ? (
               <Button type="button" variant="outline" onClick={() => setRetestOpen(true)} disabled={busy}>
                 <RotateCcw className="mr-1.5 h-4 w-4" />
                 {t('dermat_quality.retest', 'Start re-test')}
@@ -221,12 +226,13 @@ export function QcCheckPage({ checkId }: { checkId: string }) {
             ) : null}
           </div>
 
+          {!canTest ? <ViewOnlyNote>{t('dermat_quality.viewOnly', 'View only: QC results are entered by the QC chemist or microbiologist.')}</ViewOnlyNote> : null}
           <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
             <div className="rounded-lg border bg-card p-3">
               <label htmlFor="qc-batch" className="text-xs text-muted-foreground">
                 {t('dermat_quality.batch', 'Batch no.')}
               </label>
-              <Input id="qc-batch" className="mt-1 h-8" value={batchNo} disabled={locked} onChange={(event) => setBatchNo(event.target.value)} />
+              <Input id="qc-batch" className="mt-1 h-8" value={batchNo} disabled={locked || !canTest} onChange={(event) => setBatchNo(event.target.value)} />
             </div>
             {parts.map((part) => (
               <div key={part.key} className="rounded-lg border bg-card p-3">
@@ -360,7 +366,7 @@ export function QcCheckPage({ checkId }: { checkId: string }) {
             .filter((part) => part.required)
             .map((part) => {
               const rows = check.results.filter((row) => row.test === part.key)
-              const editable = part.status === 'pending'
+              const editable = part.status === 'pending' && canPart(part.key)
               return (
                 <Card key={part.key} className="overflow-hidden">
                   <CardHeader className="flex flex-col gap-2 border-b bg-muted/20 pb-3 sm:flex-row sm:items-center sm:justify-between">

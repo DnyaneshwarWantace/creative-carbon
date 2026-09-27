@@ -46,6 +46,34 @@ export async function notifyStagesOpened(ctx: Scope, order: DermatOrder, stageKe
   }
 }
 
+export async function notifyStagesPaused(ctx: Scope, order: DermatOrder, reopenedKey: string, stageKeys: string[], reason: string, byName: string | null): Promise<void> {
+  const reopened = stageDef(reopenedKey)
+  if (!reopened || !stageKeys.length) return
+  try {
+    for (const key of stageKeys) {
+      const def = stageDef(key)
+      if (!def) continue
+      await service(ctx).createForFeature(
+        {
+          type: 'dermat_orders.stage.paused',
+          requiredFeature: stageWorkFeature(key),
+          title: `${def.label}: ${order.orderNo} is back to waiting`,
+          body: [`${reopened.label} was reopened${byName ? ` by ${byName}` : ''}`, reason.trim()].filter(Boolean).join(' · '),
+          severity: 'warning',
+          sourceModule: 'dermat_orders',
+          sourceEntityType: 'dermat_orders:order',
+          sourceEntityId: order.id,
+          linkHref: `/backend/orders/${order.id}?stage=${reopenedKey}`,
+          groupKey: `dermat_orders:${order.id}:${key}:paused`,
+        },
+        { tenantId: ctx.tenantId, organizationId: ctx.organizationId },
+      )
+    }
+  } catch (error) {
+    logger.error('Failed to send stage-paused notification', { err: error })
+  }
+}
+
 export async function notifyAssigned(ctx: Scope, order: DermatOrder, stageKey: string, userId: string, byName: string | null): Promise<void> {
   const def = stageDef(stageKey)
   if (!def) return

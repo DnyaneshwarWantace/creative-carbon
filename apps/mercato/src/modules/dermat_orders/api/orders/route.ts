@@ -185,7 +185,7 @@ async function GET(req: Request) {
     return NextResponse.json({
       items: orders.map((order) => {
         const orderLines = lines.filter((line) => line.orderId === order.id)
-        const views = stageViews(stages.filter((stage) => stage.orderId === order.id))
+        const views = stageViews(stages.filter((stage) => stage.orderId === order.id), undefined, order)
         return {
           id: order.id,
           orderNo: order.order_no,
