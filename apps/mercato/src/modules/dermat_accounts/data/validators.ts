@@ -190,3 +190,11 @@ export const numberSeriesInputSchema = z.object({
     .min(1)
     .max(20),
 })
+
+export const tallyQuerySchema = z.object({
+  from: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Pick the start date'),
+  to: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Pick the end date'),
+  kinds: z.string().max(200).optional(),
+  format: z.enum(['summary', 'xml', 'csv']).default('summary'),
+  masters: z.enum(['true', 'false']).optional(),
+}).passthrough()
