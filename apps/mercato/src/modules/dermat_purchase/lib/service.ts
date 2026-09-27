@@ -547,11 +547,18 @@ export async function grnView(ctx: OrderContext, grn: GoodsReceipt) {
   }
 }
 
-export async function openPurchaseFor(ctx: Scope, productIds: string[]): Promise<Map<string, Array<{ poId: string; code: string; open: number; expectedDate: string | null; vendorName: string }>>> {
-  const result = new Map<string, Array<{ poId: string; code: string; open: number; expectedDate: string | null; vendorName: string }>>()
+export type OpenPurchase = { poId: string; code: string; open: number; expectedDate: string | null; vendorName: string; orderIds: string[] }
+
+function refOrderIds(value: unknown): string[] {
+  const list = typeof value === 'string' ? (() => { try { return JSON.parse(value) as unknown } catch { return [] } })() : value
+  return Array.isArray(list) ? list.map((entry) => (entry && typeof entry === 'object' ? String((entry as { orderId?: unknown }).orderId ?? '') : '')).filter(Boolean) : []
+}
+
+export async function openPurchaseFor(ctx: Scope, productIds: string[]): Promise<Map<string, OpenPurchase[]>> {
+  const result = new Map<string, OpenPurchase[]>()
   if (!productIds.length) return result
-  const rows = await ctx.em.getConnection().execute<Array<{ product_id: string; po_id: string; code: string; open: string; expected_date: string | null; vendor_name: string }>>(
-    `select l.product_id, p.id as po_id, p.code, (l.quantity - l.received_qty)::text as open, p.expected_date, p.vendor_name
+  const rows = await ctx.em.getConnection().execute<Array<{ product_id: string; po_id: string; code: string; open: string; expected_date: string | null; vendor_name: string; order_refs: unknown }>>(
+    `select l.product_id, p.id as po_id, p.code, (l.quantity - l.received_qty)::text as open, p.expected_date, p.vendor_name, p.order_refs
        from dermat_po_lines l join dermat_pos p on p.id = l.po_id
       where l.product_id = any(?::uuid[]) and p.tenant_id = ? and p.organization_id = ? and p.deleted_at is null
         and p.status in ('pending_approval', 'approved', 'partly_received') and l.quantity > l.received_qty
@@ -559,7 +566,22 @@ export async function openPurchaseFor(ctx: Scope, productIds: string[]): Promise
     [`{${productIds.join(',')}}`, ctx.tenantId, ctx.organizationId],
   )
   for (const row of rows) {
-    result.set(row.product_id, [...(result.get(row.product_id) ?? []), { poId: row.po_id, code: row.code, open: num(row.open), expectedDate: row.expected_date, vendorName: row.vendor_name }])
+    result.set(row.product_id, [...(result.get(row.product_id) ?? []), { poId: row.po_id, code: row.code, open: num(row.open), expectedDate: row.expected_date, vendorName: row.vendor_name, orderIds: refOrderIds(row.order_refs) }])
+  }
+  return result
+}
+
+export async function underTestFor(ctx: Scope, productIds: string[]): Promise<Map<string, Array<{ grnCode: string; quantity: number; orderIds: string[] }>>> {
+  const result = new Map<string, Array<{ grnCode: string; quantity: number; orderIds: string[] }>>()
+  if (!productIds.length) return result
+  const rows = await ctx.em.getConnection().execute<Array<{ product_id: string; code: string; quantity: string; order_refs: unknown }>>(
+    `select l.product_id, g.code, (l.quantity - coalesce(l.returned_qty, 0))::text as quantity, p.order_refs
+       from dermat_grn_lines l join dermat_grns g on g.id = l.grn_id left join dermat_pos p on p.id = g.po_id
+      where l.product_id = any(?::uuid[]) and g.tenant_id = ? and g.organization_id = ? and g.deleted_at is null and l.qc_status = 'pending'`,
+    [`{${productIds.join(',')}}`, ctx.tenantId, ctx.organizationId],
+  )
+  for (const row of rows) {
+    result.set(row.product_id, [...(result.get(row.product_id) ?? []), { grnCode: row.code, quantity: num(row.quantity), orderIds: refOrderIds(row.order_refs) }])
   }
   return result
 }

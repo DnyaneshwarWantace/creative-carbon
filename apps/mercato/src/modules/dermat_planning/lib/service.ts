@@ -5,7 +5,7 @@ import { STAGES } from '../../dermat_orders/lib/stages'
 import { BomHeader } from '../../dermat_boms/data/entities'
 import { explodeBom } from '../../dermat_boms/lib/explode'
 import { LOCATION_CODES, dermatWarehouse, isUsable, lotsAtLocation, variantsForProducts, type StockScope } from '../../dermat_products/lib/stock'
-import { openPurchaseFor } from '../../dermat_purchase/lib/service'
+import { openPurchaseFor, underTestFor } from '../../dermat_purchase/lib/service'
 import { PlanningLog, PlanningReservation } from '../data/entities'
 import type { PlanItemInput } from '../data/validators'
 import { nextSeriesCode } from '../../dermat_accounts/lib/numberSeries'
@@ -60,16 +60,6 @@ export async function storeStock(ctx: Scope, productIds: string[]): Promise<Map<
   const { variants, lots } = await storeLots(ctx, productIds)
   for (const [productId, variantId] of variants) {
     result.set(productId, round(lots.filter((lot) => lot.variantId === variantId && isUsable(lot)).reduce((sum, lot) => sum + lot.onHand, 0)))
-  }
-  return result
-}
-
-export async function underTestStock(ctx: Scope, productIds: string[]): Promise<Map<string, number>> {
-  const result = new Map<string, number>()
-  if (!productIds.length) return result
-  const { variants, lots } = await storeLots(ctx, productIds)
-  for (const [productId, variantId] of variants) {
-    result.set(productId, round(lots.filter((lot) => lot.variantId === variantId && lot.status === 'quarantine').reduce((sum, lot) => sum + lot.onHand, 0)))
   }
   return result
 }
@@ -273,12 +263,15 @@ export async function calculate(ctx: OrderContext, items: PlanItemInput[]) {
     }
   }
   const materialIds = Array.from(totals.keys())
-  const [stock, reservations, testing, purchases] = await Promise.all([
+  const [stock, reservations, testingAll, purchasesAll] = await Promise.all([
     storeStock(ctx, materialIds),
     reservationsFor(ctx, { productIds: materialIds }),
-    underTestStock(ctx, materialIds),
+    underTestFor(ctx, materialIds),
     openPurchaseFor(ctx, materialIds),
   ])
+  const forThisPlan = (refs: string[]) => !refs.length || refs.some((id) => orderIds.includes(id))
+  const testing = new Map(Array.from(testingAll, ([productId, list]) => [productId, round(list.filter((entry) => forThisPlan(entry.orderIds)).reduce((sum, entry) => sum + entry.quantity, 0))]))
+  const purchases = new Map(Array.from(purchasesAll, ([productId, list]) => [productId, list.filter((entry) => forThisPlan(entry.orderIds))]))
   const rows: CalcRow[] = materialIds.map((productId) => {
     const total = totals.get(productId)!
     const own = reservations.filter((entry) => entry.productId === productId)
