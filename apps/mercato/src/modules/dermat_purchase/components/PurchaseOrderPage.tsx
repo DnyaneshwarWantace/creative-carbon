@@ -22,6 +22,8 @@ import { GRN_STATUS, HISTORY_LABEL, PO_STATUS, day, money, qty, when, type PoVie
 import { printPurchaseOrder } from './printPo'
 import { WhatsAppMenu, type WhatsAppMessage } from '../../dermat_products/components/WhatsAppMenu'
 import { dateText, rupeeText } from '../../dermat_products/lib/whatsapp'
+import { EmailPoButton } from './EmailPoDialog'
+import { useGranted } from '../../dermat_departments/components/useGranted'
 
 function steps(po: PoView): StepIndicatorStep[] {
   const order = ['draft', 'pending_approval', 'approved', 'partly_received', 'received']
@@ -98,6 +100,7 @@ export function PurchaseOrderPage({ poId }: { poId: string }) {
   const [po, setPo] = React.useState<PoView | null>(null)
   const [error, setError] = React.useState<string | null>(null)
   const [busy, setBusy] = React.useState(false)
+  const granted = useGranted()
   const [dialog, setDialog] = React.useState<'approve' | 'cancel' | null>(null)
   const [note, setNote] = React.useState('')
 
@@ -196,6 +199,7 @@ export function PurchaseOrderPage({ poId }: { poId: string }) {
               </div>
               <div className="flex flex-wrap gap-2">
                 <WhatsAppMenu phone={po.vendorPhone} recipient={po.vendorContact ? `${po.vendorContact} (${po.vendorName})` : po.vendorName} messages={vendorMessages(po)} />
+                {(po.status === 'approved' || po.status === 'partly_received') && granted.has('dermat_purchase.manage') ? <EmailPoButton po={po} onSent={() => void load()} /> : null}
                 <Button type="button" variant="ghost" onClick={() => printPurchaseOrder(po)}>
                   <Printer className="mr-1.5 h-4 w-4" aria-hidden="true" />
                   {t('dermat_purchase.detail.print', 'Print PO')}

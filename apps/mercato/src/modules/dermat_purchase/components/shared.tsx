@@ -25,6 +25,7 @@ export type PoLineView = {
 }
 
 export type PoView = {
+  vendorEmail?: string | null
   id: string
   code: string
   vendorId: string

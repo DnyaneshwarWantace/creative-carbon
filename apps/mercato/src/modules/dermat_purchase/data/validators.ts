@@ -118,3 +118,12 @@ export const indentListSchema = z.object({
 })
 
 export type IndentInput = z.infer<typeof indentInputSchema>
+
+const emailList = z.array(z.string().trim().email('Check the email address')).max(10)
+
+export const poEmailSchema = z.object({
+  id: z.string().uuid(),
+  to: emailList.min(1, 'Enter the vendor email'),
+  cc: emailList.default([]),
+  message: z.string().trim().max(2000).optional().nullable(),
+})
