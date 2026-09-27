@@ -1,11 +1,11 @@
 import { randomUUID } from 'node:crypto'
 import { currentUserName, type OrderContext } from '../../dermat_orders/lib/server'
-import { financialYear } from '../../dermat_orders/lib/stages'
 import { Vendor } from '../../dermat_vendors/data/entities'
 import { GoodsReceipt, GoodsReceiptLine, PurchaseOrder, PurchaseOrderLine } from '../../dermat_purchase/data/entities'
 import { VendorBill } from '../data/entities'
 import type { VendorBillAction, VendorBillInput } from '../data/validators'
 import { AccountsError } from './service'
+import { nextSeriesCode } from './numberSeries'
 
 const DAY_MS = 86400000
 
@@ -27,12 +27,7 @@ function termDays(terms: string | null | undefined): number {
 }
 
 async function nextBillCode(ctx: OrderContext): Promise<string> {
-  const prefix = `DER/VB/${financialYear(new Date())}/`
-  const [row] = await ctx.em.getConnection().execute<Array<{ max: number | null }>>(
-    `select max(nullif(substring(code from length(?) + 1), '')::int) as max from dermat_vendor_bills where tenant_id = ? and organization_id = ? and code like ?`,
-    [prefix, ctx.tenantId, ctx.organizationId, `${prefix}%`],
-  )
-  return `${prefix}${String(Number(row?.max ?? 0) + 1).padStart(4, '0')}`
+  return nextSeriesCode(ctx, 'VB')
 }
 
 async function billedGrnIds(ctx: OrderContext, exceptBillId?: string): Promise<Set<string>> {

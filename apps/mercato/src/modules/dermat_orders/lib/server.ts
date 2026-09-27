@@ -6,7 +6,7 @@ import { resolveOrganizationScopeForRequest } from '@open-mercato/core/modules/d
 import { User } from '@open-mercato/core/modules/auth/data/entities'
 import { CustomerEntity } from '@open-mercato/core/modules/customers/data/entities'
 import { DermatOrder } from '../data/entities'
-import { financialYear } from './stages'
+import { nextSeriesCode } from '../../dermat_accounts/lib/numberSeries'
 
 export type OrderContext = {
   container: Awaited<ReturnType<typeof createRequestContainer>>
@@ -241,13 +241,7 @@ export async function bulkForProducts(ctx: OrderContext, productIds: string[]): 
 }
 
 export async function nextOrderNo(ctx: OrderContext, orderDate: string): Promise<string> {
-  const prefix = `DER/SO/${financialYear(new Date(`${orderDate}T00:00:00`))}/`
-  const [row] = await ctx.em.getConnection().execute<Array<{ max: number | null }>>(
-    `select max(nullif(substring(order_no from length(?) + 1), '')::int) as max
-       from dermat_orders where tenant_id = ? and organization_id = ? and order_no like ?`,
-    [prefix, ctx.tenantId, ctx.organizationId, `${prefix}%`],
-  )
-  return `${prefix}${String(Number(row?.max ?? 0) + 1).padStart(4, '0')}`
+  return nextSeriesCode(ctx, 'SO', new Date(`${orderDate}T00:00:00`))
 }
 
 export async function findOrder(ctx: OrderContext, id: string): Promise<DermatOrder> {

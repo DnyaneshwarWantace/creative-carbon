@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto'
 import { DermatOrder, DermatOrderLine, DermatOrderStage } from '../../dermat_orders/data/entities'
 import { approvedPackBoms, currentUserName, loadProducts, type OrderContext } from '../../dermat_orders/lib/server'
-import { financialYear, stageDef } from '../../dermat_orders/lib/stages'
+import { stageDef } from '../../dermat_orders/lib/stages'
 import { BomHeader } from '../../dermat_boms/data/entities'
 import { explodeBom } from '../../dermat_boms/lib/explode'
 import { LOCATION_CODES, dermatWarehouse, isUsable, lotsAtLocation, variantsForProducts, type StockScope } from '../../dermat_products/lib/stock'
@@ -10,6 +10,7 @@ import { StoreRequest, StoreRequestLine, type LineIssue, type RequestStatus, typ
 import type { IssueInput, RequestCreateInput, ReturnInput } from '../data/validators'
 import { StoreError, performerId, runCommand, type StoreContext } from './server'
 import { ensureStockRecords } from './stockSetup'
+import { nextSeriesCode } from '../../dermat_accounts/lib/numberSeries'
 
 export type StoreStage = 'manufacturing' | 'filling' | 'packing'
 
@@ -35,15 +36,7 @@ function scopeOf(ctx: OrderContext): StockScope {
 }
 
 export async function nextRequestCode(ctx: OrderContext): Promise<string> {
-  const prefix = `DER/MR/${financialYear(new Date())}/`
-  const [row] = await ctx.em.getConnection().execute<Array<{ max: number | null }>>(
-    `select max(nullif(substring(code from length(?) + 1), '')::int) as max from dermat_store_requests
-      where tenant_id = ? and organization_id = ? and code like ?`,
-    [prefix, ctx.tenantId, ctx.organizationId, `${prefix}%`],
-    'all',
-    ctx.em.getTransactionContext(),
-  )
-  return `${prefix}${String(Number(row?.max ?? 0) + 1).padStart(4, '0')}`
+  return nextSeriesCode(ctx, 'MR')
 }
 
 export function awaitingReceipt(lines: StoreRequestLine[]): boolean {

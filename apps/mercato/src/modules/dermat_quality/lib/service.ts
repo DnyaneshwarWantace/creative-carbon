@@ -1,6 +1,7 @@
 import type { EntityManager } from '@mikro-orm/postgresql'
 import { QcCheck, QcRule, type QcOperation, type QcPartStatus, type QcResult } from '../data/entities'
 import { DEFAULT_RULES, STAGE_TO_OPERATION } from './defaults'
+import { nextSeriesCode } from '../../dermat_accounts/lib/numberSeries'
 
 export type QcScope = { em: EntityManager; tenantId: string; organizationId: string }
 
@@ -13,20 +14,8 @@ export class QcError extends Error {
   }
 }
 
-function financialYear(date: Date): string {
-  const start = date.getMonth() >= 3 ? date.getFullYear() : date.getFullYear() - 1
-  return `${String(start).slice(-2)}${String(start + 1).slice(-2)}`
-}
-
-export async function nextCode(scope: QcScope, table: 'dermat_quality_rules' | 'dermat_quality_checks', kind: 'QR' | 'QC', pad: number): Promise<string> {
-  const prefix = `DER/${kind}/${financialYear(new Date())}/`
-  const [row] = await scope.em.getConnection().execute<Array<{ max: number | null }>>(
-    `select max(nullif(substring(code from length(?) + 1), '')::int) as max from ${table} where tenant_id = ? and organization_id = ? and code like ?`,
-    [prefix, scope.tenantId, scope.organizationId, `${prefix}%`],
-    'all',
-    scope.em.getTransactionContext(),
-  )
-  return `${prefix}${String(Number(row?.max ?? 0) + 1).padStart(pad, '0')}`
+export async function nextCode(scope: QcScope, _table: 'dermat_quality_rules' | 'dermat_quality_checks', kind: 'QR' | 'QC', _pad: number): Promise<string> {
+  return nextSeriesCode(scope, kind)
 }
 
 const AR_KIND: Record<QcOperation, string> = { purchase_receipt: 'IN', bulk: 'BK', filling: 'FL', packing: 'FG' }

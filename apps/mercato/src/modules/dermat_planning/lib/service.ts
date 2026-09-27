@@ -1,13 +1,14 @@
 import type { EntityManager } from '@mikro-orm/postgresql'
 import { DermatOrder, DermatOrderLine, DermatOrderStage } from '../../dermat_orders/data/entities'
 import { approvedPackBoms, currentUserName, loadCustomers, loadProducts, type OrderContext } from '../../dermat_orders/lib/server'
-import { STAGES, financialYear } from '../../dermat_orders/lib/stages'
+import { STAGES } from '../../dermat_orders/lib/stages'
 import { BomHeader } from '../../dermat_boms/data/entities'
 import { explodeBom } from '../../dermat_boms/lib/explode'
 import { LOCATION_CODES, dermatWarehouse, isUsable, lotsAtLocation, variantsForProducts, type StockScope } from '../../dermat_products/lib/stock'
 import { openPurchaseFor } from '../../dermat_purchase/lib/service'
 import { PlanningLog, PlanningReservation } from '../data/entities'
 import type { PlanItemInput } from '../data/validators'
+import { nextSeriesCode } from '../../dermat_accounts/lib/numberSeries'
 
 const EPSILON = 0.000001
 
@@ -425,14 +426,7 @@ export async function reservationsForOrder(ctx: OrderContext, orderId: string): 
 }
 
 export async function nextPlanCode(ctx: Scope): Promise<string> {
-  const prefix = `DER/PL/${financialYear(new Date())}/`
-  const [row] = await ctx.em.getConnection().execute<Array<{ max: number | null }>>(
-    `select max(nullif(substring(code from length(?) + 1), '')::int) as max from dermat_planning_plans where tenant_id = ? and organization_id = ? and code like ?`,
-    [prefix, ctx.tenantId, ctx.organizationId, `${prefix}%`],
-    'all',
-    ctx.em.getTransactionContext(),
-  )
-  return `${prefix}${String(Number(row?.max ?? 0) + 1).padStart(3, '0')}`
+  return nextSeriesCode(ctx, 'PL')
 }
 
 export async function releaseAllForOrder(ctx: Scope, orderId: string, note: string, byName: string | null): Promise<number> {

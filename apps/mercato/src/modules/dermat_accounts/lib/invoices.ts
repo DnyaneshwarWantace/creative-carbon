@@ -4,9 +4,10 @@ import { priceLine } from '../../dermat_orders/lib/pricing'
 import { findOrder, loadCustomers, loadProducts, type OrderContext } from '../../dermat_orders/lib/server'
 import { stepStates } from '../../dermat_orders/lib/stages'
 import { TaxInvoice, type InvoiceLine, type InvoiceTotals } from '../data/entities'
-import { bankText, companyView, financialYear, loadCompany } from './documents'
+import { bankText, companyView, loadCompany } from './documents'
 import { AccountsError } from './service'
 import { GST_STATES } from './gstStates'
+import { nextSeriesCode } from './numberSeries'
 
 type Scope = OrderContext
 
@@ -29,14 +30,7 @@ function addDays(date: string, days: number): string {
 }
 
 async function nextCode(ctx: Scope, kind: 'INV' | 'CN'): Promise<string> {
-  const prefix = `DI/${kind}/${financialYear(new Date())}/`
-  const [row] = await ctx.em.getConnection().execute<Array<{ max: number | null }>>(
-    `select max(nullif(substring(code from length(?) + 1), '')::int) as max from dermat_tax_invoices where tenant_id = ? and organization_id = ? and code like ?`,
-    [prefix, ctx.tenantId, ctx.organizationId, `${prefix}%`],
-    'all',
-    ctx.em.getTransactionContext(),
-  )
-  return `${prefix}${String(Number(row?.max ?? 0) + 1).padStart(4, '0')}`
+  return nextSeriesCode(ctx, kind)
 }
 
 export async function invoicedByLine(ctx: Scope, orderId: string, excludeId?: string): Promise<Map<string, number>> {

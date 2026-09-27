@@ -69,7 +69,7 @@ export class OrderPayment {
 @Entity({ tableName: 'dermat_company_profiles' })
 @Index({ name: 'dermat_company_profiles_scope_idx', properties: ['organizationId', 'tenantId'] })
 export class CompanyProfile {
-  [OptionalProps]?: 'legalName' | 'gstin' | 'pan' | 'address' | 'phone' | 'email' | 'website' | 'bankName' | 'bankBranch' | 'bankAccount' | 'bankIfsc' | 'upiId' | 'signatory' | 'piTerms' | 'invoiceTerms' | 'piValidityDays' | 'grnOverPercent' | 'createdAt' | 'updatedAt'
+  [OptionalProps]?: 'legalName' | 'gstin' | 'pan' | 'address' | 'phone' | 'email' | 'website' | 'bankName' | 'bankBranch' | 'bankAccount' | 'bankIfsc' | 'upiId' | 'signatory' | 'piTerms' | 'invoiceTerms' | 'piValidityDays' | 'grnOverPercent' | 'numberSeries' | 'createdAt' | 'updatedAt'
 
   @PrimaryKey({ type: 'uuid', defaultRaw: 'gen_random_uuid()' })
   id!: string
@@ -133,6 +133,9 @@ export class CompanyProfile {
 
   @Property({ name: 'grn_over_percent', type: 'integer', default: 0 })
   grnOverPercent: number = 0
+
+  @Property({ name: 'number_series', type: 'json', nullable: true })
+  numberSeries?: Record<string, { prefix: string; suffix: string; pad: number; startAt: number }> | null
 
   @Property({ name: 'created_at', type: Date, onCreate: () => new Date() })
   createdAt: Date = new Date()

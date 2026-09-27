@@ -1,8 +1,8 @@
 import { currentUserName, loadCustomers, type OrderContext } from '../../dermat_orders/lib/server'
-import { financialYear } from '../../dermat_orders/lib/stages'
 import { DermatOrder, DermatOrderStage } from '../../dermat_orders/data/entities'
 import { RdRequest, type RdRound } from '../data/entities'
 import type { RdAction, RdInput } from '../data/validators'
+import { nextSeriesCode } from '../../dermat_accounts/lib/numberSeries'
 
 export class RdError extends Error {
   constructor(
@@ -27,12 +27,7 @@ function stamp(request: RdRequest, action: string, by: string | null, note: stri
 }
 
 async function nextRdNumber(ctx: OrderContext): Promise<string> {
-  const prefix = `DER/RD/${financialYear(new Date())}/`
-  const [row] = await ctx.em.getConnection().execute<Array<{ max: number | null }>>(
-    `select max(nullif(substring(code from length(?) + 1), '')::int) as max from dermat_rnd_requests where tenant_id = ? and organization_id = ? and code like ?`,
-    [prefix, ctx.tenantId, ctx.organizationId, `${prefix}%`],
-  )
-  return `${prefix}${String(Number(row?.max ?? 0) + 1).padStart(4, '0')}`
+  return nextSeriesCode(ctx, 'RD')
 }
 
 export async function findRequest(ctx: OrderContext, id: string): Promise<RdRequest> {

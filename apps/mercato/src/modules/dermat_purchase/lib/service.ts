@@ -2,7 +2,6 @@ import { randomUUID } from 'node:crypto'
 import type { EntityManager } from '@mikro-orm/postgresql'
 import { Vendor } from '../../dermat_vendors/data/entities'
 import { currentUserName, loadProducts, type OrderContext } from '../../dermat_orders/lib/server'
-import { financialYear } from '../../dermat_orders/lib/stages'
 import { LOCATION_CODES, dermatWarehouse } from '../../dermat_products/lib/stock'
 import { createInwardCheck } from '../../dermat_quality/lib/service'
 import { performerId, runCommand, type StoreContext } from '../../dermat_store/lib/server'
@@ -11,6 +10,7 @@ import { GoodsReceipt, GoodsReceiptLine, PurchaseOrder, PurchaseOrderLine, type 
 import type { GrnInput, PoInput } from '../data/validators'
 import { linkIndentsToPo, notifyApprovers } from './indents'
 import { loadCompany } from '../../dermat_accounts/lib/documents'
+import { nextSeriesCode } from '../../dermat_accounts/lib/numberSeries'
 
 const EPSILON = 0.000001
 
@@ -39,15 +39,8 @@ function stamp<T extends { history?: Array<{ action: string; by: string | null; 
   record.history = [...(record.history ?? []), { action, by, at: new Date().toISOString(), note }]
 }
 
-export async function nextCode(ctx: Scope, table: 'dermat_pos' | 'dermat_grns' | 'dermat_purchase_indents', kind: 'PO' | 'GR' | 'IND'): Promise<string> {
-  const prefix = `DER/${kind}/${financialYear(new Date())}/`
-  const [row] = await ctx.em.getConnection().execute<Array<{ max: number | null }>>(
-    `select max(nullif(substring(code from length(?) + 1), '')::int) as max from ${table} where tenant_id = ? and organization_id = ? and code like ?`,
-    [prefix, ctx.tenantId, ctx.organizationId, `${prefix}%`],
-    'all',
-    ctx.em.getTransactionContext(),
-  )
-  return `${prefix}${String(Number(row?.max ?? 0) + 1).padStart(4, '0')}`
+export async function nextCode(ctx: Scope, _table: 'dermat_pos' | 'dermat_grns' | 'dermat_purchase_indents', kind: 'PO' | 'GR' | 'IND'): Promise<string> {
+  return nextSeriesCode(ctx, kind)
 }
 
 export async function findVendor(ctx: Scope, id: string): Promise<Vendor> {

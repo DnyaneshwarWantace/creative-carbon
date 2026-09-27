@@ -5,6 +5,7 @@ import { findOrder, loadCustomers, loadProducts, type OrderContext } from '../..
 import { stepStates } from '../../dermat_orders/lib/stages'
 import { CompanyProfile, ProformaInvoice, type PiLine } from '../data/entities'
 import { AccountsError } from './service'
+import { nextSeriesCode } from './numberSeries'
 
 export const DEFAULT_COMPANY = {
   name: 'Dermat India',
@@ -82,14 +83,7 @@ export function bankText(company: CompanyView): string | null {
 }
 
 async function nextPiCode(ctx: Scope): Promise<string> {
-  const prefix = `DI/PI/${financialYear(new Date())}/`
-  const [row] = await ctx.em.getConnection().execute<Array<{ max: number | null }>>(
-    `select max(nullif(substring(code from length(?) + 1), '')::int) as max from dermat_proforma_invoices where tenant_id = ? and organization_id = ? and code like ?`,
-    [prefix, ctx.tenantId, ctx.organizationId, `${prefix}%`],
-    'all',
-    ctx.em.getTransactionContext(),
-  )
-  return `${prefix}${String(Number(row?.max ?? 0) + 1).padStart(3, '0')}`
+  return nextSeriesCode(ctx, 'PI')
 }
 
 export function advanceFromRemarks(remarks: string | null | undefined): number | null {
