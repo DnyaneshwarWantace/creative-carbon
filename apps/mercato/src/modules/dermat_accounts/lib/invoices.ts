@@ -8,6 +8,7 @@ import { bankText, companyView, loadCompany } from './documents'
 import { AccountsError } from './service'
 import { GST_STATES } from './gstStates'
 import { nextSeriesCode } from './numberSeries'
+import { paymentTermDays } from '../../dermat_lists/lib/paymentTerms'
 
 type Scope = OrderContext
 
@@ -21,7 +22,6 @@ function stateOf(gstin: string | null | undefined): string | null {
   return /^\d{2}$/.test(code) ? code : null
 }
 
-const TERM_DAYS: Record<string, number> = { due_on_delivery: 0, '15_days': 15, '30_days': 30, '45_days': 45, '60_days': 60, '90_days': 90 }
 
 function addDays(date: string, days: number): string {
   const value = new Date(`${date}T00:00:00Z`)
@@ -142,7 +142,7 @@ export async function createInvoice(
     customerName: customer?.name ?? '',
     customerGstin: customer?.gstin ?? null,
     invoiceDate,
-    dueDate: addDays(invoiceDate, TERM_DAYS[order.paymentTerms ?? ''] ?? 0),
+    dueDate: addDays(invoiceDate, paymentTermDays(order.paymentTerms) ?? 0),
     status: 'draft',
     interState,
     placeOfSupply: theirs ? `${theirs} ${GST_STATES[theirs] ?? ''}`.trim() : own ? `${own} ${GST_STATES[own] ?? ''}`.trim() : null,

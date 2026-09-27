@@ -1,6 +1,7 @@
 import type { EntityManager } from '@mikro-orm/postgresql'
 import { ListOption } from '../data/entities'
 import { LIST_DEFS, listDef, type ListDef } from './lists'
+import { paymentTermKey } from './paymentTerms'
 
 type Scope = { em: EntityManager; tenantId: string; organizationId: string }
 
@@ -126,7 +127,7 @@ export async function saveList(scope: Scope, def: ListDef, options: Array<{ valu
       `update custom_field_defs
           set config_json = jsonb_set(coalesce(config_json, '{}'::jsonb), '{options}', ?::jsonb), updated_at = now()
         where entity_id = ? and key = ? and deleted_at is null and (tenant_id = ? or tenant_id is null)`,
-      [JSON.stringify(options.filter((option) => option.active).map((option) => option.value)), def.customField.entityId, def.customField.key, scope.tenantId],
+      [JSON.stringify(customFieldValues(def, options.filter((option) => option.active).map((option) => option.value))), def.customField.entityId, def.customField.key, scope.tenantId],
     )
   }
 }
@@ -142,9 +143,13 @@ export async function resetList(scope: Scope, def: ListDef): Promise<void> {
       `update custom_field_defs
           set config_json = jsonb_set(coalesce(config_json, '{}'::jsonb), '{options}', ?::jsonb), updated_at = now()
         where entity_id = ? and key = ? and deleted_at is null and (tenant_id = ? or tenant_id is null)`,
-      [JSON.stringify(def.defaults), def.customField.entityId, def.customField.key, scope.tenantId],
+      [JSON.stringify(customFieldValues(def, def.defaults)), def.customField.entityId, def.customField.key, scope.tenantId],
     )
   }
+}
+
+function customFieldValues(def: ListDef, values: string[]): string[] {
+  return def.customField?.valueOf === 'paymentTermKey' ? values.map(paymentTermKey) : values
 }
 
 export { listDef }

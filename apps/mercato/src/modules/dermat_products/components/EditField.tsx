@@ -7,6 +7,7 @@ import { Textarea } from '@open-mercato/ui/primitives/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@open-mercato/ui/primitives/select'
 import { useListOptions } from '../../dermat_lists/components/useListOptions'
 import { SuggestInput } from '../../dermat_lists/components/SuggestInput'
+import { paymentTermOptions } from '../../dermat_lists/lib/paymentTerms'
 
 export type EditKind = 'text' | 'number' | 'date' | 'time' | 'select' | 'textarea'
 export type EditOption = string | { value: string; label: string }
@@ -27,7 +28,7 @@ export function EditField({ kind, value, options, listKey, dirty, align, onChang
   const managed = useListOptions(listKey ?? '')
   const tone = dirty ? 'border-status-warning-border bg-status-warning-bg' : 'bg-background'
   if (kind === 'select') {
-    const list = (listKey ? managed : options ?? []).map((option) => (typeof option === 'string' ? { value: option, label: option } : option))
+    const list = listKey === 'payment_terms' ? paymentTermOptions(managed) : (listKey ? managed : options ?? []).map((option) => (typeof option === 'string' ? { value: option, label: option } : option))
     return (
       <Select value={value || NONE} onValueChange={(next) => onChange(next === NONE ? '' : next)}>
         <SelectTrigger className={cn('h-7 min-w-32 text-xs', tone)}>

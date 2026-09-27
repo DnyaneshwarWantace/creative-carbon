@@ -13,7 +13,8 @@ import { flash } from '@open-mercato/ui/backend/FlashMessages'
 import { parseCsv, normalizeHeader } from '../../dermat_products/lib/csv'
 import { downloadCsv } from '../../dermat_products/lib/csvExport'
 import { GSTIN_PATTERN, GST_STATES, stateFromGstin } from '../../dermat_accounts/lib/gstStates'
-import { PAYMENT_TERMS_LABEL } from '../../dermat_orders/components/format'
+import { usePaymentTerms } from '../../dermat_lists/components/usePaymentTerms'
+import { paymentTermKey } from '../../dermat_lists/lib/paymentTerms'
 
 export type ImportKind = 'customers' | 'vendors'
 type Kind = ImportKind
@@ -56,25 +57,29 @@ const VENDOR_COLUMNS: Column[] = [
   { key: 'payment_terms', header: 'Payment terms', example: '30 days' },
 ]
 
-const TERM_BY_LABEL = Object.fromEntries(Object.entries(PAYMENT_TERMS_LABEL).map(([value, label]) => [label.toLowerCase(), value]))
 const GST_TYPES = ['registered', 'unregistered', 'composition', 'overseas']
 const STATE_NAMES = new Set(Object.values(GST_STATES).map((name) => name.toLowerCase()))
 
-function termValue(text: string): string | null {
+type TermOption = { value: string; label: string }
+
+function termValue(text: string, terms: TermOption[]): string | null {
   const clean = text.trim().toLowerCase()
   if (!clean) return null
-  if (TERM_BY_LABEL[clean]) return TERM_BY_LABEL[clean]
+  const direct = terms.find((term) => term.label.toLowerCase() === clean || term.value === paymentTermKey(clean))
+  if (direct) return direct.value
   const days = clean.match(/(\d{1,3})/)?.[1]
-  return days && PAYMENT_TERMS_LABEL[`${days}_days`] ? `${days}_days` : clean.includes('deliver') ? 'due_on_delivery' : null
+  const byDays = days ? terms.find((term) => term.value === `${days}_days`) : null
+  if (byDays) return byDays.value
+  return clean.includes('deliver') ? terms.find((term) => term.value === 'due_on_delivery')?.value ?? null : null
 }
 
-function validate(kind: Kind, values: Record<string, string>): string[] {
+function validate(kind: Kind, values: Record<string, string>, terms: TermOption[]): string[] {
   const errors: string[] = []
   if (!values.name?.trim()) errors.push('Name is missing')
   const gstin = values.gstin?.trim().toUpperCase()
   if (gstin && !GSTIN_PATTERN.test(gstin)) errors.push('GSTIN is not valid')
   if (values.email?.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(values.email.trim())) errors.push('Email is not valid')
-  if (values.payment_terms?.trim() && kind === 'customers' && !termValue(values.payment_terms)) errors.push('Payment terms not recognised (use Due on delivery, 15/30/45/60/90 days)')
+  if (values.payment_terms?.trim() && kind === 'customers' && !termValue(values.payment_terms, terms)) errors.push(`Payment terms not recognised (use ${terms.map((term) => term.label).join(', ')})`)
   if (kind === 'customers') {
     const treatment = values.gst_treatment?.trim().toLowerCase()
     if (treatment && !GST_TYPES.includes(treatment)) errors.push('GST treatment must be Registered, Unregistered, Composition or Overseas')
@@ -92,6 +97,7 @@ function validate(kind: Kind, values: Record<string, string>): string[] {
 export function ImportPartiesPage({ kind }: { kind: Kind }) {
   const t = useT()
   const { runMutation } = useGuardedMutation({ contextId: 'dermat-import-parties' })
+  const terms = usePaymentTerms()
   const [rows, setRows] = React.useState<Row[]>([])
   const [fileName, setFileName] = React.useState<string | null>(null)
   const [busy, setBusy] = React.useState(false)
@@ -140,7 +146,7 @@ export function ImportPartiesPage({ kind }: { kind: Kind }) {
         keys.forEach((key, position) => {
           if (key) values[key] = (cells[position] ?? '').trim()
         })
-        const errors = validate(kind, values)
+        const errors = validate(kind, values, terms)
         const name = values.name?.trim().toLowerCase() ?? ''
         const duplicate = Boolean(name) && (existing.has(name) || seen.has(name))
         if (name) seen.add(name)
@@ -161,7 +167,7 @@ export function ImportPartiesPage({ kind }: { kind: Kind }) {
       cf_gst_registration_type: values.gst_treatment?.trim().toLowerCase() || (gstin ? 'registered' : 'unregistered'),
       cf_gstin: gstin,
       cf_sales_manager: values.sales_manager || null,
-      cf_payment_terms: termValue(values.payment_terms ?? '') ?? 'due_on_delivery',
+      cf_payment_terms: termValue(values.payment_terms ?? '', terms) ?? 'due_on_delivery',
       cf_payment_remarks: values.payment_remarks || null,
       cf_default_currency: 'INR',
     }

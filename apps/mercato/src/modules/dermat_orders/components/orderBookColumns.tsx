@@ -2,7 +2,8 @@ import * as React from 'react'
 import { cn } from '@open-mercato/shared/lib/utils'
 import { STAGES, WORK_STATE_LABEL, stageDef, workState, type StageFieldType, type WorkState } from '../lib/stages'
 import { LINE_SPEC_SECTIONS } from '../lib/specs'
-import { PAYMENT_TERMS_LABEL, formatDate, formatQty } from './format'
+import { formatDate, formatQty } from './format'
+import { paymentTermLabel } from '../../dermat_lists/lib/paymentTerms'
 import type { EditOption } from '../../dermat_products/components/EditField'
 
 export type SheetStage = {
@@ -100,8 +101,8 @@ function asText(value: unknown): string {
   return value === null || value === undefined ? '' : String(value)
 }
 
-export function orderEdit(field: string, kind: StageFieldType = 'text', options?: EditOption[]): CellEdit {
-  return { kind, options, target: 'order', field, get: ({ order }) => asText((order as unknown as Record<string, unknown>)[field]), locked: ({ order }) => closed(order) }
+export function orderEdit(field: string, kind: StageFieldType = 'text', options?: EditOption[], listKey?: string): CellEdit {
+  return { kind, options, listKey, target: 'order', field, get: ({ order }) => asText((order as unknown as Record<string, unknown>)[field]), locked: ({ order }) => closed(order) }
 }
 
 export function lineEdit(field: keyof SheetLine, kind: StageFieldType = 'text', options?: EditOption[]): CellEdit {
@@ -289,7 +290,7 @@ const BASE_COLUMNS: SheetColumn[] = [
   { edit: stageEdit('artwork', 'designer_status'), key: 'designerStatus', label: 'Designer status', section: 'Commercials & remarks', scope: 'order', render: ({ order }) => dash(field(order, 'artwork', 'designer_status')) },
   { edit: stageEdit('billing', 'invoice_number'), key: 'invoiceNo', label: 'Invoice no.', section: 'Commercials & remarks', scope: 'order', render: ({ order }) => dash(field(order, 'billing', 'invoice_number')) },
   { edit: stageEdit('dispatch', 'dispatch_date'), key: 'dispatchDate', label: 'Dispatched on', section: 'Commercials & remarks', scope: 'order', render: ({ order }) => (field(order, 'dispatch', 'dispatch_date') ? formatDate(String(field(order, 'dispatch', 'dispatch_date'))) : dash(null)) },
-  { edit: orderEdit('paymentTerms', 'select', Object.entries(PAYMENT_TERMS_LABEL).map(([value, label]) => ({ value, label }))), key: 'paymentTerms', label: 'Payment terms', section: 'Commercials & remarks', scope: 'order', render: ({ order }) => dash(order.paymentTerms ? (PAYMENT_TERMS_LABEL[order.paymentTerms] ?? order.paymentTerms) : null) },
+  { edit: orderEdit('paymentTerms', 'select', undefined, 'payment_terms'), key: 'paymentTerms', label: 'Payment terms', section: 'Commercials & remarks', scope: 'order', render: ({ order }) => dash(order.paymentTerms ? paymentTermLabel(order.paymentTerms) : null) },
   { edit: orderEdit('productRemarks', 'textarea'), key: 'productRemarks', label: 'Product remarks', section: 'Commercials & remarks', scope: 'order', wide: true, render: ({ order }) => <span className="block max-w-60 truncate">{dash(order.productRemarks)}</span> },
   { edit: orderEdit('packingRemarks', 'textarea'), key: 'packingRemarks', label: 'Packing remarks', section: 'Commercials & remarks', scope: 'order', wide: true, render: ({ order }) => <span className="block max-w-60 truncate">{dash(order.packingRemarks)}</span> },
   { key: 'track', label: 'All stages', section: 'Stage progress', scope: 'order', render: ({ order }) => <StageTrack order={order} /> },

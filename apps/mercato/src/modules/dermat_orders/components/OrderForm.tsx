@@ -25,7 +25,9 @@ import { ErrorMessage, LoadingMessage } from '@open-mercato/ui/backend/detail'
 import { LINE_SPEC_SECTIONS, PARTY_SIDE } from '../lib/specs'
 import { priceOrder } from '../lib/pricing'
 import { SearchPicker, type PickerOption } from './SearchPicker'
-import { formatDate, formatQty, todayIso, PAYMENT_TERMS_LABEL } from './format'
+import { formatDate, formatQty, todayIso } from './format'
+import { paymentTermLabel } from '../../dermat_lists/lib/paymentTerms'
+import { usePaymentTerms } from '../../dermat_lists/components/usePaymentTerms'
 import { loadAddresses, loadBomStatus, loadCustomer, loadCustomerOrders, loadProductDetails, searchCustomers, searchFinishedGoods, type CustomerAddress } from './loaders'
 import type { BomRef, Customer, Order, OrderListItem, ProductInfo } from './types'
 
@@ -159,6 +161,7 @@ export function OrderForm({ orderId, copyFrom, customerId }: { orderId?: string;
   const { runMutation } = useGuardedMutation({ contextId: `dermat-order-${orderId ?? 'new'}` })
   const [customer, setCustomer] = React.useState<Customer | null>(null)
   const [header, setHeader] = React.useState<Header>(EMPTY_HEADER)
+  const termOptions = usePaymentTerms(header.paymentTerms)
   const [lines, setLines] = React.useState<LineDraft[]>([newLine()])
   const [existing, setExisting] = React.useState<Order | null>(null)
   const [loading, setLoading] = React.useState(Boolean(orderId || copyFrom))
@@ -655,12 +658,11 @@ export function OrderForm({ orderId, copyFrom, customerId }: { orderId?: string;
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="__none">—</SelectItem>
-                      {Object.entries(PAYMENT_TERMS_LABEL).map(([value, label]) => (
-                        <SelectItem key={value} value={value}>
-                          {label}
+                      {termOptions.map((option) => (
+                        <SelectItem key={option.value} value={option.value}>
+                          {option.label}
                         </SelectItem>
                       ))}
-                      {header.paymentTerms && !PAYMENT_TERMS_LABEL[header.paymentTerms] ? <SelectItem value={header.paymentTerms}>{header.paymentTerms}</SelectItem> : null}
                     </SelectContent>
                   </Select>
                 </Field>
@@ -991,7 +993,7 @@ export function OrderForm({ orderId, copyFrom, customerId }: { orderId?: string;
                       [t('dermat_orders.form.orderType', 'Order type'), header.orderType === 'new' ? 'New' : header.orderType === 'repeat' ? 'Repeat' : 'Revision'],
                       [t('dermat_orders.form.poRef', 'Customer PO / reference'), header.customerPoRef || '—'],
                       [t('dermat_orders.form.salesManager', 'Sales POC'), header.salesManager || '—'],
-                      [t('dermat_orders.form.paymentTerms', 'Payment terms'), PAYMENT_TERMS_LABEL[header.paymentTerms] ?? (header.paymentTerms || '—')],
+                      [t('dermat_orders.form.paymentTerms', 'Payment terms'), header.paymentTerms ? paymentTermLabel(header.paymentTerms) : '—'],
                       [t('dermat_orders.form.paymentRemarks', 'Payment remarks'), header.paymentRemarks || '—'],
                       [t('dermat_orders.form.priority', 'Priority'), header.priority === 'urgent' ? t('dermat_orders.priority.urgent', 'Urgent') : t('dermat_orders.priority.normal', 'Normal')],
                       [t('dermat_orders.form.billingAddress', 'Bill to'), header.billingAddress || '—'],

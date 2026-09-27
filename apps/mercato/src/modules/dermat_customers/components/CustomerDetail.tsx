@@ -22,6 +22,8 @@ import { useGuardedMutation } from '@open-mercato/ui/backend/injection/useGuarde
 import { flash } from '@open-mercato/ui/backend/FlashMessages'
 import { ErrorMessage, LoadingMessage } from '@open-mercato/ui/backend/detail'
 import { CustomerStatement } from '../../dermat_accounts/components/CustomerStatement'
+import { usePaymentTerms } from '../../dermat_lists/components/usePaymentTerms'
+import { paymentTermLabel } from '../../dermat_lists/lib/paymentTerms'
 
 type Row = Record<string, unknown> & { id: string }
 type Address = { id: string; name: string | null; purpose: string | null; address_line1: string | null; address_line2: string | null; city: string | null; region: string | null; postal_code: string | null; country: string | null; is_primary: boolean | null }
@@ -45,20 +47,6 @@ const ORDER_VARIANT: Record<string, StatusBadgeVariant> = { booked: 'info', conf
 const STAGE_VARIANT: Record<string, StatusBadgeVariant> = { open: 'warning', on_hold: 'error', done: 'success', skipped: 'neutral', waiting: 'neutral' }
 
 const GST_TYPES = ['registered', 'unregistered', 'composition', 'overseas']
-const PAYMENT_TERMS: Record<string, string> = {
-  due_on_delivery: 'Due on delivery',
-  '15_days': '15 days',
-  '30_days': '30 days',
-  '45_days': '45 days',
-  '60_days': '60 days',
-  '90_days': '90 days',
-}
-function readable(value: unknown): string | null {
-  if (typeof value !== 'string') return null
-  const trimmed = value.trim()
-  return trimmed && !UNREADABLE_RE.test(trimmed) ? trimmed : null
-}
-
 function field(row: Row | null, key: string): string | null {
   if (!row) return null
   const value = row[`cf_${key}`] ?? (row.customFields as Row | undefined)?.[key]
@@ -110,6 +98,7 @@ function EditSheet({ open, onOpenChange, company, onSaved }: { open: boolean; on
   const [values, setValues] = React.useState<EditValues | null>(null)
   const [saving, setSaving] = React.useState(false)
   const remarkOptions = useListOptions('payment_remarks', field(company, 'payment_remarks'))
+  const termOptions = usePaymentTerms(field(company, 'payment_terms'))
 
   React.useEffect(() => {
     if (!open) return
@@ -234,7 +223,7 @@ function EditSheet({ open, onOpenChange, company, onSaved }: { open: boolean; on
             )}
           </div>
           {input('gstin', t('dermat_customers.edit.gstin', 'GSTIN'), '27AAACR1234A1Z5')}
-          {select('paymentTerms', t('dermat_customers.edit.terms', 'Payment terms'), Object.entries(PAYMENT_TERMS))}
+          {select('paymentTerms', t('dermat_customers.edit.terms', 'Payment terms'), termOptions.map((option): [string, string] => [option.value, option.label]))}
           {select(
             'paymentRemarks',
             t('dermat_customers.edit.remarks', 'Payment remarks'),
@@ -344,7 +333,7 @@ export function CustomerDetail({ customerId }: { customerId: string }) {
     [t('dermat_customers.detail.category', 'Category'), field(company, 'customer_type_category') ?? '—'],
     [t('dermat_customers.detail.gstType', 'GST type'), field(company, 'gst_registration_type') ?? '—'],
     [t('dermat_customers.detail.gstin', 'GSTIN'), field(company, 'gstin') ?? field(company, 'gst_number') ?? '—'],
-    [t('dermat_customers.detail.terms', 'Payment terms'), PAYMENT_TERMS[field(company, 'payment_terms') ?? ''] ?? field(company, 'payment_terms') ?? '—'],
+    [t('dermat_customers.detail.terms', 'Payment terms'), paymentTermLabel(field(company, 'payment_terms')) || '—'],
     [t('dermat_customers.detail.remarks', 'Payment remarks'), field(company, 'payment_remarks') ?? '—'],
     [t('dermat_customers.detail.manager', 'Sales manager'), field(company, 'sales_manager') ?? '—'],
     [t('dermat_customers.detail.phone', 'Phone'), readable(company.primary_phone) ?? '—'],

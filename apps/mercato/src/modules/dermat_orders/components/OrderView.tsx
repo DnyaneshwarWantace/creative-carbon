@@ -21,7 +21,7 @@ import { flash } from '@open-mercato/ui/backend/FlashMessages'
 import { ErrorMessage, LoadingMessage } from '@open-mercato/ui/backend/detail'
 import { LINE_SPEC_SECTIONS } from '../lib/specs'
 import { STAGES, stageDef } from '../lib/stages'
-import { ORDER_VARIANT, PAYMENT_TERMS_LABEL, STAGE_VARIANT, daysUntil, formatDate, formatDateTime, formatQty } from './format'
+import { ORDER_VARIANT, STAGE_VARIANT, daysUntil, formatDate, formatDateTime, formatQty } from './format'
 import { type StageActionRequest } from './StageSheet'
 import { StageRecord } from './StageRecord'
 import { subStageProgress } from './subStages'
@@ -34,6 +34,7 @@ import { ExportButton } from '../../dermat_products/components/ExportButton'
 import { WhatsAppMenu } from '../../dermat_products/components/WhatsAppMenu'
 import { customerMessages } from './customerMessages'
 import { openServerExport } from '../../dermat_products/lib/csvExport'
+import { paymentTermLabel } from '../../dermat_lists/lib/paymentTerms'
 
 
 const KIND_LABEL: Record<string, string> = { raw_material: 'RM', packing_material: 'PM', bulk: 'Bulk', finished_goods: 'FG' }
@@ -619,7 +620,7 @@ export function OrderView({ orderId }: { orderId: string }) {
             <Info label={t('dermat_orders.view.pieces', 'Total pieces')}>{formatQty(totalPieces, 0)}</Info>
             <Info label={t('dermat_orders.view.salesManager', 'Sales manager')}>{order.salesManager ?? '—'}</Info>
             <Info label={t('dermat_orders.view.payment', 'Payment')}>
-              {[PAYMENT_TERMS_LABEL[order.paymentTerms ?? ''] ?? order.paymentTerms, order.paymentRemarks].filter(Boolean).join(' · ') || '—'}
+              {[paymentTermLabel(order.paymentTerms), order.paymentRemarks].filter(Boolean).join(' · ') || '—'}
             </Info>
             <Info label={t('dermat_orders.view.po', 'Customer PO')}>{order.customerPoRef ?? '—'}</Info>
               </section>

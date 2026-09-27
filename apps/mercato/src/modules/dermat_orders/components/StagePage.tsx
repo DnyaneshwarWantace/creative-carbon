@@ -14,11 +14,12 @@ import { apiCall } from '@open-mercato/ui/backend/utils/apiCall'
 import { ErrorMessage, LoadingMessage } from '@open-mercato/ui/backend/detail'
 import { LINE_SPEC_SECTIONS } from '../lib/specs'
 import { STAGES, stageDef, stepStates, type StageDef } from '../lib/stages'
-import { ORDER_VARIANT, PAYMENT_TERMS_LABEL, STAGE_VARIANT, formatDate, formatDateTime, formatQty } from './format'
+import { ORDER_VARIANT, STAGE_VARIANT, formatDate, formatDateTime, formatQty } from './format'
 import { StageWorkArea, type StageActionRequest } from './StageSheet'
 import { useOrderMaterials, type OrderMaterials } from './useOrderMaterials'
 import { useStageAction } from './useStageAction'
 import type { Order, Stage } from './types'
+import { paymentTermLabel } from '../../dermat_lists/lib/paymentTerms'
 
 const KIND_LABEL: Record<string, string> = { raw_material: 'RM', packing_material: 'PM', bulk: 'Bulk', finished_goods: 'FG' }
 
@@ -179,7 +180,7 @@ function StageContext({ order, stage, materials }: { order: Order; stage: Stage;
           <Row label={t('dermat_orders.stagePage.orderValue', 'Order value')}>{money(value)}</Row>
           <Row label={t('dermat_orders.stagePage.expected', 'Expected advance (40%)')}>{money(value == null ? null : value * 0.4)}</Row>
           <Row label={t('dermat_orders.view.payment', 'Payment')}>
-            {[PAYMENT_TERMS_LABEL[order.paymentTerms ?? ''] ?? order.paymentTerms, order.paymentRemarks].filter(Boolean).join(' · ') || '—'}
+            {[paymentTermLabel(order.paymentTerms), order.paymentRemarks].filter(Boolean).join(' · ') || '—'}
           </Row>
           <Row label={t('dermat_orders.stagePage.gstin', 'Customer GSTIN')}>{order.customer?.gstin ?? '—'}</Row>
         </dl>

@@ -18,7 +18,7 @@ import { useGuardedMutation } from '@open-mercato/ui/backend/injection/useGuarde
 import { flash } from '@open-mercato/ui/backend/FlashMessages'
 import { LoadingMessage } from '@open-mercato/ui/backend/detail'
 import { GSTIN_PATTERN, GST_STATES, stateFromGstin } from '../../dermat_accounts/lib/gstStates'
-import { PAYMENT_TERMS_LABEL } from '../../dermat_orders/components/format'
+import { usePaymentTerms } from '../../dermat_lists/components/usePaymentTerms'
 
 type Row = Record<string, unknown> & { id: string }
 type Contact = { key: string; id: string | null; name: string; phone: string; email: string }
@@ -75,6 +75,7 @@ export function CustomerForm({ customerId }: { customerId?: string }) {
   const [sameAsBilling, setSameAsBilling] = React.useState(true)
   const [errors, setErrors] = React.useState<Record<string, string>>({})
   const remarkOptions = useListOptions('payment_remarks', form.paymentRemarks)
+  const termOptions = usePaymentTerms(form.paymentTerms)
 
   React.useEffect(() => {
     if (!customerId) return
@@ -373,7 +374,7 @@ export function CustomerForm({ customerId }: { customerId?: string }) {
                 {gstState ? <p className="text-xs text-muted-foreground">{t('dermat_customers.form.gstState', 'State from GSTIN: {state}', { state: gstState.name })}</p> : null}
               </div>
               {field('salesManager', t('dermat_customers.form.salesManager', 'Sales manager'))}
-              {select('paymentTerms', t('dermat_customers.form.terms', 'Payment terms'), Object.entries(PAYMENT_TERMS_LABEL).map(([value, label]) => ({ value, label })))}
+              {select('paymentTerms', t('dermat_customers.form.terms', 'Payment terms'), termOptions)}
               {select('paymentRemarks', t('dermat_customers.form.remarks', 'Payment remarks'), remarkOptions.map((value) => ({ value, label: value })), true)}
               <div className="space-y-1">
                 <Label className="text-xs text-muted-foreground">{t('dermat_customers.form.currency', 'Currency')}</Label>
