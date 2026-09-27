@@ -6,7 +6,9 @@ import { calculate } from '../../dermat_planning/lib/service'
 import { LOCATION_CODES, dermatWarehouse, lotsAtLocation, variantsForProducts } from '../../dermat_products/lib/stock'
 import { DermatOrder, DermatOrderLine, DermatOrderStage } from '../data/entities'
 import { loadProducts, type OrderContext } from './server'
-import { canSeeMoney } from './money'
+import { canSeeMoney, isMoneyStageField } from './money'
+import { bomsInUse, type BomsInUse } from './engine'
+import { stageDef } from './stages'
 
 const EPSILON = 0.0001
 
@@ -189,9 +191,82 @@ export async function orderFile(ctx: OrderContext, order: DermatOrder) {
     }
   })
 
+  const frozen = stageData('manufacturing').__bom_used as BomsInUse | undefined
+  const bomSet = frozen ?? (await bomsInUse(ctx, order.id, null))
+  const bomIds = Array.from(new Set([...Object.values(bomSet.pack), ...Object.values(bomSet.formula)].map((bom) => bom.id)))
+  const bomProducts = await loadProducts(ctx, Object.keys(bomSet.formula))
+
+  const issuedLots = materials.flatMap((row) => row.lots.map((lot) => ({ ...lot, productId: row.productId, code: row.code, title: row.title, unit: row.unit })))
+  const lotSources = issuedLots.length
+    ? await connection.execute<Array<{ product_id: string; lot_number: string; mfg_date: string | null; expiry_date: string | null; qc_status: string | null; grn_id: string; grn_code: string; vendor_name: string | null; grn_date: string | null; qc_id: string | null; qc_code: string | null; ar_no: string | null }>>(
+        `select gl.product_id, gl.lot_number, gl.mfg_date, gl.expiry_date, gl.qc_status, g.id as grn_id, g.code as grn_code, g.vendor_name, g.grn_date::text as grn_date, q.id as qc_id, q.code as qc_code, q.ar_no
+           from dermat_grn_lines gl
+           join dermat_grns g on g.id = gl.grn_id
+           left join dermat_quality_checks q on q.id = gl.qc_check_id
+          where g.tenant_id = ? and g.organization_id = ? and g.deleted_at is null
+            and gl.lot_number = any(?::text[]) and gl.product_id = any(?::uuid[])`,
+        [ctx.tenantId, ctx.organizationId, `{${issuedLots.map((lot) => `"${lot.lotNumber.replace(/"/g, '')}"`).join(',')}}`, `{${Array.from(new Set(issuedLots.map((lot) => lot.productId))).join(',')}}`],
+      )
+    : []
+  const sourceOf = (productId: string, lotNumber: string) => lotSources.find((row) => row.product_id === productId && row.lot_number === lotNumber) ?? null
+
+  const RUN_STAGES = ['manufacturing', 'filling', 'packing', 'qc_qa', 'dispatch']
+  const runs = RUN_STAGES.map((key) => {
+    const def = stageDef(key)
+    const stage = stages.find((entry) => entry.stageKey === key)
+    const data = stageData(key)
+    const fields = (def?.fields ?? [])
+      .filter((field) => money || !isMoneyStageField(key, field.key))
+      .map((field) => ({ key: field.key, label: field.label, value: data[field.key] }))
+      .filter((field) => field.value !== undefined && field.value !== null && field.value !== '')
+      .map((field) => ({ key: field.key, label: field.label, value: String(field.value) }))
+    return { key, label: def?.label ?? key, department: def?.department ?? '', status: stage?.status ?? 'waiting', completedAt: stage?.completedAt ? stage.completedAt.toISOString() : null, completedByName: stage?.completedByName ?? null, fields }
+  })
+
+  const record = {
+    boms: {
+      frozen: Boolean(frozen),
+      at: frozen?.at ?? null,
+      by: frozen?.by ?? null,
+      lines: lines.map((line) => {
+        const bulkId = bulkOf.get(line.productId) ?? null
+        return {
+          lineId: line.id,
+          productId: line.productId,
+          title: products.get(line.productId)?.title ?? '—',
+          pack: bomSet.pack[line.productId] ?? null,
+          bulkId,
+          bulkTitle: bulkId ? (bomProducts.get(bulkId)?.title ?? bulkProducts.get(bulkId)?.title ?? null) : null,
+          formula: bulkId ? (bomSet.formula[bulkId] ?? null) : null,
+        }
+      }),
+      count: bomIds.length,
+    },
+    lots: issuedLots.map((lot) => {
+      const source = sourceOf(lot.productId, lot.lotNumber)
+      return {
+        productId: lot.productId,
+        code: lot.code,
+        title: lot.title,
+        unit: lot.unit,
+        lotNumber: lot.lotNumber,
+        quantity: lot.quantity,
+        stage: lot.stage,
+        request: lot.request,
+        at: lot.at,
+        grn: source ? { id: source.grn_id, code: source.grn_code, vendorName: source.vendor_name, date: source.grn_date } : null,
+        mfgDate: source?.mfg_date ?? null,
+        expiryDate: source?.expiry_date ?? null,
+        qc: source?.qc_id ? { id: source.qc_id, code: source.qc_code ?? '', arNo: source.ar_no, status: source.qc_status } : null,
+      }
+    }),
+    runs,
+  }
+
   return {
     orderId: order.id,
     open,
+    record,
     materials,
     summary: {
       total: materials.length,

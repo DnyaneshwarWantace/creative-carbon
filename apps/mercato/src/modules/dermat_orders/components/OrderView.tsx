@@ -1,10 +1,12 @@
 "use client"
 
 import * as React from 'react'
+import { OrderHistory } from './OrderHistory'
+import { OrderRecord } from './OrderRecord'
 import { useGranted } from '../../dermat_departments/components/useGranted'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { ArrowLeft, Ban, CheckCircle2, Copy, FileStack, History, Layers, Lock, Package, Pencil, UserRound } from 'lucide-react'
+import { ArrowLeft, Ban, CheckCircle2, Copy, FileStack, Layers, Lock, Package, Pencil } from 'lucide-react'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { cn } from '@open-mercato/shared/lib/utils'
 import { Page, PageBody } from '@open-mercato/ui/backend/Page'
@@ -70,21 +72,6 @@ const STAGE_TONE: Record<string, string> = {
   waiting: 'border-dashed border-border bg-background opacity-50',
 }
 
-const ACTION_LABEL: Record<string, string> = {
-  created: 'Order booked',
-  opened: 'Started',
-  saved: 'Saved',
-  completed: 'Done',
-  held: 'Put on hold',
-  resumed: 'Resumed',
-  reverted: 'Reopened',
-  skipped: 'Skipped',
-  assigned: 'Assigned to',
-  edited: 'Order edited',
-  step_done: 'Ticked',
-  step_undone: 'Unticked',
-  cancelled: 'Order cancelled',
-}
 
 function StageCard({ order, stage, onOpen }: { order: Order; stage: Stage; onOpen: () => void }) {
   const t = useT()
@@ -398,6 +385,7 @@ export function OrderView({ orderId }: { orderId: string }) {
                 <SegmentedControlItem value="work">{t('dermat_orders.view.tabWork', 'Stage work')}</SegmentedControlItem>
                 <SegmentedControlItem value="products">{t('dermat_orders.view.tabProducts', 'Products & specs')}</SegmentedControlItem>
                 <SegmentedControlItem value="materials">{t('dermat_orders.view.tabMaterials', 'Materials')}</SegmentedControlItem>
+                <SegmentedControlItem value="record">{t('dermat_orders.view.tabRecord', 'Order record')}</SegmentedControlItem>
                 <SegmentedControlItem value="documents">{t('dermat_orders.view.tabDocuments', 'Documents')}</SegmentedControlItem>
                 {order.canSeeMoney ? <SegmentedControlItem value="money">{t('dermat_orders.view.tabMoney', 'Money')}</SegmentedControlItem> : null}
                 <SegmentedControlItem value="history">{t('dermat_orders.view.tabHistory', 'History')}</SegmentedControlItem>
@@ -473,40 +461,10 @@ export function OrderView({ orderId }: { orderId: string }) {
           </Card>
               ) : null}
               {tab === 'materials' ? <MaterialsAccount file={file} order={order} /> : null}
+              {tab === 'record' ? <OrderRecord file={file} /> : null}
               {tab === 'documents' ? <DocumentsOverview order={order} onStage={goToStage} /> : null}
               {tab === 'money' && order.canSeeMoney ? <OrderMoneyCard order={order} onChanged={load} /> : null}
-              {tab === 'history' ? (
-            <Card className="overflow-hidden">
-              <CardHeader className="border-b bg-muted/20 pb-3">
-                <CardTitle className="flex items-center gap-2 text-sm font-bold">
-                  <History className="h-4 w-4 text-primary" />
-                  {t('dermat_orders.view.history', 'History')}
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="p-0">
-                <ol className="divide-y text-sm">
-                  {order.events.map((event) => (
-                    <li key={event.id} className="px-4 py-2">
-                      <div className="flex items-baseline justify-between gap-2">
-                        <span className="font-medium">
-                          {t(`dermat_orders.event.${event.action}`, ACTION_LABEL[event.action] ?? event.action)}
-                          {event.stageKey && event.action !== 'created' ? ` · ${stageDef(event.stageKey)?.label ?? event.stageKey}` : ''}
-                        </span>
-                        <span className="shrink-0 text-xs text-muted-foreground">{formatDateTime(event.at)}</span>
-                      </div>
-                      {event.note ? <p className="text-xs">{event.note}</p> : null}
-                      {event.byName ? (
-                        <p className="flex items-center gap-1 text-xs text-muted-foreground">
-                          <UserRound className="h-3 w-3" />
-                          {event.byName}
-                        </p>
-                      ) : null}
-                    </li>
-                  ))}
-                </ol>
-              </CardContent>
-            </Card>
-              ) : null}
+              {tab === 'history' ? <OrderHistory events={order.events} /> : null}
             </div>
 
             <aside className="space-y-4 lg:sticky lg:top-4 lg:col-span-4 lg:self-start">

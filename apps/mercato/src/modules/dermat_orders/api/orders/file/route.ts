@@ -3,6 +3,7 @@ import { z } from 'zod'
 import type { OpenApiRouteDoc } from '@open-mercato/shared/lib/openapi'
 import { OrderError, findOrder, resolveOrderContext } from '../../../lib/server'
 import { orderFile } from '../../../lib/orderFile'
+import { withStageOverrides } from '../../../lib/stageSettings'
 
 export const metadata = {
   GET: { requireAuth: true, requireFeatures: ['dermat_orders.view'] },
@@ -17,7 +18,7 @@ async function GET(req: Request) {
   if (!parsed.success) return NextResponse.json({ error: 'Order id is required' }, { status: 400 })
   try {
     const order = await findOrder(ctx, parsed.data.id)
-    return NextResponse.json(await orderFile(ctx, order))
+    return await withStageOverrides(ctx, async () => NextResponse.json(await orderFile(ctx, order)))
   } catch (error) {
     if (error instanceof OrderError) return NextResponse.json({ error: error.message }, { status: error.status })
     throw error

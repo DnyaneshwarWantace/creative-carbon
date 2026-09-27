@@ -76,7 +76,7 @@ export type Stage = {
   reopen?: ReopenInfo
 }
 
-export type OrderEvent = { id: string; stageKey: string | null; action: string; note: string | null; byName: string | null; at: string }
+export type OrderEvent = { id: string; stageKey: string | null; action: string; note: string | null; byName: string | null; changes: Array<{ key: string; label: string; from: string | number | null; to: string | number | null }>; at: string }
 
 export type OrderQcCheck = {
   id: string

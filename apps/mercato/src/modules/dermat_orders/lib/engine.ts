@@ -1,5 +1,5 @@
 import { RdRequest } from '../../dermat_rnd/data/entities'
-import { DermatOrder, DermatOrderEvent, DermatOrderLine, DermatOrderStage } from '../data/entities'
+import { DermatOrder, DermatOrderEvent, DermatOrderLine, DermatOrderStage, type FieldChange } from '../data/entities'
 import type { StageActionInput } from '../data/validators'
 import { activeOptions } from '../../dermat_lists/lib/service'
 import { orderHeadline, QA_ARTWORK_CHECKS, STAGES, STOCK_STAGES, applyReopenHours, applyStageOverride, isFinished, missingRequired, missingSteps, reopenBlock, stageDef, stageReopenHours, stepStates, type ReopenInfo } from './stages'
@@ -10,7 +10,7 @@ import { reservationsForOrder } from '../../dermat_planning/lib/service'
 import { USE_EXISTING_BULK, existingBulkProblem, packItems } from './productionStock'
 import { paymentView, paymentsFor, received, recordAdvanceFromStage } from '../../dermat_accounts/lib/service'
 import { priceLine, priceOrder } from './pricing'
-import { canSeeMoney, isMoneyEvent, withoutMoneyFields } from './money'
+import { canSeeMoney, isMoneyEvent, isMoneyStageField, withoutMoneyFields } from './money'
 import { documentCounts, documentStatus, missingDocuments } from './stageDocuments'
 
 function pricedLine(line: DermatOrderLine) {
@@ -29,7 +29,14 @@ import {
 
 const DAY_MS = 24 * 60 * 60 * 1000
 
-export function logEvent(ctx: OrderContext, order: DermatOrder, action: string, stageKey: string | null, note: string | null, byName: string | null) {
+function comparable(value: unknown): string | number | null {
+  if (value === undefined || value === null) return null
+  if (typeof value === 'number') return value
+  const text = String(value).trim()
+  return text === '' ? null : text
+}
+
+export function logEvent(ctx: OrderContext, order: DermatOrder, action: string, stageKey: string | null, note: string | null, byName: string | null, changes: FieldChange[] = []) {
   ctx.em.persist(
     ctx.em.create(DermatOrderEvent, {
       organizationId: ctx.organizationId,
@@ -39,6 +46,7 @@ export function logEvent(ctx: OrderContext, order: DermatOrder, action: string, 
       action,
       note,
       byName,
+      changes: changes.length ? changes : null,
     }),
   )
 }
@@ -151,6 +159,20 @@ async function linkSampleApproval(ctx: OrderContext, order: DermatOrder, data: R
   }
 }
 
+export type BomUsed = { id: string; version: number; orderSpecific: boolean }
+export type BomsInUse = { at: string; by: string | null; pack: Record<string, BomUsed>; formula: Record<string, BomUsed> }
+
+export async function bomsInUse(ctx: OrderContext, orderId: string, byName: string | null): Promise<BomsInUse> {
+  const lines = await ctx.em.find(DermatOrderLine, { orderId })
+  const productIds = lines.map((line) => line.productId)
+  const pack = await approvedPackBoms(ctx, productIds, orderId)
+  const bulkIds = (await bulkForProducts(ctx, productIds)).filter((id) => !productIds.includes(id))
+  const formula = await approvedPackBoms(ctx, bulkIds, orderId)
+  const view = (map: Map<string, { id: string; version: number; orderId: string | null }>) =>
+    Object.fromEntries(Array.from(map.entries()).map(([productId, bom]) => [productId, { id: bom.id, version: bom.version, orderSpecific: Boolean(bom.orderId) }]))
+  return { at: new Date().toISOString(), by: byName, pack: view(pack), formula: view(formula) }
+}
+
 export function reopenInfo(order: { status: string }, stages: DermatOrderStage[], stageKey: string, overrides?: StageOverrides): ReopenInfo {
   const stage = stages.find((entry) => entry.stageKey === stageKey)
   const hours = overrides ? applyReopenHours(overrides.get(stageKey)) : stageReopenHours(stageKey)
@@ -177,13 +199,18 @@ export async function applyStageAction(ctx: OrderContext, order: DermatOrder, in
   if (!stage) throw new OrderError('Stage not found', 404)
   const byName = await currentUserName(ctx)
   const note = input.note?.trim() || null
+  const changed: FieldChange[] = []
   const mergeData = () => {
     if (!input.data) return
     if (options.money === false) input.data = withoutMoneyFields(def.key, input.data) as typeof input.data
     const next: Record<string, unknown> = { ...(stage.data ?? {}) }
     for (const [key, value] of Object.entries(input.data)) {
-      if (!def.fields.some((field) => field.key === key)) continue
+      const field = def.fields.find((entry) => entry.key === key)
+      if (!field) continue
       next[key] = typeof value === 'string' ? value.trim() : value
+      const before = comparable((stage.data as Record<string, unknown> | null)?.[key])
+      const after = comparable(next[key])
+      if (String(before ?? '') !== String(after ?? '')) changed.push({ key, label: field.label, from: before, to: after })
     }
     stage.data = next
   }
@@ -328,7 +355,7 @@ export async function applyStageAction(ctx: OrderContext, order: DermatOrder, in
       if (stage.status === 'waiting') throw new OrderError(`${def.label} has not started yet`, 409)
       if (isFinished(stage.status)) throw new OrderError(`${def.label} is finished. Reopen it to change it.`, 409)
       mergeData()
-      logEvent(ctx, order, 'saved', def.key, note, byName)
+      logEvent(ctx, order, 'saved', def.key, note, byName, changed)
       break
     }
     case 'complete': {
@@ -413,8 +440,9 @@ export async function applyStageAction(ctx: OrderContext, order: DermatOrder, in
       stage.completedByName = byName
       stage.holdReason = null
       stage.holdParty = null
-      logEvent(ctx, order, 'completed', def.key, note, byName)
+      logEvent(ctx, order, 'completed', def.key, note, byName, changed)
       if (def.key === 'sampling') await linkSampleApproval(ctx, order, stage.data ?? {}, byName)
+      if (def.key === 'manufacturing') stage.data = { ...(stage.data ?? {}), __bom_used: await bomsInUse(ctx, order.id, byName) }
       if (def.key === 'advance' && (await recordAdvanceFromStage(ctx, order, stage.data ?? {}, byName))) {
         logEvent(ctx, order, 'payment', def.key, `Advance ₹${Number(stage.data?.advance_amount).toLocaleString('en-IN')} recorded in Accounts`, byName)
       }
@@ -439,7 +467,7 @@ export async function applyStageAction(ctx: OrderContext, order: DermatOrder, in
       stage.holdParty = input.holdParty?.trim() || null
       mergeData()
       stage.data = { ...(stage.data ?? {}), __follow_up: input.followUpOn ?? null }
-      logEvent(ctx, order, 'held', def.key, [stage.holdParty, note, input.followUpOn ? `follow up ${input.followUpOn}` : null].filter(Boolean).join(' · '), byName)
+      logEvent(ctx, order, 'held', def.key, [stage.holdParty, note, input.followUpOn ? `follow up ${input.followUpOn}` : null].filter(Boolean).join(' · '), byName, changed)
       break
     }
     case 'resume': {
@@ -536,7 +564,7 @@ export async function serializeOrder(ctx: OrderContext, order: DermatOrder) {
   const [lines, stages, events] = await Promise.all([
     ctx.em.find(DermatOrderLine, { orderId: order.id }, { orderBy: { position: 'asc' } }),
     ctx.em.find(DermatOrderStage, { orderId: order.id }),
-    ctx.em.find(DermatOrderEvent, { orderId: order.id }, { orderBy: { createdAt: 'desc' }, limit: 200 }),
+    ctx.em.find(DermatOrderEvent, { orderId: order.id }, { orderBy: { createdAt: 'desc' }, limit: 1000 }),
   ])
   const productIds = lines.map((line) => line.productId)
   const [customers, products, boms, qc, store, reservations, payments, docCounts] = await Promise.all([
@@ -627,6 +655,7 @@ export async function serializeOrder(ctx: OrderContext, order: DermatOrder) {
       action: event.action,
       note: event.note ?? null,
       byName: event.byName ?? null,
+      changes: event.changes ?? [],
       at: event.createdAt.toISOString(),
     })),
   }
@@ -638,6 +667,6 @@ export async function serializeOrder(ctx: OrderContext, order: DermatOrder) {
     totals: null,
     payments: null,
     stages: view.stages.map((stage) => ({ ...stage, data: withoutMoneyFields(stage.key, stage.data) })),
-    events: view.events.map((event) => (isMoneyEvent(event.action) ? { ...event, note: null } : event)),
+    events: view.events.map((event) => ({ ...event, note: isMoneyEvent(event.action) ? null : event.note, changes: event.changes.filter((change) => !event.stageKey || !isMoneyStageField(event.stageKey, change.key)) })),
   }
 }

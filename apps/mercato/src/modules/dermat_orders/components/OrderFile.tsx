@@ -36,9 +36,16 @@ export type MaterialRow = {
   openPos: Array<{ id: string; code: string; open: number; expectedDate: string | null; vendorName: string }>
 }
 
+type BomRef = { id: string; version: number; orderSpecific: boolean }
+
 export type OrderFileData = {
   orderId: string
   open: boolean
+  record: {
+    boms: { frozen: boolean; at: string | null; by: string | null; count: number; lines: Array<{ lineId: string; productId: string; title: string; pack: BomRef | null; bulkId: string | null; bulkTitle: string | null; formula: BomRef | null }> }
+    lots: Array<{ productId: string; code: string; title: string; unit: string; lotNumber: string; quantity: number; stage: string; request: string; at: string | null; grn: { id: string; code: string; vendorName: string | null; date: string | null } | null; mfgDate: string | null; expiryDate: string | null; qc: { id: string; code: string; arNo: string | null; status: string | null } | null }>
+    runs: Array<{ key: string; label: string; department: string; status: string; completedAt: string | null; completedByName: string | null; fields: Array<{ key: string; label: string; value: string }> }>
+  }
   materials: MaterialRow[]
   summary: { total: number; used: number; withProduction: number; reserved: number; short: number; coming: number; toBuy: number; reserveProblems: number }
   missingBoms: string[]

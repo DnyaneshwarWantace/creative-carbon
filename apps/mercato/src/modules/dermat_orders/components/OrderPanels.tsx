@@ -8,7 +8,7 @@ import { daysUntil, formatDate } from './format'
 import type { Order } from './types'
 import { stageDayLimit } from '../lib/stages'
 
-export type OrderTab = 'work' | 'products' | 'materials' | 'documents' | 'money' | 'history'
+export type OrderTab = 'work' | 'products' | 'materials' | 'record' | 'documents' | 'money' | 'history'
 
 type Attention = { key: string; tone: 'error' | 'warning' | 'info'; text: string; action?: { label: string; stageKey?: string; tab?: OrderTab } }
 

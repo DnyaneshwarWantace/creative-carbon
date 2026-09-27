@@ -5,6 +5,8 @@ export type OrderStatus = 'booked' | 'confirmed' | 'completed' | 'cancelled'
 export type OrderType = 'new' | 'repeat' | 'revision'
 export type OrderPriority = 'normal' | 'urgent'
 
+export type FieldChange = { key: string; label: string; from: string | number | null; to: string | number | null }
+
 @Entity({ tableName: 'dermat_orders' })
 @Index({ name: 'dermat_orders_org_tenant_idx', properties: ['organizationId', 'tenantId'] })
 @Index({ name: 'dermat_orders_customer_idx', properties: ['customerId'] })
@@ -253,7 +255,7 @@ export class DermatOrderStage {
 @Entity({ tableName: 'dermat_order_events' })
 @Index({ name: 'dermat_order_events_order_idx', properties: ['orderId'] })
 export class DermatOrderEvent {
-  [OptionalProps]?: 'stageKey' | 'note' | 'byName' | 'createdAt'
+  [OptionalProps]?: 'stageKey' | 'note' | 'byName' | 'changes' | 'createdAt'
 
   @PrimaryKey({ type: 'uuid', defaultRaw: 'gen_random_uuid()' })
   id!: string
@@ -278,6 +280,9 @@ export class DermatOrderEvent {
 
   @Property({ name: 'by_name', type: 'text', nullable: true })
   byName?: string | null
+
+  @Property({ type: 'json', nullable: true })
+  changes?: FieldChange[] | null
 
   @Property({ name: 'created_at', type: Date, onCreate: () => new Date() })
   createdAt: Date = new Date()

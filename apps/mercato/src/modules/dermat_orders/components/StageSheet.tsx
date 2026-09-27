@@ -19,6 +19,7 @@ import { isMoneyStageField } from '../lib/moneyFields'
 import { HOLD_PARTIES, reopenBlock, reopenUntilText, stageList, WORK_STATE_LABEL, stageDef, stageWorkFeature, workState, type StageField, type WorkState } from '../lib/stages'
 import { useGranted } from '../../dermat_departments/components/useGranted'
 import { StageDocuments } from './StageDocuments'
+import { StageHistory } from './OrderHistory'
 import { SuggestInput } from '../../dermat_lists/components/SuggestInput'
 import { cn } from '@open-mercato/shared/lib/utils'
 import { STAGE_VARIANT, formatDate, formatDateTime, formatQty } from './format'
@@ -547,6 +548,7 @@ export function StageWorkArea({ order, stage, people, canWork: canWorkProp, busy
             {t('dermat_orders.sheet.viewOnly', 'View only: {department} works on this stage. Your role can see it but not change it.', { department: def.department })}
           </p>
         ) : null}
+        {mode === 'form' ? <StageHistory events={order.events} stageKey={stage.key} /> : null}
         {mode === 'form' ? (
           <div className="space-y-4">
             {formFields.map((field) => (
