@@ -324,11 +324,11 @@ function StockDialog({ state, place, onClose, onDone }: { state: DialogState; pl
   )
 }
 
-export function StockPage() {
+export function StockPage({ fixedPlace, title }: { fixedPlace?: Place; title?: string } = {}) {
   const t = useT()
   const router = useRouter()
   const params = useSearchParams()
-  const initialPlace = (params?.get('place') as Place | null) ?? 'rm'
+  const initialPlace = fixedPlace ?? (params?.get('place') as Place | null) ?? 'rm'
   const [place, setPlace] = React.useState<Place>(PLACES.some((entry) => entry.value === initialPlace) ? initialPlace : 'rm')
   const [view, setView] = React.useState<View>('all')
   const [search, setSearch] = React.useState('')
@@ -365,7 +365,7 @@ export function StockPage() {
   const choosePlace = (value: Place) => {
     setPlace(value)
     setOpen(new Set())
-    router.replace(`/backend/store/stock?place=${value}`)
+    if (!fixedPlace) router.replace(`/backend/store/stock?place=${value}`)
   }
 
   const exportCsv = () => {
@@ -400,7 +400,7 @@ export function StockPage() {
         <div className="flex flex-col gap-5">
           <header className="flex flex-col gap-3 border-b pb-4 xl:flex-row xl:items-end xl:justify-between">
             <div className="space-y-1">
-              <h1 className="text-2xl font-bold tracking-tight">{t('dermat_store.stock.title', 'Stock')}</h1>
+              <h1 className="text-2xl font-bold tracking-tight">{title ?? t('dermat_store.stock.title', 'Stock')}</h1>
               <p className="max-w-3xl text-sm text-muted-foreground">{t('dermat_store.stock.lede', 'What is in each store, batch by batch: QC status, what is reserved for orders and what is free, and when it expires.')}</p>
             </div>
             <div className="flex shrink-0 flex-wrap items-center gap-2">
@@ -431,6 +431,7 @@ export function StockPage() {
             </div>
           </header>
 
+          {fixedPlace ? null : (
           <SegmentedControl value={place} onValueChange={(value) => choosePlace(value as Place)} aria-label={t('dermat_store.stock.place', 'Store')}>
             {PLACES.map((entry) => (
               <SegmentedControlItem key={entry.value} value={entry.value}>
@@ -438,6 +439,7 @@ export function StockPage() {
               </SegmentedControlItem>
             ))}
           </SegmentedControl>
+          )}
 
           {book ? (
             <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
@@ -569,5 +571,7 @@ export function StockPage() {
     </Page>
   )
 }
+
+export type StockPlace = Place
 
 export default StockPage

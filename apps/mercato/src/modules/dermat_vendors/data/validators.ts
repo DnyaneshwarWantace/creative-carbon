@@ -33,8 +33,16 @@ const clearablePhoneSchema = z.preprocess(
 )
 
 const clearableGstSchema = z.preprocess(
-  emptyStringToNull,
-  z.string().trim().min(1).max(15).nullable().optional(),
+  (value) => {
+    const cleaned = emptyStringToNull(value)
+    return typeof cleaned === 'string' ? cleaned.toUpperCase() : cleaned
+  },
+  z
+    .string()
+    .trim()
+    .regex(/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/, { message: 'GST number must be a valid 15-character GSTIN, e.g. 27AAACT1234A1Z5' })
+    .nullable()
+    .optional(),
 )
 
 const clearableCategorySchema = z.preprocess(

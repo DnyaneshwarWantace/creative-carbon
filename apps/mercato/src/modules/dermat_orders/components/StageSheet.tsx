@@ -36,6 +36,7 @@ export type StageActionRequest = {
   data?: Record<string, string | number | null>
   note?: string
   holdParty?: string
+  followUpOn?: string | null
   responsibleUserId?: string | null
 }
 
@@ -90,6 +91,7 @@ export function StageWorkArea({ order, stage, people, canWork: canWorkProp, busy
   const [mode, setMode] = React.useState<Mode>('form')
   const [note, setNote] = React.useState('')
   const [party, setParty] = React.useState(HOLD_PARTIES[0])
+  const [followUp, setFollowUp] = React.useState('')
 
   React.useEffect(() => {
     if (!stage) return
@@ -527,6 +529,10 @@ export function StageWorkArea({ order, stage, people, canWork: canWorkProp, busy
                     <ListSelectItems listKey="hold_parties" current={party} />
                   </SelectContent>
                 </Select>
+                <Label htmlFor="hold-follow-up" className="block pt-2 text-xs text-muted-foreground">
+                  {t('dermat_orders.sheet.followUp', 'Follow up on')}
+                </Label>
+                <Input id="hold-follow-up" type="date" value={followUp} onChange={(event) => setFollowUp(event.target.value)} />
               </div>
             ) : null}
             <div className="space-y-1.5">
@@ -557,7 +563,7 @@ export function StageWorkArea({ order, stage, people, canWork: canWorkProp, busy
                 onClick={() =>
                   run(
                     mode === 'hold'
-                      ? { action: 'hold', note, holdParty: party, data: dataPayload() }
+                      ? { action: 'hold', note, holdParty: party, followUpOn: followUp || null, data: dataPayload() }
                       : mode === 'skip'
                         ? { action: 'skip', note }
                         : { action: 'revert', note },

@@ -1,11 +1,11 @@
 export const metadata = {
   requireAuth: true,
   requireFeatures: ['dermat_store.view'],
-  pageTitle: 'All stock (floor & FG)',
-  pageTitleKey: 'dermat_store.nav.stock',
+  pageTitle: 'RM store stock',
+  pageTitleKey: 'dermat_store.nav.rmStock',
   pageGroup: 'Store',
   pageGroupKey: 'dermat-06-store.nav.group',
-  pageOrder: 4,
+  pageOrder: 2,
   icon: 'boxes',
-  breadcrumb: [{ label: 'Stock', labelKey: 'dermat_store.nav.stock' }],
+  breadcrumb: [{ label: 'RM store stock', labelKey: 'dermat_store.nav.rmStock' }],
 }

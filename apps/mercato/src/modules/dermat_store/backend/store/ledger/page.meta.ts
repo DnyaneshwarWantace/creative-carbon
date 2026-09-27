@@ -5,7 +5,7 @@ export const metadata = {
   pageTitleKey: 'dermat_store.nav.ledger',
   pageGroup: 'Store',
   pageGroupKey: 'dermat-06-store.nav.group',
-  pageOrder: 3,
+  pageOrder: 5,
   icon: 'history',
   breadcrumb: [
     { label: 'Stock', labelKey: 'dermat_store.nav.stock', href: '/backend/store/stock' },

@@ -388,7 +388,8 @@ export async function applyStageAction(ctx: OrderContext, order: DermatOrder, in
       stage.holdReason = note
       stage.holdParty = input.holdParty?.trim() || null
       mergeData()
-      logEvent(ctx, order, 'held', def.key, [stage.holdParty, note].filter(Boolean).join(' · '), byName)
+      stage.data = { ...(stage.data ?? {}), __follow_up: input.followUpOn ?? null }
+      logEvent(ctx, order, 'held', def.key, [stage.holdParty, note, input.followUpOn ? `follow up ${input.followUpOn}` : null].filter(Boolean).join(' · '), byName)
       break
     }
     case 'resume': {
@@ -396,6 +397,7 @@ export async function applyStageAction(ctx: OrderContext, order: DermatOrder, in
       stage.status = 'open'
       stage.holdReason = null
       stage.holdParty = null
+      stage.data = { ...(stage.data ?? {}), __follow_up: null }
       logEvent(ctx, order, 'resumed', def.key, note, byName)
       break
     }

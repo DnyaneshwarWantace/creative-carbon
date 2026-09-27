@@ -50,7 +50,8 @@ export async function salesQueue(ctx: OrderContext, filter: { mine?: string | nu
     const stage = (key: string) => own.find((entry) => entry.stageKey === key)
     const completed = order.status === 'completed'
     for (const held of own.filter((entry) => entry.status === 'on_hold' && (entry.holdParty ?? '').toLowerCase().startsWith('client'))) {
-      tasks.push({ ...base, kind: 'client_hold', stageKey: held.stageKey, detail: held.holdReason ?? '', days: daysSince(held.updatedAt) })
+      const followUp = typeof held.data?.__follow_up === 'string' ? held.data.__follow_up : null
+      tasks.push({ ...base, kind: 'client_hold', stageKey: held.stageKey, detail: [held.holdReason ?? '', followUp ? `follow up ${followUp}${followUp < today ? ' (overdue)' : ''}` : null].filter(Boolean).join(' · '), days: daysSince(held.updatedAt) })
     }
     const sampling = stage('sampling')
     if (sampling && sampling.status === 'open') {

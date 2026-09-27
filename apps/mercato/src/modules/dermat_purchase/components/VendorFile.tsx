@@ -18,6 +18,7 @@ import { buildOptimisticLockHeader } from '@open-mercato/ui/backend/utils/optimi
 import { surfaceRecordConflict } from '@open-mercato/ui/backend/conflicts'
 import { useGuardedMutation } from '@open-mercato/ui/backend/injection/useGuardedMutation'
 import { flash } from '@open-mercato/ui/backend/FlashMessages'
+import { GSTIN_PATTERN, stateFromGstin } from '../../dermat_accounts/lib/gstStates'
 import { GRN_STATUS, PO_STATUS, day, money, qty, type GrnStatus, type PoStatus } from './shared'
 
 type VendorView = {
@@ -148,7 +149,15 @@ function EditVendorDialog({ vendor, open, onOpenChange, onSaved }: { vendor: Ven
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           {text('name', t('dermat_purchase.vendor.name', 'Vendor name *'))}
           {text('code', t('dermat_purchase.vendor.code', 'Vendor code'))}
-          {text('gstNumber', t('dermat_purchase.vendor.gst', 'GST number'))}
+          <div className="space-y-1">
+            {text('gstNumber', t('dermat_purchase.vendor.gst', 'GST number'))}
+            {(() => {
+              const gst = (form.gstNumber ?? '').trim().toUpperCase()
+              if (!gst) return null
+              if (!GSTIN_PATTERN.test(gst)) return <p className="text-xs text-status-error-text">{t('dermat_purchase.vendor.gstBad', 'Not a valid GSTIN (15 characters, e.g. 27AAACT1234A1Z5)')}</p>
+              return <p className="text-xs text-muted-foreground">{t('dermat_purchase.vendor.gstInfo', 'State: {state} · PAN: {pan}', { state: stateFromGstin(gst)?.name ?? '—', pan: gst.slice(2, 12) })}</p>
+            })()}
+          </div>
           <div className="space-y-1">
             <Label className="text-xs text-muted-foreground">{t('dermat_purchase.vendor.category', 'Supplies')}</Label>
             <Select value={form.category ?? 'both'} onValueChange={(value) => setForm((prev) => ({ ...prev, category: value }))}>
@@ -249,7 +258,7 @@ export function VendorFile({ vendorId }: { vendorId: string }) {
                 <StatusBadge variant={vendor.isActive ? 'success' : 'neutral'}>{vendor.isActive ? t('dermat_purchase.vendor.active', 'Active') : t('dermat_purchase.vendor.inactive', 'Inactive')}</StatusBadge>
               </div>
               <p className="text-sm text-muted-foreground">
-                {[vendor.category ? CATEGORY_LABEL[vendor.category] ?? vendor.category : null, vendor.gstNumber ? `GST ${vendor.gstNumber}` : t('dermat_purchase.vendor.noGst', 'No GST number'), vendor.paymentTerms ? t('dermat_purchase.vendor.termsText', 'Terms: {terms}', { terms: vendor.paymentTerms }) : null]
+                {[vendor.category ? CATEGORY_LABEL[vendor.category] ?? vendor.category : null, vendor.gstNumber ? `GST ${vendor.gstNumber}${stateFromGstin(vendor.gstNumber) ? ` (${stateFromGstin(vendor.gstNumber)?.name})` : ''}` : t('dermat_purchase.vendor.noGst', 'No GST number'), vendor.paymentTerms ? t('dermat_purchase.vendor.termsText', 'Terms: {terms}', { terms: vendor.paymentTerms }) : null]
                   .filter(Boolean)
                   .join(' · ')}
               </p>

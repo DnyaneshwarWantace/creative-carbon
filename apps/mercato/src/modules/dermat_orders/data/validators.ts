@@ -53,6 +53,7 @@ export const stageActionSchema = z.object({
   data: z.record(z.string(), z.union([z.string().max(2000), z.number(), z.null()])).optional(),
   note: optionalText(1000),
   holdParty: optionalText(60),
+  followUpOn: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().nullable(),
   responsibleUserId: z.string().uuid().optional().nullable(),
 })
 

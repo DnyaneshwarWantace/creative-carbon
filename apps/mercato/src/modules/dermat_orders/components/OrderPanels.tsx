@@ -20,10 +20,12 @@ export function orderAttention(order: Order, shortCount: number | null, t: Retur
   const items: Attention[] = []
   if (order.status === 'cancelled' || order.status === 'completed') return items
   for (const stage of order.stages.filter((entry) => entry.status === 'on_hold')) {
+    const followUp = typeof stage.data?.__follow_up === 'string' ? stage.data.__follow_up : null
+    const due = followUp ? daysUntil(followUp) : null
     items.push({
       key: `hold-${stage.key}`,
       tone: 'error',
-      text: t('dermat_orders.attention.hold', '{stage} on hold{party}: {reason}', { stage: stage.label, party: stage.holdParty ? ` (${stage.holdParty})` : '', reason: stage.holdReason ?? '—' }),
+      text: `${t('dermat_orders.attention.hold', '{stage} on hold{party}: {reason}', { stage: stage.label, party: stage.holdParty ? ` (${stage.holdParty})` : '', reason: stage.holdReason ?? '—' })}${followUp ? ` · ${due !== null && due < 0 ? t('dermat_orders.attention.followLate', 'follow-up was due {date}', { date: formatDate(followUp) }) : t('dermat_orders.attention.follow', 'follow up {date}', { date: formatDate(followUp) })}` : ''}`,
       action: { label: t('dermat_orders.attention.open', 'Open'), stageKey: stage.key },
     })
   }
