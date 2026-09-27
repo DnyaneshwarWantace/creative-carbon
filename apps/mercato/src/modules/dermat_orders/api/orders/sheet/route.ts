@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { canSeeMoney, isMoneyStageField } from '../../../lib/money'
 import { z } from 'zod'
 import type { OpenApiRouteDoc } from '@open-mercato/shared/lib/openapi'
 import { DermatOrder, DermatOrderLine, DermatOrderStage } from '../../../data/entities'
@@ -153,6 +154,7 @@ async function GET(req: Request) {
                   completedByName: view.completedByName,
                   responsibleName: view.responsibleName,
                   started: Boolean(view.data.__started),
+                  reopen: view.reopen,
                   stepsDone: required.filter((step) => steps[step.key]?.done).length,
                   stepsTotal: required.length,
                   fields: stageFields(view.key, view.data),
@@ -183,13 +185,25 @@ async function GET(req: Request) {
         }
       })
 
+    const money = await canSeeMoney(ctx)
+    const shown = money
+      ? items
+      : items.map((item) => ({
+          ...item,
+          total: null,
+          received: null,
+          due: null,
+          stages: Object.fromEntries(Object.entries(item.stages).map(([key, stage]) => [key, { ...stage, fields: Object.fromEntries(Object.entries(stage.fields).filter(([field]) => !isMoneyStageField(key, field))) }])),
+          lines: item.lines.map((line) => ({ ...line, rate: null, discountPercent: null, total: null })),
+        }))
     return NextResponse.json({
-      items,
+      canSeeMoney: money,
+      items: shown,
       total,
       page: query.page,
       pageSize: query.pageSize,
       totalPages: Math.max(1, Math.ceil(total / query.pageSize)),
-      summary: { orders: everything.length, value: Math.round(value * 100) / 100, received: Math.round(paid * 100) / 100, due: Math.round((value - paid) * 100) / 100, late, onHold, stageCounts },
+      summary: { orders: everything.length, value: money ? Math.round(value * 100) / 100 : null, received: money ? Math.round(paid * 100) / 100 : null, due: money ? Math.round((value - paid) * 100) / 100 : null, late, onHold, stageCounts },
       stageKeys: STAGES.map((def) => def.key),
     })
   })

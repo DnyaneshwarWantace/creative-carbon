@@ -36,8 +36,8 @@ export type OrderLine = {
   quantity: number
   rate: number | null
   gstPercent: number
-  discountPercent: number
-  price: { gross: number; discount: number; taxable: number; gst: number; total: number }
+  discountPercent: number | null
+  price: { gross: number; discount: number; taxable: number; gst: number; total: number } | null
   batchNo: string | null
   sampleNeeded?: boolean
   rdNumber?: string | null
@@ -140,8 +140,9 @@ export type Order = {
   reservations: Array<{ productId: string; title: string; unit: string | null; quantity: number; since: string }>
   packItems: Array<{ productId: string; title: string; code: string | null; unit: string; quantity: number }>
   pricesIncludeGst: boolean
-  totals: { gross: number; discount: number; taxable: number; gst: number; total: number }
-  payments: { received: number; due: number; items: OrderPayment[] }
+  canSeeMoney: boolean
+  totals: { gross: number; discount: number; taxable: number; gst: number; total: number } | null
+  payments: { received: number; due: number; items: OrderPayment[] } | null
   events: OrderEvent[]
 }
 

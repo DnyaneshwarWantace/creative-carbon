@@ -52,7 +52,7 @@ function DoneSummary({ order, stage, file }: { order: Order; stage: Stage; file:
   const pm = (data.__pm as Record<string, { status?: string; by?: string | null }> | undefined) ?? {}
   const rounds = (data.__rounds as Array<{ round: number; feedback: string; by: string | null; at: string }> | undefined) ?? []
   const events = order.events.filter((event) => event.stageKey === stage.key).slice(0, 12)
-  const payments = stage.key === 'advance' || stage.key === 'billing' ? order.payments.items.filter((payment) => !payment.voided && (stage.key === 'advance' ? payment.kind === 'advance' : payment.kind !== 'advance')) : []
+  const payments = stage.key === 'advance' || stage.key === 'billing' ? (order.payments?.items ?? []).filter((payment) => !payment.voided && (stage.key === 'advance' ? payment.kind === 'advance' : payment.kind !== 'advance')) : []
 
   return (
     <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">

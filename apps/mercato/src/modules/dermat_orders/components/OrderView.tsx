@@ -399,7 +399,7 @@ export function OrderView({ orderId }: { orderId: string }) {
                 <SegmentedControlItem value="products">{t('dermat_orders.view.tabProducts', 'Products & specs')}</SegmentedControlItem>
                 <SegmentedControlItem value="materials">{t('dermat_orders.view.tabMaterials', 'Materials')}</SegmentedControlItem>
                 <SegmentedControlItem value="documents">{t('dermat_orders.view.tabDocuments', 'Documents')}</SegmentedControlItem>
-                <SegmentedControlItem value="money">{t('dermat_orders.view.tabMoney', 'Money')}</SegmentedControlItem>
+                {order.canSeeMoney ? <SegmentedControlItem value="money">{t('dermat_orders.view.tabMoney', 'Money')}</SegmentedControlItem> : null}
                 <SegmentedControlItem value="history">{t('dermat_orders.view.tabHistory', 'History')}</SegmentedControlItem>
               </SegmentedControl>
               {tab === 'work' ? <StageRecord order={order} file={file} people={people} busy={busy} shortCount={shortCount} focusKey={openStage} onAction={stageAction} /> : null}
@@ -474,7 +474,7 @@ export function OrderView({ orderId }: { orderId: string }) {
               ) : null}
               {tab === 'materials' ? <MaterialsAccount file={file} order={order} /> : null}
               {tab === 'documents' ? <DocumentsOverview order={order} onStage={goToStage} /> : null}
-              {tab === 'money' ? <OrderMoneyCard order={order} onChanged={load} /> : null}
+              {tab === 'money' && order.canSeeMoney ? <OrderMoneyCard order={order} onChanged={load} /> : null}
               {tab === 'history' ? (
             <Card className="overflow-hidden">
               <CardHeader className="border-b bg-muted/20 pb-3">
@@ -516,6 +516,10 @@ export function OrderView({ orderId }: { orderId: string }) {
                 </h2>
                 <AttentionList items={attention} onStage={goToStage} onTab={setTab} />
               </section>
+{order.totals && order.payments ? (() => {
+                const sums = order.totals
+                const paid = order.payments
+                return (
               <section className="space-y-3 rounded-lg border bg-card p-4" aria-labelledby="order-money">
                 <div className="flex items-center justify-between">
                   <h2 id="order-money" className="text-sm font-semibold">
@@ -528,23 +532,25 @@ export function OrderView({ orderId }: { orderId: string }) {
                 <dl className="grid grid-cols-3 gap-2 text-sm">
                   <div>
                     <dt className="text-xs text-muted-foreground">{t('dermat_orders.view.orderValue', 'Order value')}</dt>
-                    <dd className="font-semibold tabular-nums">{formatQty(order.totals.total, 0)}</dd>
+                    <dd className="font-semibold tabular-nums">{formatQty(sums.total, 0)}</dd>
                   </div>
                   <div>
                     <dt className="text-xs text-muted-foreground">{t('dermat_orders.view.received', 'Received')}</dt>
-                    <dd className="font-semibold tabular-nums text-status-success-text">{formatQty(order.payments.received, 0)}</dd>
+                    <dd className="font-semibold tabular-nums text-status-success-text">{formatQty(paid.received, 0)}</dd>
                   </div>
                   <div>
                     <dt className="text-xs text-muted-foreground">{t('dermat_orders.view.due', 'Due')}</dt>
-                    <dd className={cn('font-semibold tabular-nums', order.payments.due > 0.5 && 'text-status-warning-text')}>{formatQty(Math.max(0, order.payments.due), 0)}</dd>
+                    <dd className={cn('font-semibold tabular-nums', paid.due > 0.5 && 'text-status-warning-text')}>{formatQty(Math.max(0, paid.due), 0)}</dd>
                   </div>
                 </dl>
-                {order.totals.total > 0 ? (
+                {sums.total > 0 ? (
                   <div className="h-1.5 overflow-hidden rounded-full bg-muted" aria-hidden="true">
-                    <div className="h-full bg-status-success-solid" style={{ width: `${Math.min(100, Math.round((order.payments.received / order.totals.total) * 100))}%` }} />
+                    <div className="h-full bg-status-success-solid" style={{ width: `${Math.min(100, Math.round((paid.received / sums.total) * 100))}%` }} />
                   </div>
                 ) : null}
               </section>
+                )
+              })() : null}
               <section className="grid grid-cols-2 gap-4 rounded-lg border bg-card p-4" aria-label={t('dermat_orders.view.summary', 'Order summary')}>
             <Info label={t('dermat_orders.view.orderDate', 'Order date')}>{formatDate(order.orderDate)}</Info>
             <Info label={t('dermat_orders.view.delivery', 'Delivery')}>

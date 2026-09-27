@@ -70,9 +70,9 @@ export function orderAttention(order: Order, shortCount: number | null, t: Retur
   if (noBom.length) items.push({ key: 'bom', tone: 'warning', text: t('dermat_orders.attention.noBom', 'No BOM yet for {count} product(s)', { count: noBom.length }), action: { label: t('dermat_orders.attention.see', 'See'), tab: 'products' } })
   if (shortCount) items.push({ key: 'short', tone: 'warning', text: t('dermat_orders.attention.short', '{count} material(s) short for this order', { count: shortCount }), action: { label: t('dermat_orders.attention.see', 'See'), tab: 'materials' } })
   const advance = order.stages.find((stage) => stage.key === 'advance')
-  if (advance?.status === 'open' && order.payments.received <= 0) items.push({ key: 'advance', tone: 'info', text: t('dermat_orders.attention.advance', 'Waiting for the advance payment'), action: { label: t('dermat_orders.attention.open', 'Open'), tab: 'money' } })
+  if (advance?.status === 'open' && order.payments && order.payments.received <= 0) items.push({ key: 'advance', tone: 'info', text: t('dermat_orders.attention.advance', 'Waiting for the advance payment'), action: { label: t('dermat_orders.attention.open', 'Open'), tab: 'money' } })
   const billingOpen = order.stages.filter((stage) => stage.key === 'billing' || stage.key === 'dispatch').some((stage) => stage.status === 'open')
-  if (billingOpen && order.payments.due > 0.5) items.push({ key: 'due', tone: 'warning', text: t('dermat_orders.attention.due', '{amount} still to receive before dispatch', { amount: rupees(order.payments.due) }), action: { label: t('dermat_orders.attention.see', 'See'), tab: 'money' } })
+  if (billingOpen && order.payments && order.payments.due > 0.5) items.push({ key: 'due', tone: 'warning', text: t('dermat_orders.attention.due', '{amount} still to receive before dispatch', { amount: rupees(order.payments.due) }), action: { label: t('dermat_orders.attention.see', 'See'), tab: 'money' } })
   return items
 }
 

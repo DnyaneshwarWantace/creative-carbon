@@ -55,14 +55,16 @@ export function buildDocHtml(order: Order, kind: DocKind, company?: DocCompany |
     kind === 'proforma' ? (advance.pi_number ? String(advance.pi_number) : order.orderNo) : kind === 'invoice' ? String(billing.invoice_number ?? '—') : kind === 'packing_list' ? `PL-${order.orderNo}` : `DC-${order.orderNo}`
   const date = kind === 'invoice' ? day(billing.invoice_date) : shipping ? day(dispatch.dispatch_date) : day(order.orderDate)
 
-  const priced = !shipping
+  const priced = !shipping && Boolean(order.totals)
+  const sums = order.totals ?? { gross: 0, discount: 0, taxable: 0, gst: 0, total: 0 }
+  const paidSoFar = order.payments ?? { received: 0, due: 0, items: [] }
   const rows = order.lines
     .map((line, index) => {
       const name = `<strong>${esc(line.product?.title ?? '—')}</strong>${line.product?.code ? `<div class="code">${esc(line.product.code)}</div>` : ''}${line.packSize ? `<div class="muted">${esc(line.packSize)}${line.brandName ? ` · ${esc(line.brandName)}` : ''}</div>` : ''}`
       if (!priced) {
         return `<tr><td class="n">${index + 1}</td><td>${name}</td><td class="mono">${esc(mfg.batch_no ?? '—')}</td><td>${day(mfg.mfg_date)}</td><td>${expiryFor(mfg.mfg_date, line.specs?.production?.expiry_month)}</td><td class="r">${num(line.quantity)} pcs</td></tr>`
       }
-      return `<tr><td class="n">${index + 1}</td><td>${name}</td><td class="r">${num(line.quantity)}</td><td class="r">${line.rate == null ? '—' : money(line.rate)}</td><td class="r">${line.discountPercent ? `${line.discountPercent}%` : '—'}</td><td class="r">${money(line.price.taxable)}</td><td class="r">${line.gstPercent}%</td><td class="r">${money(line.price.total)}</td></tr>`
+      return `<tr><td class="n">${index + 1}</td><td>${name}</td><td class="r">${num(line.quantity)}</td><td class="r">${line.rate == null ? '—' : money(line.rate)}</td><td class="r">${line.discountPercent ? `${line.discountPercent}%` : '—'}</td><td class="r">${money((line.price?.taxable ?? 0))}</td><td class="r">${line.gstPercent}%</td><td class="r">${money((line.price?.total ?? 0))}</td></tr>`
     })
     .join('')
 
@@ -70,20 +72,20 @@ export function buildDocHtml(order: Order, kind: DocKind, company?: DocCompany |
     ? '<tr><th>#</th><th>Product</th><th class="r">Qty (pcs)</th><th class="r">Rate ₹</th><th class="r">Disc.</th><th class="r">Taxable ₹</th><th class="r">GST</th><th class="r">Amount ₹</th></tr>'
     : '<tr><th>#</th><th>Product</th><th>Batch</th><th>Mfg.</th><th>Exp.</th><th class="r">Quantity</th></tr>'
 
-  const taxRows = `<div><span>GST</span><span>₹ ${money(order.totals.gst)}</span></div>`
+  const taxRows = `<div><span>GST</span><span>₹ ${money(sums.gst)}</span></div>`
 
   const totals = priced
     ? `<div class="totals">
-        ${order.totals.discount ? `<div><span>Discount</span><span>− ₹ ${money(order.totals.discount)}</span></div>` : ''}
-        <div><span>Taxable value</span><span>₹ ${money(order.totals.taxable)}</span></div>
+        ${sums.discount ? `<div><span>Discount</span><span>− ₹ ${money(sums.discount)}</span></div>` : ''}
+        <div><span>Taxable value</span><span>₹ ${money(sums.taxable)}</span></div>
         ${taxRows}
-        <div class="grand"><span>Total</span><span>₹ ${money(order.totals.total)}</span></div>
+        <div class="grand"><span>Total</span><span>₹ ${money(sums.total)}</span></div>
         ${
           kind === 'proforma' && advance.advance_percent
-            ? `<div class="due"><span>Advance ${esc(advance.advance_percent)}% to confirm</span><span>₹ ${money((order.totals.total * Number(advance.advance_percent)) / 100)}</span></div>`
+            ? `<div class="due"><span>Advance ${esc(advance.advance_percent)}% to confirm</span><span>₹ ${money((sums.total * Number(advance.advance_percent)) / 100)}</span></div>`
             : ''
         }
-        ${kind === 'invoice' ? `<div><span>Received so far</span><span>₹ ${money(order.payments.received)}</span></div><div class="due"><span>Balance due</span><span>₹ ${money(Math.max(0, order.payments.due))}</span></div>` : ''}
+        ${kind === 'invoice' ? `<div><span>Received so far</span><span>₹ ${money(paidSoFar.received)}</span></div><div class="due"><span>Balance due</span><span>₹ ${money(Math.max(0, paidSoFar.due))}</span></div>` : ''}
       </div>`
     : `<div class="totals"><div class="grand"><span>Total pieces</span><span>${num(order.lines.reduce((sum, line) => sum + line.quantity, 0))}</span></div>${dispatch.packages || packing.shippers ? `<div><span>Boxes / shippers</span><span>${esc(dispatch.packages ?? packing.shippers)}</span></div>` : ''}${kind === 'packing_list' && packing.location ? `<div><span>Packed at</span><span>${esc(packing.location)}</span></div>` : ''}</div>`
 

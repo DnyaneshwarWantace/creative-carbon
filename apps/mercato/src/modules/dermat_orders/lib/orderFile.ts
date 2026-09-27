@@ -6,6 +6,7 @@ import { calculate } from '../../dermat_planning/lib/service'
 import { LOCATION_CODES, dermatWarehouse, lotsAtLocation, variantsForProducts } from '../../dermat_products/lib/stock'
 import { DermatOrder, DermatOrderLine, DermatOrderStage } from '../data/entities'
 import { loadProducts, type OrderContext } from './server'
+import { canSeeMoney } from './money'
 
 const EPSILON = 0.0001
 
@@ -23,6 +24,7 @@ export type MaterialStatus = 'used' | 'with_production' | 'reserved' | 'partly_r
 type IssueEntry = { lotNumber?: string | null; quantity?: number; used?: number; returned?: number; at?: string; by?: string | null }
 
 export async function orderFile(ctx: OrderContext, order: DermatOrder) {
+  const money = await canSeeMoney(ctx)
   const scope = { tenantId: ctx.tenantId, organizationId: ctx.organizationId }
   const lines = await ctx.em.find(DermatOrderLine, { orderId: order.id }, { orderBy: { position: 'asc' } })
   const stages = await ctx.em.find(DermatOrderStage, { orderId: order.id })
@@ -210,13 +212,13 @@ export async function orderFile(ctx: OrderContext, order: DermatOrder) {
       vendorName: po.vendor_name,
       poDate: po.po_date,
       expectedDate: po.expected_date,
-      total: Math.round(num(po.total) * 100) / 100,
+      total: money ? Math.round(num(po.total) * 100) / 100 : null,
       lines: Number(po.lines),
       grns: grns.filter((grn) => grn.po_id === po.id).map((grn) => ({ id: grn.id, code: grn.code, status: grn.status, grnDate: grn.grn_date, invoiceNo: grn.invoice_no })),
     })),
     storeRequests: requests.map((request) => ({ id: request.id, code: request.code, stageKey: request.stageKey, status: request.status, lines: requestLines.filter((line) => line.requestId === request.id).length })),
     qc,
-    invoices: invoices.map((invoice) => ({ id: invoice.id, code: invoice.code, kind: invoice.kind, status: invoice.status, invoiceDate: invoice.invoiceDate, total: invoice.totals?.payable ?? invoice.totals?.total ?? 0 })),
+    invoices: invoices.map((invoice) => ({ id: invoice.id, code: invoice.code, kind: invoice.kind, status: invoice.status, invoiceDate: invoice.invoiceDate, total: money ? (invoice.totals?.payable ?? invoice.totals?.total ?? 0) : null })),
     output,
   }
 }

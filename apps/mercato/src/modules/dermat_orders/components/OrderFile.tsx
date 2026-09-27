@@ -43,10 +43,10 @@ export type OrderFileData = {
   summary: { total: number; used: number; withProduction: number; reserved: number; short: number; coming: number; toBuy: number; reserveProblems: number }
   missingBoms: string[]
   indents: Array<{ id: string; code: string; status: string; department: string | null }>
-  purchases: Array<{ id: string; code: string; status: string; vendorName: string; poDate: string; expectedDate: string | null; total: number; lines: number; grns: Array<{ id: string; code: string; status: string; grnDate: string; invoiceNo: string | null }> }>
+  purchases: Array<{ id: string; code: string; status: string; vendorName: string; poDate: string; expectedDate: string | null; total: number | null; lines: number; grns: Array<{ id: string; code: string; status: string; grnDate: string; invoiceNo: string | null }> }>
   storeRequests: Array<{ id: string; code: string; stageKey: string; status: string; lines: number }>
   qc: Array<{ id: string; code: string; stageKey: string | null; status: string; productTitle: string; batchNo: string | null; arNo: string | null; chemicalStatus: string; microStatus: string; chemicalBy: string | null; microBy: string | null; round: number; results: Array<{ name: string; spec: string; observation: string; test: string; inSpec: boolean | null }> }>
-  invoices: Array<{ id: string; code: string; kind: string; status: string; invoiceDate: string; total: number }>
+  invoices: Array<{ id: string; code: string; kind: string; status: string; invoiceDate: string; total: number | null }>
   output: Array<{ lineId: string; productId: string; title: string; ordered: number; batchNo: string | null; bulkId: string | null; bulkTitle: string | null; bulkMadeKg: number | null; bulkLeftKg: number; filled: number | null; rejected: number | null; packed: number | null; packedLocation: string | null; dispatched: number; dispatchDate: string | null; deliveredOn: string | null; fgInStore: number }>
 }
 
@@ -234,7 +234,7 @@ export function MaterialsAccount({ file, order }: { file: OrderFileData | null; 
               <ul className="space-y-2">
                 {file.purchases.map((po) => (
                   <li key={po.id} className="flex flex-wrap items-center gap-2">
-                    <Chip href={`/backend/purchase/orders/${po.id}`} code={po.code} status={po.status} extra={`${po.vendorName} · ₹${formatQty(po.total, 2)}`} />
+                    <Chip href={`/backend/purchase/orders/${po.id}`} code={po.code} status={po.status} extra={po.total != null ? `${po.vendorName} · ₹${formatQty(po.total, 2)}` : po.vendorName} />
                     {po.grns.length ? <ArrowRight className="h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" /> : null}
                     {po.grns.map((grn) => <Chip key={grn.id} href={`/backend/purchase/grns/${grn.id}`} code={grn.code} status={grn.status} extra={formatDate(grn.grnDate)} />)}
                   </li>
@@ -280,7 +280,7 @@ export function MaterialsAccount({ file, order }: { file: OrderFileData | null; 
             {file.invoices.length ? (
               <div className="flex flex-wrap items-center gap-2 p-4">
                 <span className="text-xs text-muted-foreground">{t('dermat_orders.file.invoices', 'Invoices')}</span>
-                {file.invoices.map((invoice) => <Chip key={invoice.id} href={`/backend/accounts/invoices/${invoice.id}`} code={invoice.code} status={invoice.status} extra={`₹${formatQty(invoice.total, 2)}`} />)}
+                {file.invoices.map((invoice) => <Chip key={invoice.id} href={`/backend/accounts/invoices/${invoice.id}`} code={invoice.code} status={invoice.status} extra={invoice.total != null ? `₹${formatQty(invoice.total, 2)}` : undefined} />)}
               </div>
             ) : null}
           </div>
@@ -420,7 +420,7 @@ export function StageFileDetails({ order, stage, file }: { order: Order; stage: 
       ) : null}
       {stage.key === 'billing' && file?.invoices.length ? (
         <div className="flex flex-wrap gap-2">
-          {file.invoices.map((invoice) => <Chip key={invoice.id} href={`/backend/accounts/invoices/${invoice.id}`} code={invoice.code} status={invoice.status} extra={`₹${formatQty(invoice.total, 2)}`} />)}
+          {file.invoices.map((invoice) => <Chip key={invoice.id} href={`/backend/accounts/invoices/${invoice.id}`} code={invoice.code} status={invoice.status} extra={invoice.total != null ? `₹${formatQty(invoice.total, 2)}` : undefined} />)}
         </div>
       ) : null}
     </div>

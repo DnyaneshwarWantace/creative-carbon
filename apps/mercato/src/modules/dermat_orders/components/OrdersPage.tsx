@@ -5,7 +5,7 @@ import { ViewsButton } from '../../dermat_products/components/ViewsPanel'
 import { useGranted } from '../../dermat_departments/components/useGranted'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { AlertTriangle, ArrowRight, CalendarClock, ChevronLeft, ChevronRight, Columns3, FileSpreadsheet, IndianRupee, LayoutGrid, List, PauseCircle, Plus, Search, Wallet } from 'lucide-react'
+import { AlertTriangle, ArrowRight, CalendarClock, ChevronLeft, ChevronRight, ClipboardList, Clock, Eye, RotateCcw, Columns3, FileSpreadsheet, IndianRupee, LayoutGrid, List, PauseCircle, Plus, Search, Wallet } from 'lucide-react'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { cn } from '@open-mercato/shared/lib/utils'
 import { Page, PageBody } from '@open-mercato/ui/backend/Page'
@@ -22,7 +22,7 @@ import { EditTableBar } from '../../dermat_products/components/EditTableBar'
 import { flash } from '@open-mercato/ui/backend/FlashMessages'
 import { ExportButton } from '../../dermat_products/components/ExportButton'
 import { openServerExport } from '../../dermat_products/lib/csvExport'
-import { STAGES, WORK_STATE_LABEL } from '../lib/stages'
+import { STAGES, WORK_STATE_LABEL, reopenBlock, reopenLeftText, stageList, stageWorkFeature } from '../lib/stages'
 import { formatDate, formatQty } from './format'
 import { ALL_COLUMNS, DEFAULT_VIEW, SHEET_VIEWS, BRAND_COLUMN, StatePill, sheetWorkState, type SheetColumn, type SheetOrder } from './orderBookColumns'
 import { StageSheet, type StageActionRequest } from './StageSheet'
@@ -35,7 +35,7 @@ const STORAGE_KEY = 'dermat.orderBook.columns.v1'
 const STATUS_TABS = ['open', 'on_hold', 'completed', 'cancelled', 'all'] as const
 type StatusTab = (typeof STATUS_TABS)[number]
 
-type Summary = { orders: number; value: number; received: number; due: number; late: number; onHold: number; stageCounts: Record<string, number> }
+type Summary = { orders: number; value: number | null; received: number | null; due: number | null; late: number; onHold: number; stageCounts: Record<string, number> }
 type SheetResponse = { items: SheetOrder[]; total: number; totalPages: number; summary: Summary }
 
 function rupees(value: number): string {
@@ -54,12 +54,71 @@ function readColumns(): string[] {
 }
 
 
+function ReopenClock({ order, onOpen }: { order: SheetOrder; onOpen: (orderId: string, stageKey: string) => void }) {
+  const t = useT()
+  const granted = useGranted()
+  const now = Date.now()
+  const choices = stageList()
+    .filter((def) => def.key !== 'order')
+    .map((def) => ({ def, stage: order.stages[def.key] }))
+    .filter(({ def, stage }) => stage && (stage.status === 'done' || stage.status === 'skipped') && stage.reopen && !reopenBlock(stage.reopen, now) && granted.has(stageWorkFeature(def.key)))
+  if (!choices.length) return null
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          onClick={(event) => event.stopPropagation()}
+          className="relative flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-dashed text-muted-foreground hover:border-primary hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          title={t('dermat_orders.book.reopenTitle', 'Reopen a stage sent on by mistake')}
+          aria-label={t('dermat_orders.book.reopenTitle', 'Reopen a stage sent on by mistake')}
+        >
+          <Clock className="h-4 w-4" aria-hidden="true" />
+          <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-overline font-semibold text-primary-foreground">{choices.length}</span>
+        </button>
+      </PopoverTrigger>
+      <PopoverContent align="end" className="w-72 p-2" onClick={(event) => event.stopPropagation()}>
+        <p className="px-2 pb-2 text-xs text-muted-foreground">{t('dermat_orders.book.reopenHint', 'Sent on by mistake? These can still be reopened. A reason is asked.')}</p>
+        <ul className="flex flex-col gap-1">
+          {choices.map(({ def, stage }) => (
+            <li key={def.key}>
+              <button
+                type="button"
+                onClick={() => onOpen(order.id, def.key)}
+                className="flex w-full items-center justify-between gap-2 rounded-md px-2 py-1.5 text-left text-sm hover:bg-muted"
+              >
+                <span className="flex min-w-0 items-center gap-2">
+                  <RotateCcw className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
+                  <span className="truncate">{def.label}</span>
+                </span>
+                <span className="shrink-0 text-xs tabular-nums text-status-warning-text">{stage?.reopen ? reopenLeftText(stage.reopen, now) : ''}</span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      </PopoverContent>
+    </Popover>
+  )
+}
+
 function ActionCell({ order, onOpen }: { order: SheetOrder; onOpen: (orderId: string, stageKey: string) => void }) {
   const t = useT()
-  if (order.status === 'cancelled') return <StatePill state="skipped" label={t('dermat_orders.status.cancelled', 'Cancelled')} />
-  if (!order.current.length) return <StatePill state="completed" label={t('dermat_orders.book.allDone', 'All stages done')} />
+  const view = (
+    <Link
+      href={`/backend/orders/${order.id}`}
+      onClick={(event) => event.stopPropagation()}
+      className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      title={t('dermat_orders.book.viewOrder', 'Open the order')}
+      aria-label={t('dermat_orders.book.viewOrder', 'Open the order')}
+    >
+      <Eye className="h-4 w-4" aria-hidden="true" />
+    </Link>
+  )
+  if (order.status === 'cancelled') return <span className="flex items-center justify-between gap-1"><StatePill state="skipped" label={t('dermat_orders.status.cancelled', 'Cancelled')} />{view}</span>
+  if (!order.current.length) return <span className="flex items-center justify-between gap-1"><StatePill state="completed" label={t('dermat_orders.book.allDone', 'All stages done')} /><span className="flex items-center gap-1"><ReopenClock order={order} onOpen={onOpen} />{view}</span></span>
   return (
-    <span className="flex flex-col gap-1">
+    <span className="flex items-start gap-1">
+    <span className="flex min-w-0 flex-1 flex-col gap-1">
       {order.current.map((entry) => {
         const state = sheetWorkState(order.stages[entry.key])
         return (
@@ -85,6 +144,11 @@ function ActionCell({ order, onOpen }: { order: SheetOrder; onOpen: (orderId: st
           </button>
         )
       })}
+    </span>
+    <span className="flex flex-col items-center gap-1">
+      {view}
+      <ReopenClock order={order} onOpen={onOpen} />
+    </span>
     </span>
   )
 }
@@ -155,6 +219,8 @@ function BoardView({ orders, onOpen }: { orders: SheetOrder[]; onOpen: (orderId:
 export function OrdersPage() {
   const t = useT()
   const granted = useGranted()
+  const canMoney = granted.has('dermat_orders.money')
+  const shownColumns = React.useMemo(() => ALL_COLUMNS.filter((column) => canMoney || !column.money), [canMoney])
   const router = useRouter()
   const searchParams = useSearchParams()
   const tabParam = searchParams?.get('tab') as StatusTab | null
@@ -258,7 +324,7 @@ export function OrdersPage() {
     return false
   }
 
-  const columns = visible.map((key) => ALL_COLUMNS.find((column) => column.key === key)).filter((column): column is SheetColumn => Boolean(column))
+  const columns = visible.map((key) => shownColumns.find((column) => column.key === key)).filter((column): column is SheetColumn => Boolean(column))
   const sections: Array<{ name: string; span: number }> = []
   for (const column of columns) {
     const last = sections[sections.length - 1]
@@ -298,7 +364,7 @@ export function OrdersPage() {
               {view === 'table' ? (
                 <ViewsButton
                   tableId="dermat_orders.order_book"
-                  columns={ALL_COLUMNS.map((column) => ({ key: column.key, label: column.label, group: column.section }))}
+                  columns={shownColumns.map((column) => ({ key: column.key, label: column.label, group: column.section }))}
                   visible={visible}
                   onChange={changeColumns}
                   builtIn={SHEET_VIEWS.map((entry) => ({ id: entry.key, name: entry.label, columns: entry.columns }))}
@@ -321,11 +387,14 @@ export function OrdersPage() {
 
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
             {[
-              { label: t('dermat_orders.book.kpiValue', 'Booked value'), value: summary ? rupees(summary.value) : '–', hint: t('dermat_orders.book.kpiValueHint', '{count} orders', { count: summary?.orders ?? 0 }), icon: <IndianRupee className="h-4 w-4" aria-hidden="true" />, tone: 'bg-primary/10 text-primary' },
-              { label: t('dermat_orders.book.kpiReceived', 'Received'), value: summary ? rupees(summary.received) : '–', hint: summary && summary.value > 0 ? t('dermat_orders.book.kpiReceivedHint', '{pct}% collected', { pct: Math.round((summary.received / summary.value) * 100) }) : ' ', icon: <Wallet className="h-4 w-4" aria-hidden="true" />, tone: 'bg-status-success-bg text-status-success-icon' },
-              { label: t('dermat_orders.book.kpiDue', 'Balance due'), value: summary ? rupees(Math.max(0, summary.due)) : '–', hint: t('dermat_orders.book.kpiDueHint', 'Before dispatch or on invoice'), icon: <IndianRupee className="h-4 w-4" aria-hidden="true" />, tone: 'bg-status-warning-bg text-status-warning-icon' },
+              { money: false, only: 'noMoney', label: t('dermat_orders.book.kpiOrders', 'Orders'), value: summary ? String(summary.orders) : '–', hint: t('dermat_orders.book.kpiOrdersHint', 'In this view'), icon: <ClipboardList className="h-4 w-4" aria-hidden="true" />, tone: 'bg-primary/10 text-primary' },
+              { money: true, label: t('dermat_orders.book.kpiValue', 'Booked value'), value: summary?.value != null ? rupees(summary.value) : '–', hint: t('dermat_orders.book.kpiValueHint', '{count} orders', { count: summary?.orders ?? 0 }), icon: <IndianRupee className="h-4 w-4" aria-hidden="true" />, tone: 'bg-primary/10 text-primary' },
+              { money: true, label: t('dermat_orders.book.kpiReceived', 'Received'), value: summary?.received != null ? rupees(summary.received) : '–', hint: summary?.value && summary.received != null ? t('dermat_orders.book.kpiReceivedHint', '{pct}% collected', { pct: Math.round((summary.received / summary.value) * 100) }) : ' ', icon: <Wallet className="h-4 w-4" aria-hidden="true" />, tone: 'bg-status-success-bg text-status-success-icon' },
+              { money: true, label: t('dermat_orders.book.kpiDue', 'Balance due'), value: summary?.due != null ? rupees(Math.max(0, summary.due)) : '–', hint: t('dermat_orders.book.kpiDueHint', 'Before dispatch or on invoice'), icon: <IndianRupee className="h-4 w-4" aria-hidden="true" />, tone: 'bg-status-warning-bg text-status-warning-icon' },
               { label: t('dermat_orders.book.kpiLate', 'Late / on hold'), value: summary ? `${summary.late} / ${summary.onHold}` : '–', hint: t('dermat_orders.book.kpiLateHint', 'Past delivery date / waiting on someone'), icon: <AlertTriangle className="h-4 w-4" aria-hidden="true" />, tone: summary && (summary.late || summary.onHold) ? 'bg-status-error-bg text-status-error-icon' : 'bg-muted text-muted-foreground' },
-            ].map((tile) => (
+            ]
+              .filter((tile) => ('only' in tile ? !canMoney : !('money' in tile && tile.money) || canMoney))
+              .map((tile) => (
               <div key={tile.label} className="flex items-center gap-3 rounded-lg border bg-card p-4 shadow-xs">
                 <span className={cn('flex h-10 w-10 shrink-0 items-center justify-center rounded-full', tile.tone)}>{tile.icon}</span>
                 <span className="min-w-0">
@@ -491,6 +560,7 @@ export function OrdersPage() {
             busy={runner.busy}
             shortCount={null}
             onClose={() => setWorking(null)}
+            onPickStage={(stageKey) => setWorking({ order: working.order, stageKey })}
             onAction={onAction}
           />
         ) : null}

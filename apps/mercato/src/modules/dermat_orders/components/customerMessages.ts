@@ -29,7 +29,9 @@ export function customerMessages(order: Order): WhatsAppMessage[] {
   const greeting = `Dear ${name},`
   const ref = `our order ${order.orderNo}${order.customerPoRef ? ` (your PO ${order.customerPoRef})` : ''}`
   const items = order.lines.map((line, index) => `${index + 1}. ${line.brandName ? `${line.brandName} ` : ''}${line.product?.title ?? 'Product'}${line.packSize ? ` ${line.packSize}` : ''}: ${line.quantity} pcs`)
-  const priced = order.totals.total > 0
+  const sums = order.totals ?? { gross: 0, discount: 0, taxable: 0, gst: 0, total: 0 }
+  const paidSoFar = order.payments ?? { received: 0, due: 0, items: [] }
+  const priced = Boolean(order.totals) && sums.total > 0
   const stage = (key: string) => order.stages.find((entry) => entry.key === key)
   const current = order.stages.filter((entry) => entry.status === 'open' || entry.status === 'on_hold')
   const messages: WhatsAppMessage[] = []
@@ -37,13 +39,13 @@ export function customerMessages(order: Order): WhatsAppMessage[] {
   messages.push({
     key: 'confirm',
     label: 'Order confirmation',
-    hint: `${order.lines.length} products${priced ? ` · ${rupeeText(order.totals.total)}` : ''}`,
+    hint: `${order.lines.length} products${priced ? ` · ${rupeeText(sums.total)}` : ''}`,
     text: [
       greeting,
       '',
       `Thank you for your order. We have booked ${ref} dated ${dateText(order.orderDate)}:`,
       ...items,
-      priced ? `\nOrder value incl. GST: ${rupeeText(order.totals.total)}` : null,
+      priced ? `\nOrder value incl. GST: ${rupeeText(sums.total)}` : null,
       order.deliveryDate ? `Planned delivery: ${dateText(order.deliveryDate)}` : null,
       order.paymentTerms ? `Payment terms: ${order.paymentTerms}` : null,
       ...SIGN_OFF,
@@ -90,20 +92,20 @@ export function customerMessages(order: Order): WhatsAppMessage[] {
     })
   }
 
-  if (priced && order.payments.due > 0) {
+  if (priced && paidSoFar.due > 0) {
     const advance = stage('advance')
     const advancePending = advance && advance.status !== 'done' && advance.status !== 'skipped'
     messages.push({
       key: 'payment',
       label: advancePending ? 'Ask for the advance' : 'Payment reminder',
-      hint: `${rupeeText(order.payments.due)} due`,
+      hint: `${rupeeText(paidSoFar.due)} due`,
       text: [
         greeting,
         '',
         advancePending
           ? `To start ${ref}, please arrange the advance as per the agreed terms${order.paymentTerms ? ` (${order.paymentTerms})` : ''}.`
-          : `A balance of ${rupeeText(order.payments.due)} is due on ${ref}.`,
-        `Order value: ${rupeeText(order.totals.total)} · Received: ${rupeeText(order.payments.received)} · Due: ${rupeeText(order.payments.due)}`,
+          : `A balance of ${rupeeText(paidSoFar.due)} is due on ${ref}.`,
+        `Order value: ${rupeeText(sums.total)} · Received: ${rupeeText(paidSoFar.received)} · Due: ${rupeeText(paidSoFar.due)}`,
         'Please share the UTR once paid.',
         ...SIGN_OFF,
       ].join('\n'),

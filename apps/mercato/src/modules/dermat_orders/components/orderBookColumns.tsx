@@ -1,4 +1,6 @@
 import * as React from 'react'
+import { isMoneyStageField } from '../lib/moneyFields'
+import type { ReopenInfo } from '../lib/stages'
 import { cn } from '@open-mercato/shared/lib/utils'
 import { STAGES, WORK_STATE_LABEL, stageDef, workState, type StageFieldType, type WorkState } from '../lib/stages'
 import { LINE_SPEC_SECTIONS } from '../lib/specs'
@@ -16,6 +18,7 @@ export type SheetStage = {
   stepsDone: number
   stepsTotal: number
   started: boolean
+  reopen?: ReopenInfo
   fields: Record<string, string | number | null>
 }
 
@@ -87,6 +90,7 @@ export type SheetColumn = {
   scope: 'order' | 'line'
   align?: 'right' | 'center'
   wide?: boolean
+  money?: boolean
   render: (input: CellInput) => React.ReactNode
   edit?: CellEdit
 }
@@ -272,14 +276,15 @@ const BASE_COLUMNS: SheetColumn[] = [
   { key: 'pmStock', label: 'Packing material (PM OK)', section: 'Packaging & material', scope: 'order', render: ({ order }) => (order.pm.set ? `${order.pm.ok} of ${order.pm.set} OK` : dash(null)) },
   { edit: stageEdit('planning', 'material_status'), key: 'materialStatus', label: 'Material status', section: 'Packaging & material', scope: 'order', render: ({ order }) => dash(field(order, 'planning', 'material_status')) },
   { edit: specEdit('primary', 'name'), key: 'primaryPkg', label: 'Primary packaging', section: 'Packaging & material', scope: 'line', render: ({ line }) => dash(line?.specs?.primary?.name) },
-  { edit: lineEdit('rate', 'number'), key: 'rate', label: 'Billing rate (₹)', section: 'Commercials & remarks', scope: 'line', align: 'right', render: ({ line }) => money(line?.rate ?? null) },
+  { edit: lineEdit('rate', 'number'), money: true, key: 'rate', label: 'Billing rate (₹)', section: 'Commercials & remarks', scope: 'line', align: 'right', render: ({ line }) => money(line?.rate ?? null) },
   { key: 'gst', label: 'GST %', section: 'Commercials & remarks', scope: 'line', align: 'right', edit: lineEdit('gstPercent', 'select', ['0', '5', '12', '18', '28']), render: ({ line }) => (line ? `${formatQty(line.gstPercent, 0)}%` : dash(null)) },
-  { key: 'discount', label: 'Discount %', section: 'Commercials & remarks', scope: 'line', align: 'right', edit: lineEdit('discountPercent', 'number'), render: ({ line }) => (line?.discountPercent ? `${formatQty(line.discountPercent, 2)}%` : dash(null)) },
-  { key: 'lineTotal', label: 'Line total (₹)', section: 'Commercials & remarks', scope: 'line', align: 'right', render: ({ line }) => money(line?.total ?? null) },
-  { key: 'orderTotal', label: 'Order value (₹)', section: 'Commercials & remarks', scope: 'order', align: 'right', render: ({ order }) => (order.total ? money(order.total) : dash(null)) },
-  { key: 'received', label: 'Received (₹)', section: 'Commercials & remarks', scope: 'order', align: 'right', render: ({ order }) => money(order.received) },
+  { money: true, key: 'discount', label: 'Discount %', section: 'Commercials & remarks', scope: 'line', align: 'right', edit: lineEdit('discountPercent', 'number'), render: ({ line }) => (line?.discountPercent ? `${formatQty(line.discountPercent, 2)}%` : dash(null)) },
+  { money: true, key: 'lineTotal', label: 'Line total (₹)', section: 'Commercials & remarks', scope: 'line', align: 'right', render: ({ line }) => money(line?.total ?? null) },
+  { money: true, key: 'orderTotal', label: 'Order value (₹)', section: 'Commercials & remarks', scope: 'order', align: 'right', render: ({ order }) => (order.total ? money(order.total) : dash(null)) },
+  { money: true, key: 'received', label: 'Received (₹)', section: 'Commercials & remarks', scope: 'order', align: 'right', render: ({ order }) => money(order.received) },
   {
     key: 'due',
+    money: true,
     label: 'Due (₹)',
     section: 'Commercials & remarks',
     scope: 'order',
@@ -321,6 +326,7 @@ const STAGE_FIELD_COLUMNS: SheetColumn[] = STAGES.flatMap((def) =>
     .filter((entry) => !USED_FIELDS.has(`${def.key}:${entry.key}`))
     .map((entry) => ({
       key: `field:${def.key}:${entry.key}`,
+      money: isMoneyStageField(def.key, entry.key),
       label: entry.label,
       section: `${def.label} details`,
       scope: 'order' as const,

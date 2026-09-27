@@ -7,6 +7,7 @@ import { DermatOrderStage } from '../../../data/entities'
 import { applyStageAction, serializeOrder } from '../../../lib/engine'
 import { currentUserName, findOrder, hasFeatures, resolveOrderContext } from '../../../lib/server'
 import { notifyAssigned, notifyStagesOpened, notifyStagesPaused } from '../../../lib/notify'
+import { canSeeMoney } from '../../../lib/money'
 import { STOCK_STAGES, stageDef, stageWorkFeature } from '../../../lib/stages'
 import { enforceOrderLock, orderErrorResponse, runGuarded } from '../../../lib/guard'
 import { STORE_STAGE_KEYS, consumeForStage, type StoreStage } from '../../../../dermat_store/lib/service'
@@ -25,6 +26,7 @@ async function POST(req: Request) {
   return withStageOverrides(ctx, async () => {
     const parsed = stageActionSchema.safeParse(await req.json().catch(() => null))
     if (!parsed.success) return NextResponse.json({ error: 'Invalid stage action', details: parsed.error.flatten() }, { status: 400 })
+    const money = await canSeeMoney(ctx)
     const reopenAnyTime = parsed.data.action === 'revert' && (await hasFeatures(ctx, ['dermat_orders.reopen']))
     const allowed =
       reopenAnyTime ||
@@ -45,7 +47,7 @@ async function POST(req: Request) {
         await ctx.em.transactional(async (em) => {
           const txCtx = { ...ctx, em: em as EntityManager }
           const fresh = await findOrder(txCtx, order.id)
-          paused = await applyStageAction(txCtx, fresh, parsed.data, { reopenAnyTime })
+          paused = await applyStageAction(txCtx, fresh, parsed.data, { reopenAnyTime, money })
           if (fresh.status === 'completed') await releaseAllForOrder(txCtx, fresh.id, 'Order completed', null)
           await em.flush()
         })

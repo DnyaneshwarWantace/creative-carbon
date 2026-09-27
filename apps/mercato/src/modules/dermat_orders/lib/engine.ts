@@ -10,6 +10,7 @@ import { reservationsForOrder } from '../../dermat_planning/lib/service'
 import { USE_EXISTING_BULK, existingBulkProblem, packItems } from './productionStock'
 import { paymentView, paymentsFor, received, recordAdvanceFromStage } from '../../dermat_accounts/lib/service'
 import { priceLine, priceOrder } from './pricing'
+import { canSeeMoney, isMoneyEvent, withoutMoneyFields } from './money'
 import { documentCounts, documentStatus, missingDocuments } from './stageDocuments'
 
 function pricedLine(line: DermatOrderLine) {
@@ -165,7 +166,7 @@ export function reopenInfo(order: { status: string }, stages: DermatOrderStage[]
   }
 }
 
-export async function applyStageAction(ctx: OrderContext, order: DermatOrder, input: StageActionInput, options: { reopenAnyTime?: boolean } = {}): Promise<string[]> {
+export async function applyStageAction(ctx: OrderContext, order: DermatOrder, input: StageActionInput, options: { reopenAnyTime?: boolean; money?: boolean } = {}): Promise<string[]> {
   const reverted: string[] = []
   const overrides = await loadStageOverrides(ctx)
   const def = effectiveStageDef(input.stageKey, overrides)
@@ -178,6 +179,7 @@ export async function applyStageAction(ctx: OrderContext, order: DermatOrder, in
   const note = input.note?.trim() || null
   const mergeData = () => {
     if (!input.data) return
+    if (options.money === false) input.data = withoutMoneyFields(def.key, input.data) as typeof input.data
     const next: Record<string, unknown> = { ...(stage.data ?? {}) }
     for (const [key, value] of Object.entries(input.data)) {
       if (!def.fields.some((field) => field.key === key)) continue
@@ -396,7 +398,13 @@ export async function applyStageAction(ctx: OrderContext, order: DermatOrder, in
         const due = Math.round((totals.total - paid) * 100) / 100
         const override = String(stage.data?.dispatch_override ?? '').trim()
         if (due > 0.5 && !override) {
-          throw new OrderError(`₹${due.toLocaleString('en-IN')} is still due on this order. Record the payment in Accounts, or write a reason under "Dispatch before full payment".`, 400, { due })
+          throw new OrderError(
+            options.money === false
+              ? 'Payment is not complete for this order. Ask Accounts to record the payment, or write a reason under "Dispatch before full payment".'
+              : `₹${due.toLocaleString('en-IN')} is still due on this order. Record the payment in Accounts, or write a reason under "Dispatch before full payment".`,
+            400,
+            options.money === false ? {} : { due },
+          )
         }
         if (due > 0.5) logEvent(ctx, order, 'payment_override', def.key, `Dispatched with ₹${due.toLocaleString('en-IN')} due: ${override}`, byName)
       }
@@ -546,7 +554,8 @@ export async function serializeOrder(ctx: OrderContext, order: DermatOrder) {
   if (qcOnly.length) for (const [id, product] of await loadProducts(ctx, qcOnly)) products.set(id, product)
   const overrides = await loadStageOverrides(ctx)
   const views = stageViews(stages, overrides, order)
-  return {
+  const money = await canSeeMoney(ctx)
+  const view = {
     id: order.id,
     orderNo: order.orderNo,
     orderDate: order.orderDate,
@@ -620,5 +629,15 @@ export async function serializeOrder(ctx: OrderContext, order: DermatOrder) {
       byName: event.byName ?? null,
       at: event.createdAt.toISOString(),
     })),
+  }
+  if (money) return { ...view, canSeeMoney: true }
+  return {
+    ...view,
+    canSeeMoney: false,
+    lines: view.lines.map((line) => ({ ...line, rate: null, discountPercent: null, price: null })),
+    totals: null,
+    payments: null,
+    stages: view.stages.map((stage) => ({ ...stage, data: withoutMoneyFields(stage.key, stage.data) })),
+    events: view.events.map((event) => (isMoneyEvent(event.action) ? { ...event, note: null } : event)),
   }
 }

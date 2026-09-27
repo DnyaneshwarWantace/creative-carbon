@@ -7,6 +7,7 @@ const UI_FEATURES = [
   'dermat_orders.manage',
   'dermat_orders.stages',
   'dermat_orders.reopen',
+  'dermat_orders.money',
   'dermat_orders.work.accounts',
   'dermat_orders.work.rnd',
   'dermat_orders.work.artwork',

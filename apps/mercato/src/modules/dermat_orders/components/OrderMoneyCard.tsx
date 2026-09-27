@@ -67,9 +67,11 @@ export function OrderMoneyCard({ order, onChanged }: { order: Order; onChanged: 
   const [form, setForm] = React.useState({ kind: 'balance' as OrderPayment['kind'], amount: '', paidOn: todayIso(), mode: 'NEFT / RTGS', reference: '', note: '' })
   const [reason, setReason] = React.useState('')
 
-  const total = order.totals.total
-  const paid = order.payments.received
-  const due = Math.max(0, order.payments.due)
+  const sums = order.totals ?? { gross: 0, discount: 0, taxable: 0, gst: 0, total: 0 }
+  const paidSoFar = order.payments ?? { received: 0, due: 0, items: [] }
+  const total = sums.total
+  const paid = paidSoFar.received
+  const due = Math.max(0, paidSoFar.due)
   const percent = total > 0 ? Math.min(100, Math.round((paid / total) * 100)) : 0
   const priced = total > 0
 
@@ -122,7 +124,7 @@ export function OrderMoneyCard({ order, onChanged }: { order: Order; onChanged: 
             <FileText className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
             {t('dermat_orders.money.pi', 'Proforma invoice')}
           </Button>
-          <Button type="button" variant="outline" size="sm" onClick={() => void openDocument('invoices')} disabled={piBusy || order.totals.total <= 0}>
+          <Button type="button" variant="outline" size="sm" onClick={() => void openDocument('invoices')} disabled={piBusy || sums.total <= 0}>
             <Printer className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
             {t('dermat_orders.money.invoice', 'Tax invoice')}
           </Button>
@@ -172,11 +174,11 @@ export function OrderMoneyCard({ order, onChanged }: { order: Order; onChanged: 
               <dl className="space-y-1 text-xs">
                 <div className="flex justify-between">
                   <dt className="text-muted-foreground">{t('dermat_orders.money.taxable', 'Taxable value')}</dt>
-                  <dd className="tabular-nums">{rupees(order.totals.taxable)}</dd>
+                  <dd className="tabular-nums">{rupees(sums.taxable)}</dd>
                 </div>
                 <div className="flex justify-between">
                   <dt className="text-muted-foreground">GST</dt>
-                  <dd className="tabular-nums">{rupees(order.totals.gst)}</dd>
+                  <dd className="tabular-nums">{rupees(sums.gst)}</dd>
                 </div>
                 <div className="flex justify-between font-semibold">
                   <dt>{t('dermat_orders.money.total', 'Order total')}</dt>
@@ -191,9 +193,9 @@ export function OrderMoneyCard({ order, onChanged }: { order: Order; onChanged: 
           )}
         </div>
         <div className="md:col-span-3">
-          {order.payments.items.length ? (
+          {paidSoFar.items.length ? (
             <ul className="divide-y rounded-md border text-sm">
-              {order.payments.items.map((payment) => (
+              {paidSoFar.items.map((payment) => (
                 <li key={payment.id} className={cn('flex items-center justify-between gap-3 px-3 py-2', payment.voided && 'opacity-50')}>
                   <span className="min-w-0">
                     <span className={cn('font-semibold tabular-nums', payment.voided && 'line-through')}>{rupees(payment.amount)}</span>

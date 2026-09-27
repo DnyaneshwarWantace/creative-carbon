@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { canSeeMoney, isMoneyStageField, withoutMoneyFields } from '../../../lib/money'
 import { z } from 'zod'
 import type { OpenApiRouteDoc } from '@open-mercato/shared/lib/openapi'
 import { DermatOrder, DermatOrderLine, DermatOrderStage } from '../../../data/entities'
@@ -93,7 +94,12 @@ async function GET(req: Request) {
         .map((line) => `${products.get(line.productId)?.code ? `${products.get(line.productId)?.code} ` : ''}${products.get(line.productId)?.title ?? ''} x ${Number(line.quantity)}`)
         .join('; ')
     const pieces = (orderId: string) => lines.filter((line) => line.orderId === orderId).reduce((sum, line) => sum + Number(line.quantity), 0)
-    const stageOf = (orderId: string, key: string) => stages.find((stage) => stage.orderId === orderId && stage.stageKey === key)
+    const money = await canSeeMoney(ctx)
+    const stageOf = (orderId: string, key: string): DermatOrderStage | undefined => {
+      const stage = stages.find((entry) => entry.orderId === orderId && entry.stageKey === key)
+      if (!stage || money) return stage
+      return Object.assign(Object.create(Object.getPrototypeOf(stage)) as DermatOrderStage, stage, { data: withoutMoneyFields(key, (stage.data as Record<string, unknown>) ?? {}) })
+    }
     let rows: unknown[][]
     let name: string
 
@@ -127,7 +133,8 @@ async function GET(req: Request) {
         }),
       ]
     } else if (query.stage) {
-      const def = stageDef(query.stage)!
+      const base = stageDef(query.stage)!
+      const def = { ...base, fields: base.fields.filter((field) => money || !isMoneyStageField(base.key, field.key)) }
       name = `${def.label.toLowerCase().replace(/[^a-z0-9]+/g, '-')}-${query.stageStatus}`
       rows = [
         ['Order', 'Order date', 'Delivery', 'Customer', 'Products', 'Pieces', 'Stage status', 'Opened', 'Done', 'By', 'Days', 'Responsible', 'On hold', ...def.fields.map((field) => field.label), ...def.steps.map((step) => step.label)],
@@ -187,6 +194,7 @@ async function GET(req: Request) {
         }),
       ]
     }
+    if (!money && !query.orderId && !query.stage) rows = rows.map((row) => [...row.slice(0, 8), ...row.slice(11)])
     return new NextResponse(csv(rows), {
       headers: {
         'content-type': 'text/csv; charset=utf-8',

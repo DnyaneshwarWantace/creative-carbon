@@ -448,6 +448,15 @@ export function reopenBlock(info: ReopenInfo, now = Date.now()): string | null {
   return null
 }
 
+export function reopenLeftText(info: ReopenInfo, now = Date.now()): string | null {
+  if (!info.until) return null
+  const left = Date.parse(info.until) - now
+  if (left <= 0) return null
+  const hours = Math.floor(left / 3600000)
+  if (hours >= 1) return `${hours} h left`
+  return `${Math.max(1, Math.ceil(left / 60000))} min left`
+}
+
 export function reopenUntilText(info: ReopenInfo): string | null {
   return info.until ? reopenTime(info.until) : null
 }

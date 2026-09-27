@@ -15,6 +15,7 @@ import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '
 import { StatusBadge } from '@open-mercato/ui/primitives/status-badge'
 import { apiCall } from '@open-mercato/ui/backend/utils/apiCall'
 import { flash } from '@open-mercato/ui/backend/FlashMessages'
+import { isMoneyStageField } from '../lib/moneyFields'
 import { HOLD_PARTIES, reopenBlock, reopenUntilText, stageList, WORK_STATE_LABEL, stageDef, stageWorkFeature, workState, type StageField, type WorkState } from '../lib/stages'
 import { useGranted } from '../../dermat_departments/components/useGranted'
 import { StageDocuments } from './StageDocuments'
@@ -71,7 +72,43 @@ function rupees(value: number): string {
   return `₹${new Intl.NumberFormat('en-IN', { maximumFractionDigits: 2 }).format(value)}`
 }
 
-type StageSheetProps = Omit<StageWorkAreaProps, 'variant'> & { onClose: () => void }
+type StageSheetProps = Omit<StageWorkAreaProps, 'variant'> & { onClose: () => void; onPickStage?: (stageKey: string) => void }
+
+function StageStrip({ order, current, onPick }: { order: Order; current: string; onPick: (stageKey: string) => void }) {
+  const t = useT()
+  const byKey = new Map(order.stages.map((entry) => [entry.key, entry]))
+  return (
+    <nav aria-label={t('dermat_orders.sheet.allStages', 'All stages')} className="flex flex-wrap gap-1 border-b bg-muted/20 px-4 py-2">
+      {stageList()
+        .filter((def) => def.key !== 'order')
+        .map((def) => {
+          const status = byKey.get(def.key)?.status ?? 'waiting'
+          const done = status === 'done' || status === 'skipped'
+          const active = status === 'open' || status === 'on_hold'
+          return (
+            <button
+              key={def.key}
+              type="button"
+              onClick={() => onPick(def.key)}
+              aria-current={def.key === current ? 'step' : undefined}
+              title={`${def.label} · ${t(`dermat_orders.stageStatus.${status}`, status.replace('_', ' '))}`}
+              className={cn(
+                'inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                done && 'border-status-success-border bg-status-success-bg text-status-success-text',
+                active && status === 'open' && 'border-primary bg-primary/10 font-semibold text-primary',
+                status === 'on_hold' && 'border-status-warning-border bg-status-warning-bg font-semibold text-status-warning-text',
+                !done && !active && 'border-dashed text-muted-foreground opacity-60 hover:opacity-100',
+                def.key === current && 'ring-2 ring-ring ring-offset-1',
+              )}
+            >
+              {done ? <Check className="h-3 w-3" aria-hidden="true" /> : !active ? <Lock className="h-3 w-3" aria-hidden="true" /> : null}
+              {def.label}
+            </button>
+          )
+        })}
+    </nav>
+  )
+}
 
 type Mode = 'form' | 'hold' | 'revert' | 'skip'
 
@@ -141,9 +178,10 @@ export function StageWorkArea({ order, stage, people, canWork: canWorkProp, busy
     walk(stage.key)
     return order.stages.filter((entry) => later.has(entry.key) && (entry.status === 'open' || entry.status === 'on_hold')).map((entry) => entry.label)
   })()
+  const formFields = def.fields.filter((field) => order.canSeeMoney !== false || !isMoneyStageField(stage.key, field.key))
   const dataPayload = () => {
     const data: Record<string, string | number | null> = {}
-    for (const field of def.fields) {
+    for (const field of formFields) {
       const raw = values[field.key] ?? ''
       data[field.key] = field.type === 'number' ? (raw.trim() === '' ? null : Number(raw)) : raw
     }
@@ -511,7 +549,7 @@ export function StageWorkArea({ order, stage, people, canWork: canWorkProp, busy
         ) : null}
         {mode === 'form' ? (
           <div className="space-y-4">
-            {def.fields.map((field) => (
+            {formFields.map((field) => (
               <div key={field.key} className="space-y-1.5">
                 <Label className="text-xs text-muted-foreground">
                   {field.label}
@@ -715,7 +753,7 @@ function DeliveredBox({ deliveredOn, busy, onMark }: { deliveredOn: string | nul
   )
 }
 
-export function StageSheet({ order, stage, people, canWork, busy, shortCount, onClose, onAction }: StageSheetProps) {
+export function StageSheet({ order, stage, people, canWork, busy, shortCount, onClose, onAction, onPickStage }: StageSheetProps) {
   const t = useT()
   useStageSettings()
   const def = stage ? stageDef(stage.key) : undefined
@@ -747,6 +785,12 @@ export function StageSheet({ order, stage, people, canWork, busy, shortCount, on
             </Link>
           </SheetDescription>
         </SheetHeader>
+        {onPickStage ? <StageStrip order={order} current={stage.key} onPick={onPickStage} /> : null}
+        {stage.status === 'waiting' ? (
+          <p className="mx-4 mt-3 rounded-md border border-dashed px-3 py-2 text-xs text-muted-foreground">
+            {t('dermat_orders.sheet.waitingPreview', 'Not started yet. This is a preview of what {department} will fill in once the stages before it are done.', { department: def.department })}
+          </p>
+        ) : null}
         <StageWorkArea
           order={order}
           stage={stage}
