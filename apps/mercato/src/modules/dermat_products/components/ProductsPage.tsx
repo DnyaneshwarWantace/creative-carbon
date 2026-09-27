@@ -5,7 +5,7 @@ import { useGranted } from '../../dermat_departments/components/useGranted'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import type { LegacyColumnDef as ColumnDef } from '@tanstack/react-table/legacy'
-import { FileUp, FolderTree, Plus } from 'lucide-react'
+import { FileUp, Plus } from 'lucide-react'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { Page, PageBody } from '@open-mercato/ui/backend/Page'
 import { DataTable } from '@open-mercato/ui/backend/DataTable'
@@ -340,12 +340,6 @@ export function ProductsPage() {
               <ExportButton onExport={exportProducts} />
               {canManage ? (
               <>
-              <Button asChild variant="outline">
-                <Link href="/backend/catalog/categories">
-                  <FolderTree className="mr-2 h-4 w-4" />
-                  {t('dermat_products.list.categories', 'Manage categories')}
-                </Link>
-              </Button>
               <Button type="button" variant="outline" onClick={() => setImportOpen(true)}>
                 <FileUp className="mr-2 h-4 w-4" />
                 {t('dermat_products.list.import', 'Import')}

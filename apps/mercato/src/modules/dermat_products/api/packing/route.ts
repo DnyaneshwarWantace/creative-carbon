@@ -8,7 +8,8 @@ import type { CommandBus, CommandRuntimeContext } from '@open-mercato/shared/lib
 import { runRouteMutationGuards } from '@open-mercato/shared/lib/crud/route-mutation-guard'
 import { resolveOrganizationScopeForRequest } from '@open-mercato/core/modules/directory/utils/organizationScope'
 import { productUpdateSchema } from '@open-mercato/core/modules/catalog/data/validators'
-import { PACKING_ITEM_DICTIONARY, PRODUCT_KINDS } from '../../lib/kinds'
+import { PRODUCT_KINDS } from '../../lib/kinds'
+import { activeOptions } from '../../../dermat_lists/lib/service'
 import { createProductWithStockSetup } from '../../lib/createProduct'
 
 export const metadata = {
@@ -65,14 +66,7 @@ async function loadLinked(scope: Scope, productId: string) {
 }
 
 async function loadTypes(scope: Scope) {
-  const rows = await scope.em.getConnection().execute<Array<{ label: string }>>(
-    `select coalesce(e.label, e.value) as label from dictionary_entries e
-       join dictionaries d on d.id = e.dictionary_id and d.deleted_at is null
-      where d.key = ? and d.tenant_id = ? and d.organization_id = ?
-      order by e.position, e.label`,
-    [PACKING_ITEM_DICTIONARY, scope.tenantId, scope.organizationId],
-  )
-  return rows.map((row) => row.label)
+  return activeOptions(scope, 'packing_item_types')
 }
 
 async function GET(req: Request) {

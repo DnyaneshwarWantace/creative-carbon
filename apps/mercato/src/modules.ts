@@ -221,18 +221,9 @@ export const enabledModules: ModuleEntry[] = [
           '/backend/wms/warehouses': null,
           '/backend/wms/zones': null,
           '/backend/config/wms': null,
-          '/backend/catalog/categories': {
-            metadata: {
-              pageTitle: 'Product Categories',
-              pageTitleKey: 'dermat_products.nav.categories',
-              navHidden: true,
-              breadcrumb: [
-                { label: 'Products', labelKey: 'dermat_products.nav.products', href: '/backend/products' },
-                { label: 'Categories', labelKey: 'dermat_products.nav.categories' },
-              ],
-            },
-          },
-          '/backend/catalog/categories/create': { metadata: { navHidden: true } },
+          '/backend/catalog/categories': null,
+          '/backend/catalog/categories/[id]/edit': null,
+          '/backend/catalog/categories/create': null,
           '/backend/catalog/products': null,
           '/backend/catalog/products/create': null,
           '/backend/catalog/products/[id]': {
@@ -243,18 +234,7 @@ export const enabledModules: ModuleEntry[] = [
           '/backend/catalog/products/[productId]/variants/[variantId]': null,
           '/backend/entities/user': null,
           '/backend/config/settings': { metadata: { navHidden: true } },
-          '/backend/config/dictionaries': {
-            metadata: {
-              pageTitle: 'Dropdown Options',
-              pageTitleKey: 'dermat_products.nav.dropdowns',
-              pageGroup: 'Masters',
-              pageGroupKey: 'dermat-11-masters.nav.group',
-              pageContext: 'main',
-              pageOrder: 30,
-              navHidden: false,
-              breadcrumb: [{ label: 'Dropdown Options', labelKey: 'dermat_products.nav.dropdowns' }],
-            },
-          },
+          '/backend/config/dictionaries': null,
           '/backend/config/attachments': { metadata: { navHidden: true } },
           '/backend/feature-toggles/global/create': null,
           '/backend/feature-toggles/global/[id]': null,

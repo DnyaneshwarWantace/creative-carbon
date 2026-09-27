@@ -56,6 +56,13 @@ export const LIST_DEFS: ListDef[] = [
     defaults: ['NEFT / RTGS', 'UPI', 'Cheque', 'Cash', 'Other'],
   },
   {
+    key: 'packing_item_types',
+    label: 'Packing item types',
+    department: 'Masters',
+    usedIn: 'Finished good form: packing items made under the product (Carton - <product>, Label - <product>…)',
+    defaults: ['Carton', 'Label', 'Tube', 'Bottle', 'Bottle Set', 'Jar', 'Cap', 'Pump', 'Dropper', 'Leaflet', 'Tray', 'Shipper'],
+  },
+  {
     key: 'client_feedback',
     label: 'Client feedback on sample',
     department: 'R&D',

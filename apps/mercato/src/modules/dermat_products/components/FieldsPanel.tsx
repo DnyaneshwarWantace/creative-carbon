@@ -9,7 +9,6 @@ import { Input } from '@open-mercato/ui/primitives/input'
 import { Label } from '@open-mercato/ui/primitives/label'
 import { Textarea } from '@open-mercato/ui/primitives/textarea'
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@open-mercato/ui/primitives/sheet'
-import { apiCall } from '@open-mercato/ui/backend/utils/apiCall'
 import { createCrud, updateCrud } from '@open-mercato/ui/backend/utils/crud'
 import { useGuardedMutation } from '@open-mercato/ui/backend/injection/useGuardedMutation'
 import { flash } from '@open-mercato/ui/backend/FlashMessages'
@@ -137,35 +136,15 @@ export function FieldsPanel({ open, onOpenChange, kind, fields, defs, hidden, on
         context: { kind, field: key },
         mutationPayload: { label, type: newType, options },
         operation: async () => {
-          let dictionaryId: string | null = null
-          if (newType === 'list') {
-            for (let attempt = 1; attempt <= 5 && !dictionaryId; attempt += 1) {
-              const dictionaryKey = `product_${key}${attempt > 1 ? `_${attempt}` : ''}`.slice(0, 100)
-              const call = await apiCall<{ id?: string }>('/api/dictionaries', {
-                method: 'POST',
-                headers: { 'content-type': 'application/json' },
-                body: JSON.stringify({ key: dictionaryKey, name: label, description: `Options for the product field "${label}".` }),
-              })
-              if (call.ok) dictionaryId = call.result?.id ?? null
-            }
-            if (!dictionaryId) throw new Error('[internal] dictionary id missing')
-            for (const [position, value] of options.entries()) {
-              await apiCall(`/api/dictionaries/${dictionaryId}/entries`, {
-                method: 'POST',
-                headers: { 'content-type': 'application/json' },
-                body: JSON.stringify({ value, label: value, position }),
-              })
-            }
-          }
           await createCrud('entities/definitions', {
             entityId: PRODUCT_ENTITY_ID,
             key,
-            kind: newType === 'list' ? 'dictionary' : newType === 'number' ? 'float' : 'text',
+            kind: newType === 'list' ? 'select' : newType === 'number' ? 'float' : 'text',
             configJson: {
               label,
               fieldsets: [kind],
               formEditable: true,
-              ...(dictionaryId ? { dictionaryId } : {}),
+              ...(newType === 'list' ? { options } : {}),
             },
           })
         },

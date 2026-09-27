@@ -12,8 +12,6 @@ import {
   DERMAT_WAREHOUSE,
   KIND_SUBCATEGORIES,
   PRODUCT_KINDS,
-  PACKING_ITEM_DICTIONARY,
-  PACKING_ITEM_TYPES,
 } from './kinds'
 
 export type DermatSeedScope = { tenantId: string; organizationId: string }
@@ -255,19 +253,9 @@ export async function seedDermatProductTypes(em: EntityManager, scope: DermatSee
   })
 }
 
-export async function seedDermatPackingItemTypes(em: EntityManager, scope: DermatSeedScope) {
-  await seedDictionary(em, scope, {
-    key: PACKING_ITEM_DICTIONARY,
-    name: 'Packing item type',
-    description: 'Packing items that can be created for a Finished Good (Carton, Label, Tube…). Each one becomes "<Type> - <product name>".',
-    values: PACKING_ITEM_TYPES,
-  })
-}
-
 export async function seedDermatProducts(em: EntityManager, scope: DermatSeedScope) {
   await seedDermatUnits(em, scope)
   await seedDermatProductTypes(em, scope)
-  await seedDermatPackingItemTypes(em, scope)
   await seedDermatGstRates(em, scope)
   await seedDermatProductKinds(em, scope)
   await seedDermatCategories(em, scope)
