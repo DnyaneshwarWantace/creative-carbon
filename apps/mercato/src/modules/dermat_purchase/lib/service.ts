@@ -7,7 +7,7 @@ import { createInwardCheck } from '../../dermat_quality/lib/service'
 import { performerId, runCommand, type StoreContext } from '../../dermat_store/lib/server'
 import { ensureStockRecords } from '../../dermat_store/lib/stockSetup'
 import { GoodsReceipt, GoodsReceiptLine, PurchaseOrder, PurchaseOrderLine, type GrnStatus, type PoStatus } from '../data/entities'
-import type { GrnInput, PoInput } from '../data/validators'
+import type { DirectGrnInput, GrnInput, PoInput } from '../data/validators'
 import { linkIndentsToPo, notifyApprovers } from './indents'
 import { loadCompany } from '../../dermat_accounts/lib/documents'
 import { nextSeriesCode } from '../../dermat_accounts/lib/numberSeries'
@@ -244,6 +244,89 @@ async function uniqueLotNumber(ctx: Scope, variantId: string, wanted: string, gr
   return Number(row?.count ?? 0) ? `${wanted} (${grnCode})` : wanted
 }
 
+type ReceiveEntry = { productId: string; unit: string; quantity: number; lotNumber: string; mfgDate?: string | null; expiryDate?: string | null; poLineId?: string | null; rate?: number | null; gstPercent?: number | null }
+
+async function stockTargets(ctx: StoreContext, productIds: string[]) {
+  const warehouse = await dermatWarehouse(ctx)
+  if (!warehouse) throw new PurchaseError('The store locations are missing. Set them up under Masters → Stores.', 409)
+  const variants = await ensureStockRecords(ctx, productIds)
+  const skus = new Map<string, string>()
+  if (variants.size) {
+    const rows = await ctx.em.getConnection().execute<Array<{ id: string; sku: string | null }>>(
+      `select id, sku from catalog_product_variants where id = any(?::uuid[])`,
+      [`{${Array.from(variants.values()).join(',')}}`],
+    )
+    for (const row of rows) if (row.sku) skus.set(row.id, row.sku)
+  }
+  const products = await loadProducts(ctx, productIds)
+  for (const productId of productIds) {
+    const variantId = variants.get(productId)
+    if (!variantId || !skus.get(variantId)) throw new PurchaseError(`${products.get(productId)?.title ?? 'A material'} has no stock record (SKU) yet`)
+  }
+  return { warehouse, variants, skus, products }
+}
+
+async function receiveLines(ctx: StoreContext, grn: GoodsReceipt, entries: ReceiveEntry[], source: { poId: string | null; poCode: string | null; vendorName: string }, byName: string | null): Promise<GoodsReceiptLine[]> {
+  const { warehouse, variants, skus, products } = await stockTargets(ctx, [...new Set(entries.map((entry) => entry.productId))])
+  const lines: GoodsReceiptLine[] = []
+  for (const entry of entries) {
+    const product = products.get(entry.productId)
+    const store = product?.kind === 'raw_material' ? 'rm' : 'pm'
+    const variantId = variants.get(entry.productId)!
+    const locationId = warehouse.locations.get(LOCATION_CODES[store])
+    if (!locationId) throw new PurchaseError(`The ${LOCATION_CODES[store]} location is missing`, 409)
+    const lotNumber = await uniqueLotNumber(ctx, variantId, entry.lotNumber, grn.code)
+    const lot = await runCommand<{ lotId: string }>(ctx, 'wms.lots.create', {
+      catalogVariantId: variantId,
+      sku: skus.get(variantId),
+      lotNumber,
+      batchNumber: entry.lotNumber,
+      ...(entry.mfgDate ? { manufacturedAt: entry.mfgDate } : {}),
+      ...(entry.expiryDate ? { expiresAt: entry.expiryDate } : {}),
+      status: 'quarantine',
+      metadata: { grnId: grn.id, grnCode: grn.code, poCode: source.poCode, vendor: source.vendorName },
+    })
+    await runCommand(ctx, 'wms.inventory.receive', {
+      warehouseId: warehouse.warehouseId,
+      locationId,
+      catalogVariantId: variantId,
+      lotId: lot.lotId,
+      quantity: round(entry.quantity),
+      referenceType: 'po',
+      referenceId: randomUUID(),
+      performedBy: performerId(ctx),
+      reason: `${grn.code} from ${source.vendorName} (${source.poCode ?? 'without PO'}) · under QC test`,
+      metadata: { grnId: grn.id, grnCode: grn.code, poId: source.poId, poCode: source.poCode },
+    })
+    const line = ctx.em.create(GoodsReceiptLine, {
+      organizationId: ctx.organizationId,
+      tenantId: ctx.tenantId,
+      grnId: grn.id,
+      poLineId: entry.poLineId ?? null,
+      rate: entry.rate == null ? null : String(entry.rate),
+      gstPercent: entry.gstPercent == null ? null : String(entry.gstPercent),
+      productId: entry.productId,
+      variantId,
+      unit: entry.unit,
+      store,
+      quantity: String(round(entry.quantity)),
+      lotId: lot.lotId,
+      lotNumber,
+      mfgDate: entry.mfgDate ?? null,
+      expiryDate: entry.expiryDate ?? null,
+    })
+    const check = await createInwardCheck(ctx, { grnId: grn.id, grnCode: grn.code, productId: entry.productId, lotNumber, byName })
+    if (check) line.qcCheckId = check.id
+    else {
+      await runCommand(ctx, 'wms.lots.update', { id: lot.lotId, status: 'available', notes: 'No inward QC rule: approved on receipt' })
+      line.qcStatus = 'passed'
+    }
+    ctx.em.persist(line)
+    lines.push(line)
+  }
+  return lines
+}
+
 export async function createGrn(ctx: StoreContext, input: GrnInput): Promise<GoodsReceipt> {
   const po = await findPo(ctx, input.poId)
   if (po.status !== 'approved' && po.status !== 'partly_received') {
@@ -270,22 +353,7 @@ export async function createGrn(ctx: StoreContext, input: GrnInput): Promise<Goo
       )
     }
   }
-  const warehouse = await dermatWarehouse(ctx)
-  if (!warehouse) throw new PurchaseError('The store locations are missing. Set them up under Masters → Stores.', 409)
-  const variants = await ensureStockRecords(ctx, poLines.map((line) => line.productId))
-  const skus = new Map<string, string>()
-  if (variants.size) {
-    const rows = await ctx.em.getConnection().execute<Array<{ id: string; sku: string | null }>>(
-      `select id, sku from catalog_product_variants where id = any(?::uuid[])`,
-      [`{${Array.from(variants.values()).join(',')}}`],
-    )
-    for (const row of rows) if (row.sku) skus.set(row.id, row.sku)
-  }
-  for (const entry of input.lines) {
-    const line = poLines.find((candidate) => candidate.id === entry.poLineId)!
-    const variantId = variants.get(line.productId)
-    if (!variantId || !skus.get(variantId)) throw new PurchaseError(`${products.get(line.productId)?.title ?? 'A material'} has no stock record (SKU) yet`)
-  }
+  await stockTargets(ctx, [...new Set(poLines.filter((line) => merged.has(line.id)).map((line) => line.productId))])
 
   const byName = await currentUserName(ctx)
   const grn = ctx.em.create(GoodsReceipt, {
@@ -306,66 +374,62 @@ export async function createGrn(ctx: StoreContext, input: GrnInput): Promise<Goo
   ctx.em.persist(grn)
   await ctx.em.flush()
 
-  const grnLines: GoodsReceiptLine[] = []
+  const entries: ReceiveEntry[] = input.lines.map((entry) => {
+    const poLine = poLines.find((candidate) => candidate.id === entry.poLineId)!
+    return { productId: poLine.productId, unit: poLine.unit, quantity: entry.quantity, lotNumber: entry.lotNumber, mfgDate: entry.mfgDate, expiryDate: entry.expiryDate, poLineId: poLine.id }
+  })
+  const grnLines = await receiveLines(ctx, grn, entries, { poId: po.id, poCode: po.code, vendorName: po.vendorName }, byName)
   for (const entry of input.lines) {
     const poLine = poLines.find((candidate) => candidate.id === entry.poLineId)!
-    const product = products.get(poLine.productId)
-    const store = product?.kind === 'raw_material' ? 'rm' : 'pm'
-    const variantId = variants.get(poLine.productId)!
-    const locationId = warehouse.locations.get(LOCATION_CODES[store])
-    if (!locationId) throw new PurchaseError(`The ${LOCATION_CODES[store]} location is missing`, 409)
-    const lotNumber = await uniqueLotNumber(ctx, variantId, entry.lotNumber, grn.code)
-    const lot = await runCommand<{ lotId: string }>(ctx, 'wms.lots.create', {
-      catalogVariantId: variantId,
-      sku: skus.get(variantId),
-      lotNumber,
-      batchNumber: entry.lotNumber,
-      ...(entry.mfgDate ? { manufacturedAt: entry.mfgDate } : {}),
-      ...(entry.expiryDate ? { expiresAt: entry.expiryDate } : {}),
-      status: 'quarantine',
-      metadata: { grnId: grn.id, grnCode: grn.code, poCode: po.code, vendor: po.vendorName },
-    })
-    await runCommand(ctx, 'wms.inventory.receive', {
-      warehouseId: warehouse.warehouseId,
-      locationId,
-      catalogVariantId: variantId,
-      lotId: lot.lotId,
-      quantity: round(entry.quantity),
-      referenceType: 'po',
-      referenceId: randomUUID(),
-      performedBy: performerId(ctx),
-      reason: `${grn.code} from ${po.vendorName} (${po.code}) · under QC test`,
-      metadata: { grnId: grn.id, grnCode: grn.code, poId: po.id, poCode: po.code },
-    })
-    const line = ctx.em.create(GoodsReceiptLine, {
-      organizationId: ctx.organizationId,
-      tenantId: ctx.tenantId,
-      grnId: grn.id,
-      poLineId: poLine.id,
-      productId: poLine.productId,
-      variantId,
-      unit: poLine.unit,
-      store,
-      quantity: String(round(entry.quantity)),
-      lotId: lot.lotId,
-      lotNumber,
-      mfgDate: entry.mfgDate ?? null,
-      expiryDate: entry.expiryDate ?? null,
-    })
-    const check = await createInwardCheck(ctx, { grnId: grn.id, grnCode: grn.code, productId: poLine.productId, lotNumber, byName })
-    if (check) line.qcCheckId = check.id
-    else {
-      await runCommand(ctx, 'wms.lots.update', { id: lot.lotId, status: 'available', notes: 'No inward QC rule: approved on receipt' })
-      line.qcStatus = 'passed'
-    }
-    ctx.em.persist(line)
-    grnLines.push(line)
     poLine.receivedQty = String(round(num(poLine.receivedQty) + entry.quantity))
   }
   grn.status = grnStatus(grnLines)
   po.status = receivedStatus(po, poLines)
   stamp(po, 'goods_received', byName, grn.code)
   po.updatedAt = new Date()
+  await ctx.em.flush()
+  return grn
+}
+
+export async function createDirectGrn(ctx: StoreContext, input: DirectGrnInput): Promise<GoodsReceipt> {
+  const vendor = await findVendor(ctx, input.vendorId)
+  const products = await loadProducts(ctx, input.lines.map((line) => line.productId))
+  for (const entry of input.lines) {
+    const product = products.get(entry.productId)
+    if (!product) throw new PurchaseError('A material on the list was not found', 404)
+    if (product.kind !== 'raw_material' && product.kind !== 'packing_material') throw new PurchaseError(`${product.title} is not a raw or packing material`)
+  }
+  await stockTargets(ctx, [...new Set(input.lines.map((line) => line.productId))])
+  const byName = await currentUserName(ctx)
+  const grn = ctx.em.create(GoodsReceipt, {
+    organizationId: ctx.organizationId,
+    tenantId: ctx.tenantId,
+    code: await nextCode(ctx, 'dermat_grns', 'GR'),
+    poId: null,
+    poCode: null,
+    vendorId: vendor.id,
+    vendorName: vendor.name,
+    grnDate: input.grnDate,
+    invoiceNo: input.invoiceNo ?? null,
+    invoiceDate: input.invoiceDate ?? null,
+    notes: [`Without PO: ${input.reason}`, input.notes].filter(Boolean).join('\n'),
+    receivedByName: byName,
+    history: [{ action: 'received', by: byName, at: new Date().toISOString(), note: `Without PO: ${input.reason}${input.invoiceNo ? ` · invoice ${input.invoiceNo}` : ''}` }],
+  })
+  ctx.em.persist(grn)
+  await ctx.em.flush()
+  const entries: ReceiveEntry[] = input.lines.map((entry) => ({
+    productId: entry.productId,
+    unit: products.get(entry.productId)?.unit ?? (products.get(entry.productId)?.kind === 'raw_material' ? 'kg' : 'pc'),
+    quantity: entry.quantity,
+    lotNumber: entry.lotNumber,
+    mfgDate: entry.mfgDate,
+    expiryDate: entry.expiryDate,
+    rate: entry.rate,
+    gstPercent: entry.gstPercent,
+  }))
+  const grnLines = await receiveLines(ctx, grn, entries, { poId: null, poCode: null, vendorName: vendor.name }, byName)
+  grn.status = grnStatus(grnLines)
   await ctx.em.flush()
   return grn
 }
@@ -414,18 +478,20 @@ export async function returnToVendor(ctx: StoreContext, grn: GoodsReceipt, lineI
   })
   line.returnedQty = String(round(quantity))
   line.qcStatus = 'returned'
-  const poLine = await ctx.em.findOne(PurchaseOrderLine, { id: line.poLineId })
-  const po = await findPo(ctx, grn.poId)
-  if (poLine) poLine.receivedQty = String(round(Math.max(0, num(poLine.receivedQty) - quantity)))
-  const poLines = await ctx.em.find(PurchaseOrderLine, { poId: po.id })
-  po.status = receivedStatus(po, poLines)
   const byName = await currentUserName(ctx)
-  stamp(po, 'returned', byName, `${round(quantity)} ${line.unit} back to vendor from ${grn.code}`)
+  if (grn.poId) {
+    const poLine = line.poLineId ? await ctx.em.findOne(PurchaseOrderLine, { id: line.poLineId }) : null
+    const po = await findPo(ctx, grn.poId)
+    if (poLine) poLine.receivedQty = String(round(Math.max(0, num(poLine.receivedQty) - quantity)))
+    const poLines = await ctx.em.find(PurchaseOrderLine, { poId: po.id })
+    po.status = receivedStatus(po, poLines)
+    stamp(po, 'returned', byName, `${round(quantity)} ${line.unit} back to vendor from ${grn.code}`)
+    po.updatedAt = new Date()
+  }
   const lines = await ctx.em.find(GoodsReceiptLine, { grnId: grn.id })
   grn.status = grnStatus(lines)
   stamp(grn, 'returned', byName, note)
   grn.updatedAt = new Date()
-  po.updatedAt = new Date()
   await ctx.em.flush()
 }
 
@@ -439,7 +505,8 @@ export async function grnView(ctx: OrderContext, grn: GoodsReceipt) {
         [`{${checkIds.join(',')}}`],
       )
     : []
-  const poLines = await ctx.em.find(PurchaseOrderLine, { id: { $in: lines.map((line) => line.poLineId) } })
+  const poLineIds = lines.map((line) => line.poLineId).filter((id): id is string => Boolean(id))
+  const poLines = poLineIds.length ? await ctx.em.find(PurchaseOrderLine, { id: { $in: poLineIds } }) : []
   return {
     id: grn.id,
     code: grn.code,
@@ -467,7 +534,8 @@ export async function grnView(ctx: OrderContext, grn: GoodsReceipt) {
         unit: line.unit,
         store: line.store,
         quantity: num(line.quantity),
-        rate: poLine ? num(poLine.rate) : null,
+        rate: poLine ? num(poLine.rate) : line.rate != null ? num(line.rate) : null,
+        gstPercent: poLine ? num(poLine.gstPercent) : line.gstPercent != null ? num(line.gstPercent) : null,
         lotNumber: line.lotNumber,
         mfgDate: line.mfgDate ?? null,
         expiryDate: line.expiryDate ?? null,

@@ -71,8 +71,8 @@ export type GrnLineView = {
 export type GrnView = {
   id: string
   code: string
-  poId: string
-  poCode: string
+  poId: string | null
+  poCode: string | null
   vendorId: string
   vendorName: string
   grnDate: string

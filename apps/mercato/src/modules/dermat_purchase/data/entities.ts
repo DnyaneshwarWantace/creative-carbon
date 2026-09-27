@@ -140,7 +140,7 @@ export class PurchaseOrderLine {
 @Index({ name: 'dermat_grns_po_idx', properties: ['poId'] })
 @Unique({ name: 'dermat_grns_code_uq', properties: ['organizationId', 'tenantId', 'code'] })
 export class GoodsReceipt {
-  [OptionalProps]?: 'status' | 'invoiceNo' | 'invoiceDate' | 'notes' | 'receivedByName' | 'history' | 'createdAt' | 'updatedAt' | 'deletedAt'
+  [OptionalProps]?: 'status' | 'poId' | 'poCode' | 'invoiceNo' | 'invoiceDate' | 'notes' | 'receivedByName' | 'history' | 'createdAt' | 'updatedAt' | 'deletedAt'
 
   @PrimaryKey({ type: 'uuid', defaultRaw: 'gen_random_uuid()' })
   id!: string
@@ -154,11 +154,11 @@ export class GoodsReceipt {
   @Property({ type: 'text' })
   code!: string
 
-  @Property({ name: 'po_id', type: 'uuid' })
-  poId!: string
+  @Property({ name: 'po_id', type: 'uuid', nullable: true })
+  poId?: string | null
 
-  @Property({ name: 'po_code', type: 'text' })
-  poCode!: string
+  @Property({ name: 'po_code', type: 'text', nullable: true })
+  poCode?: string | null
 
   @Property({ name: 'vendor_id', type: 'uuid' })
   vendorId!: string
@@ -201,7 +201,7 @@ export class GoodsReceipt {
 @Index({ name: 'dermat_grn_lines_grn_idx', properties: ['grnId'] })
 @Index({ name: 'dermat_grn_lines_check_idx', properties: ['qcCheckId'] })
 export class GoodsReceiptLine {
-  [OptionalProps]?: 'lotId' | 'mfgDate' | 'expiryDate' | 'qcCheckId' | 'qcStatus' | 'returnedQty' | 'createdAt' | 'updatedAt'
+  [OptionalProps]?: 'poLineId' | 'rate' | 'gstPercent' | 'lotId' | 'mfgDate' | 'expiryDate' | 'qcCheckId' | 'qcStatus' | 'returnedQty' | 'createdAt' | 'updatedAt'
 
   @PrimaryKey({ type: 'uuid', defaultRaw: 'gen_random_uuid()' })
   id!: string
@@ -215,8 +215,14 @@ export class GoodsReceiptLine {
   @Property({ name: 'grn_id', type: 'uuid' })
   grnId!: string
 
-  @Property({ name: 'po_line_id', type: 'uuid' })
-  poLineId!: string
+  @Property({ name: 'po_line_id', type: 'uuid', nullable: true })
+  poLineId?: string | null
+
+  @Property({ type: 'decimal', precision: 14, scale: 4, nullable: true })
+  rate?: string | null
+
+  @Property({ name: 'gst_percent', type: 'decimal', precision: 5, scale: 2, nullable: true })
+  gstPercent?: string | null
 
   @Property({ name: 'product_id', type: 'uuid' })
   productId!: string

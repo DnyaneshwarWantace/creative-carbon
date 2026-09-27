@@ -46,7 +46,7 @@ type Bill = {
   payments: Array<{ id: string; amount: number; paidOn: string; mode: string | null; reference: string | null; by: string | null }>
   updatedAt: string
 }
-type Grn = { grnId: string; code: string; grnDate: string; poCode: string; invoiceNo: string | null; taxable: number; gst: number; total: number }
+type Grn = { grnId: string; code: string; grnDate: string; poCode: string | null; invoiceNo: string | null; taxable: number; gst: number; total: number }
 type Vendor = { id: string; name: string; code: string | null; paymentTerms: string | null }
 type View = 'to_pay' | 'overdue' | 'paid' | 'all'
 
@@ -375,7 +375,7 @@ export function VendorBillsPage() {
                             }
                           />
                           <span className="min-w-0 flex-1">
-                            <span className="font-mono text-xs">{grn.code}</span> · {day(grn.grnDate)} · <span className="font-mono text-xs">{grn.poCode}</span>
+                            <span className="font-mono text-xs">{grn.code}</span> · {day(grn.grnDate)} · <span className="font-mono text-xs">{grn.poCode ?? t('dermat_accounts.bills.withoutPo', 'Without PO')}</span>
                             {grn.invoiceNo ? <span className="block text-xs text-muted-foreground">{t('dermat_accounts.bills.theirInvoice', 'Their invoice {no}', { no: grn.invoiceNo })}</span> : null}
                           </span>
                           <span className="tabular-nums">{rupees(grn.total)}</span>

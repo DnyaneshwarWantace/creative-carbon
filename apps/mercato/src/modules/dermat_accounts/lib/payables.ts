@@ -39,17 +39,19 @@ export async function grnAmounts(ctx: OrderContext, grnIds: string[]) {
   if (!grnIds.length) return []
   const grns = await ctx.em.find(GoodsReceipt, { id: { $in: grnIds }, tenantId: ctx.tenantId, organizationId: ctx.organizationId, deletedAt: null })
   const lines = await ctx.em.find(GoodsReceiptLine, { grnId: { $in: grns.map((grn) => grn.id) } })
-  const poLines = lines.length ? await ctx.em.find(PurchaseOrderLine, { id: { $in: [...new Set(lines.map((line) => line.poLineId))] } }) : []
+  const poLineIds = [...new Set(lines.map((line) => line.poLineId).filter((id): id is string => Boolean(id)))]
+  const poLines = poLineIds.length ? await ctx.em.find(PurchaseOrderLine, { id: { $in: poLineIds } }) : []
   return grns.map((grn) => {
     let taxable = 0
     let gst = 0
     for (const line of lines.filter((entry) => entry.grnId === grn.id)) {
       const poLine = poLines.find((entry) => entry.id === line.poLineId)
-      if (!poLine) continue
+      const rate = poLine ? Number(poLine.rate) : Number(line.rate ?? 0)
+      const gstPercent = poLine ? Number(poLine.gstPercent ?? 0) : Number(line.gstPercent ?? 0)
       const kept = Math.max(0, Number(line.quantity) - Number(line.returnedQty ?? 0))
-      const value = kept * Number(poLine.rate)
+      const value = kept * rate
       taxable += value
-      gst += (value * Number(poLine.gstPercent ?? 0)) / 100
+      gst += (value * gstPercent) / 100
     }
     return { grnId: grn.id, code: grn.code, grnDate: grn.grnDate, poId: grn.poId, poCode: grn.poCode, vendorId: grn.vendorId, invoiceNo: grn.invoiceNo ?? null, taxable: money(taxable), gst: money(gst), total: money(taxable + gst) }
   })

@@ -106,10 +106,17 @@ export function GrnPage({ grnId }: { grnId: string }) {
               </StatusBadge>
             </div>
             <p className="text-sm text-muted-foreground">
-              {grn.vendorName} · {t('dermat_purchase.grnDetail.against', 'against')}{' '}
-              <Link href={`/backend/purchase/orders/${grn.poId}`} className="font-mono font-medium text-foreground hover:underline">
-                {grn.poCode}
-              </Link>{' '}
+              {grn.vendorName} ·{' '}
+              {grn.poId ? (
+                <>
+                  {t('dermat_purchase.grnDetail.against', 'against')}{' '}
+                  <Link href={`/backend/purchase/orders/${grn.poId}`} className="font-mono font-medium text-foreground hover:underline">
+                    {grn.poCode}
+                  </Link>
+                </>
+              ) : (
+                <span className="font-medium text-foreground">{t('dermat_purchase.grn.withoutPo', 'Without PO')}</span>
+              )}{' '}
               · {day(grn.grnDate)}
             </p>
           </div>

@@ -52,7 +52,7 @@ type Summary = {
     lastPoDate: string | null
   }
   pos: Array<{ id: string; code: string; poDate: string; expectedDate: string | null; status: PoStatus; value: number; receivedPercent: number; firstReceipt: string | null; late: boolean; orderRefs: Array<{ orderId: string; orderNo: string }> }>
-  grns: Array<{ id: string; code: string; poId: string; poCode: string; grnDate: string; invoiceNo: string | null; status: GrnStatus; lines: number; passed: number; failed: number }>
+  grns: Array<{ id: string; code: string; poId: string | null; poCode: string | null; grnDate: string; invoiceNo: string | null; status: GrnStatus; lines: number; passed: number; failed: number }>
   materials: Array<{ productId: string; title: string; code: string | null; unit: string; orderedQty: number; receivedQty: number; lastRate: number; lastPoDate: string; poCount: number }>
 }
 
@@ -412,9 +412,13 @@ export function VendorFile({ vendorId }: { vendorId: string }) {
                             </td>
                             <td className="px-3 py-2 tabular-nums">{day(grn.grnDate)}</td>
                             <td className="px-3 py-2">
-                              <Link className="hover:underline" href={`/backend/purchase/orders/${grn.poId}`}>
-                                {grn.poCode}
-                              </Link>
+                              {grn.poId ? (
+                                <Link className="hover:underline" href={`/backend/purchase/orders/${grn.poId}`}>
+                                  {grn.poCode}
+                                </Link>
+                              ) : (
+                                <span className="text-muted-foreground">{t('dermat_purchase.grn.withoutPo', 'Without PO')}</span>
+                              )}
                             </td>
                             <td className="px-3 py-2">{grn.invoiceNo ?? <span className="text-muted-foreground">—</span>}</td>
                             <td className="px-3 py-2 text-right tabular-nums">

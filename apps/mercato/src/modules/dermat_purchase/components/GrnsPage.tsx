@@ -13,13 +13,16 @@ import { Spinner } from '@open-mercato/ui/primitives/spinner'
 import { apiCall } from '@open-mercato/ui/backend/utils/apiCall'
 import { GRN_STATUS, day, type GrnStatus, type GrnView } from './shared'
 import { ExportButton } from '../../dermat_products/components/ExportButton'
+import { Button } from '@open-mercato/ui/primitives/button'
+import { useGranted } from '../../dermat_departments/components/useGranted'
 import { downloadCsv, fetchAllPages, fetchDetails } from '../../dermat_products/lib/csvExport'
 
 type View = 'under_test' | 'approved' | 'rejected' | 'all'
-type Row = { id: string; code: string; poId: string; poCode: string; vendorName: string; grnDate: string; invoiceNo: string | null; status: GrnStatus; lineCount: number; passed: number; failed: number; items: string[] }
+type Row = { id: string; code: string; poId: string | null; poCode: string | null; vendorName: string; grnDate: string; invoiceNo: string | null; status: GrnStatus; lineCount: number; passed: number; failed: number; items: string[] }
 
 export function GrnsPage() {
   const t = useT()
+  const granted = useGranted()
   const [view, setView] = React.useState<View>('under_test')
   const [search, setSearch] = React.useState('')
   const [items, setItems] = React.useState<Row[] | null>(null)
@@ -60,7 +63,7 @@ export function GrnsPage() {
     downloadCsv(`grn-${view}`, [
       { header: 'GRN', value: (row) => row.grn.code },
       { header: 'GRN date', value: (row) => row.grn.grnDate },
-      { header: 'PO', value: (row) => row.grn.poCode },
+      { header: 'PO', value: (row) => row.grn.poCode ?? 'Without PO' },
       { header: 'Vendor', value: (row) => row.grn.vendorName },
       { header: 'Invoice no.', value: (row) => row.grn.invoiceNo ?? '' },
       { header: 'Invoice date', value: (row) => row.grn.invoiceDate ?? '' },
@@ -88,9 +91,19 @@ export function GrnsPage() {
             <div className="space-y-1">
               <p className="text-overline font-semibold uppercase tracking-widest text-muted-foreground">{t('dermat_purchase.eyebrow', 'Purchase')}</p>
               <h1 className="text-2xl font-bold tracking-tight">{t('dermat_purchase.grns.title', 'Goods receiving (GRN)')}</h1>
-              <p className="max-w-2xl text-sm text-muted-foreground">{t('dermat_purchase.grns.lede', 'Every delivery against a PO. Stock stays "under QC test" until QC approves the batch; rejected batches go back to the vendor.')}</p>
+              <p className="max-w-2xl text-sm text-muted-foreground">{t('dermat_purchase.grns.lede', 'Every delivery, against a PO or without one. Stock stays "under QC test" until QC approves the batch; rejected batches go back to the vendor.')}</p>
             </div>
-            <ExportButton onExport={exportGrns} />
+            <div className="flex flex-wrap gap-2">
+              {granted.has('dermat_purchase.receive') ? (
+                <Button asChild variant="outline">
+                  <Link href="/backend/purchase/grns/direct">
+                    <PackageCheck className="mr-1.5 h-4 w-4" aria-hidden="true" />
+                    {t('dermat_purchase.grns.direct', 'Receive without PO')}
+                  </Link>
+                </Button>
+              ) : null}
+              <ExportButton onExport={exportGrns} />
+            </div>
           </header>
 
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
@@ -138,7 +151,7 @@ export function GrnsPage() {
                       <div className="md:col-span-3">
                         <p className="font-mono text-sm font-semibold">{row.code}</p>
                         <p className="text-xs text-muted-foreground">
-                          {day(row.grnDate)} · {row.poCode}
+                          {day(row.grnDate)} · {row.poCode ?? t('dermat_purchase.grn.withoutPo', 'Without PO')}
                         </p>
                       </div>
                       <div className="min-w-0 md:col-span-5">

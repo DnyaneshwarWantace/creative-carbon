@@ -4,8 +4,8 @@ import type { OpenApiRouteDoc } from '@open-mercato/shared/lib/openapi'
 import { loadProducts } from '../../../dermat_orders/lib/server'
 import { resolveStoreContext } from '../../../dermat_store/lib/server'
 import { GoodsReceipt, GoodsReceiptLine } from '../../data/entities'
-import { grnInputSchema, grnListSchema } from '../../data/validators'
-import { createGrn, findGrn, grnView, num } from '../../lib/service'
+import { directGrnInputSchema, grnInputSchema, grnListSchema } from '../../data/validators'
+import { createDirectGrn, createGrn, findGrn, grnView, num } from '../../lib/service'
 import { purchaseErrorResponse, runGuarded } from '../../lib/server'
 
 export const metadata = {
@@ -63,9 +63,22 @@ async function GET(req: Request) {
 async function POST(req: Request) {
   const ctx = await resolveStoreContext(req)
   if ('error' in ctx) return NextResponse.json({ error: ctx.error }, { status: ctx.status })
-  const parsed = grnInputSchema.safeParse(await req.json().catch(() => null))
-  if (!parsed.success) return NextResponse.json({ error: 'Enter the quantity and the vendor batch no. for each line' }, { status: 400 })
+  const body = await req.json().catch(() => null)
+  const direct = Boolean(body && typeof body === 'object' && !('poId' in body) && 'vendorId' in body)
   try {
+    if (direct) {
+      const parsed = directGrnInputSchema.safeParse(body)
+      if (!parsed.success) {
+        const reason = parsed.error.issues.find((issue) => issue.path[0] === 'reason')
+        return NextResponse.json({ error: reason ? 'Write why the goods came without a PO' : 'Pick the vendor, then enter quantity, rate and vendor batch no. for each line' }, { status: 400 })
+      }
+      return await runGuarded(ctx, req, { resourceKind: 'dermat_purchase.grn', resourceId: parsed.data.vendorId, operation: 'create', payload: parsed.data }, async () => {
+        const grn = await createDirectGrn(ctx, parsed.data)
+        return NextResponse.json({ id: grn.id, code: grn.code, status: grn.status }, { status: 201 })
+      })
+    }
+    const parsed = grnInputSchema.safeParse(body)
+    if (!parsed.success) return NextResponse.json({ error: 'Enter the quantity and the vendor batch no. for each line' }, { status: 400 })
     return await runGuarded(ctx, req, { resourceKind: 'dermat_purchase.grn', resourceId: parsed.data.poId, operation: 'create', payload: parsed.data }, async () => {
       const grn = await createGrn(ctx, parsed.data)
       return NextResponse.json({ id: grn.id, code: grn.code, status: grn.status }, { status: 201 })
@@ -81,9 +94,9 @@ export const openApi: OpenApiRouteDoc = {
   methods: {
     GET: { summary: 'List GRNs (under test, approved, rejected) or one GRN with lines and QC', tags: ['Dermat Purchase'], query: grnListSchema, responses: [{ status: 200, description: 'GRNs', schema: z.object({ items: z.array(z.object({ id: z.string() }).passthrough()).optional() }).passthrough() }] },
     POST: {
-      summary: 'Receive goods against an approved PO: stock goes into the RM / PM store as "under test" and an inward QC check is created per batch',
+      summary: 'Receive goods against an approved PO (poId + lines) or without a PO (vendorId + reason + lines with rate): stock goes into the RM / PM store as "under test" and an inward QC check is created per batch',
       tags: ['Dermat Purchase'],
-      requestBody: { schema: grnInputSchema },
+      requestBody: { schema: z.union([grnInputSchema, directGrnInputSchema]) },
       responses: [{ status: 201, description: 'Created', schema: z.object({ id: z.string(), code: z.string() }) }],
       errors: [{ status: 409, description: 'PO not approved or already fully received' }],
     },

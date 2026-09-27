@@ -71,6 +71,31 @@ export const grnListSchema = z.object({
 export type PoInput = z.infer<typeof poInputSchema>
 export type GrnInput = z.infer<typeof grnInputSchema>
 
+export const directGrnInputSchema = z.object({
+  vendorId: z.string().uuid(),
+  grnDate: day,
+  invoiceNo: z.string().trim().max(80).optional().nullable(),
+  invoiceDate: day.optional().nullable(),
+  reason: z.string().trim().min(3, 'Write why there is no PO').max(500),
+  notes: z.string().trim().max(2000).optional().nullable(),
+  lines: z
+    .array(
+      z.object({
+        productId: z.string().uuid(),
+        quantity: z.coerce.number().positive().max(100_000_000),
+        rate: z.coerce.number().min(0).max(100_000_000).default(0),
+        gstPercent: z.coerce.number().min(0).max(28).default(18),
+        lotNumber: z.string().trim().min(1).max(80),
+        mfgDate: day.optional().nullable(),
+        expiryDate: day.optional().nullable(),
+      }),
+    )
+    .min(1)
+    .max(200),
+})
+
+export type DirectGrnInput = z.infer<typeof directGrnInputSchema>
+
 export const indentInputSchema = z.object({
   department: z.string().trim().max(120).optional().nullable(),
   source: z.enum(['department', 'planning', 'low_stock']).default('department'),
