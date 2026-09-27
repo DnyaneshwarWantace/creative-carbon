@@ -44,3 +44,15 @@ export const planUpdateSchema = planInputSchema.extend({ id: z.string().uuid() }
 
 export type PlanItemInput = z.infer<typeof planItemSchema>
 export type ReservationAction = z.infer<typeof reservationActionSchema>
+
+export const planSendSchema = z.object({
+  id: z.string().uuid(),
+  prepareBy: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().nullable(),
+  note: z.string().trim().max(1000).optional().nullable(),
+})
+
+export const planStoreSchema = z.object({
+  id: z.string().uuid(),
+  status: z.enum(['preparing', 'ready']),
+  note: z.string().trim().max(1000).optional().nullable(),
+})

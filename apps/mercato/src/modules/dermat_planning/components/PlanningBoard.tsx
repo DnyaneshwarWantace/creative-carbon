@@ -43,6 +43,7 @@ import { flash } from '@open-mercato/ui/backend/FlashMessages'
 import { PLANNING_STATUS, ROW_STATUS, age, daysUntil, qty, shortDate, type CalcRow, type PlanItem, type PlanningOrder, type SavedPlan } from './shared'
 import { ExportButton } from '../../dermat_products/components/ExportButton'
 import { downloadCsv } from '../../dermat_products/lib/csvExport'
+import { SendPlanButton } from './SendPlanButton'
 
 type Selected = Record<string, { orderId: string; productId: string; quantity: string }>
 type Extra = { key: string; productId: string; title: string; unit: string | null; quantity: string }
@@ -86,6 +87,14 @@ export function PlanningBoard() {
     const call = await apiCall<{ items: SavedPlan[] }>('/api/dermat_planning/plans', undefined, { fallback: { items: [] } })
     setPlans(call.result?.items ?? [])
   }, [])
+
+  const reloadPlans = async (planId: string) => {
+    const call = await apiCall<{ items: SavedPlan[] }>('/api/dermat_planning/plans', undefined, { fallback: { items: [] } })
+    const list = call.result?.items ?? []
+    setPlans(list)
+    const fresh = list.find((entry) => entry.id === planId)
+    if (fresh) setPlan(fresh)
+  }
 
   React.useEffect(() => {
     ;(async () => {
@@ -339,6 +348,7 @@ export function PlanningBoard() {
                 <Save className="mr-1.5 h-4 w-4" aria-hidden="true" />
                 {plan ? t('dermat_planning.board.savePlan', 'Save plan') : t('dermat_planning.board.saveNew', 'Save as plan')}
               </Button>
+              {plan ? <SendPlanButton plan={plan} onSent={() => void reloadPlans(plan.id)} /> : null}
             </div>
           </header>
 

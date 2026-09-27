@@ -7,6 +7,7 @@ import { PlanningPlan } from '../../data/entities'
 import { planInputSchema, planUpdateSchema } from '../../data/validators'
 import { PlanningError, nextPlanCode } from '../../lib/service'
 import { planningErrorResponse, runGuarded } from '../../lib/server'
+import { planView } from '../../lib/storeHandoff'
 
 export const metadata = {
   GET: { requireAuth: true, requireFeatures: ['dermat_planning.view'] },
@@ -17,18 +18,7 @@ export const metadata = {
 
 const RESOURCE = 'dermat_planning.plan'
 
-function view(plan: PlanningPlan) {
-  return {
-    id: plan.id,
-    code: plan.code,
-    name: plan.name,
-    notes: plan.notes ?? null,
-    items: plan.items ?? [],
-    createdByName: plan.createdByName ?? null,
-    createdAt: plan.createdAt.toISOString(),
-    updatedAt: plan.updatedAt.toISOString(),
-  }
-}
+const view = planView
 
 async function GET(req: Request) {
   const ctx = await resolveOrderContext(req)

@@ -7,7 +7,7 @@ export type PlanItem = { key: string; orderId: string | null; lineId: string | n
 @Index({ name: 'dermat_planning_plans_scope_idx', properties: ['organizationId', 'tenantId'] })
 @Unique({ name: 'dermat_planning_plans_code_uq', properties: ['organizationId', 'tenantId', 'code'] })
 export class PlanningPlan {
-  [OptionalProps]?: 'notes' | 'createdByName' | 'items' | 'createdAt' | 'updatedAt' | 'deletedAt'
+  [OptionalProps]?: 'notes' | 'createdByName' | 'items' | 'storeStatus' | 'sentAt' | 'sentByName' | 'prepareBy' | 'storeNote' | 'storeUpdatedAt' | 'storeByName' | 'createdAt' | 'updatedAt' | 'deletedAt'
 
   @PrimaryKey({ type: 'uuid', defaultRaw: 'gen_random_uuid()' })
   id!: string
@@ -32,6 +32,27 @@ export class PlanningPlan {
 
   @Property({ name: 'created_by_name', type: 'text', nullable: true })
   createdByName?: string | null
+
+  @Property({ name: 'store_status', type: 'text', nullable: true })
+  storeStatus?: 'sent' | 'preparing' | 'ready' | null
+
+  @Property({ name: 'sent_at', type: Date, nullable: true })
+  sentAt?: Date | null
+
+  @Property({ name: 'sent_by_name', type: 'text', nullable: true })
+  sentByName?: string | null
+
+  @Property({ name: 'prepare_by', type: 'text', nullable: true })
+  prepareBy?: string | null
+
+  @Property({ name: 'store_note', type: 'text', nullable: true })
+  storeNote?: string | null
+
+  @Property({ name: 'store_updated_at', type: Date, nullable: true })
+  storeUpdatedAt?: Date | null
+
+  @Property({ name: 'store_by_name', type: 'text', nullable: true })
+  storeByName?: string | null
 
   @Property({ name: 'created_at', type: Date, onCreate: () => new Date() })
   createdAt: Date = new Date()
