@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from 'react'
+import { Checkbox } from '@open-mercato/ui/primitives/checkbox'
 import Link from 'next/link'
 import { ArrowLeft, CheckCircle2, CircleSlash, ExternalLink, PackageOpen, Send, Undo2 } from 'lucide-react'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
@@ -61,6 +62,7 @@ export function StoreRequestPage({ requestId }: { requestId: string }) {
   const [returns, setReturns] = React.useState<Record<string, string>>({})
   const [counted, setCounted] = React.useState<Record<string, string>>({})
   const [note, setNote] = React.useState('')
+  const [skipOlder, setSkipOlder] = React.useState(false)
   const [dialog, setDialog] = React.useState<Dialogs>(null)
   const [busy, setBusy] = React.useState(false)
 
@@ -152,9 +154,10 @@ export function StoreRequestPage({ requestId }: { requestId: string }) {
       flash(t('dermat_store.detail.nothingToIssue', 'Enter a quantity on at least one line.'), 'error')
       return
     }
-    if (await act('/api/dermat_store/requests/issue', { lines, note: note.trim() || null }, t('dermat_store.detail.issued', 'Issued. Stock moved to PRODUCTION.'))) {
+    if (await act('/api/dermat_store/requests/issue', { lines, note: note.trim() || null, skipOlderBatch: skipOlder }, t('dermat_store.detail.issued', 'Issued. Stock moved to PRODUCTION.'))) {
       setIssuing(false)
       setNote('')
+      setSkipOlder(false)
     }
   }
 
@@ -407,11 +410,11 @@ export function StoreRequestPage({ requestId }: { requestId: string }) {
                                       <SelectValue />
                                     </SelectTrigger>
                                     <SelectContent>
-                                      <SelectItem value={ANY_LOT}>{t('dermat_store.detail.anyBatch', 'Oldest batch first')}</SelectItem>
+                                      <SelectItem value={ANY_LOT}>{t('dermat_store.detail.anyBatch', 'Earliest expiry first')}</SelectItem>
                                       {line.lots.map((lot) =>
                                         lot.lotId ? (
                                           <SelectItem key={lot.lotId} value={lot.lotId}>
-                                            {lot.lotNumber ?? '—'} · {qty(lot.onHand, line.unit)}
+                                            {lot.lotNumber ?? '—'} · {qty(lot.onHand, line.unit)}{lot.expiresAt ? ` · exp ${lot.expiresAt.slice(0, 10)}` : ''}
                                           </SelectItem>
                                         ) : null,
                                       )}
@@ -483,6 +486,10 @@ export function StoreRequestPage({ requestId }: { requestId: string }) {
                       {t('dermat_store.detail.issueNote', 'Note for production (optional)')}
                     </Label>
                     <Input id="issue-note" value={note} onChange={(event) => setNote(event.target.value)} placeholder={t('dermat_store.detail.issueNotePlaceholder', 'e.g. 2 kg short, rest on Monday')} />
+                    <label htmlFor="issue-skip-older" className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <Checkbox id="issue-skip-older" checked={skipOlder} onCheckedChange={(checked) => setSkipOlder(checked === true)} />
+                      {t('dermat_store.detail.skipOlder', 'Use the newer batch even though an older one expires first (write why in the note)')}
+                    </label>
                   </div>
                   <div className="flex gap-2">
                     <Button type="button" variant="outline" onClick={() => setIssuing(false)} disabled={busy}>

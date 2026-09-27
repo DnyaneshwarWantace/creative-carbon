@@ -15,6 +15,7 @@ export const issueSchema = z.object({
   id: z.string().uuid(),
   lines: z.array(z.object({ lineId: z.string().uuid(), lotId: z.string().uuid().nullable().optional(), quantity })).min(1).max(200),
   note: z.string().trim().max(1000).optional().nullable(),
+  skipOlderBatch: z.boolean().optional(),
 })
 
 export const receiveSchema = z.object({
@@ -75,6 +76,7 @@ export const adjustSchema = z.object({
   newLot: z.object({ lotNumber: z.string().trim().min(1).max(120), expiryDate: isoDate.nullable().optional(), mfgDate: isoDate.nullable().optional() }).nullable().optional(),
   reason: z.string().trim().min(1).max(80),
   note: z.string().trim().max(500).nullable().optional(),
+  useReserved: z.boolean().optional(),
 })
 
 export const transferSchema = z.object({
@@ -84,4 +86,5 @@ export const transferSchema = z.object({
   to: z.enum(STOCK_PLACES),
   quantity: z.coerce.number().positive().max(100000000),
   note: z.string().trim().max(500).nullable().optional(),
+  useReserved: z.boolean().optional(),
 })

@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { sweepReservationProblems } from '../../../dermat_planning/lib/health'
 import { z } from 'zod'
 import type { OpenApiRouteDoc } from '@open-mercato/shared/lib/openapi'
 import { resolveOrderContext } from '../../../dermat_orders/lib/server'
@@ -15,6 +16,7 @@ async function GET(req: Request) {
   if ('error' in ctx) return NextResponse.json({ error: ctx.error }, { status: ctx.status })
   return withStageOverrides(ctx, async () => {
     await sweepOverdueStages(ctx)
+  await sweepReservationProblems(ctx)
     return NextResponse.json({ items: await myWork(ctx, ctx.userId, false) })
   })
 }

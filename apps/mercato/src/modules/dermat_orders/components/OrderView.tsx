@@ -270,7 +270,7 @@ export function OrderView({ orderId }: { orderId: string }) {
   const done = order.stages.filter((stage) => stage.status === 'done' || stage.status === 'skipped').length
   const deliveryIn = daysUntil(order.deliveryDate)
   const totalPieces = order.lines.reduce((sum, line) => sum + line.quantity, 0)
-  const shortCount = file ? (file.open ? file.summary.short : 0) : null
+  const shortCount = file ? (file.open ? file.summary.short + (file.summary.reserveProblems ?? 0) : 0) : null
   const statusLabel = t(`dermat_orders.status.${order.status}`, order.status)
   const attention = orderAttention(order, shortCount, t)
   const goToStage = (key: string) => {

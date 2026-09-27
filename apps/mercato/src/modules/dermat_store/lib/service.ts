@@ -250,6 +250,7 @@ export async function issueMaterial(ctx: StoreContext, request: StoreRequest, in
   const from = storeLocation(locations, request.store)
   const byName = await currentUserName(ctx)
   const notes: string[] = []
+  const planned: Array<{ entry: (typeof input.lines)[number]; line: StoreRequestLine; lots: Awaited<ReturnType<typeof lotsAtLocation>> }> = []
   for (const entry of input.lines) {
     const line = lines.find((candidate) => candidate.id === entry.lineId)
     if (!line) throw new StoreError('A line of this request was not found', 404)
@@ -265,10 +266,32 @@ export async function issueMaterial(ctx: StoreContext, request: StoreRequest, in
         409,
       )
     }
-    const refreshed = (await lotsAtLocation(scopeOf(ctx), [line.variantId], from)).filter((lot) => isUsable(lot) && (!entry.lotId || lot.lotId === entry.lotId))
-    let remaining = entry.quantity
-    const issued: LineIssue[] = []
-    try {
+    const usableLots = (await lotsAtLocation(scopeOf(ctx), [line.variantId], from))
+      .filter((lot) => isUsable(lot) && lot.free > EPSILON)
+      .sort((a, b) => (a.expiresAt ?? '9999').localeCompare(b.expiresAt ?? '9999'))
+    if (entry.lotId) {
+      const chosen = usableLots.find((lot) => lot.lotId === entry.lotId)
+      if (!chosen || chosen.free < entry.quantity - EPSILON) throw new StoreError(`The batch you picked has only ${round(chosen?.free ?? 0)} ${line.unit} free for ${line.unit === 'pc' ? 'this line' : 'this material'}. Pick another batch or "Earliest expiry first".`, 409)
+      const chosenIndex = chosen ? usableLots.indexOf(chosen) : -1
+      const older = chosenIndex > 0 ? usableLots.slice(0, chosenIndex).filter((lot) => (lot.expiresAt ?? '9999') < (chosen?.expiresAt ?? '9999')) : []
+      if (older.length && !input.skipOlderBatch) {
+        throw new StoreError(
+          `Batch ${older.map((lot) => `${lot.lotNumber ?? '—'} (${round(lot.free)} ${line.unit}, expires ${lot.expiresAt?.slice(0, 10) ?? '—'})`).join(', ')} expires before ${chosen?.lotNumber ?? 'the batch you picked'}. Issue the older batch first, or tick "Use the newer batch" and write why.`,
+          409,
+        )
+      }
+      if (older.length && !input.note?.trim()) throw new StoreError('Write why the newer batch is issued before the older one', 400)
+      if (older.length) notes.push(`newer batch ${chosen?.lotNumber ?? ''} used before ${older.map((lot) => lot.lotNumber ?? '—').join(', ')}`)
+    }
+    planned.push({ entry, line, lots: usableLots })
+  }
+  const moved: Array<{ entry: (typeof input.lines)[number]; line: StoreRequestLine; issued: LineIssue[] }> = []
+  try {
+    for (const { entry, line, lots: usableLots } of planned) {
+      const refreshed = usableLots.filter((lot) => !entry.lotId || lot.lotId === entry.lotId)
+      let remaining = entry.quantity
+      const issued: LineIssue[] = []
+      moved.push({ entry, line, issued })
       for (const lot of refreshed) {
         if (remaining <= EPSILON) break
         const quantity = Math.min(remaining, Math.max(0, lot.free))
@@ -292,7 +315,9 @@ export async function issueMaterial(ctx: StoreContext, request: StoreRequest, in
         remaining -= quantity
       }
       if (remaining > EPSILON) throw new StoreError(`Not enough free stock in the ${STORE_LABEL[request.store]}: ${round(remaining)} ${line.unit} short`, 409)
-    } catch (error) {
+    }
+  } catch (error) {
+    for (const { line, issued } of moved) {
       for (const done of issued) {
         await runCommand(ctx, 'wms.inventory.move', {
           warehouseId,
@@ -308,8 +333,10 @@ export async function issueMaterial(ctx: StoreContext, request: StoreRequest, in
           performedBy: performerId(ctx),
         })
       }
-      throw error
     }
+    throw error
+  }
+  for (const { entry, line, issued } of moved) {
     await consumeReservation({ ...scopeOf(ctx), userName: byName }, request.orderId, line.productId, entry.quantity, request.code)
     line.issuedQty = String(round(num(line.issuedQty) + entry.quantity))
     line.issues = [...(line.issues ?? []), ...issued]
@@ -575,7 +602,7 @@ export async function requestView(ctx: StoreContext, request: StoreRequest, with
         withProduction: round(num(line.receivedQty) - num(line.usedQty) - num(line.returnedQty)),
         issues: line.issues ?? [],
         reservedForOrder: round(reservedForOrder),
-        lots: lots.filter(isUsable).map((lot) => ({ lotId: lot.lotId, lotNumber: lot.lotNumber, onHand: lot.onHand, free: round(lot.free), expiresAt: lot.expiresAt })),
+        lots: lots.filter(isUsable).sort((a, b) => (a.expiresAt ?? '9999').localeCompare(b.expiresAt ?? '9999')).map((lot) => ({ lotId: lot.lotId, lotNumber: lot.lotNumber, onHand: lot.onHand, free: round(lot.free), expiresAt: lot.expiresAt })),
         inStore: round(lots.filter(isUsable).reduce((sum, lot) => sum + lot.onHand, 0)),
         free: round(freeByProduct.get(line.productId)?.free ?? 0),
         heldByOthers: (freeByProduct.get(line.productId)?.holders ?? []).map((holder) => ({ orderId: holder.orderId, orderNo: holder.orderNo, quantity: round(num(holder.quantity)) })),

@@ -1,4 +1,5 @@
 import { QcCheck } from '../../dermat_quality/data/entities'
+import { reservationHealth } from '../../dermat_planning/lib/health'
 import { StoreRequest, StoreRequestLine } from '../../dermat_store/data/entities'
 import { TaxInvoice } from '../../dermat_accounts/data/entities'
 import { calculate } from '../../dermat_planning/lib/service'
@@ -28,6 +29,7 @@ export async function orderFile(ctx: OrderContext, order: DermatOrder) {
   const stageData = (key: string) => (stages.find((stage) => stage.stageKey === key)?.data ?? {}) as Record<string, unknown>
   const open = order.status !== 'completed' && order.status !== 'cancelled'
 
+  const health = [...(await reservationHealth(ctx, { orderIds: [order.id] })).values()]
   const calc = await calculate(ctx, lines.map((line) => ({ key: line.id, orderId: order.id, lineId: line.id, productId: line.productId, quantity: num(line.quantity) })))
 
   const requests = await ctx.em.find(StoreRequest, { ...scope, orderId: order.id, deletedAt: null }, { orderBy: { createdAt: 'asc' } })
@@ -86,6 +88,9 @@ export async function orderFile(ctx: OrderContext, order: DermatOrder) {
       toBuy: open ? round(Math.max(0, stillNeeded - row.reservedHere - row.free - incoming)) : 0,
       status,
       lots: moved?.lots ?? [],
+      reserveMissing: round(health.filter((entry) => entry.productId === row.productId).reduce((sum, entry) => sum + entry.missing, 0)),
+      reserveExpiring: health.find((entry) => entry.productId === row.productId && entry.expiring)?.expiring ?? null,
+      reservedSince: health.find((entry) => entry.productId === row.productId) ? new Date(Date.now() - (health.find((entry) => entry.productId === row.productId)?.ageDays ?? 0) * 86400000).toISOString().slice(0, 10) : null,
       openPos: row.openPos.map((po) => ({ id: po.poId, code: po.code, open: po.open, expectedDate: po.expectedDate, vendorName: po.vendorName })),
     }
   })
@@ -194,6 +199,7 @@ export async function orderFile(ctx: OrderContext, order: DermatOrder) {
       short: materials.filter((row) => row.status === 'short').length,
       coming: materials.filter((row) => row.status === 'coming').length,
       toBuy: materials.filter((row) => row.toBuy > EPSILON).length,
+      reserveProblems: materials.filter((row) => row.reserveMissing > EPSILON || row.reserveExpiring).length,
     },
     missingBoms: calc.missingBoms,
     indents: indents.map((indent) => ({ id: indent.id, code: indent.code, status: indent.status, department: indent.department })),

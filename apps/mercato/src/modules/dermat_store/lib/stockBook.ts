@@ -1,7 +1,8 @@
 import { randomUUID } from 'node:crypto'
 import { currentUserName, loadProducts, userNames } from '../../dermat_orders/lib/server'
 import { LOCATION_CODES, dermatWarehouse, variantsForProducts } from '../../dermat_products/lib/stock'
-import { reservationsFor } from '../../dermat_planning/lib/service'
+import { reservationsFor, storeStock } from '../../dermat_planning/lib/service'
+import { resolveNotificationService } from '@open-mercato/core/modules/notifications/lib/notificationService'
 import { activeOptions } from '../../dermat_lists/lib/service'
 import { ensureStockRecords } from './stockSetup'
 import { StoreError, performerId, runCommand, type StoreContext } from './server'
@@ -201,6 +202,48 @@ export type AdjustInput = {
   note?: string | null
 }
 
+type ReservedUse = { eats: number; holders: Array<{ orderId: string; orderNo: string; quantity: number }>; title: string; unit: string }
+
+async function guardReserved(ctx: StoreContext, productId: string, quantity: number, input: { useReserved?: boolean; note?: string | null }): Promise<ReservedUse | null> {
+  const [stock, reservations, products] = await Promise.all([storeStock(ctx, [productId]), reservationsFor(ctx, { productIds: [productId] }), loadProducts(ctx, [productId])])
+  const usable = stock.get(productId) ?? 0
+  const reserved = reservations.reduce((sum, entry) => sum + Number(entry.quantity), 0)
+  const eats = round(reserved - (usable - quantity))
+  if (eats <= EPSILON) return null
+  const unit = products.get(productId)?.unit ?? ''
+  const holders = reservations.map((entry) => ({ orderId: entry.orderId, orderNo: entry.orderNo, quantity: round(Number(entry.quantity)), since: entry.since }))
+  const list = holders.map((entry) => `${entry.orderNo} (${entry.quantity} ${unit}, since ${entry.since.toISOString().slice(0, 10)})`).join(', ')
+  if (!input.useReserved) {
+    throw new StoreError(`Only ${round(Math.max(0, usable - reserved))} ${unit} is free. ${eats} ${unit} of this is reserved for ${list}. Move or clear that reservation in Planning, or tick "Use reserved stock" and write why.`, 409)
+  }
+  if (!input.note?.trim()) throw new StoreError('Write why reserved stock is being used', 400)
+  return { eats, holders, title: products.get(productId)?.title ?? 'A material', unit }
+}
+
+async function reportReservedUse(ctx: StoreContext, used: ReservedUse | null, what: string, note: string | null | undefined) {
+  if (!used) return
+  const byName = await currentUserName(ctx)
+  try {
+    const service = resolveNotificationService(ctx.container as unknown as { resolve: (name: string) => unknown })
+    await service.createForFeature(
+      {
+        type: 'dermat_planning.reservation.used',
+        requiredFeature: 'dermat_planning.reserve',
+        title: `${used.eats} ${used.unit} of reserved ${used.title} was ${what}`,
+        body: `Reserved for ${used.holders.map((entry) => entry.orderNo).join(', ')}. ${byName ? `By ${byName}. ` : ''}Reason: ${note ?? '—'}. Re-plan or buy before those orders start.`,
+        severity: 'warning',
+        sourceModule: 'dermat_store',
+        sourceEntityType: 'dermat_planning:reservation',
+        sourceEntityId: used.holders[0]?.orderId ?? null,
+        linkHref: '/backend/planning/reservations',
+      },
+      { tenantId: ctx.tenantId, organizationId: ctx.organizationId },
+    )
+  } catch {
+    return
+  }
+}
+
 export async function adjustStock(ctx: StoreContext, input: AdjustInput) {
   const reasons = await activeOptions(ctx, 'stock_adjust_reasons')
   if (!reasons.includes(input.reason)) throw new StoreError('Pick a reason from the list')
@@ -220,6 +263,7 @@ export async function adjustStock(ctx: StoreContext, input: AdjustInput) {
     const balance = await lotBalance(ctx, variantId, locationId, input.lotId)
     if (!balance || balance.onHand <= EPSILON) throw new StoreError(`That batch is not in the ${PLACE_LABEL[input.place]}`, 404)
     if (input.quantity > balance.free + EPSILON) throw new StoreError(`Only ${round(balance.free)} is free in that batch`, 409)
+    const reservedUse = (input.place === 'rm' || input.place === 'pm') && balance.status === 'available' ? await guardReserved(ctx, input.productId, input.quantity, input) : null
     await runCommand(ctx, 'wms.inventory.adjust', {
       warehouseId,
       locationId,
@@ -233,6 +277,7 @@ export async function adjustStock(ctx: StoreContext, input: AdjustInput) {
       performedBy: performerId(ctx),
       metadata,
     })
+    await reportReservedUse(ctx, reservedUse, `removed from the store (${input.reason})`, input.note)
     return
   }
 
@@ -268,7 +313,7 @@ export async function adjustStock(ctx: StoreContext, input: AdjustInput) {
   })
 }
 
-export type TransferInput = { productId: string; lotId: string | null; from: StockPlace; to: StockPlace; quantity: number; note?: string | null }
+export type TransferInput = { productId: string; lotId: string | null; from: StockPlace; to: StockPlace; quantity: number; note?: string | null; useReserved?: boolean }
 
 export async function transferStock(ctx: StoreContext, input: TransferInput) {
   if (input.from === input.to) throw new StoreError('Pick two different places')
@@ -283,6 +328,8 @@ export async function transferStock(ctx: StoreContext, input: TransferInput) {
   if (!balance || balance.onHand <= EPSILON) throw new StoreError(`That batch is not in the ${PLACE_LABEL[input.from]}`, 404)
   if (balance.status !== 'available') throw new StoreError('Only QC-approved stock can be moved. This batch is under test or on hold.', 409)
   if (input.quantity > balance.free + EPSILON) throw new StoreError(`Only ${round(balance.free)} is free in that batch`, 409)
+  const leavesStore = (input.from === 'rm' || input.from === 'pm') && input.to !== 'rm' && input.to !== 'pm'
+  const reservedUse = leavesStore ? await guardReserved(ctx, input.productId, input.quantity, input) : null
   const byName = await currentUserName(ctx)
   await runCommand(ctx, 'wms.inventory.move', {
     warehouseId,
@@ -299,4 +346,5 @@ export async function transferStock(ctx: StoreContext, input: TransferInput) {
     performedBy: performerId(ctx),
     metadata: { source: 'dermat_store.transfer', note: input.note ?? null, byName },
   })
+  await reportReservedUse(ctx, reservedUse, `moved to the ${PLACE_LABEL[input.to]}`, input.note)
 }

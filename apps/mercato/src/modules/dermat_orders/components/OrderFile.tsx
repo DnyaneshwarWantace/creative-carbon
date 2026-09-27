@@ -30,6 +30,9 @@ export type MaterialRow = {
   toBuy: number
   status: 'used' | 'with_production' | 'reserved' | 'partly_reserved' | 'available' | 'coming' | 'short'
   lots: Array<{ lotNumber: string; quantity: number; stage: string; request: string; at: string | null }>
+  reserveMissing: number
+  reserveExpiring: { lotNumber: string | null; expiresAt: string; quantity: number } | null
+  reservedSince: string | null
   openPos: Array<{ id: string; code: string; open: number; expectedDate: string | null; vendorName: string }>
 }
 
@@ -37,7 +40,7 @@ export type OrderFileData = {
   orderId: string
   open: boolean
   materials: MaterialRow[]
-  summary: { total: number; used: number; withProduction: number; reserved: number; short: number; coming: number; toBuy: number }
+  summary: { total: number; used: number; withProduction: number; reserved: number; short: number; coming: number; toBuy: number; reserveProblems: number }
   missingBoms: string[]
   indents: Array<{ id: string; code: string; status: string; department: string | null }>
   purchases: Array<{ id: string; code: string; status: string; vendorName: string; poDate: string; expectedDate: string | null; total: number; lines: number; grns: Array<{ id: string; code: string; status: string; grnDate: string; invoiceNo: string | null }> }>
@@ -160,6 +163,9 @@ export function MaterialsAccount({ file, order }: { file: OrderFileData | null; 
                       <td className="p-3">
                         <StatusBadge variant={status.variant}>{t(`dermat_orders.file.status.${row.status}`, status.label)}</StatusBadge>
                         {row.toBuy ? <div className="mt-1 text-xs text-status-error-text">{t('dermat_orders.file.toBuy', 'Buy {qty} {unit}', { qty: formatQty(row.toBuy), unit })}</div> : null}
+                        {row.reserved && row.reservedSince ? <div className="mt-1 text-xs text-muted-foreground">{t('dermat_orders.file.reservedSince', 'reserved since {date}', { date: formatDate(row.reservedSince) })}</div> : null}
+                        {row.reserveMissing ? <div className="mt-1 text-xs font-medium text-status-error-text">{t('dermat_orders.file.reserveMissing', '{qty} {unit} of the reserved stock is no longer in the store', { qty: formatQty(row.reserveMissing), unit })}</div> : null}
+                        {row.reserveExpiring ? <div className="mt-1 text-xs font-medium text-status-warning-text">{t('dermat_orders.file.reserveExpiring', 'Reserved batch {lot} expires {date}, before it is needed', { lot: row.reserveExpiring.lotNumber ?? '—', date: formatDate(row.reserveExpiring.expiresAt) })}</div> : null}
                       </td>
                       <td className="p-3">
                         {row.lots.length || row.openPos.length || row.underTest || row.free ? (

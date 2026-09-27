@@ -33,6 +33,10 @@ type Reservation = {
   unit: string | null
   quantity: number
   inStore: number
+  backed?: number
+  missing?: number
+  needBy?: string | null
+  expiring?: { lotNumber: string | null; expiresAt: string; quantity: number } | null
   since: string
   byName: string | null
   note: string | null
@@ -167,12 +171,13 @@ export function ReservationsPage() {
             </div>
           </header>
 
-          <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+          <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
             {[
               { label: t('dermat_planning.res.tileHeld', 'Materials held'), value: String(items?.length ?? '–'), icon: <Lock className="h-4 w-4" />, tone: 'bg-status-success-bg text-status-success-icon' },
               { label: t('dermat_planning.res.tileOrders', 'Orders holding stock'), value: String(new Set((items ?? []).map((row) => row.orderId)).size), icon: <PackageSearch className="h-4 w-4" />, tone: 'bg-status-info-bg text-status-info-icon' },
               { label: t('dermat_planning.res.tileOldest', 'Oldest reservation'), value: oldest ? age(oldest) : '—', icon: <Clock className="h-4 w-4" />, tone: 'bg-muted text-muted-foreground' },
               { label: t('dermat_planning.res.tileOld', 'Held over 3 months'), value: String((items ?? []).filter((row) => ageDays(row.since) >= 90).length), icon: <History className="h-4 w-4" />, tone: 'bg-status-warning-bg text-status-warning-icon' },
+              { label: t('dermat_planning.res.tileProblems', 'Stock gone or expiring'), value: String((items ?? []).filter((row) => row.missing || row.expiring).length), icon: <History className="h-4 w-4" />, tone: 'bg-status-error-bg text-status-error-icon' },
             ].map((tile) => (
               <div key={tile.label} className="flex items-center gap-3 rounded-lg border border-border bg-card p-4 shadow-xs">
                 <span className={cn('flex h-9 w-9 shrink-0 items-center justify-center rounded-full', tile.tone)} aria-hidden="true">
@@ -248,6 +253,9 @@ export function ReservationsPage() {
                                 </Link>
                               )}
                               {row.note ? <p className="mt-0.5 truncate text-xs text-muted-foreground">“{row.note}”</p> : null}
+                              {row.missing ? <p className="mt-0.5 text-xs font-medium text-status-error-text">{t('dermat_planning.res.missing', '{qty} of this is no longer in the store (used, removed, rejected or expired)', { qty: qty(row.missing, row.unit) })}</p> : null}
+                              {row.expiring ? <p className="mt-0.5 text-xs font-medium text-status-warning-text">{t('dermat_planning.res.expiring', 'Batch {lot} expires {date}, before the order needs it ({need})', { lot: row.expiring.lotNumber ?? '—', date: row.expiring.expiresAt, need: row.needBy ?? '—' })}</p> : null}
+                              {row.needBy && !row.missing && !row.expiring ? <p className="mt-0.5 text-xs text-muted-foreground">{t('dermat_planning.res.needBy', 'needed by {date} · all in the store', { date: row.needBy })}</p> : null}
                             </div>
                             <div className="text-right">
                               <p className="text-sm font-semibold tabular-nums">{qty(row.quantity, row.unit)}</p>

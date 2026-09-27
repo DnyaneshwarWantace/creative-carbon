@@ -1,4 +1,5 @@
 import type { EntityManager } from '@mikro-orm/postgresql'
+import { reservationHealth } from './health'
 import { DermatOrder, DermatOrderLine, DermatOrderStage } from '../../dermat_orders/data/entities'
 import { approvedPackBoms, currentUserName, loadCustomers, loadProducts, type OrderContext } from '../../dermat_orders/lib/server'
 import { STAGES } from '../../dermat_orders/lib/stages'
@@ -44,7 +45,7 @@ export async function reservationsFor(ctx: Scope, filter: { orderIds?: string[];
   return ctx.em.find(PlanningReservation, where, { orderBy: { since: 'asc' } })
 }
 
-async function storeLots(ctx: Scope, productIds: string[]) {
+export async function storeLots(ctx: Scope, productIds: string[]) {
   const scope = stockScope(ctx)
   const [warehouse, variants] = await Promise.all([dermatWarehouse(scope), variantsForProducts(scope, productIds)])
   if (!warehouse) return { variants, lots: [] as Awaited<ReturnType<typeof lotsAtLocation>> }
@@ -365,7 +366,7 @@ export async function planningOrders(ctx: OrderContext) {
 export async function reservationList(ctx: OrderContext, filter: { orderId?: string; productId?: string }) {
   const reservations = await reservationsFor(ctx, { orderIds: filter.orderId ? [filter.orderId] : undefined, productIds: filter.productId ? [filter.productId] : undefined })
   const productIds = Array.from(new Set(reservations.map((entry) => entry.productId)))
-  const [products, stock] = await Promise.all([loadProducts(ctx, productIds), storeStock(ctx, productIds)])
+  const [products, stock, health] = await Promise.all([loadProducts(ctx, productIds), storeStock(ctx, productIds), reservationHealth(ctx, { productIds })])
   const logWhere: Record<string, unknown> = { tenantId: ctx.tenantId, organizationId: ctx.organizationId }
   if (filter.orderId) logWhere.$or = [{ orderId: filter.orderId }, { toOrderId: filter.orderId }]
   if (filter.productId) logWhere.productId = filter.productId
@@ -383,6 +384,10 @@ export async function reservationList(ctx: OrderContext, filter: { orderId?: str
       unit: products.get(entry.productId)?.unit ?? null,
       quantity: round(num(entry.quantity)),
       inStore: stock.get(entry.productId) ?? 0,
+      backed: health.get(entry.id)?.backed ?? 0,
+      missing: health.get(entry.id)?.missing ?? 0,
+      needBy: health.get(entry.id)?.needBy ?? null,
+      expiring: health.get(entry.id)?.expiring ?? null,
       since: entry.since.toISOString(),
       byName: entry.byName ?? null,
       note: entry.note ?? null,
