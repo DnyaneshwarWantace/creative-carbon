@@ -47,6 +47,12 @@ const ORDER_VARIANT: Record<string, StatusBadgeVariant> = { booked: 'info', conf
 const STAGE_VARIANT: Record<string, StatusBadgeVariant> = { open: 'warning', on_hold: 'error', done: 'success', skipped: 'neutral', waiting: 'neutral' }
 
 const GST_TYPES = ['registered', 'unregistered', 'composition', 'overseas']
+function readable(value: unknown): string | null {
+  if (typeof value !== 'string') return null
+  const trimmed = value.trim()
+  return trimmed && !UNREADABLE_RE.test(trimmed) ? trimmed : null
+}
+
 function field(row: Row | null, key: string): string | null {
   if (!row) return null
   const value = row[`cf_${key}`] ?? (row.customFields as Row | undefined)?.[key]

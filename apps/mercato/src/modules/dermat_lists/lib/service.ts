@@ -149,7 +149,7 @@ export async function resetList(scope: Scope, def: ListDef): Promise<void> {
 }
 
 function customFieldValues(def: ListDef, values: string[]): string[] {
-  return def.customField?.valueOf === 'paymentTermKey' ? values.map(paymentTermKey) : values
+  return def.customField?.valueMap === 'paymentTermKey' ? values.map(paymentTermKey) : values
 }
 
 export { listDef }

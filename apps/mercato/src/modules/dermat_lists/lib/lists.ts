@@ -8,7 +8,7 @@ export type ListDef = {
   defaults: string[]
   locked?: string[]
   fixed?: string
-  customField?: { entityId: string; key: string; valueOf?: 'paymentTermKey' }
+  customField?: { entityId: string; key: string; valueMap?: 'paymentTermKey' }
 }
 
 export const LIST_DEFS: ListDef[] = [
@@ -172,7 +172,7 @@ export const LIST_DEFS: ListDef[] = [
     usedIn: 'Customers, orders, invoice due dates',
     defaults: ['Due on delivery', '15 days', '30 days', '45 days', '60 days', '90 days'],
     locked: ['Due on delivery'],
-    customField: { entityId: 'customers:customer_company_profile', key: 'payment_terms', valueOf: 'paymentTermKey' },
+    customField: { entityId: 'customers:customer_company_profile', key: 'payment_terms', valueMap: 'paymentTermKey' },
   },
   {
     key: 'gst_types',
