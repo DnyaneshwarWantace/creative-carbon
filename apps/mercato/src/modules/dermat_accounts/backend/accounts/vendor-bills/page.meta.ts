@@ -1,6 +1,6 @@
 export const metadata = {
   requireAuth: true,
-  requireFeatures: ['dermat_accounts.view'],
+  requireFeatures: ['dermat_accounts.view', 'dermat_purchase.view'],
   pageTitle: 'Vendor bills & payments',
   pageTitleKey: 'dermat_accounts.nav.vendorBills',
   pageGroup: 'Accounts',

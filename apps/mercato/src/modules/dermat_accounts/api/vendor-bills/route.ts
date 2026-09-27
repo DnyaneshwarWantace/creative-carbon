@@ -8,7 +8,7 @@ import { billView, createBill, findBill, unbilledGrns } from '../../lib/payables
 import { accountsErrorResponse, runGuarded } from '../../lib/server'
 
 export const metadata = {
-  GET: { requireAuth: true, requireFeatures: ['dermat_accounts.view'] },
+  GET: { requireAuth: true, requireFeatures: ['dermat_accounts.view', 'dermat_purchase.view'] },
   POST: { requireAuth: true, requireFeatures: ['dermat_accounts.record'] },
 }
 
