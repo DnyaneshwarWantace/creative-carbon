@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from 'react'
+import { useGranted } from '../../dermat_departments/components/useGranted'
 import Link from 'next/link'
 import { ArrowRightLeft, Clock, History, Lock, PackageSearch, Search, X } from 'lucide-react'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
@@ -48,6 +49,8 @@ const ACTION_LABEL: Record<string, string> = { reserve: 'Reserved', clear: 'Clea
 
 export function ReservationsPage() {
   const t = useT()
+  const granted = useGranted()
+  const canReserve = !granted.ready || granted.has('dermat_planning.reserve')
   const { runMutation } = useGuardedMutation({ contextId: 'dermat-planning-reservations' })
   const [items, setItems] = React.useState<Reservation[] | null>(null)
   const [history, setHistory] = React.useState<LogEntry[]>([])
@@ -86,7 +89,7 @@ export function ReservationsPage() {
         operation: () => apiCall<{ ok?: boolean; error?: string }>('/api/dermat_planning/reservations', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) }),
       })
       if (!call.ok || !call.result?.ok) {
-        flash(call.result?.error ?? t('dermat_planning.res.error', 'That did not work. Try again.'), 'error')
+        flash((call.status === 403 ? t('dermat_planning.noPermission', 'You do not have permission to change reservations. Ask your admin (Masters → Team & access).') : null) ?? call.result?.error ?? t('dermat_planning.res.error', 'That did not work. Try again.'), 'error')
         return
       }
       flash(dialog.kind === 'move' ? t('dermat_planning.res.moved', 'Reservation moved.') : t('dermat_planning.res.cleared', 'Reservation cleared.'), 'success')
@@ -170,6 +173,11 @@ export function ReservationsPage() {
               />
             </div>
           </header>
+          {!canReserve ? (
+            <p className="rounded-md border border-border bg-muted/40 px-4 py-2.5 text-sm text-muted-foreground">
+              {t('dermat_planning.viewOnly', 'View only: you can see what each order needs, what is in the store and what is reserved. Reserving, moving and clearing stock is done by Planning.')}
+            </p>
+          ) : null}
 
           <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
             {[
@@ -264,6 +272,7 @@ export function ReservationsPage() {
                                 {row.byName ? ` · ${row.byName}` : ''}
                               </p>
                             </div>
+                            {canReserve ? (
                             <div className="flex gap-1">
                               <Button type="button" size="sm" variant="ghost" onClick={() => setDialog({ kind: 'move', row, toOrderId: '', quantity: String(row.quantity), note: '' })}>
                                 <ArrowRightLeft className="mr-1 h-3.5 w-3.5" aria-hidden="true" />
@@ -274,6 +283,7 @@ export function ReservationsPage() {
                                 {t('dermat_planning.res.clear', 'Clear')}
                               </Button>
                             </div>
+                            ) : null}
                           </li>
                         )
                       })}

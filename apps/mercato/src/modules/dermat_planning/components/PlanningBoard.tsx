@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from 'react'
+import { useGranted } from '../../dermat_departments/components/useGranted'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import {
@@ -53,6 +54,8 @@ type MoveState = { productId: string; title: string; unit: string | null; fromOr
 
 export function PlanningBoard() {
   const t = useT()
+  const granted = useGranted()
+  const canReserve = !granted.ready || granted.has('dermat_planning.reserve')
   const params = useSearchParams()
   const router = useRouter()
   const { runMutation } = useGuardedMutation({ contextId: 'dermat-planning-board' })
@@ -202,7 +205,7 @@ export function PlanningBoard() {
           }),
       })
       if (!call.ok || !call.result?.ok) {
-        flash(call.result?.error ?? t('dermat_planning.board.reserveError', 'That did not work. Try again.'), 'error')
+        flash((call.status === 403 ? t('dermat_planning.noPermission', 'You do not have permission to change reservations. Ask your admin (Masters → Team & access).') : null) ?? call.result?.error ?? t('dermat_planning.board.reserveError', 'That did not work. Try again.'), 'error')
         return false
       }
       const results = call.result.results
@@ -261,7 +264,7 @@ export function PlanningBoard() {
       },
     })
     if (!call.ok || !call.result || call.result.error) {
-      flash(call.result?.error ?? t('dermat_planning.board.saveError', 'Could not save the plan.'), 'error')
+      flash((call.status === 403 ? t('dermat_planning.noPermission', 'You do not have permission to change reservations. Ask your admin (Masters → Team & access).') : null) ?? call.result?.error ?? t('dermat_planning.board.saveError', 'Could not save the plan.'), 'error')
       return
     }
     setPlan(call.result)
@@ -344,13 +347,20 @@ export function PlanningBoard() {
                 <Download className="mr-1.5 h-4 w-4" aria-hidden="true" />
                 {t('dermat_planning.board.export', 'Excel (CSV)')}
               </Button>
+              {canReserve ? (
               <Button type="button" variant="outline" onClick={() => setSaving({ name: plan?.name ?? `Week ${weekNumber()}`, notes: plan?.notes ?? '', asNew: !plan })} disabled={!items.length}>
                 <Save className="mr-1.5 h-4 w-4" aria-hidden="true" />
                 {plan ? t('dermat_planning.board.savePlan', 'Save plan') : t('dermat_planning.board.saveNew', 'Save as plan')}
               </Button>
-              {plan ? <SendPlanButton plan={plan} onSent={() => void reloadPlans(plan.id)} /> : null}
+              ) : null}
+              {plan && canReserve ? <SendPlanButton plan={plan} onSent={() => void reloadPlans(plan.id)} /> : null}
             </div>
           </header>
+          {!canReserve ? (
+            <p className="rounded-md border border-border bg-muted/40 px-4 py-2.5 text-sm text-muted-foreground">
+              {t('dermat_planning.viewOnly', 'View only: you can see what each order needs, what is in the store and what is reserved. Reserving, moving and clearing stock is done by Planning.')}
+            </p>
+          ) : null}
 
           <div className="grid grid-cols-1 gap-6 xl:grid-cols-12">
             <aside className="flex flex-col gap-4 xl:col-span-4">
@@ -583,17 +593,23 @@ export function PlanningBoard() {
                         ], rows ?? [])
                       }
                     />
-                    <Button type="button" variant="outline" onClick={raiseIndent} disabled={!(rows ?? []).some((row) => row.toOrder > 0)}>
-                      {t('dermat_planning.board.raiseIndent', 'Raise indent for what to buy')}
-                    </Button>
-                    <Button type="button" variant="outline" onClick={raisePo} disabled={!(rows ?? []).some((row) => row.toOrder > 0)}>
-                      <ShoppingCart className="mr-1.5 h-4 w-4" aria-hidden="true" />
-                      {t('dermat_planning.board.raisePo', 'Raise PO for what to buy')}
-                    </Button>
-                    <Button type="button" onClick={reserveAll} disabled={busy || !pickedOrderIds.length || !rows?.length}>
-                      <Lock className="mr-1.5 h-4 w-4" aria-hidden="true" />
-                      {t('dermat_planning.board.reserveAll', 'Reserve all that is free')}
-                    </Button>
+                    {!granted.ready || granted.has('dermat_purchase.indent') ? (
+                      <Button type="button" variant="outline" onClick={raiseIndent} disabled={!(rows ?? []).some((row) => row.toOrder > 0)}>
+                        {t('dermat_planning.board.raiseIndent', 'Raise indent for what to buy')}
+                      </Button>
+                    ) : null}
+                    {!granted.ready || granted.has('dermat_purchase.manage') ? (
+                      <Button type="button" variant="outline" onClick={raisePo} disabled={!(rows ?? []).some((row) => row.toOrder > 0)}>
+                        <ShoppingCart className="mr-1.5 h-4 w-4" aria-hidden="true" />
+                        {t('dermat_planning.board.raisePo', 'Raise PO for what to buy')}
+                      </Button>
+                    ) : null}
+                    {canReserve ? (
+                      <Button type="button" onClick={reserveAll} disabled={busy || !pickedOrderIds.length || !rows?.length}>
+                        <Lock className="mr-1.5 h-4 w-4" aria-hidden="true" />
+                        {t('dermat_planning.board.reserveAll', 'Reserve all that is free')}
+                      </Button>
+                    ) : null}
                   </div>
                 </div>
 
@@ -704,7 +720,9 @@ export function PlanningBoard() {
                                                 </td>
                                                 <td className="px-3 py-2.5 text-xs text-muted-foreground">{source.since ? age(source.since) : '—'}</td>
                                                 <td className="px-3 py-2">
-                                                  {source.orderId ? (
+                                                  {source.orderId && !canReserve ? (
+                                                    <p className="text-right text-xs tabular-nums text-muted-foreground">{source.reserved ? t('dermat_planning.board.reservedText', '{qty} reserved', { qty: qty(source.reserved, row.unit) }) : t('dermat_planning.board.notReserved', 'not reserved')}</p>
+                                                  ) : source.orderId ? (
                                                     <div className="flex items-center justify-end gap-1.5" onClick={(event) => event.stopPropagation()}>
                                                       <Input
                                                         id={`reserve-${key}`}
