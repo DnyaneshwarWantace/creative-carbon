@@ -17,7 +17,7 @@ import { flash } from '@open-mercato/ui/backend/FlashMessages'
 import { useGranted } from '../../dermat_departments/components/useGranted'
 
 type Plan = { id: string; code: string; name: string; notes: string | null; storeStatus: 'sent' | 'preparing' | 'ready' | null; sentAt: string | null; sentByName: string | null; prepareBy: string | null; storeNote: string | null; storeUpdatedAt: string | null; storeByName: string | null; updatedAt: string }
-type PickRow = { productId: string; code: string | null; title: string; kind: string | null; unit: string | null; store: string; required: number; reserved: number; short: number; underTest: number; onOrder: number; pick: Array<{ lotNumber: string | null; store: string; quantity: number; expiresAt: string | null }>; notInStore: number; orders: Array<{ orderNo: string | null; required: number }> }
+type PickRow = { productId: string; code: string | null; title: string; kind: string | null; unit: string | null; store: string; required: number; reserved: number; short: number; underTest: number; onOrder: number; pick: Array<{ lotNumber: string | null; store: string; quantity: number; expiresAt: string | null }>; notInStore: number; heldForOthers: number; orders: Array<{ orderNo: string | null; required: number }> }
 type Pick = { plan: Plan; orders: Array<{ id: string; orderNo: string; deliveryDate: string | null }>; rows: PickRow[]; missingBoms: string[] }
 
 export const STORE_STATUS: Record<string, { label: string; variant: StatusBadgeVariant }> = {
@@ -40,7 +40,7 @@ function printPick(pick: Pick) {
   const rows = pick.rows
     .map((row) => {
       const batches = row.pick.length ? row.pick.map((lot) => `${escapeHtml(lot.lotNumber ?? '—')}: ${qty(lot.quantity)} ${escapeHtml(row.unit ?? '')}${lot.expiresAt ? ` (exp ${lot.expiresAt.slice(0, 10)})` : ''}`).join('<br>') : '—'
-      return `<tr><td>${escapeHtml(row.store)}</td><td class="mono">${escapeHtml(row.code ?? '')}</td><td>${escapeHtml(row.title)}</td><td class="num">${qty(row.required)} ${escapeHtml(row.unit ?? '')}</td><td>${batches}</td><td class="num">${row.notInStore ? `${qty(row.notInStore)} short` : ''}</td><td class="tick"></td></tr>`
+      return `<tr><td>${escapeHtml(row.store)}</td><td class="mono">${escapeHtml(row.code ?? '')}</td><td>${escapeHtml(row.title)}</td><td class="num">${qty(row.required)} ${escapeHtml(row.unit ?? '')}</td><td>${batches}</td><td class="num">${row.notInStore ? `${qty(row.notInStore)} short${row.heldForOthers ? ` (${qty(row.heldForOthers)} held for other orders)` : ''}` : ''}</td><td class="tick"></td></tr>`
     })
     .join('')
   popup.document.open()
@@ -125,7 +125,7 @@ export function StorePlansPage() {
         <div className="flex flex-col gap-5">
           <header className="space-y-1 border-b pb-4">
             <h1 className="text-2xl font-bold tracking-tight">{t('dermat_planning.store.title', 'Plans to prepare')}</h1>
-            <p className="max-w-3xl text-sm text-muted-foreground">{t('dermat_planning.store.lede', 'Material plans sent by Planning. Each one is a pick list: what to take out, from which store and which batch (oldest expiry first). Mark it Preparing, then Ready; Planning is told when it is ready. Stock only leaves the store when production raises its request and you issue it.')}</p>
+            <p className="max-w-3xl text-sm text-muted-foreground">{t('dermat_planning.store.lede', 'Material plans sent by Planning. Each one is a pick list: what to take out, from which store and which batch (oldest expiry first). Only stock that is free or reserved for these orders is picked; stock held for other orders is never touched. Mark it Preparing, then Ready; Planning is told when it is ready. Stock only leaves the store when production raises its request and you issue it.')}</p>
           </header>
           {!plans.length ? (
             <p className="rounded-lg border bg-card p-8 text-center text-sm text-muted-foreground">{t('dermat_planning.store.none', 'No plans have been sent to the store yet.')}</p>
@@ -226,6 +226,7 @@ export function StorePlansPage() {
                                   <span className="text-status-error-text">
                                     {qty(row.notInStore)} {row.unit}
                                     {row.underTest || row.onOrder ? ` · ${qty(row.underTest)} in QC, ${qty(row.onOrder)} on PO` : ''}
+                                    {row.heldForOthers ? ` · ${qty(row.heldForOthers)} in store but held for other orders` : ''}
                                   </span>
                                 ) : '—'}
                               </td>

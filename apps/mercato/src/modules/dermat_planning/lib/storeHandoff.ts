@@ -34,7 +34,8 @@ export async function pickList(ctx: OrderContext, plan: PlanningPlan) {
     const usable = lots
       .filter((lot) => lot.variantId === variantId && isUsable(lot))
       .sort((a, b) => (a.expiresAt ?? '9999').localeCompare(b.expiresAt ?? '9999'))
-    let left = row.required
+    const allowed = round(Math.min(row.required, row.free + row.reservedHere))
+    let left = allowed
     const pick: Array<{ lotNumber: string | null; store: string; quantity: number; expiresAt: string | null }> = []
     for (const lot of usable) {
       if (left <= 0.0001) break
@@ -56,7 +57,8 @@ export async function pickList(ctx: OrderContext, plan: PlanningPlan) {
       underTest: row.underTest,
       onOrder: row.onOrder,
       pick,
-      notInStore: round(Math.max(0, left)),
+      notInStore: round(Math.max(0, row.required - allowed + left)),
+      heldForOthers: round(Math.max(0, Math.min(row.required - allowed, row.inStore - row.free - row.reservedHere))),
       orders: row.sources.filter((source) => source.orderNo).map((source) => ({ orderNo: source.orderNo, required: source.required })),
     }
   })
