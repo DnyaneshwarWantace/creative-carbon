@@ -36,6 +36,7 @@ import { customerMessages } from './customerMessages'
 import { openServerExport } from '../../dermat_products/lib/csvExport'
 import { paymentTermLabel } from '../../dermat_lists/lib/paymentTerms'
 import { useStageSettings } from './useStageSettings'
+import { MaterialsAccount, useOrderFile } from './OrderFile'
 
 
 const KIND_LABEL: Record<string, string> = { raw_material: 'RM', packing_material: 'PM', bulk: 'Bulk', finished_goods: 'FG' }
@@ -167,6 +168,7 @@ export function OrderView({ orderId }: { orderId: string }) {
   const busy = cancelBusy || stageRunner.busy
   const [cancelOpen, setCancelOpen] = React.useState(false)
   const materials = useOrderMaterials(order)
+  const file = useOrderFile(order)
   const [cancelReason, setCancelReason] = React.useState('')
   const [tab, setTab] = React.useState<OrderTab>('work')
 
@@ -268,9 +270,9 @@ export function OrderView({ orderId }: { orderId: string }) {
   const done = order.stages.filter((stage) => stage.status === 'done' || stage.status === 'skipped').length
   const deliveryIn = daysUntil(order.deliveryDate)
   const totalPieces = order.lines.reduce((sum, line) => sum + line.quantity, 0)
-  const shortRows = materials?.rows.filter((row) => row.quantity > row.onHand) ?? []
+  const shortCount = file ? (file.open ? file.summary.short : 0) : null
   const statusLabel = t(`dermat_orders.status.${order.status}`, order.status)
-  const attention = orderAttention(order, materials ? shortRows.length : null, t)
+  const attention = orderAttention(order, shortCount, t)
   const goToStage = (key: string) => {
     setTab('work')
     setOpenStage(key)
@@ -400,7 +402,7 @@ export function OrderView({ orderId }: { orderId: string }) {
                 <SegmentedControlItem value="money">{t('dermat_orders.view.tabMoney', 'Money')}</SegmentedControlItem>
                 <SegmentedControlItem value="history">{t('dermat_orders.view.tabHistory', 'History')}</SegmentedControlItem>
               </SegmentedControl>
-              {tab === 'work' ? <StageRecord order={order} people={people} busy={busy} shortCount={materials ? shortRows.length : null} focusKey={openStage} onAction={stageAction} /> : null}
+              {tab === 'work' ? <StageRecord order={order} file={file} people={people} busy={busy} shortCount={shortCount} focusKey={openStage} onAction={stageAction} /> : null}
               {tab === 'products' ? (
           <Card>
             <CardHeader className="border-b bg-muted/20 pb-3">
@@ -470,74 +472,7 @@ export function OrderView({ orderId }: { orderId: string }) {
             </CardContent>
           </Card>
               ) : null}
-              {tab === 'materials' ? (
-            <Card className="overflow-hidden">
-              <CardHeader className="border-b bg-muted/20 pb-3">
-                <CardTitle className="flex items-center gap-2 text-sm font-bold">
-                  <Layers className="h-4 w-4 text-primary" />
-                  {t('dermat_orders.view.materials', 'Materials for this order')}
-                </CardTitle>
-                <CardDescription className="text-xs">
-                  {materials
-                    ? shortRows.length
-                      ? t('dermat_orders.view.materialsShort', '{short} of {total} materials are short. Pieces → bulk kg → raw materials from each BOM.', { short: shortRows.length, total: materials.rows.length })
-                      : t('dermat_orders.view.materialsOk', 'Everything is in stock. Pieces → bulk kg → raw materials from each BOM.')
-                    : t('dermat_orders.view.materialsLoading', 'Working out materials…')}
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="overflow-x-auto p-0">
-                {materials?.missing.length ? (
-                  <p className="border-b px-4 py-2 text-xs text-status-warning-text">
-                    {t('dermat_orders.view.noBomFor', 'No BOM yet for: {products}', { products: materials.missing.join(', ') })}
-                  </p>
-                ) : null}
-                <table className="w-full text-sm">
-                  <thead className="border-b bg-muted/40 text-xs uppercase tracking-wide text-muted-foreground">
-                    <tr>
-                      <th className="w-24 p-3 text-left">{t('dermat_orders.view.code', 'Code')}</th>
-                      <th className="p-3 text-left">{t('dermat_orders.view.material', 'Material')}</th>
-                      <th className="w-14 p-3 text-center">{t('dermat_orders.view.type', 'Type')}</th>
-                      <th className="w-32 p-3 text-right">{t('dermat_orders.view.need', 'Needed')}</th>
-                      <th className="w-32 p-3 text-right">{t('dermat_orders.view.onHand', 'On hand')}</th>
-                      <th className="w-32 p-3 text-right">{t('dermat_orders.view.short', 'Short')}</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y">
-                    {(materials?.rows ?? []).map((row) => {
-                      const short = Math.max(0, row.quantity - row.onHand)
-                      return (
-                        <tr key={row.productId} className={cn(short > 0 && 'bg-status-error-bg')}>
-                          <td className="p-3 font-mono text-xs">{row.code ?? '—'}</td>
-                          <td className="p-3">
-                            <Link href={`/backend/products/${row.productId}`} className="hover:underline">
-                              {row.name}
-                            </Link>
-                          </td>
-                          <td className="p-3 text-center text-xs">{KIND_LABEL[row.kind ?? ''] ?? row.kind}</td>
-                          <td className="p-3 text-right font-mono">
-                            {formatQty(row.quantity)} <span className="text-xs text-muted-foreground">{row.unit}</span>
-                          </td>
-                          <td className="p-3 text-right font-mono">
-                            {formatQty(row.onHand)} <span className="text-xs text-muted-foreground">{row.unit}</span>
-                          </td>
-                          <td className={cn('p-3 text-right font-mono font-semibold', short > 0 ? 'text-status-error-text' : 'text-muted-foreground')}>
-                            {short > 0 ? `${formatQty(short)} ${row.unit ?? ''}` : '—'}
-                          </td>
-                        </tr>
-                      )
-                    })}
-                    {materials && !materials.rows.length ? (
-                      <tr>
-                        <td colSpan={6} className="p-6 text-center text-sm text-muted-foreground">
-                          {t('dermat_orders.view.noMaterials', 'Materials appear once the products have a BOM.')}
-                        </td>
-                      </tr>
-                    ) : null}
-                  </tbody>
-                </table>
-              </CardContent>
-            </Card>
-              ) : null}
+              {tab === 'materials' ? <MaterialsAccount file={file} order={order} /> : null}
               {tab === 'documents' ? <DocumentsOverview order={order} onStage={goToStage} /> : null}
               {tab === 'money' ? <OrderMoneyCard order={order} onChanged={load} /> : null}
               {tab === 'history' ? (

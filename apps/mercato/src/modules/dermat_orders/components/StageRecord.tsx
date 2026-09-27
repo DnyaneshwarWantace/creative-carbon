@@ -11,9 +11,11 @@ import { formatDate, formatDateTime, formatQty } from './format'
 import { StageWorkArea, type StageActionRequest } from './StageSheet'
 import { subStageProgress } from './subStages'
 import type { Order, Stage } from './types'
+import { StageFileDetails, type OrderFileData } from './OrderFile'
 
 type Props = {
   order: Order
+  file: OrderFileData | null
   people: Array<{ id: string; name: string }>
   busy: boolean
   shortCount: number | null
@@ -39,7 +41,7 @@ function StatusIcon({ status }: { status: Stage['status'] }) {
   return <span className={cn(base, 'border border-dashed border-border bg-card text-muted-foreground')}><Lock className="h-3.5 w-3.5" aria-hidden="true" /></span>
 }
 
-function DoneSummary({ order, stage }: { order: Order; stage: Stage }) {
+function DoneSummary({ order, stage, file }: { order: Order; stage: Stage; file: OrderFileData | null }) {
   const t = useT()
   const def = stageDef(stage.key)
   const data = stage.data ?? {}
@@ -55,6 +57,7 @@ function DoneSummary({ order, stage }: { order: Order; stage: Stage }) {
   return (
     <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
       <div className="space-y-4 lg:col-span-2">
+        <StageFileDetails order={order} stage={stage} file={file} />
         {filled.length ? (
           <dl className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm sm:grid-cols-3">
             {filled.map(({ field, value }) => (
@@ -139,7 +142,7 @@ function DoneSummary({ order, stage }: { order: Order; stage: Stage }) {
   )
 }
 
-export function StageRecord({ order, people, busy, shortCount, focusKey, onAction }: Props) {
+export function StageRecord({ order, file, people, busy, shortCount, focusKey, onAction }: Props) {
   const t = useT()
   const [expanded, setExpanded] = React.useState<Set<string>>(new Set())
 
@@ -227,9 +230,14 @@ export function StageRecord({ order, people, busy, shortCount, focusKey, onActio
               {isOpen && stage.status !== 'waiting' ? (
                 <div className="border-t bg-card px-4 py-4 sm:pl-16">
                   {working ? (
-                    <StageWorkArea order={order} stage={stage} people={people} canWork busy={busy} shortCount={shortCount} onAction={onAction} variant="page" />
+                    <div className="space-y-4">
+                      <StageWorkArea order={order} stage={stage} people={people} canWork busy={busy} shortCount={shortCount} onAction={onAction} variant="page" />
+                      <div className="border-t pt-3">
+                        <StageFileDetails order={order} stage={stage} file={file} />
+                      </div>
+                    </div>
                   ) : (
-                    <DoneSummary order={order} stage={stage} />
+                    <DoneSummary order={order} stage={stage} file={file} />
                   )}
                 </div>
               ) : null}
