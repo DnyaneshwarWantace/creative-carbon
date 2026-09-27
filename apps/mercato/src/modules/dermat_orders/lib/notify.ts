@@ -2,7 +2,8 @@ import { resolveNotificationService } from '@open-mercato/core/modules/notificat
 import { createLogger } from '@open-mercato/shared/lib/logger'
 import { DermatOrder, DermatOrderStage } from '../data/entities'
 import { loadCustomers, type OrderContext } from './server'
-import { STAGE_DAY_LIMIT, stageDef, stageWorkFeature } from './stages'
+import { applyDayLimit, stageDef, stageWorkFeature } from './stages'
+import { effectiveStageDef, loadStageOverrides } from './stageSettings'
 
 const logger = createLogger('dermat_orders')
 const DAY_MS = 86400000
@@ -77,8 +78,10 @@ export async function sweepOverdueStages(ctx: Scope, options: { force?: boolean 
   lastSweep.set(key, Date.now())
   const em = ctx.em.fork()
   const stages = await em.find(DermatOrderStage, { tenantId: ctx.tenantId, organizationId: ctx.organizationId, status: { $in: ['open', 'on_hold'] } })
+  const overrides = await loadStageOverrides({ em, tenantId: ctx.tenantId, organizationId: ctx.organizationId })
+  const limitOf = (key: string) => applyDayLimit(key, overrides.get(key)) ?? 0
   const late = stages.filter((stage) => {
-    const limit = STAGE_DAY_LIMIT[stage.stageKey]
+    const limit = limitOf(stage.stageKey)
     if (!limit || !stage.openedAt || stage.data?.__overdue_notified) return false
     return (Date.now() - stage.openedAt.getTime()) / DAY_MS > limit
   })
@@ -87,13 +90,13 @@ export async function sweepOverdueStages(ctx: Scope, options: { force?: boolean 
   let sent = 0
   for (const stage of late) {
     const order = orders.find((entry) => entry.id === stage.orderId)
-    const def = stageDef(stage.stageKey)
+    const def = effectiveStageDef(stage.stageKey, overrides)
     if (!order || !def) continue
     const days = Math.floor((Date.now() - (stage.openedAt as Date).getTime()) / DAY_MS)
     const base = {
       type: 'dermat_orders.stage.overdue',
-      title: `${def.label} of ${order.orderNo} is ${days - STAGE_DAY_LIMIT[stage.stageKey]} day(s) over its limit`,
-      body: `Open for ${days} days; the limit is ${STAGE_DAY_LIMIT[stage.stageKey]}. ${stage.status === 'on_hold' ? `On hold: ${stage.holdReason ?? ''}` : stage.responsibleName ? `With ${stage.responsibleName}` : 'Nobody is assigned'}`,
+      title: `${def.label} of ${order.orderNo} is ${days - limitOf(stage.stageKey)} day(s) over its limit`,
+      body: `Open for ${days} days; the limit is ${limitOf(stage.stageKey)}. ${stage.status === 'on_hold' ? `On hold: ${stage.holdReason ?? ''}` : stage.responsibleName ? `With ${stage.responsibleName}` : 'Nobody is assigned'}`,
       severity: 'warning' as const,
       sourceModule: 'dermat_orders',
       sourceEntityType: 'dermat_orders:order',

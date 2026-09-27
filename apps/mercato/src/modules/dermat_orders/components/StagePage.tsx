@@ -13,13 +13,14 @@ import { StatusBadge } from '@open-mercato/ui/primitives/status-badge'
 import { apiCall } from '@open-mercato/ui/backend/utils/apiCall'
 import { ErrorMessage, LoadingMessage } from '@open-mercato/ui/backend/detail'
 import { LINE_SPEC_SECTIONS } from '../lib/specs'
-import { STAGES, stageDef, stepStates, type StageDef } from '../lib/stages'
+import { stageList, stageDef, stepStates, type StageDef } from '../lib/stages'
 import { ORDER_VARIANT, STAGE_VARIANT, formatDate, formatDateTime, formatQty } from './format'
 import { StageWorkArea, type StageActionRequest } from './StageSheet'
 import { useOrderMaterials, type OrderMaterials } from './useOrderMaterials'
 import { useStageAction } from './useStageAction'
 import type { Order, Stage } from './types'
 import { paymentTermLabel } from '../../dermat_lists/lib/paymentTerms'
+import { useStageSettings } from './useStageSettings'
 
 const KIND_LABEL: Record<string, string> = { raw_material: 'RM', packing_material: 'PM', bulk: 'Bulk', finished_goods: 'FG' }
 
@@ -64,6 +65,7 @@ function Row({ label, children }: { label: string; children: React.ReactNode }) 
 
 function MaterialsTable({ materials }: { materials: OrderMaterials | null }) {
   const t = useT()
+  useStageSettings()
   if (!materials) return <p className="text-sm text-muted-foreground">{t('dermat_orders.view.materialsLoading', 'Working out materials…')}</p>
   if (!materials.rows.length) return <p className="text-sm text-muted-foreground">{t('dermat_orders.view.noMaterials', 'Materials appear once the products have a BOM.')}</p>
   return (
@@ -131,6 +133,7 @@ function SpecsBlock({ order, sections }: { order: Order; sections: Array<'produc
 
 function PackingItems({ order }: { order: Order }) {
   const t = useT()
+  useStageSettings()
   const [items, setItems] = React.useState<Record<string, Array<{ id: string; title: string; sku: string | null }>>>({})
   const productKey = order.lines.map((line) => line.productId).join(',')
   React.useEffect(() => {
@@ -170,6 +173,7 @@ function PackingItems({ order }: { order: Order }) {
 
 function StageContext({ order, stage, materials }: { order: Order; stage: Stage; materials: OrderMaterials | null }) {
   const t = useT()
+  useStageSettings()
   const byKey = new Map(order.stages.map((entry) => [entry.key, entry]))
   const value = orderValue(order)
   const advanceAmount = Number(stageValue(byKey.get('advance'), 'advance_amount') ?? 0) || null
@@ -301,6 +305,7 @@ function StageContext({ order, stage, materials }: { order: Order; stage: Stage;
 
 function PreviousStages({ order, def }: { order: Order; def: StageDef }) {
   const t = useT()
+  useStageSettings()
   const byKey = new Map(order.stages.map((entry) => [entry.key, entry]))
   if (!def.after.length) return null
   return (
@@ -340,6 +345,7 @@ function PreviousStages({ order, def }: { order: Order; def: StageDef }) {
 
 export function StagePage({ orderId, stageKey }: { orderId: string; stageKey: string }) {
   const t = useT()
+  useStageSettings()
   const router = useRouter()
   const [order, setOrder] = React.useState<Order | null>(null)
   const [loadError, setLoadError] = React.useState<string | null>(null)
@@ -410,10 +416,10 @@ export function StagePage({ orderId, stageKey }: { orderId: string; stageKey: st
   }
 
   const stage = order.stages.find((entry) => entry.key === stageKey)!
-  const index = STAGES.findIndex((entry) => entry.key === stageKey)
-  const previous = index > 0 ? STAGES[index - 1] : null
-  const next = index < STAGES.length - 1 ? STAGES[index + 1] : null
-  const parallel = STAGES.filter((entry) => entry.key !== stageKey && entry.after.join() === def.after.join() && def.after.length > 0)
+  const index = stageList().findIndex((entry) => entry.key === stageKey)
+  const previous = index > 0 ? stageList()[index - 1] : null
+  const next = index < stageList().length - 1 ? stageList()[index + 1] : null
+  const parallel = stageList().filter((entry) => entry.key !== stageKey && entry.after.join() === def.after.join() && def.after.length > 0)
   const history = order.events.filter((event) => event.stageKey === stageKey)
   const openedNext = order.stages.filter((entry) => stageDef(entry.key)?.after.includes(stageKey))
 

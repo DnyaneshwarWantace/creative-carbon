@@ -20,7 +20,7 @@ import { useGuardedMutation } from '@open-mercato/ui/backend/injection/useGuarde
 import { flash } from '@open-mercato/ui/backend/FlashMessages'
 import { ErrorMessage, LoadingMessage } from '@open-mercato/ui/backend/detail'
 import { LINE_SPEC_SECTIONS } from '../lib/specs'
-import { STAGES, stageDef } from '../lib/stages'
+import { stageList, stageDef } from '../lib/stages'
 import { ORDER_VARIANT, STAGE_VARIANT, daysUntil, formatDate, formatDateTime, formatQty } from './format'
 import { type StageActionRequest } from './StageSheet'
 import { StageRecord } from './StageRecord'
@@ -35,6 +35,7 @@ import { WhatsAppMenu } from '../../dermat_products/components/WhatsAppMenu'
 import { customerMessages } from './customerMessages'
 import { openServerExport } from '../../dermat_products/lib/csvExport'
 import { paymentTermLabel } from '../../dermat_lists/lib/paymentTerms'
+import { useStageSettings } from './useStageSettings'
 
 
 const KIND_LABEL: Record<string, string> = { raw_material: 'RM', packing_material: 'PM', bulk: 'Bulk', finished_goods: 'FG' }
@@ -86,6 +87,7 @@ const ACTION_LABEL: Record<string, string> = {
 
 function StageCard({ order, stage, onOpen }: { order: Order; stage: Stage; onOpen: () => void }) {
   const t = useT()
+  useStageSettings()
   const progress = subStageProgress(order, stage)
   return (
     <button
@@ -151,6 +153,7 @@ function Info({ label, children }: { label: string; children: React.ReactNode })
 
 export function OrderView({ orderId }: { orderId: string }) {
   const t = useT()
+  useStageSettings()
   const granted = useGranted()
   const router = useRouter()
   const { runMutation } = useGuardedMutation({ contextId: `dermat-order-view-${orderId}` })
@@ -628,7 +631,7 @@ export function OrderView({ orderId }: { orderId: string }) {
           </div>
           <p className="text-xs text-muted-foreground">
             {t('dermat_orders.view.createdBy', 'Booked by {name} on {date}', { name: order.createdByName ?? '—', date: formatDateTime(order.createdAt) })} ·{' '}
-            {STAGES.length} {t('dermat_orders.view.stagesWord', 'stages')}
+            {stageList().length} {t('dermat_orders.view.stagesWord', 'stages')}
           </p>
         </div>
 

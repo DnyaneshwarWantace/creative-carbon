@@ -6,7 +6,7 @@ import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { cn } from '@open-mercato/shared/lib/utils'
 import { daysUntil, formatDate } from './format'
 import type { Order } from './types'
-import { STAGE_DAY_LIMIT } from '../lib/stages'
+import { stageDayLimit } from '../lib/stages'
 
 export type OrderTab = 'work' | 'products' | 'materials' | 'documents' | 'money' | 'history'
 
@@ -56,7 +56,7 @@ export function orderAttention(order: Order, shortCount: number | null, t: Retur
     }
   }
   for (const stage of order.stages.filter((entry) => entry.status === 'open' || entry.status === 'on_hold')) {
-    const limit = STAGE_DAY_LIMIT[stage.key]
+    const limit = stageDayLimit(stage.key)
     if (limit && stage.days !== null && stage.days > limit) {
       items.push({
         key: `late-${stage.key}`,

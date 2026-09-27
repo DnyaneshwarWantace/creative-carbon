@@ -79,8 +79,12 @@ export const STAGE_DOCUMENTS: Record<string, StageDocument[]> = {
   ],
 }
 
-export function stageDocuments(stageKey: string): StageDocument[] {
-  return STAGE_DOCUMENTS[stageKey] ?? []
+export function stageDocuments(stageKey: string, override?: StageOverride | null): StageDocument[] {
+  return applyDocumentOverride(stageKey, override ?? activeOverridesFor(stageKey))
+}
+
+function activeOverridesFor(stageKey: string): StageOverride | null {
+  return activeOverrides.get(stageKey) ?? null
 }
 
 export function documentRecordId(orderId: string, stageKey: string, documentKey: string): string {
@@ -327,8 +331,81 @@ export const STAGES: StageDef[] = [
 
 export const STAGE_KEYS = STAGES.map((stage) => stage.key)
 
+export type StageOverride = {
+  stageKey: string
+  label?: string | null
+  dayLimit?: number | null
+  hiddenSteps?: string[] | null
+  requiredFields?: string[] | null
+  extraFields?: StageField[] | null
+  documents?: Record<string, 'always' | 'optional'> | null
+  extraDocuments?: Array<{ key: string; label: string; required: boolean }> | null
+}
+
+export const LOCKED_STEPS: Record<string, string[]> = {
+  sampling: ['sample_made', 'sample_sent', 'client_ok'],
+  artwork: ['qa_final'],
+  manufacturing: ['manufactured'],
+  filling: ['filled'],
+  packing: ['packed'],
+}
+
+export const EXTRA_FIELD_TYPES: StageFieldType[] = ['text', 'number', 'date', 'textarea', 'select']
+
+export function applyStageOverride(def: StageDef, override?: StageOverride | null): StageDef {
+  if (!override) return def
+  const locked = LOCKED_STEPS[def.key] ?? []
+  const hidden = new Set((override.hiddenSteps ?? []).filter((key) => !locked.includes(key)))
+  const required = new Set(override.requiredFields ?? [])
+  const baseKeys = new Set(def.fields.map((field) => field.key))
+  const extras = (override.extraFields ?? []).filter((field) => !baseKeys.has(field.key))
+  return {
+    ...def,
+    label: override.label?.trim() || def.label,
+    steps: def.steps.filter((step) => !hidden.has(step.key)),
+    fields: [...def.fields.map((field) => (required.has(field.key) && !field.required ? { ...field, required: true } : field)), ...extras],
+  }
+}
+
+export function applyDocumentOverride(stageKey: string, override?: StageOverride | null): StageDocument[] {
+  const base = STAGE_DOCUMENTS[stageKey] ?? []
+  if (!override) return base
+  const modes = override.documents ?? {}
+  const own = base.map((doc) => {
+    if (doc.required === 'eway') return doc
+    const mode = modes[doc.key]
+    if (mode === 'always') return { ...doc, required: 'always' as const }
+    if (mode === 'optional') return { key: doc.key, label: doc.label, hint: doc.hint }
+    return doc
+  })
+  const extra = (override.extraDocuments ?? [])
+    .filter((doc) => !base.some((entry) => entry.key === doc.key))
+    .map((doc) => ({ key: doc.key, label: doc.label, hint: '', ...(doc.required ? { required: 'always' as const } : {}) }))
+  return [...own, ...extra]
+}
+
+export function applyDayLimit(stageKey: string, override?: StageOverride | null): number | undefined {
+  const value = override?.dayLimit
+  return typeof value === 'number' && value > 0 ? value : STAGE_DAY_LIMIT[stageKey]
+}
+
+let activeOverrides = new Map<string, StageOverride>()
+
+export function setStageOverrides(list: StageOverride[]): void {
+  activeOverrides = new Map(list.map((entry) => [entry.stageKey, entry]))
+}
+
 export function stageDef(key: string): StageDef | undefined {
-  return STAGES.find((stage) => stage.key === key)
+  const base = STAGES.find((stage) => stage.key === key)
+  return base ? applyStageOverride(base, activeOverrides.get(key)) : undefined
+}
+
+export function stageList(): StageDef[] {
+  return STAGES.map((stage) => applyStageOverride(stage, activeOverrides.get(stage.key)))
+}
+
+export function stageDayLimit(key: string): number | undefined {
+  return applyDayLimit(key, activeOverrides.get(key))
 }
 
 export type StageStatus = 'waiting' | 'open' | 'on_hold' | 'done' | 'skipped'

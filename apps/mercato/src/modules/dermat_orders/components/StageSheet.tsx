@@ -15,7 +15,7 @@ import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '
 import { StatusBadge } from '@open-mercato/ui/primitives/status-badge'
 import { apiCall } from '@open-mercato/ui/backend/utils/apiCall'
 import { flash } from '@open-mercato/ui/backend/FlashMessages'
-import { HOLD_PARTIES, STAGES, WORK_STATE_LABEL, stageDef, stageWorkFeature, workState, type StageField, type WorkState } from '../lib/stages'
+import { HOLD_PARTIES, stageList, WORK_STATE_LABEL, stageDef, stageWorkFeature, workState, type StageField, type WorkState } from '../lib/stages'
 import { useGranted } from '../../dermat_departments/components/useGranted'
 import { StageDocuments } from './StageDocuments'
 import { SuggestInput } from '../../dermat_lists/components/SuggestInput'
@@ -26,6 +26,7 @@ import { SubStageTracker } from './SubStageTracker'
 import { PackItemsPanel, SampleRoundsPanel } from './ArtworkPanels'
 import { ProductionRoundsPanel, QaArtworkChecklist, QaReleaseReview } from './QualityPanels'
 import type { Order, Stage } from './types'
+import { useStageSettings } from './useStageSettings'
 
 export type StageActionRequest = {
   action: 'start' | 'checklist' | 'rework' | 'reject_batch' | 'save' | 'complete' | 'hold' | 'resume' | 'revert' | 'skip' | 'assign' | 'step' | 'pm_status' | 'new_round' | 'delivered'
@@ -86,6 +87,7 @@ export function StageWorkArea({ order, stage, people, canWork: canWorkProp, busy
   const canWork = canWorkProp && Boolean(stage) && granted.has(stageWorkFeature(stage?.key ?? ''))
   const router = useRouter()
   const t = useT()
+  useStageSettings()
   const def = stage ? stageDef(stage.key) : undefined
   const [values, setValues] = React.useState<Record<string, string>>({})
   const [mode, setMode] = React.useState<Mode>('form')
@@ -115,7 +117,7 @@ export function StageWorkArea({ order, stage, people, canWork: canWorkProp, busy
   const state = workState(stage.status, stage.data)
 
   const editable = canWork && (stage.status === 'open' || stage.status === 'on_hold') && order.status !== 'cancelled'
-  const nextLabels = STAGES.filter((entry) => entry.after.includes(stage.key)).map((entry) => entry.label)
+  const nextLabels = stageList().filter((entry) => entry.after.includes(stage.key)).map((entry) => entry.label)
   const onOrderCopy = async (productId: string) => {
     const call = await apiCall<{ id?: string; error?: string }>('/api/dermat_boms/boms/order-copy', {
       method: 'POST',
@@ -646,6 +648,7 @@ export function StageWorkArea({ order, stage, people, canWork: canWorkProp, busy
 
 function DeliveredBox({ deliveredOn, busy, onMark }: { deliveredOn: string | null; busy: boolean; onMark: (date: string, note: string) => Promise<boolean> }) {
   const t = useT()
+  useStageSettings()
   const [date, setDate] = React.useState(() => new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' }))
   const [note, setNote] = React.useState('')
   if (deliveredOn) {
@@ -671,6 +674,7 @@ function DeliveredBox({ deliveredOn, busy, onMark }: { deliveredOn: string | nul
 
 export function StageSheet({ order, stage, people, canWork, busy, shortCount, onClose, onAction }: StageSheetProps) {
   const t = useT()
+  useStageSettings()
   const def = stage ? stageDef(stage.key) : undefined
   if (!stage || !def) return null
   return (

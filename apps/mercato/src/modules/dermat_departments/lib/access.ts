@@ -151,6 +151,7 @@ export const ACCESS_AREAS: AccessArea[] = [
       { feature: 'dermat_departments.manage', label: 'Add and edit departments', short: 'Edit depts' },
       { feature: 'dermat_lists.manage', label: 'Change dropdown lists', short: 'Dropdowns' },
       { feature: 'dermat_accounts.series', label: 'Change document number series', short: 'Numbering' },
+      { feature: 'dermat_orders.settings', label: 'Change workflow stages', short: 'Stages' },
     ],
   },
 ]

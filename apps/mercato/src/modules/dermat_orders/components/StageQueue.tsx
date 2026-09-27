@@ -21,6 +21,7 @@ import type { Order, Stage } from './types'
 import { StatePill, sheetWorkState, stageEdit, type SheetColumn, type SheetOrder } from './orderBookColumns'
 import { useCellEditor } from './useCellEditor'
 import { EditTableBar } from '../../dermat_products/components/EditTableBar'
+import { useStageSettings } from './useStageSettings'
 
 type QueueTab = 'active' | 'waiting' | 'done'
 
@@ -28,6 +29,7 @@ const PAGE_SIZE = 50
 
 export function StageQueue({ stageKey }: { stageKey: string }) {
   const t = useT()
+  useStageSettings()
   const def = stageDef(stageKey)
   const [tab, setTab] = React.useState<QueueTab>('active')
   const [rows, setRows] = React.useState<SheetOrder[]>([])

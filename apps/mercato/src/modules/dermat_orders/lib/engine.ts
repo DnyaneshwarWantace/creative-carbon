@@ -1,7 +1,8 @@
 import { DermatOrder, DermatOrderEvent, DermatOrderLine, DermatOrderStage } from '../data/entities'
 import type { StageActionInput } from '../data/validators'
 import { activeOptions } from '../../dermat_lists/lib/service'
-import { orderHeadline, QA_ARTWORK_CHECKS, STAGES, isFinished, missingRequired, missingSteps, stageDef, stepStates } from './stages'
+import { orderHeadline, QA_ARTWORK_CHECKS, STAGES, applyStageOverride, isFinished, missingRequired, missingSteps, stageDef, stepStates } from './stages'
+import { effectiveStageDef, loadStageOverrides, type StageOverrides } from './stageSettings'
 import { blockingChecks, checksForOrder, closeFailedChecks, ensureChecksForStage, retireStageChecks, type StageQcSummary } from '../../dermat_quality/lib/service'
 import { requestsForOrder, storeBlocking } from '../../dermat_store/lib/service'
 import { reservationsForOrder } from '../../dermat_planning/lib/service'
@@ -127,7 +128,8 @@ async function assertSubStageOrder(ctx: OrderContext, orderId: string, stageKey:
 }
 
 export async function applyStageAction(ctx: OrderContext, order: DermatOrder, input: StageActionInput): Promise<void> {
-  const def = stageDef(input.stageKey)
+  const overrides = await loadStageOverrides(ctx)
+  const def = effectiveStageDef(input.stageKey, overrides)
   if (!def) throw new OrderError('Unknown stage')
   if (order.status === 'cancelled') throw new OrderError('This order is cancelled', 409)
   const stages = await ctx.em.find(DermatOrderStage, { orderId: order.id })
@@ -297,7 +299,7 @@ export async function applyStageAction(ctx: OrderContext, order: DermatOrder, in
       const missing = missingRequired(def, stage.data ?? {})
       if (missing.length) throw new OrderError(`Fill in: ${missing.join(', ')}`, 400, { missing })
       const orderValue = priceOrder((await ctx.em.find(DermatOrderLine, { orderId: order.id })).map(pricedLine), order.pricesIncludeGst).total
-      const missingDocs = await missingDocuments(ctx, order.id, def.key, orderValue)
+      const missingDocs = await missingDocuments(ctx, order.id, def.key, orderValue, overrides.get(def.key))
       if (missingDocs.length) throw new OrderError(`Upload: ${missingDocs.map((doc) => doc.label).join(', ')}`, 400, { documents: missingDocs.map((doc) => doc.key) })
       if (def.key === 'sampling' && stage.data?.client_feedback !== 'Approved') {
         throw new OrderError('The client has not approved the sample. Set feedback to Approved, or start another round with their changes.', 400)
@@ -444,10 +446,11 @@ export type StageView = {
   days: number | null
 }
 
-export function stageViews(stages: DermatOrderStage[]): StageView[] {
+export function stageViews(stages: DermatOrderStage[], overrides?: StageOverrides): StageView[] {
   const byKey = new Map(stages.map((stage) => [stage.stageKey, stage]))
   const now = Date.now()
-  return STAGES.map((def) => {
+  return STAGES.map((base) => {
+    const def = overrides ? applyStageOverride(base, overrides.get(base.key)) : base
     const stage = byKey.get(def.key)
     const opened = stage?.openedAt ? stage.openedAt.getTime() : null
     const closed = stage?.completedAt ? stage.completedAt.getTime() : null
@@ -490,7 +493,8 @@ export async function serializeOrder(ctx: OrderContext, order: DermatOrder) {
   const orderTotal = priceOrder(lines.map(pricedLine), order.pricesIncludeGst).total
   const qcOnly = Object.values(qc).flat().map((check) => check.productId).filter((id) => !products.has(id))
   if (qcOnly.length) for (const [id, product] of await loadProducts(ctx, qcOnly)) products.set(id, product)
-  const views = stageViews(stages)
+  const overrides = await loadStageOverrides(ctx)
+  const views = stageViews(stages, overrides)
   return {
     id: order.id,
     orderNo: order.orderNo,
@@ -547,7 +551,7 @@ export async function serializeOrder(ctx: OrderContext, order: DermatOrder) {
       return { received: paid, due: Math.round((total - paid) * 100) / 100, items: payments.map(paymentView) }
     })(),
     stages: views,
-    documents: Object.fromEntries(views.map((stage) => [stage.key, documentStatus(order.id, stage.key, docCounts, orderTotal)])),
+    documents: Object.fromEntries(views.map((stage) => [stage.key, documentStatus(order.id, stage.key, docCounts, orderTotal, overrides.get(stage.key))])),
     qc: Object.fromEntries(
       Object.entries(qc).map(([key, list]) => [
         key,

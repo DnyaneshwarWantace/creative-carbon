@@ -282,3 +282,51 @@ export class DermatOrderEvent {
   @Property({ name: 'created_at', type: Date, onCreate: () => new Date() })
   createdAt: Date = new Date()
 }
+
+@Entity({ tableName: 'dermat_stage_settings' })
+@Unique({ name: 'dermat_stage_settings_scope_uq', properties: ['organizationId', 'tenantId', 'stageKey'] })
+export class DermatStageSetting {
+  [OptionalProps]?: 'label' | 'dayLimit' | 'hiddenSteps' | 'requiredFields' | 'extraFields' | 'documents' | 'extraDocuments' | 'updatedByName' | 'createdAt' | 'updatedAt'
+
+  @PrimaryKey({ type: 'uuid', defaultRaw: 'gen_random_uuid()' })
+  id!: string
+
+  @Property({ name: 'organization_id', type: 'uuid' })
+  organizationId!: string
+
+  @Property({ name: 'tenant_id', type: 'uuid' })
+  tenantId!: string
+
+  @Property({ name: 'stage_key', type: 'text' })
+  stageKey!: string
+
+  @Property({ type: 'text', nullable: true })
+  label?: string | null
+
+  @Property({ name: 'day_limit', type: 'integer', nullable: true })
+  dayLimit?: number | null
+
+  @Property({ name: 'hidden_steps', type: 'json', nullable: true })
+  hiddenSteps?: string[] | null
+
+  @Property({ name: 'required_fields', type: 'json', nullable: true })
+  requiredFields?: string[] | null
+
+  @Property({ name: 'extra_fields', type: 'json', nullable: true })
+  extraFields?: Array<{ key: string; label: string; type: string; options?: string[]; required?: boolean }> | null
+
+  @Property({ type: 'json', nullable: true })
+  documents?: Record<string, 'always' | 'optional'> | null
+
+  @Property({ name: 'extra_documents', type: 'json', nullable: true })
+  extraDocuments?: Array<{ key: string; label: string; required: boolean }> | null
+
+  @Property({ name: 'updated_by_name', type: 'text', nullable: true })
+  updatedByName?: string | null
+
+  @Property({ name: 'created_at', type: Date, onCreate: () => new Date() })
+  createdAt: Date = new Date()
+
+  @Property({ name: 'updated_at', type: Date, onCreate: () => new Date(), onUpdate: () => new Date() })
+  updatedAt: Date = new Date()
+}

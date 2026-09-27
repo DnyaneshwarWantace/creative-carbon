@@ -73,3 +73,32 @@ export type OrderListQuery = z.infer<typeof orderListQuerySchema>
 export type OrderInput = z.infer<typeof orderInputSchema>
 export type OrderLineInput = z.infer<typeof orderLineInputSchema>
 export type StageActionInput = z.infer<typeof stageActionSchema>
+
+const settingKey = z.string().trim().min(1).max(60)
+
+export const stageSettingSchema = z.object({
+  stageKey: settingKey,
+  label: z.string().trim().max(80).optional().nullable(),
+  dayLimit: z.coerce.number().int().min(1).max(365).optional().nullable(),
+  hiddenSteps: z.array(settingKey).max(30).default([]),
+  requiredFields: z.array(settingKey).max(40).default([]),
+  extraFields: z
+    .array(
+      z.object({
+        key: z.string().regex(/^x_[a-z0-9_]{1,40}$/, 'Field keys start with x_'),
+        label: z.string().trim().min(1, 'Every extra field needs a name').max(80),
+        type: z.enum(['text', 'number', 'date', 'textarea', 'select']),
+        options: z.array(z.string().trim().min(1).max(80)).max(40).optional(),
+        required: z.boolean().optional(),
+      }),
+    )
+    .max(20)
+    .default([]),
+  documents: z.record(z.string(), z.enum(['always', 'optional'])).default({}),
+  extraDocuments: z
+    .array(z.object({ key: z.string().regex(/^x_[a-z0-9_]{1,40}$/), label: z.string().trim().min(1, 'Every extra document needs a name').max(80), required: z.boolean() }))
+    .max(10)
+    .default([]),
+})
+
+export type StageSettingInput = z.infer<typeof stageSettingSchema>

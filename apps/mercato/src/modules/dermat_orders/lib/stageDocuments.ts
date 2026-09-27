@@ -1,5 +1,5 @@
 import type { OrderContext } from './server'
-import { EWAY_BILL_LIMIT, documentRecordId, stageDocuments, type StageDocument } from './stages'
+import { EWAY_BILL_LIMIT, documentRecordId, stageDocuments, type StageDocument, type StageOverride } from './stages'
 
 export const STAGE_ATTACHMENT_ENTITY = 'dermat_orders:order_stage'
 
@@ -15,16 +15,16 @@ export async function documentCounts(ctx: OrderContext, orderId: string): Promis
   return new Map(rows.map((row) => [row.record_id, Number(row.files)]))
 }
 
-export function documentStatus(orderId: string, stageKey: string, counts: Map<string, number>, orderValue: number): DocumentStatus[] {
-  return stageDocuments(stageKey).map((doc) => ({
+export function documentStatus(orderId: string, stageKey: string, counts: Map<string, number>, orderValue: number, override?: StageOverride | null): DocumentStatus[] {
+  return stageDocuments(stageKey, override).map((doc) => ({
     ...doc,
     count: counts.get(documentRecordId(orderId, stageKey, doc.key)) ?? 0,
     needed: doc.required === 'always' || (doc.required === 'eway' && orderValue > EWAY_BILL_LIMIT),
   }))
 }
 
-export async function missingDocuments(ctx: OrderContext, orderId: string, stageKey: string, orderValue: number): Promise<DocumentStatus[]> {
-  if (!stageDocuments(stageKey).some((doc) => doc.required)) return []
+export async function missingDocuments(ctx: OrderContext, orderId: string, stageKey: string, orderValue: number, override?: StageOverride | null): Promise<DocumentStatus[]> {
+  if (!stageDocuments(stageKey, override).some((doc) => doc.required)) return []
   const counts = await documentCounts(ctx, orderId)
-  return documentStatus(orderId, stageKey, counts, orderValue).filter((doc) => doc.needed && doc.count === 0)
+  return documentStatus(orderId, stageKey, counts, orderValue, override).filter((doc) => doc.needed && doc.count === 0)
 }
