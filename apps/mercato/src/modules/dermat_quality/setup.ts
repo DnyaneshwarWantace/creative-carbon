@@ -4,7 +4,7 @@ export const setup: ModuleSetupConfig = {
   defaultRoleFeatures: {
     admin: ['dermat_quality.*'],
     quality_control: ['dermat_quality.view', 'dermat_quality.chemical', 'dermat_quality.micro', 'dermat_quality.rules'],
-    quality_assurance: ['dermat_quality.view', 'dermat_quality.rules'],
+    quality_assurance: ['dermat_quality.view', 'dermat_quality.rules', 'dermat_quality.documents'],
     research: ['dermat_quality.view'],
     production_staff: ['dermat_quality.view'],
     operator: ['dermat_quality.view'],

@@ -135,6 +135,13 @@ export const LIST_DEFS: ListDef[] = [
     defaults: ['Critical', 'Major', 'Minor'],
   },
   {
+    key: 'qa_document_types',
+    label: 'QA document types',
+    department: 'QA',
+    usedIn: 'QA documents register',
+    defaults: ['SOP', 'QR format', 'IPQC format', 'Specification', 'Test method', 'Policy', 'Other'],
+  },
+  {
     key: 'qa_decision',
     label: 'QA decision',
     department: 'QA',

@@ -64,3 +64,29 @@ export const checkListSchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(50),
 })
+
+const docDay = z.string().regex(/^\d{4}-\d{2}-\d{2}$/)
+
+export const qaDocumentInputSchema = z.object({
+  docNo: z.string().trim().min(1).max(60),
+  title: z.string().trim().min(1).max(200),
+  docType: z.string().trim().min(1).max(60),
+  department: z.string().trim().max(120).optional().nullable(),
+  effectiveDate: docDay,
+  reviewDate: docDay.optional().nullable(),
+  notes: z.string().trim().max(2000).optional().nullable(),
+})
+
+export const qaDocumentActionSchema = z.object({
+  id: z.string().uuid(),
+  action: z.enum(['revise', 'withdraw']),
+  effectiveDate: docDay.optional().nullable(),
+  reviewDate: docDay.optional().nullable(),
+  changeNote: z.string().trim().max(1000).optional().nullable(),
+})
+
+export const qaDocumentListSchema = z.object({
+  id: z.string().uuid().optional(),
+  view: z.enum(['active', 'review_due', 'history', 'all']).default('active'),
+  search: z.string().trim().max(200).optional(),
+})

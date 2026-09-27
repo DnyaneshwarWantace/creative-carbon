@@ -131,12 +131,13 @@ export const ACCESS_AREAS: AccessArea[] = [
     key: 'quality',
     label: 'QC & QA',
     department: 'Quality',
-    pages: 'QC checks, QC rules, QA release',
+    pages: 'QC checks, QC rules, QA release, QA documents',
     abilities: [
       { feature: 'dermat_quality.view', label: 'See QC checks and rules', short: 'View' },
       { feature: 'dermat_quality.chemical', label: 'Record and approve chemical tests', short: 'Chemical' },
       { feature: 'dermat_quality.micro', label: 'Record and approve micro tests', short: 'Micro' },
       { feature: 'dermat_quality.rules', label: 'Change QC rules and parameters', short: 'Rules' },
+      { feature: 'dermat_quality.documents', label: 'Issue and revise QA documents (SOPs, formats)', short: 'Documents' },
     ],
   },
   {

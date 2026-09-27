@@ -184,3 +184,69 @@ export class QcCheck {
   @Property({ name: 'deleted_at', type: Date, nullable: true })
   deletedAt?: Date | null
 }
+
+export type QaDocumentStatus = 'active' | 'superseded' | 'withdrawn'
+
+@Entity({ tableName: 'dermat_qa_documents' })
+@Index({ name: 'dermat_qa_documents_scope_idx', properties: ['organizationId', 'tenantId', 'status'] })
+@Unique({ name: 'dermat_qa_documents_no_version_uq', properties: ['organizationId', 'tenantId', 'docNo', 'version'] })
+export class QaDocument {
+  [OptionalProps]?: 'status' | 'department' | 'reviewDate' | 'notes' | 'changeNote' | 'preparedByName' | 'approvedByName' | 'history' | 'createdAt' | 'updatedAt' | 'deletedAt'
+
+  @PrimaryKey({ type: 'uuid', defaultRaw: 'gen_random_uuid()' })
+  id!: string
+
+  @Property({ name: 'organization_id', type: 'uuid' })
+  organizationId!: string
+
+  @Property({ name: 'tenant_id', type: 'uuid' })
+  tenantId!: string
+
+  @Property({ name: 'doc_no', type: 'text' })
+  docNo!: string
+
+  @Property({ type: 'integer' })
+  version!: number
+
+  @Property({ type: 'text' })
+  title!: string
+
+  @Property({ name: 'doc_type', type: 'text' })
+  docType!: string
+
+  @Property({ type: 'text', nullable: true })
+  department?: string | null
+
+  @Property({ name: 'effective_date', type: 'text' })
+  effectiveDate!: string
+
+  @Property({ name: 'review_date', type: 'text', nullable: true })
+  reviewDate?: string | null
+
+  @Property({ type: 'text', default: 'active' })
+  status: QaDocumentStatus = 'active'
+
+  @Property({ type: 'text', nullable: true })
+  notes?: string | null
+
+  @Property({ name: 'change_note', type: 'text', nullable: true })
+  changeNote?: string | null
+
+  @Property({ name: 'prepared_by_name', type: 'text', nullable: true })
+  preparedByName?: string | null
+
+  @Property({ name: 'approved_by_name', type: 'text', nullable: true })
+  approvedByName?: string | null
+
+  @Property({ type: 'json', nullable: true })
+  history?: Array<{ action: string; by: string | null; at: string; note: string | null }> | null
+
+  @Property({ name: 'created_at', type: Date, onCreate: () => new Date() })
+  createdAt: Date = new Date()
+
+  @Property({ name: 'updated_at', type: Date, onCreate: () => new Date(), onUpdate: () => new Date() })
+  updatedAt: Date = new Date()
+
+  @Property({ name: 'deleted_at', type: Date, nullable: true })
+  deletedAt?: Date | null
+}
