@@ -3,6 +3,7 @@ import { z } from 'zod'
 import type { OpenApiRouteDoc } from '@open-mercato/shared/lib/openapi'
 import { resolveOrderContext } from '../../../dermat_orders/lib/server'
 import { turnaround } from '../../lib/turnaround'
+import { withStageOverrides } from '../../../dermat_orders/lib/stageSettings'
 
 export const metadata = {
   GET: { requireAuth: true, requireFeatures: ['dermat_dashboard.view'] },
@@ -13,9 +14,11 @@ const querySchema = z.object({ days: z.coerce.number().int().min(7).max(730).def
 async function GET(req: Request) {
   const ctx = await resolveOrderContext(req)
   if ('error' in ctx) return NextResponse.json({ error: ctx.error }, { status: ctx.status })
-  const parsed = querySchema.safeParse(Object.fromEntries(new URL(req.url).searchParams))
-  if (!parsed.success) return NextResponse.json({ error: 'Invalid days' }, { status: 400 })
-  return NextResponse.json(await turnaround(ctx, parsed.data.days))
+  return withStageOverrides(ctx, async () => {
+    const parsed = querySchema.safeParse(Object.fromEntries(new URL(req.url).searchParams))
+    if (!parsed.success) return NextResponse.json({ error: 'Invalid days' }, { status: 400 })
+    return NextResponse.json(await turnaround(ctx, parsed.data.days))
+  })
 }
 
 export const openApi: OpenApiRouteDoc = {

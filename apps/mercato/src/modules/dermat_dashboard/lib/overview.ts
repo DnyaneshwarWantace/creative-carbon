@@ -1,6 +1,6 @@
 import type { EntityManager } from '@mikro-orm/postgresql'
 import { loadCustomers } from '../../dermat_orders/lib/server'
-import { STAGES, stageDef } from '../../dermat_orders/lib/stages'
+import { stageList, stageDef } from '../../dermat_orders/lib/stages'
 
 export const STUCK_DAYS = 3
 const DAY_MS = 86400000
@@ -111,7 +111,7 @@ export async function overview(ctx: Scope) {
   const stageRows = await openStages(ctx)
   const items = await toWorkItems(ctx, stageRows)
 
-  const pipeline = STAGES.filter((def) => def.key !== 'order').map((def) => {
+  const pipeline = stageList().filter((def) => def.key !== 'order').map((def) => {
     const own = items.filter((item) => item.stageKey === def.key)
     return {
       key: def.key,

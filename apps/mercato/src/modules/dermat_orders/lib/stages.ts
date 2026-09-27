@@ -84,7 +84,7 @@ export function stageDocuments(stageKey: string, override?: StageOverride | null
 }
 
 function activeOverridesFor(stageKey: string): StageOverride | null {
-  return activeOverrides.get(stageKey) ?? null
+  return currentOverrides().get(stageKey) ?? null
 }
 
 export function documentRecordId(orderId: string, stageKey: string, documentKey: string): string {
@@ -390,22 +390,31 @@ export function applyDayLimit(stageKey: string, override?: StageOverride | null)
 }
 
 let activeOverrides = new Map<string, StageOverride>()
+let overrideResolver: (() => Map<string, StageOverride> | null) | null = null
 
 export function setStageOverrides(list: StageOverride[]): void {
   activeOverrides = new Map(list.map((entry) => [entry.stageKey, entry]))
 }
 
+export function setStageOverrideResolver(resolver: () => Map<string, StageOverride> | null): void {
+  overrideResolver = resolver
+}
+
+function currentOverrides(): Map<string, StageOverride> {
+  return overrideResolver?.() ?? activeOverrides
+}
+
 export function stageDef(key: string): StageDef | undefined {
   const base = STAGES.find((stage) => stage.key === key)
-  return base ? applyStageOverride(base, activeOverrides.get(key)) : undefined
+  return base ? applyStageOverride(base, currentOverrides().get(key)) : undefined
 }
 
 export function stageList(): StageDef[] {
-  return STAGES.map((stage) => applyStageOverride(stage, activeOverrides.get(stage.key)))
+  return STAGES.map((stage) => applyStageOverride(stage, currentOverrides().get(stage.key)))
 }
 
 export function stageDayLimit(key: string): number | undefined {
-  return applyDayLimit(key, activeOverrides.get(key))
+  return applyDayLimit(key, currentOverrides().get(key))
 }
 
 export type StageStatus = 'waiting' | 'open' | 'on_hold' | 'done' | 'skipped'

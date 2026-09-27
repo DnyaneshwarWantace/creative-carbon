@@ -4,6 +4,7 @@ import type { OpenApiRouteDoc } from '@open-mercato/shared/lib/openapi'
 import { resolveOrderContext } from '../../../dermat_orders/lib/server'
 import { sweepOverdueStages } from '../../../dermat_orders/lib/notify'
 import { myWork } from '../../lib/overview'
+import { withStageOverrides } from '../../../dermat_orders/lib/stageSettings'
 
 export const metadata = {
   GET: { requireAuth: true, requireFeatures: ['dermat_dashboard.my_work'] },
@@ -12,8 +13,10 @@ export const metadata = {
 async function GET(req: Request) {
   const ctx = await resolveOrderContext(req)
   if ('error' in ctx) return NextResponse.json({ error: ctx.error }, { status: ctx.status })
-  await sweepOverdueStages(ctx)
-  return NextResponse.json({ items: await myWork(ctx, ctx.userId, false) })
+  return withStageOverrides(ctx, async () => {
+    await sweepOverdueStages(ctx)
+    return NextResponse.json({ items: await myWork(ctx, ctx.userId, false) })
+  })
 }
 
 export const openApi: OpenApiRouteDoc = {

@@ -3,11 +3,12 @@ import { z } from 'zod'
 import type { OpenApiRouteDoc } from '@open-mercato/shared/lib/openapi'
 import { DermatOrder, DermatOrderLine, DermatOrderStage } from '../../../data/entities'
 import { loadCustomers, loadProducts, resolveOrderContext } from '../../../lib/server'
-import { STAGES, stageDef, stepStates } from '../../../lib/stages'
+import { stageList, stageDef, stepStates } from '../../../lib/stages'
 import { orderFilter } from '../../../lib/orderFilter'
 import { orderListQuerySchema } from '../../../data/validators'
 import { priceOrder } from '../../../lib/pricing'
 import { paymentsFor, received } from '../../../../dermat_accounts/lib/service'
+import { withStageOverrides } from '../../../lib/stageSettings'
 
 export const metadata = {
   GET: { requireAuth: true, requireFeatures: ['dermat_orders.view'] },
@@ -61,135 +62,137 @@ function detail(stage: DermatOrderStage | undefined): { fields: Record<string, s
 async function GET(req: Request) {
   const ctx = await resolveOrderContext(req)
   if ('error' in ctx) return NextResponse.json({ error: ctx.error }, { status: ctx.status })
-  const parsed = querySchema.safeParse(Object.fromEntries(new URL(req.url).searchParams))
-  if (!parsed.success) return NextResponse.json({ error: 'Invalid query' }, { status: 400 })
-  const query = parsed.data
-  let ids: string[]
-  if (query.orderId) ids = [query.orderId]
-  else {
-    const { where, params } = await orderFilter(ctx, {
-      ...query,
-      stage: query.stageStatus === 'all' ? undefined : query.stage,
-      stageStatus: query.stageStatus === 'all' ? 'active' : query.stageStatus,
-    })
-    const found = await ctx.em
-      .getConnection()
-      .execute<Array<{ id: string }>>(`select o.id from dermat_orders o where ${where.join(' and ')} order by o.created_at desc limit 5000`, params)
-    ids = found.map((row) => row.id)
-  }
-  const loaded = ids.length ? await ctx.em.find(DermatOrder, { id: { $in: ids }, tenantId: ctx.tenantId, organizationId: ctx.organizationId, deletedAt: null }) : []
-  const orders = ids.map((id) => loaded.find((order) => order.id === id)).filter((order): order is DermatOrder => Boolean(order))
-  const [lines, stages, payments] = await Promise.all([
-    ids.length ? ctx.em.find(DermatOrderLine, { orderId: { $in: ids } }, { orderBy: { position: 'asc' } }) : Promise.resolve([] as DermatOrderLine[]),
-    ids.length ? ctx.em.find(DermatOrderStage, { orderId: { $in: ids } }) : Promise.resolve([] as DermatOrderStage[]),
-    paymentsFor(ctx, ids),
-  ])
-  const [customers, products] = await Promise.all([loadCustomers(ctx, orders.map((order) => order.customerId)), loadProducts(ctx, lines.map((line) => line.productId))])
-  const productText = (orderId: string) =>
-    lines
-      .filter((line) => line.orderId === orderId)
-      .map((line) => `${products.get(line.productId)?.code ? `${products.get(line.productId)?.code} ` : ''}${products.get(line.productId)?.title ?? ''} x ${Number(line.quantity)}`)
-      .join('; ')
-  const pieces = (orderId: string) => lines.filter((line) => line.orderId === orderId).reduce((sum, line) => sum + Number(line.quantity), 0)
-  const stageOf = (orderId: string, key: string) => stages.find((stage) => stage.orderId === orderId && stage.stageKey === key)
-  let rows: unknown[][]
-  let name: string
+  return withStageOverrides(ctx, async () => {
+    const parsed = querySchema.safeParse(Object.fromEntries(new URL(req.url).searchParams))
+    if (!parsed.success) return NextResponse.json({ error: 'Invalid query' }, { status: 400 })
+    const query = parsed.data
+    let ids: string[]
+    if (query.orderId) ids = [query.orderId]
+    else {
+      const { where, params } = await orderFilter(ctx, {
+        ...query,
+        stage: query.stageStatus === 'all' ? undefined : query.stage,
+        stageStatus: query.stageStatus === 'all' ? 'active' : query.stageStatus,
+      })
+      const found = await ctx.em
+        .getConnection()
+        .execute<Array<{ id: string }>>(`select o.id from dermat_orders o where ${where.join(' and ')} order by o.created_at desc limit 5000`, params)
+      ids = found.map((row) => row.id)
+    }
+    const loaded = ids.length ? await ctx.em.find(DermatOrder, { id: { $in: ids }, tenantId: ctx.tenantId, organizationId: ctx.organizationId, deletedAt: null }) : []
+    const orders = ids.map((id) => loaded.find((order) => order.id === id)).filter((order): order is DermatOrder => Boolean(order))
+    const [lines, stages, payments] = await Promise.all([
+      ids.length ? ctx.em.find(DermatOrderLine, { orderId: { $in: ids } }, { orderBy: { position: 'asc' } }) : Promise.resolve([] as DermatOrderLine[]),
+      ids.length ? ctx.em.find(DermatOrderStage, { orderId: { $in: ids } }) : Promise.resolve([] as DermatOrderStage[]),
+      paymentsFor(ctx, ids),
+    ])
+    const [customers, products] = await Promise.all([loadCustomers(ctx, orders.map((order) => order.customerId)), loadProducts(ctx, lines.map((line) => line.productId))])
+    const productText = (orderId: string) =>
+      lines
+        .filter((line) => line.orderId === orderId)
+        .map((line) => `${products.get(line.productId)?.code ? `${products.get(line.productId)?.code} ` : ''}${products.get(line.productId)?.title ?? ''} x ${Number(line.quantity)}`)
+        .join('; ')
+    const pieces = (orderId: string) => lines.filter((line) => line.orderId === orderId).reduce((sum, line) => sum + Number(line.quantity), 0)
+    const stageOf = (orderId: string, key: string) => stages.find((stage) => stage.orderId === orderId && stage.stageKey === key)
+    let rows: unknown[][]
+    let name: string
 
-  if (query.orderId) {
-    if (!orders[0]) return NextResponse.json({ error: 'Order not found' }, { status: 404 })
-    const order = orders[0]
-    name = `order-file-${order.orderNo.replace(/\//g, '-')}`
-    rows = [
-      ['Order', order.orderNo, 'Customer', customers.get(order.customerId)?.name ?? '', 'Status', order.status, 'Products', productText(order.id)],
-      [],
-      ['#', 'Stage', 'Department', 'Status', 'Opened', 'Done / skipped', 'By', 'Days', 'Responsible', 'On hold', 'Details', 'Steps'],
-      ...STAGES.map((def, index) => {
-        const stage = stageOf(order.id, def.key)
-        const info = detail(stage)
-        return [
-          index + 1,
-          def.label,
-          def.department,
-          STATUS_WORD[stage?.status ?? 'waiting'],
-          day(stage?.openedAt),
-          day(stage?.completedAt),
-          stage?.completedByName ?? '',
-          days(stage),
-          stage?.responsibleName ?? '',
-          stage?.status === 'on_hold' ? `${stage.holdParty ?? ''}: ${stage.holdReason ?? ''}` : '',
-          Object.entries(info.fields)
-            .map(([label, value]) => `${label}: ${value}`)
-            .join(' | '),
-          info.steps,
-        ]
-      }),
-    ]
-  } else if (query.stage) {
-    const def = stageDef(query.stage)!
-    name = `${def.label.toLowerCase().replace(/[^a-z0-9]+/g, '-')}-${query.stageStatus}`
-    rows = [
-      ['Order', 'Order date', 'Delivery', 'Customer', 'Products', 'Pieces', 'Stage status', 'Opened', 'Done', 'By', 'Days', 'Responsible', 'On hold', ...def.fields.map((field) => field.label), ...def.steps.map((step) => step.label)],
-      ...orders.map((order) => {
-        const stage = stageOf(order.id, def.key)
-        const data = (stage?.data as Record<string, unknown>) ?? {}
-        const states = stepStates(data)
-        return [
-          order.orderNo,
-          order.orderDate,
-          order.deliveryDate ?? '',
-          customers.get(order.customerId)?.name ?? '',
-          productText(order.id),
-          pieces(order.id),
-          STATUS_WORD[stage?.status ?? 'waiting'],
-          day(stage?.openedAt),
-          day(stage?.completedAt),
-          stage?.completedByName ?? '',
-          days(stage),
-          stage?.responsibleName ?? '',
-          stage?.status === 'on_hold' ? `${stage.holdParty ?? ''}: ${stage.holdReason ?? ''}` : '',
-          ...def.fields.map((field) => (data[field.key] ?? '') as string),
-          ...def.steps.map((step) => (states[step.key]?.done ? `done ${day(states[step.key]?.at ?? null)}${states[step.key]?.by ? ` ${states[step.key]?.by}` : ''}` : '')),
-        ]
-      }),
-    ]
-  } else {
-    name = 'order-book'
-    rows = [
-      ['Order', 'Order date', 'Delivery', 'Customer', 'Customer PO', 'Order status', 'Products', 'Pieces', 'Total (₹)', 'Received (₹)', 'Due (₹)', 'Now at', ...STAGES.flatMap((def) => [`${def.label}: status`, `${def.label}: done on`, `${def.label}: days`])],
-      ...orders.map((order) => {
-        const own = lines.filter((line) => line.orderId === order.id)
-        const total = priceOrder(
-          own.map((line) => ({ quantity: Number(line.quantity), rate: line.rate == null ? null : Number(line.rate), gstPercent: Number(line.gstPercent ?? 18), discountPercent: Number(line.discountPercent ?? 0) })),
-          order.pricesIncludeGst,
-        ).total
-        const paid = received(payments.filter((payment) => payment.orderId === order.id))
-        const now = STAGES.filter((def) => ['open', 'on_hold'].includes(stageOf(order.id, def.key)?.status ?? '')).map((def) => def.label).join(' + ')
-        return [
-          order.orderNo,
-          order.orderDate,
-          order.deliveryDate ?? '',
-          customers.get(order.customerId)?.name ?? '',
-          order.customerPoRef ?? '',
-          order.status,
-          productText(order.id),
-          pieces(order.id),
-          total,
-          paid,
-          Math.round((total - paid) * 100) / 100,
-          now,
-          ...STAGES.flatMap((def) => {
-            const stage = stageOf(order.id, def.key)
-            return [STATUS_WORD[stage?.status ?? 'waiting'], day(stage?.completedAt), days(stage)]
-          }),
-        ]
-      }),
-    ]
-  }
-  return new NextResponse(csv(rows), {
-    headers: {
-      'content-type': 'text/csv; charset=utf-8',
-      'content-disposition': `attachment; filename="${name}-${new Date().toISOString().slice(0, 10)}.csv"`,
-    },
+    if (query.orderId) {
+      if (!orders[0]) return NextResponse.json({ error: 'Order not found' }, { status: 404 })
+      const order = orders[0]
+      name = `order-file-${order.orderNo.replace(/\//g, '-')}`
+      rows = [
+        ['Order', order.orderNo, 'Customer', customers.get(order.customerId)?.name ?? '', 'Status', order.status, 'Products', productText(order.id)],
+        [],
+        ['#', 'Stage', 'Department', 'Status', 'Opened', 'Done / skipped', 'By', 'Days', 'Responsible', 'On hold', 'Details', 'Steps'],
+        ...stageList().map((def, index) => {
+          const stage = stageOf(order.id, def.key)
+          const info = detail(stage)
+          return [
+            index + 1,
+            def.label,
+            def.department,
+            STATUS_WORD[stage?.status ?? 'waiting'],
+            day(stage?.openedAt),
+            day(stage?.completedAt),
+            stage?.completedByName ?? '',
+            days(stage),
+            stage?.responsibleName ?? '',
+            stage?.status === 'on_hold' ? `${stage.holdParty ?? ''}: ${stage.holdReason ?? ''}` : '',
+            Object.entries(info.fields)
+              .map(([label, value]) => `${label}: ${value}`)
+              .join(' | '),
+            info.steps,
+          ]
+        }),
+      ]
+    } else if (query.stage) {
+      const def = stageDef(query.stage)!
+      name = `${def.label.toLowerCase().replace(/[^a-z0-9]+/g, '-')}-${query.stageStatus}`
+      rows = [
+        ['Order', 'Order date', 'Delivery', 'Customer', 'Products', 'Pieces', 'Stage status', 'Opened', 'Done', 'By', 'Days', 'Responsible', 'On hold', ...def.fields.map((field) => field.label), ...def.steps.map((step) => step.label)],
+        ...orders.map((order) => {
+          const stage = stageOf(order.id, def.key)
+          const data = (stage?.data as Record<string, unknown>) ?? {}
+          const states = stepStates(data)
+          return [
+            order.orderNo,
+            order.orderDate,
+            order.deliveryDate ?? '',
+            customers.get(order.customerId)?.name ?? '',
+            productText(order.id),
+            pieces(order.id),
+            STATUS_WORD[stage?.status ?? 'waiting'],
+            day(stage?.openedAt),
+            day(stage?.completedAt),
+            stage?.completedByName ?? '',
+            days(stage),
+            stage?.responsibleName ?? '',
+            stage?.status === 'on_hold' ? `${stage.holdParty ?? ''}: ${stage.holdReason ?? ''}` : '',
+            ...def.fields.map((field) => (data[field.key] ?? '') as string),
+            ...def.steps.map((step) => (states[step.key]?.done ? `done ${day(states[step.key]?.at ?? null)}${states[step.key]?.by ? ` ${states[step.key]?.by}` : ''}` : '')),
+          ]
+        }),
+      ]
+    } else {
+      name = 'order-book'
+      rows = [
+        ['Order', 'Order date', 'Delivery', 'Customer', 'Customer PO', 'Order status', 'Products', 'Pieces', 'Total (₹)', 'Received (₹)', 'Due (₹)', 'Now at', ...stageList().flatMap((def) => [`${def.label}: status`, `${def.label}: done on`, `${def.label}: days`])],
+        ...orders.map((order) => {
+          const own = lines.filter((line) => line.orderId === order.id)
+          const total = priceOrder(
+            own.map((line) => ({ quantity: Number(line.quantity), rate: line.rate == null ? null : Number(line.rate), gstPercent: Number(line.gstPercent ?? 18), discountPercent: Number(line.discountPercent ?? 0) })),
+            order.pricesIncludeGst,
+          ).total
+          const paid = received(payments.filter((payment) => payment.orderId === order.id))
+          const now = stageList().filter((def) => ['open', 'on_hold'].includes(stageOf(order.id, def.key)?.status ?? '')).map((def) => def.label).join(' + ')
+          return [
+            order.orderNo,
+            order.orderDate,
+            order.deliveryDate ?? '',
+            customers.get(order.customerId)?.name ?? '',
+            order.customerPoRef ?? '',
+            order.status,
+            productText(order.id),
+            pieces(order.id),
+            total,
+            paid,
+            Math.round((total - paid) * 100) / 100,
+            now,
+            ...stageList().flatMap((def) => {
+              const stage = stageOf(order.id, def.key)
+              return [STATUS_WORD[stage?.status ?? 'waiting'], day(stage?.completedAt), days(stage)]
+            }),
+          ]
+        }),
+      ]
+    }
+    return new NextResponse(csv(rows), {
+      headers: {
+        'content-type': 'text/csv; charset=utf-8',
+        'content-disposition': `attachment; filename="${name}-${new Date().toISOString().slice(0, 10)}.csv"`,
+      },
+    })
   })
 }
 

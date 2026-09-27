@@ -13,6 +13,7 @@ import { STORE_STAGE_KEYS, consumeForStage, type StoreStage } from '../../../../
 import { resolveStoreContext } from '../../../../dermat_store/lib/server'
 import { releaseAllForOrder } from '../../../../dermat_planning/lib/service'
 import { onProductionStageDone } from '../../../lib/productionStock'
+import { withStageOverrides } from '../../../lib/stageSettings'
 
 export const metadata = {
   POST: { requireAuth: true, requireFeatures: ['dermat_orders.stages'] },
@@ -21,60 +22,62 @@ export const metadata = {
 async function POST(req: Request) {
   const ctx = await resolveOrderContext(req)
   if ('error' in ctx) return NextResponse.json({ error: ctx.error }, { status: ctx.status })
-  const parsed = stageActionSchema.safeParse(await req.json().catch(() => null))
-  if (!parsed.success) return NextResponse.json({ error: 'Invalid stage action', details: parsed.error.flatten() }, { status: 400 })
-  const allowed =
-    (await hasFeatures(ctx, [stageWorkFeature(parsed.data.stageKey)])) || ((parsed.data.action === 'assign' || parsed.data.action === 'delivered') && (await hasFeatures(ctx, ['dermat_orders.manage'])))
-  if (!allowed) {
-    const def = stageDef(parsed.data.stageKey)
-    return NextResponse.json({ error: `Only the ${def?.department ?? 'responsible'} department can work on ${def?.label ?? 'this stage'}` }, { status: 403 })
-  }
-  try {
-    const order = await findOrder(ctx, parsed.data.orderId)
-    const statusBefore = new Map((await ctx.em.fork().find(DermatOrderStage, { orderId: order.id })).map((stage) => [stage.stageKey, stage.status]))
-    if (parsed.data.action !== 'assign' && parsed.data.action !== 'save') enforceOrderLock(order, req)
-    return await runGuarded(ctx, req, { resourceId: order.id, operation: 'custom', payload: parsed.data }, async () => {
-      await ctx.em.transactional(async (em) => {
-        const txCtx = { ...ctx, em: em as EntityManager }
-        const fresh = await findOrder(txCtx, order.id)
-        await applyStageAction(txCtx, fresh, parsed.data)
-        if (fresh.status === 'completed') await releaseAllForOrder(txCtx, fresh.id, 'Order completed', null)
-        await em.flush()
+  return withStageOverrides(ctx, async () => {
+    const parsed = stageActionSchema.safeParse(await req.json().catch(() => null))
+    if (!parsed.success) return NextResponse.json({ error: 'Invalid stage action', details: parsed.error.flatten() }, { status: 400 })
+    const allowed =
+      (await hasFeatures(ctx, [stageWorkFeature(parsed.data.stageKey)])) || ((parsed.data.action === 'assign' || parsed.data.action === 'delivered') && (await hasFeatures(ctx, ['dermat_orders.manage'])))
+    if (!allowed) {
+      const def = stageDef(parsed.data.stageKey)
+      return NextResponse.json({ error: `Only the ${def?.department ?? 'responsible'} department can work on ${def?.label ?? 'this stage'}` }, { status: 403 })
+    }
+    try {
+      const order = await findOrder(ctx, parsed.data.orderId)
+      const statusBefore = new Map((await ctx.em.fork().find(DermatOrderStage, { orderId: order.id })).map((stage) => [stage.stageKey, stage.status]))
+      if (parsed.data.action !== 'assign' && parsed.data.action !== 'save') enforceOrderLock(order, req)
+      return await runGuarded(ctx, req, { resourceId: order.id, operation: 'custom', payload: parsed.data }, async () => {
+        await ctx.em.transactional(async (em) => {
+          const txCtx = { ...ctx, em: em as EntityManager }
+          const fresh = await findOrder(txCtx, order.id)
+          await applyStageAction(txCtx, fresh, parsed.data)
+          if (fresh.status === 'completed') await releaseAllForOrder(txCtx, fresh.id, 'Order completed', null)
+          await em.flush()
+        })
+        if (parsed.data.action === 'complete' && STORE_STAGE_KEYS.includes(parsed.data.stageKey as StoreStage)) {
+          const storeCtx = await resolveStoreContext(req)
+          if (!('error' in storeCtx)) {
+            const stage = await ctx.em.fork().findOne(DermatOrderStage, { orderId: order.id, stageKey: parsed.data.stageKey })
+            const saved = stage?.data?.batch_no ?? (await ctx.em.fork().findOne(DermatOrderStage, { orderId: order.id, stageKey: 'manufacturing' }))?.data?.batch_no
+            const batchNo = typeof saved === 'string' || typeof saved === 'number' ? String(saved) : null
+            await consumeForStage(storeCtx, order.id, parsed.data.stageKey, batchNo)
+          }
+        }
+        if (parsed.data.action === 'reject_batch') {
+          const storeCtx = await resolveStoreContext(req)
+          if (!('error' in storeCtx)) {
+            const stage = await ctx.em.fork().findOne(DermatOrderStage, { orderId: order.id, stageKey: parsed.data.stageKey })
+            const rounds = Array.isArray(stage?.data?.__rework) ? (stage?.data?.__rework as Array<{ batchNo?: string | null }>) : []
+            await consumeForStage(storeCtx, order.id, parsed.data.stageKey, rounds[rounds.length - 1]?.batchNo ?? null, parsed.data.note ?? 'Rejected by QC')
+          }
+        }
+        if (parsed.data.action === 'complete' && ['manufacturing', 'filling', 'packing', 'dispatch'].includes(parsed.data.stageKey)) {
+          const stockCtx = await resolveStoreContext(req)
+          if (!('error' in stockCtx)) await onProductionStageDone(stockCtx, order.id, parsed.data.stageKey)
+        }
+        const freshCtx = { ...ctx, em: ctx.em.fork() }
+        const freshOrder = await findOrder(freshCtx, order.id)
+        const after = await freshCtx.em.find(DermatOrderStage, { orderId: order.id })
+        const opened = after.filter((stage) => stage.status === 'open' && statusBefore.get(stage.stageKey) !== 'open' && statusBefore.get(stage.stageKey) !== 'on_hold').map((stage) => stage.stageKey)
+        await notifyStagesOpened(ctx, freshOrder, opened)
+        if (parsed.data.action === 'assign' && parsed.data.responsibleUserId && parsed.data.responsibleUserId !== ctx.userId) {
+          await notifyAssigned(ctx, freshOrder, parsed.data.stageKey, parsed.data.responsibleUserId, await currentUserName(ctx))
+        }
+        return NextResponse.json(await serializeOrder(freshCtx, freshOrder))
       })
-      if (parsed.data.action === 'complete' && STORE_STAGE_KEYS.includes(parsed.data.stageKey as StoreStage)) {
-        const storeCtx = await resolveStoreContext(req)
-        if (!('error' in storeCtx)) {
-          const stage = await ctx.em.fork().findOne(DermatOrderStage, { orderId: order.id, stageKey: parsed.data.stageKey })
-          const saved = stage?.data?.batch_no ?? (await ctx.em.fork().findOne(DermatOrderStage, { orderId: order.id, stageKey: 'manufacturing' }))?.data?.batch_no
-          const batchNo = typeof saved === 'string' || typeof saved === 'number' ? String(saved) : null
-          await consumeForStage(storeCtx, order.id, parsed.data.stageKey, batchNo)
-        }
-      }
-      if (parsed.data.action === 'reject_batch') {
-        const storeCtx = await resolveStoreContext(req)
-        if (!('error' in storeCtx)) {
-          const stage = await ctx.em.fork().findOne(DermatOrderStage, { orderId: order.id, stageKey: parsed.data.stageKey })
-          const rounds = Array.isArray(stage?.data?.__rework) ? (stage?.data?.__rework as Array<{ batchNo?: string | null }>) : []
-          await consumeForStage(storeCtx, order.id, parsed.data.stageKey, rounds[rounds.length - 1]?.batchNo ?? null, parsed.data.note ?? 'Rejected by QC')
-        }
-      }
-      if (parsed.data.action === 'complete' && ['manufacturing', 'filling', 'packing', 'dispatch'].includes(parsed.data.stageKey)) {
-        const stockCtx = await resolveStoreContext(req)
-        if (!('error' in stockCtx)) await onProductionStageDone(stockCtx, order.id, parsed.data.stageKey)
-      }
-      const freshCtx = { ...ctx, em: ctx.em.fork() }
-      const freshOrder = await findOrder(freshCtx, order.id)
-      const after = await freshCtx.em.find(DermatOrderStage, { orderId: order.id })
-      const opened = after.filter((stage) => stage.status === 'open' && statusBefore.get(stage.stageKey) !== 'open' && statusBefore.get(stage.stageKey) !== 'on_hold').map((stage) => stage.stageKey)
-      await notifyStagesOpened(ctx, freshOrder, opened)
-      if (parsed.data.action === 'assign' && parsed.data.responsibleUserId && parsed.data.responsibleUserId !== ctx.userId) {
-        await notifyAssigned(ctx, freshOrder, parsed.data.stageKey, parsed.data.responsibleUserId, await currentUserName(ctx))
-      }
-      return NextResponse.json(await serializeOrder(freshCtx, freshOrder))
-    })
-  } catch (error) {
-    return orderErrorResponse(error)
-  }
+    } catch (error) {
+      return orderErrorResponse(error)
+    }
+  })
 }
 
 export const openApi: OpenApiRouteDoc = {

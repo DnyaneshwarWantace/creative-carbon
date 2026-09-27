@@ -20,6 +20,7 @@ import {
 import { orderFilter } from '../../lib/orderFilter'
 import { notifyStagesOpened } from '../../lib/notify'
 import { enforceOrderLock, orderErrorResponse, runGuarded } from '../../lib/guard'
+import { withStageOverrides } from '../../lib/stageSettings'
 
 export const metadata = {
   GET: { requireAuth: true, requireFeatures: ['dermat_orders.view'] },
@@ -146,73 +147,75 @@ async function writeLines(ctx: OrderContext, order: DermatOrder, input: OrderInp
 async function GET(req: Request) {
   const ctx = await resolveOrderContext(req)
   if ('error' in ctx) return NextResponse.json({ error: ctx.error }, { status: ctx.status })
-  const parsed = orderListQuerySchema.safeParse(Object.fromEntries(new URL(req.url).searchParams))
-  if (!parsed.success) return NextResponse.json({ error: 'Invalid query' }, { status: 400 })
-  const query = parsed.data
-  try {
-    if (query.id) return NextResponse.json(await serializeOrder(ctx, await findOrder(ctx, query.id)))
-  } catch (error) {
-    return orderErrorResponse(error)
-  }
+  return withStageOverrides(ctx, async () => {
+    const parsed = orderListQuerySchema.safeParse(Object.fromEntries(new URL(req.url).searchParams))
+    if (!parsed.success) return NextResponse.json({ error: 'Invalid query' }, { status: 400 })
+    const query = parsed.data
+    try {
+      if (query.id) return NextResponse.json(await serializeOrder(ctx, await findOrder(ctx, query.id)))
+    } catch (error) {
+      return orderErrorResponse(error)
+    }
 
-  const { where, params } = await orderFilter(ctx, query)
-  const connection = ctx.em.getConnection()
-  const [countRow] = await connection.execute<Array<{ total: string }>>(`select count(*) as total from dermat_orders o where ${where.join(' and ')}`, params)
-  const orders = await connection.execute<
-    Array<{ id: string; order_no: string; order_date: string; delivery_date: string | null; customer_id: string; status: string; order_type: string; sales_manager: string | null; priority: string; revised_at: Date | null; created_at: Date }>
-  >(
-    `select o.id, o.order_no, o.order_date::text as order_date, o.delivery_date::text as delivery_date, o.customer_id, o.status, o.order_type, o.sales_manager, o.priority, o.revised_at, o.created_at
-       from dermat_orders o where ${where.join(' and ')}
-      order by o.created_at desc limit ? offset ?`,
-    [...params, query.pageSize, (query.page - 1) * query.pageSize],
-  )
-  const ids = orders.map((order) => order.id)
-  const [lines, stages, customers] = await Promise.all([
-    ids.length ? ctx.em.find(DermatOrderLine, { orderId: { $in: ids } }, { orderBy: { position: 'asc' } }) : [],
-    ids.length ? ctx.em.find(DermatOrderStage, { orderId: { $in: ids } }) : [],
-    loadCustomers(
+    const { where, params } = await orderFilter(ctx, query)
+    const connection = ctx.em.getConnection()
+    const [countRow] = await connection.execute<Array<{ total: string }>>(`select count(*) as total from dermat_orders o where ${where.join(' and ')}`, params)
+    const orders = await connection.execute<
+      Array<{ id: string; order_no: string; order_date: string; delivery_date: string | null; customer_id: string; status: string; order_type: string; sales_manager: string | null; priority: string; revised_at: Date | null; created_at: Date }>
+    >(
+      `select o.id, o.order_no, o.order_date::text as order_date, o.delivery_date::text as delivery_date, o.customer_id, o.status, o.order_type, o.sales_manager, o.priority, o.revised_at, o.created_at
+         from dermat_orders o where ${where.join(' and ')}
+        order by o.created_at desc limit ? offset ?`,
+      [...params, query.pageSize, (query.page - 1) * query.pageSize],
+    )
+    const ids = orders.map((order) => order.id)
+    const [lines, stages, customers] = await Promise.all([
+      ids.length ? ctx.em.find(DermatOrderLine, { orderId: { $in: ids } }, { orderBy: { position: 'asc' } }) : [],
+      ids.length ? ctx.em.find(DermatOrderStage, { orderId: { $in: ids } }) : [],
+      loadCustomers(
+        ctx,
+        orders.map((order) => order.customer_id),
+      ),
+    ])
+    const products = await loadProducts(
       ctx,
-      orders.map((order) => order.customer_id),
-    ),
-  ])
-  const products = await loadProducts(
-    ctx,
-    lines.map((line) => line.productId),
-  )
-  const total = Number(countRow?.total ?? 0)
-  return NextResponse.json({
-    items: orders.map((order) => {
-      const orderLines = lines.filter((line) => line.orderId === order.id)
-      const views = stageViews(stages.filter((stage) => stage.orderId === order.id))
-      return {
-        id: order.id,
-        orderNo: order.order_no,
-        orderDate: order.order_date,
-        deliveryDate: order.delivery_date,
-        customerId: order.customer_id,
-        customerName: customers.get(order.customer_id)?.name ?? '',
-        status: order.status,
-        headline: orderHeadline(order.status, order.revised_at, stages.find((stage) => stage.orderId === order.id && stage.stageKey === 'dispatch')?.data),
-        priority: order.priority,
-        orderType: order.order_type,
-        salesManager: order.sales_manager,
-        products: orderLines.map((line) => ({
-          id: line.productId,
-          title: products.get(line.productId)?.title ?? '',
-          code: products.get(line.productId)?.code ?? null,
-          quantity: Number(line.quantity),
-        })),
-        current: views
-          .filter((stage) => stage.status === 'open' || stage.status === 'on_hold')
-          .map((stage) => ({ key: stage.key, label: stage.label, status: stage.status, responsibleName: stage.responsibleName, days: stage.days, holdParty: stage.holdParty, started: Boolean(stage.data.__started) })),
-        doneCount: views.filter((stage) => isFinished(stage.status)).length,
-        stageCount: views.length,
-      }
-    }),
-    total,
-    page: query.page,
-    pageSize: query.pageSize,
-    totalPages: Math.max(1, Math.ceil(total / query.pageSize)),
+      lines.map((line) => line.productId),
+    )
+    const total = Number(countRow?.total ?? 0)
+    return NextResponse.json({
+      items: orders.map((order) => {
+        const orderLines = lines.filter((line) => line.orderId === order.id)
+        const views = stageViews(stages.filter((stage) => stage.orderId === order.id))
+        return {
+          id: order.id,
+          orderNo: order.order_no,
+          orderDate: order.order_date,
+          deliveryDate: order.delivery_date,
+          customerId: order.customer_id,
+          customerName: customers.get(order.customer_id)?.name ?? '',
+          status: order.status,
+          headline: orderHeadline(order.status, order.revised_at, stages.find((stage) => stage.orderId === order.id && stage.stageKey === 'dispatch')?.data),
+          priority: order.priority,
+          orderType: order.order_type,
+          salesManager: order.sales_manager,
+          products: orderLines.map((line) => ({
+            id: line.productId,
+            title: products.get(line.productId)?.title ?? '',
+            code: products.get(line.productId)?.code ?? null,
+            quantity: Number(line.quantity),
+          })),
+          current: views
+            .filter((stage) => stage.status === 'open' || stage.status === 'on_hold')
+            .map((stage) => ({ key: stage.key, label: stage.label, status: stage.status, responsibleName: stage.responsibleName, days: stage.days, holdParty: stage.holdParty, started: Boolean(stage.data.__started) })),
+          doneCount: views.filter((stage) => isFinished(stage.status)).length,
+          stageCount: views.length,
+        }
+      }),
+      total,
+      page: query.page,
+      pageSize: query.pageSize,
+      totalPages: Math.max(1, Math.ceil(total / query.pageSize)),
+    })
   })
 }
 

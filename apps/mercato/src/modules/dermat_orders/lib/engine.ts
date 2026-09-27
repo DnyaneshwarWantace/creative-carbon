@@ -1,3 +1,4 @@
+import { RdRequest } from '../../dermat_rnd/data/entities'
 import { DermatOrder, DermatOrderEvent, DermatOrderLine, DermatOrderStage } from '../data/entities'
 import type { StageActionInput } from '../data/validators'
 import { activeOptions } from '../../dermat_lists/lib/service'
@@ -124,6 +125,28 @@ async function assertSubStageOrder(ctx: OrderContext, orderId: string, stageKey:
     if (!stepStates(data).sample?.done) throw new OrderError('Stage 1 first: make the sample of the finished good', 400)
     const qc = await blockingChecks(ctx, orderId, 'packing')
     if (qc.length) throw new OrderError(`Stage 2 first: QC has not passed the finished good yet (${qc.map((check) => check.code).join(', ')})`, 400, { qc: qc.map((check) => check.id) })
+  }
+}
+
+async function linkSampleApproval(ctx: OrderContext, order: DermatOrder, data: Record<string, unknown>, byName: string | null) {
+  const rdNumber = typeof data.rd_number === 'string' ? data.rd_number.trim() : ''
+  if (rdNumber) {
+    const lines = await ctx.em.find(DermatOrderLine, { orderId: order.id })
+    for (const line of lines) if (!line.rdNumber) line.rdNumber = rdNumber
+  }
+  const requests = await ctx.em.find(RdRequest, { tenantId: ctx.tenantId, organizationId: ctx.organizationId, orderId: order.id, deletedAt: null, status: { $nin: ['approved', 'dropped'] } })
+  const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' })
+  for (const request of requests) {
+    const rounds = [...(request.rounds ?? [])]
+    const current = rounds[rounds.length - 1]
+    if (current && !current.result) {
+      current.result = 'approved'
+      current.feedbackOn = today
+    }
+    request.rounds = rounds
+    request.status = 'approved'
+    request.history = [...(request.history ?? []), { action: 'approved', by: byName, at: new Date().toISOString(), note: `Client approved the sample on order ${order.orderNo}` }]
+    request.updatedAt = new Date()
   }
 }
 
@@ -367,6 +390,7 @@ export async function applyStageAction(ctx: OrderContext, order: DermatOrder, in
       stage.holdReason = null
       stage.holdParty = null
       logEvent(ctx, order, 'completed', def.key, note, byName)
+      if (def.key === 'sampling') await linkSampleApproval(ctx, order, stage.data ?? {}, byName)
       if (def.key === 'advance' && (await recordAdvanceFromStage(ctx, order, stage.data ?? {}, byName))) {
         logEvent(ctx, order, 'payment', def.key, `Advance ₹${Number(stage.data?.advance_amount).toLocaleString('en-IN')} recorded in Accounts`, byName)
       }
@@ -450,7 +474,7 @@ export function stageViews(stages: DermatOrderStage[], overrides?: StageOverride
   const byKey = new Map(stages.map((stage) => [stage.stageKey, stage]))
   const now = Date.now()
   return STAGES.map((base) => {
-    const def = overrides ? applyStageOverride(base, overrides.get(base.key)) : base
+    const def = overrides ? applyStageOverride(base, overrides.get(base.key)) : (stageDef(base.key) ?? base)
     const stage = byKey.get(def.key)
     const opened = stage?.openedAt ? stage.openedAt.getTime() : null
     const closed = stage?.completedAt ? stage.completedAt.getTime() : null

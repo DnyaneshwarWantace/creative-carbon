@@ -1,6 +1,7 @@
+import { AsyncLocalStorage } from 'node:async_hooks'
 import { DermatStageSetting } from '../data/entities'
 import type { OrderContext } from './server'
-import { STAGES, applyStageOverride, type StageDef, type StageField, type StageOverride } from './stages'
+import { STAGES, applyStageOverride, setStageOverrideResolver, type StageDef, type StageField, type StageOverride } from './stages'
 
 export type StageOverrides = Map<string, StageOverride>
 
@@ -25,4 +26,12 @@ export async function loadStageOverrides(ctx: Pick<OrderContext, 'em' | 'tenantI
 export function effectiveStageDef(key: string, overrides: StageOverrides): StageDef | undefined {
   const base = STAGES.find((stage) => stage.key === key)
   return base ? applyStageOverride(base, overrides.get(key)) : undefined
+}
+
+const requestOverrides = new AsyncLocalStorage<StageOverrides>()
+setStageOverrideResolver(() => requestOverrides.getStore() ?? null)
+
+export async function withStageOverrides<T>(ctx: Pick<OrderContext, 'em' | 'tenantId' | 'organizationId'>, run: () => Promise<T>): Promise<T> {
+  const overrides = await loadStageOverrides(ctx)
+  return requestOverrides.run(overrides, run)
 }
