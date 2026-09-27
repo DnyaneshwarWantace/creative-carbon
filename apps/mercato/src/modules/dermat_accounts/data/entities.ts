@@ -1,4 +1,4 @@
-import { Entity, Index, PrimaryKey, Property } from '@mikro-orm/decorators/legacy'
+import { Entity, Index, PrimaryKey, Property, Unique } from '@mikro-orm/decorators/legacy'
 import { OptionalProps } from '@mikro-orm/core'
 
 export type PaymentKind = 'advance' | 'balance' | 'other'
@@ -355,6 +355,92 @@ export class TaxInvoice {
 
   @Property({ type: 'json', nullable: true })
   history?: PiHistory[] | null
+
+  @Property({ name: 'created_at', type: Date, onCreate: () => new Date() })
+  createdAt: Date = new Date()
+
+  @Property({ name: 'updated_at', type: Date, onCreate: () => new Date(), onUpdate: () => new Date() })
+  updatedAt: Date = new Date()
+
+  @Property({ name: 'deleted_at', type: Date, nullable: true })
+  deletedAt?: Date | null
+}
+
+export type VendorBillStatus = 'open' | 'partly_paid' | 'paid' | 'cancelled'
+export type VendorBillPayment = { id: string; amount: number; paidOn: string; mode: string | null; reference: string | null; by: string | null; at: string }
+
+@Entity({ tableName: 'dermat_vendor_bills' })
+@Index({ name: 'dermat_vendor_bills_scope_idx', properties: ['organizationId', 'tenantId', 'status'] })
+@Index({ name: 'dermat_vendor_bills_vendor_idx', properties: ['vendorId'] })
+@Unique({ name: 'dermat_vendor_bills_code_uq', properties: ['organizationId', 'tenantId', 'code'] })
+export class VendorBill {
+  [OptionalProps]?: 'status' | 'poId' | 'poCode' | 'grnIds' | 'grnCodes' | 'dueDate' | 'notes' | 'payments' | 'paid' | 'history' | 'createdByName' | 'createdAt' | 'updatedAt' | 'deletedAt'
+
+  @PrimaryKey({ type: 'uuid', defaultRaw: 'gen_random_uuid()' })
+  id!: string
+
+  @Property({ name: 'organization_id', type: 'uuid' })
+  organizationId!: string
+
+  @Property({ name: 'tenant_id', type: 'uuid' })
+  tenantId!: string
+
+  @Property({ type: 'text' })
+  code!: string
+
+  @Property({ name: 'vendor_id', type: 'uuid' })
+  vendorId!: string
+
+  @Property({ name: 'vendor_name', type: 'text' })
+  vendorName!: string
+
+  @Property({ name: 'bill_no', type: 'text' })
+  billNo!: string
+
+  @Property({ name: 'bill_date', type: 'text' })
+  billDate!: string
+
+  @Property({ name: 'due_date', type: 'text', nullable: true })
+  dueDate?: string | null
+
+  @Property({ name: 'po_id', type: 'uuid', nullable: true })
+  poId?: string | null
+
+  @Property({ name: 'po_code', type: 'text', nullable: true })
+  poCode?: string | null
+
+  @Property({ name: 'grn_ids', type: 'json', nullable: true })
+  grnIds?: string[] | null
+
+  @Property({ name: 'grn_codes', type: 'json', nullable: true })
+  grnCodes?: string[] | null
+
+  @Property({ type: 'numeric', precision: 14, scale: 2 })
+  taxable!: string
+
+  @Property({ type: 'numeric', precision: 14, scale: 2 })
+  gst!: string
+
+  @Property({ type: 'numeric', precision: 14, scale: 2 })
+  total!: string
+
+  @Property({ type: 'numeric', precision: 14, scale: 2, default: '0' })
+  paid: string = '0'
+
+  @Property({ type: 'text', default: 'open' })
+  status: VendorBillStatus = 'open'
+
+  @Property({ type: 'text', nullable: true })
+  notes?: string | null
+
+  @Property({ type: 'json', nullable: true })
+  payments?: VendorBillPayment[] | null
+
+  @Property({ type: 'json', nullable: true })
+  history?: Array<{ action: string; by: string | null; at: string; note: string | null }> | null
+
+  @Property({ name: 'created_by_name', type: 'text', nullable: true })
+  createdByName?: string | null
 
   @Property({ name: 'created_at', type: Date, onCreate: () => new Date() })
   createdAt: Date = new Date()

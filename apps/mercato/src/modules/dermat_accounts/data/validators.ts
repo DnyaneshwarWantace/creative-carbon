@@ -140,3 +140,36 @@ export const invoiceListSchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(50),
 })
+
+const billDay = z.string().regex(/^\d{4}-\d{2}-\d{2}$/)
+
+export const vendorBillInputSchema = z.object({
+  vendorId: z.string().uuid(),
+  billNo: z.string().trim().min(1).max(80),
+  billDate: billDay,
+  dueDate: billDay.optional().nullable(),
+  grnIds: z.array(z.string().uuid()).max(50).default([]),
+  taxable: z.coerce.number().min(0).max(1_000_000_000).optional().nullable(),
+  gst: z.coerce.number().min(0).max(1_000_000_000).optional().nullable(),
+  notes: z.string().trim().max(2000).optional().nullable(),
+})
+
+export const vendorBillActionSchema = z.object({
+  id: z.string().uuid(),
+  action: z.enum(['pay', 'cancel']),
+  amount: z.coerce.number().positive().max(1_000_000_000).optional(),
+  paidOn: billDay.optional().nullable(),
+  mode: z.string().trim().max(80).optional().nullable(),
+  reference: z.string().trim().max(120).optional().nullable(),
+  note: z.string().trim().max(1000).optional().nullable(),
+})
+
+export const vendorBillListSchema = z.object({
+  id: z.string().uuid().optional(),
+  view: z.enum(['to_pay', 'overdue', 'paid', 'all']).default('to_pay'),
+  vendorId: z.string().uuid().optional(),
+  unbilledFor: z.string().uuid().optional(),
+})
+
+export type VendorBillInput = z.infer<typeof vendorBillInputSchema>
+export type VendorBillAction = z.infer<typeof vendorBillActionSchema>
