@@ -119,12 +119,14 @@ export const enabledModules: ModuleEntry[] = [
   { id: 'widgets', from: '@open-mercato/core' },
   // Removed for Dermat (not just hidden): devices, content, api_docs, messages,
   // ai_assistant, scheduler, inbox_ops, integrations.
-  // workflows: kept out of the sidebar/UI for Dermat, but @open-mercato/core and
-  // @open-mercato/shared both ship a "workflows" module id, and the build fails
-  // with an unresolved-duplicate error unless one is explicitly selected here —
-  // pointing at @open-mercato/shared's near-empty stub keeps the real, full
-  // workflows module (and its admin pages) out of this app.
-  { id: 'workflows', from: '@open-mercato/shared' },
+  // workflows: @open-mercato/core and @open-mercato/shared both ship a
+  // "workflows" module id, and the build fails with an unresolved-duplicate
+  // error unless one is explicitly selected here. @open-mercato/shared's copy
+  // is a near-empty stub missing exports (createWorkflowsModuleConfig) that
+  // the generated bootstrap code requires unconditionally, so @open-mercato/core
+  // (the real module) is the only buildable choice — its admin pages are back
+  // for now; hide them separately if that's not wanted.
+  { id: 'workflows', from: '@open-mercato/core' },
   // Dermat India custom modules — app-local (@app), not part of upstream core.
   // Rebuild in progress: only the modules that survive the 2026-09-25 cleanup
   // are listed here (departments, vendors, customer profile fields).
