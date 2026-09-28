@@ -127,6 +127,10 @@ export const enabledModules: ModuleEntry[] = [
   // (the real module) is the only buildable choice — its admin pages are back
   // for now; hide them separately if that's not wanted.
   { id: 'workflows', from: '@open-mercato/core' },
+  // workflows/setup.ts unconditionally imports business_rules' rule-engine
+  // cache resolver, so seeding crashes at boot unless business_rules is also
+  // enabled — it has no UI of its own, just entities workflows depends on.
+  { id: 'business_rules', from: '@open-mercato/core' },
   // Dermat India custom modules — app-local (@app), not part of upstream core.
   // Rebuild in progress: only the modules that survive the 2026-09-25 cleanup
   // are listed here (departments, vendors, customer profile fields).
