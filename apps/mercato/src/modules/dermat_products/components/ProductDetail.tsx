@@ -254,7 +254,6 @@ export function ProductDetail({ productId }: { productId: string }) {
   const available = stock?.stores.reduce((sum, row) => sum + row.available, 0) ?? 0
   const minStock = Number(read(profile, 'reorder_point') ?? read(profile, 'reorderPoint') ?? 0)
   const code = text(read(product, 'item_code'))
-  const strategy = text(read(profile, 'default_strategy') ?? read(profile, 'defaultStrategy')).toUpperCase()
   const customers = new Map<string, { id: string; name: string; pieces: number; last: string }>()
   if (kind === 'finished_goods') {
     for (const order of orders ?? []) {
@@ -271,16 +270,17 @@ export function ProductDetail({ productId }: { productId: string }) {
   }
   const hasBom = kind === 'bulk' || kind === 'rnd' || kind === 'finished_goods'
 
+  const liquid = ['l', 'ml'].includes(unit.toLowerCase())
+  const showField = (key: string) => !COMMON_FIELD_KEYS.has(key) && (key !== 'specific_gravity' || kind !== 'raw_material' || liquid)
   const details: Array<[string, string]> = [
     [config.codeLabel, code],
-    [t('dermat_products.detail.sku', 'SKU'), text(read(product, 'sku'))],
     [t('dermat_products.form.unit', 'Unit'), unit],
-    [t('dermat_products.detail.productType', 'Product type'), text(read(product, 'product_type'))],
-    [t('dermat_products.detail.batchMethod', 'Batch consumption'), strategy === '—' ? '—' : strategy],
     [t('dermat_products.detail.hsn', 'HSN code'), text(read(product, 'hsn_code'))],
-    ...defs.filter((def) => !COMMON_FIELD_KEYS.has(def.key)).map((def) => [def.label, text(read(product, def.key))] as [string, string]),
+    ...defs.filter((def) => showField(def.key)).map((def) => [def.label, text(read(product, def.key))] as [string, string]),
     [t('dermat_products.detail.cost', 'Cost price'), read(product, 'cost_price') ? `₹ ${text(read(product, 'cost_price'))}` : '—'],
-    [t('dermat_products.detail.selling', 'Selling price'), read(product, 'selling_price') ? `₹ ${text(read(product, 'selling_price'))}` : '—'],
+    ...(kind === 'finished_goods'
+      ? [[t('dermat_products.detail.selling', 'Selling price'), read(product, 'selling_price') ? `₹ ${text(read(product, 'selling_price'))}` : '—'] as [string, string]]
+      : []),
   ]
 
   return (

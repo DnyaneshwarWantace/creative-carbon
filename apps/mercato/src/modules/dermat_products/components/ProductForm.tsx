@@ -224,18 +224,23 @@ export function ProductForm({ kind, productId }: { kind: ProductKind; productId?
     () => [
       { key: 'item_code', label: config.codeLabel, locked: config.codeRequired },
       ...kindDefs.map((def) => ({ key: def.key, label: def.label })),
-      { key: 'product_type', label: t('dermat_products.form.productType', 'Product Type') },
-      { key: 'batch_method', label: t('dermat_products.form.batchMethod', 'Batch Consumption Method') },
       { key: 'min_stock', label: t('dermat_products.form.minStockPlain', 'Minimum Stock') },
       { key: 'gst', label: t('dermat_products.form.gst', 'GST') },
       { key: 'hsn', label: t('dermat_products.form.hsn', 'HSN Code') },
-      { key: 'selling_price', label: t('dermat_products.form.sellingPrice', 'Selling Price (₹)') },
+      ...(kind === 'finished_goods' ? [{ key: 'selling_price', label: t('dermat_products.form.sellingPrice', 'Selling Price (₹)') }] : []),
       { key: 'cost_price', label: t('dermat_products.form.costPrice', 'Cost Price (₹)') },
     ],
-    [config, kindDefs, t],
+    [config, kind, kindDefs, t],
   )
 
-  const isVisible = (key: string) => !hidden.has(key) || (key === 'item_code' && config.codeRequired)
+  const liquid = ['l', 'ml'].includes((state?.unit ?? '').toLowerCase())
+  const isVisible = (key: string) => {
+    if (key === 'item_code' && config.codeRequired) return true
+    if (key === 'product_type' || key === 'batch_method') return false
+    if (key === 'selling_price' && kind !== 'finished_goods') return false
+    if (key === 'specific_gravity' && kind === 'raw_material' && !liquid) return false
+    return !hidden.has(key)
+  }
 
   const reloadDefinitions = async () => {
     const nextDefs = await loadProductFieldDefs()
@@ -337,7 +342,8 @@ export function ProductForm({ kind, productId }: { kind: ProductKind; productId?
               updateCrud('catalog/products', { id, ...productPayload }),
             )
           } else {
-            const created = await createCrud<{ id?: string }>('catalog/products', productPayload)
+            const next = await apiCall<{ sku?: string }>('/api/dermat_products/next-sku')
+            const created = await createCrud<{ id?: string }>('catalog/products', { ...productPayload, ...(next.result?.sku ? { sku: next.result.sku } : {}) })
             id = created.result?.id ?? null
             if (!id) throw new Error('[internal] product id missing after create')
             savedId = id

@@ -28,10 +28,6 @@ function packingName(type: string, productTitle: string): string {
   return `${type} - ${productTitle}`
 }
 
-function skuSuffix(type: string): string {
-  return type.toUpperCase().replace(/[^A-Z0-9]+/g, '')
-}
-
 async function resolveScope(req: Request) {
   const auth = await getAuthFromRequest(req)
   if (!auth?.tenantId) return null
@@ -135,7 +131,6 @@ async function POST(req: Request) {
         unit: 'pc',
         categoryId: category?.id ?? null,
         taxRateId: tax?.id ?? null,
-        sku: parent.sku ? `${parent.sku}-${skuSuffix(type)}` : null,
         custom: { cf_parent_product_id: parent.id, cf_packing_item_type: type },
         tenantId: scope.tenantId,
         organizationId: scope.organizationId,

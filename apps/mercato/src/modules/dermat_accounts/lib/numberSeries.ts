@@ -1,6 +1,6 @@
 import type { EntityManager } from '@mikro-orm/postgresql'
 
-export type SeriesKey = 'SO' | 'PI' | 'INV' | 'CN' | 'VB' | 'IND' | 'PO' | 'GR' | 'QC' | 'QR' | 'MR' | 'PL' | 'RD'
+export type SeriesKey = 'SO' | 'PI' | 'INV' | 'CN' | 'VB' | 'IND' | 'PO' | 'GR' | 'QC' | 'QR' | 'MR' | 'PL' | 'RD' | 'SKU'
 
 export type SeriesSetting = { prefix: string; suffix: string; pad: number; startAt: number }
 
@@ -20,6 +20,7 @@ export const SERIES_DEFS: SeriesDef[] = [
   { key: 'QR', label: 'Quality rule', department: 'QC', table: 'dermat_quality_rules', column: 'code', prefix: 'DER/QR/{FY}/', suffix: '', pad: 3, startAt: 1 },
   { key: 'PL', label: 'Material plan', department: 'Planning', table: 'dermat_planning_plans', column: 'code', prefix: 'DER/PL/{FY}/', suffix: '', pad: 3, startAt: 1 },
   { key: 'RD', label: 'R&D request', department: 'R&D', table: 'dermat_rnd_requests', column: 'code', prefix: 'DER/RD/{FY}/', suffix: '', pad: 4, startAt: 1 },
+  { key: 'SKU', label: 'Product SKU', department: 'Masters', table: 'catalog_products', column: 'sku', prefix: 'SKU', suffix: '', pad: 1, startAt: 1 },
 ]
 
 export const SERIES_TOKENS = ['{FY}', '{YYYY}', '{YY}', '{MM}'] as const

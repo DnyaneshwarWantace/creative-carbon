@@ -4,6 +4,7 @@ import { splitCustomFieldPayload } from '@open-mercato/shared/lib/crud/custom-fi
 import { productCreateSchema, variantCreateSchema } from '@open-mercato/core/modules/catalog/data/validators'
 import { productInventoryProfileCreateSchema } from '@open-mercato/core/modules/wms/data/validators'
 import type { ProductKind } from './kinds'
+import { nextSeriesCode } from '../../dermat_accounts/lib/numberSeries'
 
 export type CreateProductInput = {
   title: string
@@ -24,9 +25,10 @@ export async function createProductWithStockSetup(
   input: CreateProductInput,
 ): Promise<{ productId: string; variantId: string; sku: string | null }> {
   const split = splitCustomFieldPayload({ cf_product_type: 'Storable', ...input.custom })
+  const sku = input.sku || (await nextSeriesCode({ em: ctx.container.resolve('em') as EntityManager, tenantId: input.tenantId, organizationId: input.organizationId }, 'SKU'))
   const createInput = productCreateSchema.parse({
     title: input.title,
-    ...(input.sku ? { sku: input.sku } : {}),
+    sku,
     defaultUnit: input.unit,
     defaultSalesUnit: input.unit,
     uomRoundingScale: 3,

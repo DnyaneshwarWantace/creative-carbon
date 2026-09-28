@@ -249,11 +249,24 @@ export function ProductsPage() {
 
   const columns = React.useMemo<ColumnDef<Row>[]>(() => {
     const base: ColumnDef<Row>[] = [
-      { id: 'item_code', header: config.codeLabel, cell: ({ row }) => editable(row.original, 'item_code', false, 'font-mono') },
       {
         id: 'title',
-        header: t('dermat_products.list.name', 'Name'),
-        cell: ({ row }) => editable(row.original, 'title', false, 'font-medium'),
+        header: `${config.codeLabel} · ${t('dermat_products.list.name', 'Name')}`,
+        size: 320,
+        cell: ({ row }) =>
+          editing ? (
+            <span className="flex min-w-72 flex-col gap-1">
+              {editable(row.original, 'item_code', false, 'font-mono')}
+              {editable(row.original, 'title', false, 'font-medium')}
+            </span>
+          ) : (
+            <span className="flex min-w-60 max-w-sm flex-col">
+              <span className="font-mono text-xs text-muted-foreground">{cell(row.original, 'item_code')}</span>
+              <span className="truncate font-medium" title={cell(row.original, 'title')}>
+                {cell(row.original, 'title')}
+              </span>
+            </span>
+          ),
       },
     ]
     const kindColumns: ColumnDef<Row>[] = config.columns.map((column) => ({
@@ -271,10 +284,9 @@ export function ProductsPage() {
           return `${formatQuantity(entry?.onHand ?? 0)} ${unit === '—' ? '' : unit}`.trim()
         },
       },
-      { id: 'sku', header: t('dermat_products.list.sku', 'SKU'), cell: ({ row }) => cell(row.original, 'sku') },
     ]
     return [...base, ...kindColumns, ...tail]
-  }, [config, editable, stock, t])
+  }, [config, editable, editing, stock, t])
 
   const createHref = `/backend/products/new/${config.slug}`
 
@@ -327,6 +339,7 @@ export function ProductsPage() {
           title={config.title}
           columns={columns}
           data={rows}
+          stickyFirstColumn
           onRowClick={(row) => (editing ? undefined : router.push(`/backend/products/${row.id}`))}
           searchValue={search}
           onSearchChange={(value) => {
