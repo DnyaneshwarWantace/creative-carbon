@@ -1,0 +1,1186 @@
+{
+  "raw_material": [
+    {
+      "name": "Brightenyl",
+      "code": "AP-002",
+      "unit": "kg",
+      "fields": {
+        "alternative": "NIL",
+        "make_brand": "NV Organics",
+        "inci_name": "Glycerin aqua & diglucosyl gallic acid",
+        "benefit": "Brightening",
+        "supplier": "NV Organics",
+        "product_type": "Storable"
+      }
+    },
+    {
+      "name": "Cressatine",
+      "code": "AP-003",
+      "unit": "kg",
+      "fields": {
+        "make_brand": "Barentez India",
+        "inci_name": "Glycerin (&) Aqua (&) Nasturtium Officinale Extract (&)",
+        "benefit": "Growth",
+        "supplier": "Barentez India",
+        "product_type": "Storable"
+      },
+      "stock": "1.66"
+    },
+    {
+      "name": "Kopcinol (4-butyl Rescorcinol)",
+      "code": "AP-004",
+      "unit": "kg",
+      "fields": {
+        "make_brand": "Kumar Organics",
+        "inci_name": "4-Butyl Resorcinol",
+        "benefit": "Brightening",
+        "supplier": "Kumar Organics",
+        "product_type": "Storable"
+      },
+      "stock": "1.25"
+    },
+    {
+      "name": "Kaolin",
+      "code": "AP-005",
+      "unit": "kg",
+      "fields": {
+        "make_brand": "KVL Cosmetic",
+        "inci_name": "Kaolin",
+        "benefit": "Cleansing",
+        "supplier": "KVL Cosmetic",
+        "product_type": "Storable"
+      },
+      "stock": "52.0"
+    },
+    {
+      "name": "Argan Oil",
+      "code": "AP-006",
+      "unit": "kg",
+      "fields": {
+        "make_brand": "Plant & Seed Oil",
+        "inci_name": "Argania Spinosa Kernel Oil",
+        "benefit": "Moisturizing",
+        "supplier": "Plant & Seed Oil",
+        "product_type": "Storable"
+      },
+      "stock": "29.7"
+    },
+    {
+      "name": "Aldavine 5X",
+      "code": "AP-007",
+      "unit": "kg",
+      "fields": {
+        "inci_name": "Hydrogenated Starch Hydrolysate (&) Water (&) Ascophyllum",
+        "benefit": "Brightening",
+        "supplier": "Amvigor Organics",
+        "product_type": "Storable"
+      },
+      "stock": "0.35"
+    },
+    {
+      "name": "Allium Cepa extract",
+      "code": "AP-008",
+      "unit": "kg",
+      "fields": {
+        "inci_name": "Allium Cepa extract",
+        "benefit": "Healing",
+        "supplier": "Activeman",
+        "product_type": "Storable"
+      },
+      "stock": "2.2"
+    },
+    {
+      "name": "Aloe Vera 200X powder",
+      "code": "AP-010",
+      "unit": "kg",
+      "fields": {
+        "inci_name": "Aloe Barbadensis Leaf extract powder",
+        "benefit": "Soothing",
+        "supplier": "NV Organics",
+        "product_type": "Storable"
+      },
+      "stock": "2.35"
+    },
+    {
+      "name": "Aloe Vera Pulp Gel",
+      "code": "AP-011",
+      "unit": "kg",
+      "fields": {
+        "inci_name": "Aloe Barbadensis leaf extract",
+        "benefit": "Soothing",
+        "supplier": "Siddhant",
+        "product_type": "Storable"
+      },
+      "stock": "39.0"
+    },
+    {
+      "name": "Aloe Vera Juice",
+      "code": "AP-012",
+      "unit": "kg",
+      "fields": {
+        "inci_name": "Aloe Barbadensis Leaf Extract",
+        "benefit": "Soothing",
+        "supplier": "Siddhant",
+        "product_type": "Storable"
+      },
+      "stock": "73.6"
+    },
+    {
+      "name": "Alpha Arbutin",
+      "code": "AP-013",
+      "unit": "kg",
+      "fields": {
+        "inci_name": "Alpha Arbutin",
+        "benefit": "Brightening",
+        "supplier": "Kumar Organics",
+        "product_type": "Storable"
+      },
+      "stock": "43.15"
+    },
+    {
+      "name": "Aminexil (Kopexil)",
+      "code": "AP-014",
+      "unit": "kg",
+      "fields": {
+        "inci_name": "Diaminopyrimidine Oxide",
+        "benefit": "Growth",
+        "supplier": "Activeman",
+        "product_type": "Storable"
+      }
+    },
+    {
+      "name": "Amla Extract",
+      "code": "AP-015",
+      "unit": "kg",
+      "fields": {
+        "inci_name": "Phyllanthus Emblica Fruit Extract",
+        "benefit": "Antioxidant",
+        "supplier": "Innovision",
+        "product_type": "Storable"
+      },
+      "stock": "7.4"
+    },
+    {
+      "name": "Ascorbyl Tetraisopalmitale",
+      "code": "AP-016",
+      "unit": "kg",
+      "fields": {
+        "inci_name": "Ascorbyl Tetraisopalmitate",
+        "benefit": "Brightening",
+        "supplier": "Anshul",
+        "product_type": "Storable"
+      }
+    },
+    {
+      "name": "Anagain",
+      "code": "AP-017",
+      "unit": "kg",
+      "fields": {
+        "inci_name": "Pisum Sativum (Pea) Sprout Extract (&) Phenoxyethanol (&)",
+        "benefit": "Growth",
+        "supplier": "jay bala ji chemo",
+        "product_type": "Storable"
+      },
+      "stock": "10.0"
+    },
+    {
+      "name": "Allantoin",
+      "code": "AP-018",
+      "unit": "kg",
+      "fields": {
+        "inci_name": "Allantoin",
+        "benefit": "Growth",
+        "supplier": "Activeman",
+        "product_type": "Storable"
+      },
+      "stock": "101.171"
+    },
+    {
+      "name": "Bhringraj Ext",
+      "code": "AP-019",
+      "unit": "kg",
+      "fields": {
+        "inci_name": "Eclipta Prostrata Extract",
+        "benefit": "Sunscreen",
+        "supplier": "Salicylates and",
+        "product_type": "Storable"
+      },
+      "stock": "10.0"
+    },
+    {
+      "name": "Tinosorb S",
+      "code": "AP-020",
+      "unit": "kg",
+      "fields": {
+        "inci_name": "Bis-Ethylhexyloxyphenol Methoxyphenyl Triazine",
+        "benefit": "Conditioning",
+        "supplier": "Activeman",
+        "product_type": "Storable"
+      },
+      "stock": "17.38"
+    },
+    {
+      "name": "Barley Protein Extract",
+      "code": "AP-021",
+      "unit": "kg",
+      "fields": {
+        "inci_name": "Hydrolyzed Barley Protein",
+        "benefit": "Brightening",
+        "supplier": "Croda",
+        "product_type": "Storable"
+      },
+      "stock": "4.8"
+    },
+    {
+      "name": "Lumiskin",
+      "code": "AP-022",
+      "unit": "kg",
+      "fields": {
+        "inci_name": "Caprylic/Capric Triglyceride (&) Diacetyl Boldine",
+        "product_type": "Storable"
+      },
+      "stock": "9.404"
+    },
+    {
+      "name": "Redensyl",
+      "code": "AP-089",
+      "unit": "kg",
+      "fields": {
+        "make_brand": "Givaudan",
+        "inci_name": "Glycerin, Water, Dihydroxymethylchromone, Larix Europaea Wood Extract",
+        "benefit": "Anti-ageing, hair growth",
+        "product_type": "Storable"
+      },
+      "stock": "6.0"
+    },
+    {
+      "name": "Tulsi Ext",
+      "code": "AP-110",
+      "unit": "kg",
+      "fields": {
+        "inci_name": "Ocimum Sanctum Leaf Extract",
+        "benefit": "Anti-acne, soothing",
+        "product_type": "Storable"
+      },
+      "stock": "15.0"
+    },
+    {
+      "name": "Orange Peel Extract (Citrus Aurantium Dulcis)",
+      "code": "AP-341",
+      "unit": "kg",
+      "fields": {
+        "alternative": "Mandarin peel extract",
+        "make_brand": "Bio Botanica",
+        "inci_name": "Citrus Aurantium Dulcis Peel Extract",
+        "benefit": "Brightening, antioxidant",
+        "supplier": "Shree Ganesh Chemicals",
+        "product_type": "Storable"
+      }
+    },
+    {
+      "name": "Dowsil 5225C Formulation Aid",
+      "code": "EP-057",
+      "unit": "kg",
+      "fields": {
+        "make_brand": "Dow",
+        "inci_name": "Cyclopentasiloxane (and) PEG/PPG-18/18 Dimethicone",
+        "benefit": "Emulsifier for silicone-in-water creams",
+        "product_type": "Storable"
+      },
+      "stock": "40.0"
+    },
+    {
+      "name": "Renex G 26-LQ",
+      "code": "EP-178",
+      "unit": "kg",
+      "fields": {
+        "inci_name": "Glycereth-26",
+        "benefit": "Humectant, skin feel",
+        "product_type": "Storable"
+      },
+      "stock": "120.0"
+    },
+    {
+      "name": "REMILD CT35 (SMCT)",
+      "code": "EP-186",
+      "unit": "kg",
+      "fields": {
+        "inci_name": "Sodium Methyl Cocoyl Taurate",
+        "benefit": "Mild surfactant",
+        "product_type": "Storable"
+      },
+      "stock": "30.0"
+    },
+    {
+      "name": "Orange Blossom Fragrance",
+      "code": "FC-118",
+      "unit": "kg",
+      "fields": {
+        "alternative": "FC-102 Citrus fresh",
+        "make_brand": "Givaudan",
+        "inci_name": "Parfum",
+        "benefit": "Fragrance",
+        "supplier": "Shree Ganesh Chemicals",
+        "product_type": "Storable"
+      }
+    },
+    {
+      "name": "Almond Oil",
+      "code": "PROD-00001",
+      "unit": "kg",
+      "fields": {
+        "inci_name": "Prunus Amygdalus Dulcis (Sweet Almond) Oil",
+        "benefit": "Moisturizing",
+        "supplier": "Plant & Seed Oil",
+        "product_type": "Storable"
+      },
+      "stock": "45.0"
+    },
+    {
+      "name": "Butylene Glycol (High Purity Solubilizer)",
+      "code": "RM-BUT-06",
+      "unit": "kg",
+      "fields": {
+        "make_brand": "1,3-Butylene Glycol Cosmetic",
+        "benefit": "Penetration Enhancer & Solvent",
+        "supplier": "Oxea Chemicals India",
+        "product_type": "Storable"
+      },
+      "stock": "1400.0"
+    },
+    {
+      "name": "Carbomer 980 Polymer Gelling Agent",
+      "code": "RM-CAR-04",
+      "unit": "kg",
+      "fields": {
+        "base_uom": "kg",
+        "product_type": "simple"
+      }
+    },
+    {
+      "name": "Glycerin IP 99.5% Cosmetic Grade",
+      "code": "RM-GLY-02",
+      "unit": "kg",
+      "fields": {
+        "base_uom": "kg",
+        "product_type": "simple"
+      }
+    },
+    {
+      "name": "Hyaluronic Acid (Sodium Hyaluronate LMW)",
+      "code": "RM-HYA-01",
+      "unit": "kg",
+      "fields": {
+        "base_uom": "kg",
+        "product_type": "simple"
+      }
+    },
+    {
+      "name": "Niacinamide Pure IP Powder (Vitamin B3)",
+      "code": "RM-NIA-03",
+      "unit": "kg",
+      "fields": {
+        "base_uom": "kg",
+        "product_type": "simple"
+      }
+    },
+    {
+      "name": "Phenoxyethanol & Ethylhexylglycerin (Preservative)",
+      "code": "RM-PHN-01",
+      "unit": "kg",
+      "fields": {
+        "base_uom": "kg",
+        "product_type": "simple"
+      }
+    },
+    {
+      "name": "Salicylic Acid Active IP Grade",
+      "code": "RM-SAL-01",
+      "unit": "kg",
+      "fields": {
+        "make_brand": "Salicylic Acid Active IP",
+        "benefit": "Exfoliation & Anti-Acne",
+        "supplier": "Aarti Industries Ltd",
+        "product_type": "Storable"
+      },
+      "stock": "280.0"
+    },
+    {
+      "name": "Triethanolamine (TEA 99% Pure IP)",
+      "code": "RM-TEA-07",
+      "unit": "kg",
+      "fields": {
+        "make_brand": "Pure TEA 99%",
+        "benefit": "pH Neutralizer & Buffer",
+        "supplier": "BASF India Ltd",
+        "product_type": "Storable"
+      },
+      "stock": "600.0"
+    },
+    {
+      "name": "Xanthan Gum (Clear Viscosity Modifier)",
+      "code": "RM-THK-01",
+      "unit": "kg",
+      "fields": {
+        "make_brand": "ClearXanth High-Clarity",
+        "benefit": "Viscosity & Texture Enhancer",
+        "supplier": "Jungbunzlauer India",
+        "product_type": "Storable"
+      },
+      "stock": "350.0"
+    },
+    {
+      "name": "Vitamin C (L-Ascorbic Acid Ultra-Fine IP)",
+      "code": "RM-VTC-01",
+      "unit": "kg",
+      "fields": {
+        "make_brand": "DSM Ascorbic Fine IP",
+        "benefit": "Antioxidant & Collagen Boost",
+        "supplier": "DSM Nutritional Products",
+        "product_type": "Storable"
+      },
+      "stock": "180.0"
+    },
+    {
+      "name": "Purified Demineralized Water (DM Water)",
+      "code": "RM-WAT-01",
+      "unit": "kg",
+      "fields": {
+        "base_uom": "kg",
+        "product_type": "simple"
+      }
+    },
+    {
+      "name": "Zinc PCA Active Grade",
+      "code": "RM-ZNC-01",
+      "unit": "kg",
+      "fields": {
+        "make_brand": "Kop-Zinc PCA",
+        "benefit": "Sebum Control & Antimicrobial",
+        "supplier": "Kumar Organic Products Ltd",
+        "product_type": "Storable"
+      },
+      "stock": "120.0"
+    },
+    {
+      "name": "Salicylic Acid",
+      "code": "ZG-001",
+      "unit": "kg",
+      "fields": {
+        "product_type": "Storable"
+      }
+    },
+    {
+      "name": "Butylene Glycol",
+      "code": "ZG-002",
+      "unit": "kg",
+      "fields": {
+        "product_type": "Storable"
+      }
+    },
+    {
+      "name": "DMDM Hydantoin",
+      "code": "ZG-003",
+      "unit": "kg",
+      "fields": {
+        "product_type": "Storable"
+      }
+    },
+    {
+      "name": "Carbomer 980",
+      "code": "ZG-004",
+      "unit": "kg",
+      "fields": {
+        "product_type": "Storable"
+      }
+    },
+    {
+      "name": "Triethnolamine",
+      "code": "ZG-005",
+      "unit": "kg",
+      "fields": {
+        "product_type": "Storable"
+      }
+    },
+    {
+      "name": "Dipotassium Glycyrrhizinate (DPG)",
+      "code": "ZG-006",
+      "unit": "kg",
+      "fields": {
+        "product_type": "Storable"
+      }
+    },
+    {
+      "name": "Ethylene diamine tetra-acetic acid (EDTA)",
+      "code": "ZG-007",
+      "unit": "kg",
+      "fields": {
+        "product_type": "Storable"
+      }
+    }
+  ],
+  "packing_material": [
+    {
+      "name": "100ml PET Pump Dispenser Bottle for Cleanser",
+      "code": "PM-BOT-100ML",
+      "unit": "pc",
+      "fields": {
+        "base_uom": "pc",
+        "product_type": "simple"
+      }
+    },
+    {
+      "name": "30ml Amber Glass Dropper Bottle (Gold Pipette)",
+      "code": "PM-BOT-30ML",
+      "unit": "pc",
+      "fields": {
+        "base_uom": "pc",
+        "product_type": "simple"
+      }
+    },
+    {
+      "name": "50ml Amber Glass Dropper Bottle",
+      "code": "PM-BOT-50ML",
+      "unit": "pc",
+      "fields": {
+        "product_type": "Storable"
+      }
+    },
+    {
+      "name": "Monocarton Outer Box with UV Spot & Gold Emboss",
+      "code": "PM-CRT-01",
+      "unit": "pc",
+      "fields": {
+        "base_uom": "pc",
+        "product_type": "simple"
+      }
+    },
+    {
+      "name": "30gm Airless Cream Jar",
+      "code": "PM-JAR-30GM",
+      "unit": "pc",
+      "fields": {
+        "product_type": "Storable"
+      }
+    },
+    {
+      "name": "50gm Acrylic Double-Wall Cream Jar with Inner Liner",
+      "code": "PM-JAR-50GM",
+      "unit": "pc",
+      "fields": {
+        "base_uom": "pc",
+        "product_type": "simple"
+      }
+    },
+    {
+      "name": "Metallic Waterproof Vinyl Bottle Label (30ml)",
+      "code": "PM-LBL-01",
+      "unit": "pc",
+      "fields": {
+        "base_uom": "pc",
+        "product_type": "simple"
+      }
+    },
+    {
+      "name": "20/410 Fine Mist Treatment Pump with Clear Cap",
+      "code": "PM-PMP-01",
+      "unit": "pc",
+      "fields": {
+        "base_uom": "pc",
+        "product_type": "simple"
+      }
+    },
+    {
+      "name": "3-Ply Corrugated Master Shipper Box (Holds 48 units)",
+      "code": "PM-SHP-01",
+      "unit": "pc",
+      "fields": {
+        "base_uom": "pc",
+        "product_type": "simple"
+      }
+    },
+    {
+      "name": "20gm Twist-up Stick Container",
+      "code": "PM-STK-20GM",
+      "unit": "pc",
+      "fields": {
+        "product_type": "Storable"
+      }
+    },
+    {
+      "name": "25gm Lami Tube with Needle Nozzle & Screw Cap",
+      "code": "PM-TUB-25GM",
+      "unit": "pc",
+      "fields": {
+        "base_uom": "pc",
+        "product_type": "simple"
+      }
+    },
+    {
+      "name": "50ml Lami Tube with Flip Top Cap",
+      "code": "PM-TUB-50ML",
+      "unit": "pc",
+      "fields": {
+        "product_type": "Storable"
+      }
+    },
+    {
+      "name": "60ml Lami Tube with Flip Top Cap",
+      "code": "PM-TUB-60ML",
+      "unit": "pc",
+      "fields": {
+        "product_type": "Storable"
+      }
+    }
+  ],
+  "bulk": [
+    {
+      "name": "Asvella Ceramide Barrier Repair Cream 50gm — Bulk",
+      "code": "BK-ASVL-CER-50",
+      "unit": "kg",
+      "fields": {
+        "specific_gravity": "1",
+        "product_type": "simple"
+      }
+    },
+    {
+      "name": "Baebbe Hydrating Milk Cleanser 100ml — Bulk",
+      "code": "BK-BAEB-FW-100",
+      "unit": "kg",
+      "fields": {
+        "specific_gravity": "1",
+        "product_type": "simple"
+      }
+    },
+    {
+      "name": "Baebbe Barrier Soothing Serum 30ml — Bulk",
+      "code": "BK-BAEB-SER-30",
+      "unit": "kg",
+      "fields": {
+        "specific_gravity": "1",
+        "product_type": "simple"
+      }
+    },
+    {
+      "name": "Dermapia Uvipia Sunscreen Stick 20gm — Bulk",
+      "code": "BK-DERM-UVSTK-20",
+      "unit": "kg",
+      "fields": {
+        "specific_gravity": "1",
+        "product_type": "simple"
+      }
+    },
+    {
+      "name": "Dermapia Uvipia Zinc Mineral Fluid Sunscreen 50ml — Bulk",
+      "code": "BK-DERM-UVZINC-50",
+      "unit": "kg",
+      "fields": {
+        "specific_gravity": "1",
+        "product_type": "simple"
+      }
+    },
+    {
+      "name": "HYEO Bright Barrier Repair Cream 30gm — Bulk",
+      "code": "BK-HYEO-REPCR-30",
+      "unit": "kg",
+      "fields": {
+        "specific_gravity": "1",
+        "product_type": "simple"
+      }
+    },
+    {
+      "name": "HYEO Bright Niacinamide 10% Serum — Bulk",
+      "code": "BK-HYEO-SER-30",
+      "unit": "kg",
+      "fields": {
+        "specific_gravity": "1",
+        "product_type": "simple"
+      }
+    },
+    {
+      "name": "Miganz K AHA 30% + BHA 2% Peeling Solution 50ml — Bulk",
+      "code": "BK-MIG-PEEL-50",
+      "unit": "kg",
+      "fields": {
+        "specific_gravity": "1",
+        "product_type": "simple"
+      }
+    },
+    {
+      "name": "Mishkae Radiance Cream — Bulk",
+      "code": "BK-MISH-RAD-01",
+      "unit": "kg",
+      "fields": {
+        "specific_gravity": "1",
+        "product_type": "simple"
+      }
+    },
+    {
+      "name": "Mishkae Serum — Bulk",
+      "code": "BK-MISH-SER-30",
+      "unit": "kg",
+      "fields": {
+        "specific_gravity": "1",
+        "product_type": "simple"
+      }
+    },
+    {
+      "name": "Mishkae Sunscreen SPF50 50gm — Bulk",
+      "code": "BK-MISH-SUN-50",
+      "unit": "kg",
+      "fields": {
+        "specific_gravity": "1",
+        "product_type": "simple"
+      }
+    },
+    {
+      "name": "NeuroCalm Gentle Foaming Cleanser — Bulk",
+      "code": "BK-NEUR-CLNS-100",
+      "unit": "kg",
+      "fields": {
+        "specific_gravity": "1",
+        "product_type": "simple"
+      }
+    },
+    {
+      "name": "NeuroLift Day Defense Peptide Serum 30ml — Bulk",
+      "code": "BK-NEUR-DAYSER-30",
+      "unit": "kg",
+      "fields": {
+        "specific_gravity": "1",
+        "product_type": "simple"
+      }
+    },
+    {
+      "name": "NeuroHydrate Daily Gel Moisturiser 50gm — Bulk",
+      "code": "BK-NEUR-MOIST-50",
+      "unit": "kg",
+      "fields": {
+        "specific_gravity": "1",
+        "product_type": "simple"
+      }
+    },
+    {
+      "name": "NG Glow Daily Brightening Face Day Cream — Bulk",
+      "code": "BK-NGGL-DAYCR-60",
+      "unit": "kg",
+      "fields": {
+        "specific_gravity": "1",
+        "product_type": "simple"
+      }
+    },
+    {
+      "name": "NG Glow Salicylic 2% Face Wash 60ml — Bulk",
+      "code": "BK-NGGL-FW-60",
+      "unit": "kg",
+      "fields": {
+        "specific_gravity": "1",
+        "product_type": "simple"
+      }
+    },
+    {
+      "name": "NG Glow Plus XT Retinol Night Cream 30gm — Bulk",
+      "code": "BK-NGGL-NIGHTCR-30",
+      "unit": "kg",
+      "fields": {
+        "specific_gravity": "1",
+        "product_type": "simple"
+      }
+    },
+    {
+      "name": "Orange Skin Anti Ageing Night Serum — Bulk",
+      "code": "BK-RUDR-ORNG",
+      "unit": "kg",
+      "fields": {
+        "specific_gravity": "1.02",
+        "rd_number": "RD/2627/118",
+        "product_type": "simple"
+      }
+    },
+    {
+      "name": "Sereneaura Capsule Cream 55gm — Bulk",
+      "code": "BK-SERA-CAPCR-55",
+      "unit": "kg",
+      "fields": {
+        "specific_gravity": "1",
+        "product_type": "simple"
+      }
+    },
+    {
+      "name": "Sereneaura Reedle Serum — Bulk",
+      "code": "BK-SERA-REESER-30",
+      "unit": "kg",
+      "fields": {
+        "specific_gravity": "1",
+        "product_type": "simple"
+      }
+    },
+    {
+      "name": "Skintheta Exosome Regenerative Cream 30gm — Bulk",
+      "code": "BK-SKTH-EXO-30",
+      "unit": "kg",
+      "fields": {
+        "specific_gravity": "1",
+        "product_type": "simple"
+      }
+    },
+    {
+      "name": "Skintheta PDRN Salmon DNA Serum 30ml — Bulk",
+      "code": "BK-SKTH-PDRN-30",
+      "unit": "kg",
+      "fields": {
+        "specific_gravity": "1",
+        "product_type": "simple"
+      }
+    },
+    {
+      "name": "Vitamin C 15% Glow Face Serum 30ml — Bulk",
+      "code": "BK-VITC-SER-30",
+      "unit": "kg",
+      "fields": {
+        "specific_gravity": "1",
+        "product_type": "simple"
+      }
+    },
+    {
+      "name": "Zitlite Rapid Acne Spot Gel 25gms — Bulk",
+      "code": "BK-ZITL-GEL-25",
+      "unit": "kg",
+      "fields": {
+        "specific_gravity": "1",
+        "product_type": "simple"
+      }
+    }
+  ],
+  "finished_goods": [
+    {
+      "name": "Asvella Ceramide Barrier Repair Cream 50gm",
+      "code": "ASVL-CER-50",
+      "unit": "pc",
+      "fields": {
+        "mrp": "649",
+        "brand_name": "Asvella",
+        "pack_size": "50 gm",
+        "product_type": "simple"
+      }
+    },
+    {
+      "name": "Baebbe Hydrating Milk Cleanser 100ml",
+      "code": "BAEB-FW-100",
+      "unit": "pc",
+      "fields": {
+        "mrp": "₹450",
+        "pack_size": "100 ml",
+        "product_code": "BAEB-FW-100",
+        "category": "Face Wash",
+        "base_uom": "ml",
+        "min_floor_qty": "500",
+        "product_type": "simple"
+      }
+    },
+    {
+      "name": "Baebbe Barrier Soothing Serum 30ml",
+      "code": "BAEB-SER-30",
+      "unit": "pc",
+      "fields": {
+        "mrp": "₹650",
+        "pack_size": "30 ml",
+        "product_code": "BAEB-SER-30",
+        "category": "Face Serum",
+        "base_uom": "ml",
+        "min_floor_qty": "500",
+        "product_type": "simple"
+      }
+    },
+    {
+      "name": "Dermapia Uvipia Sunscreen Stick 20gm",
+      "code": "DERM-UVSTK-20",
+      "unit": "pc",
+      "fields": {
+        "mrp": "₹850",
+        "pack_size": "20 gm",
+        "product_code": "DERM-UVSTK-20",
+        "category": "Sunscreen",
+        "base_uom": "gm",
+        "min_floor_qty": "500",
+        "product_type": "simple"
+      }
+    },
+    {
+      "name": "Dermapia Uvipia Zinc Mineral Fluid Sunscreen 50ml",
+      "code": "DERM-UVZINC-50",
+      "unit": "pc",
+      "fields": {
+        "mrp": "₹990",
+        "pack_size": "50 ml",
+        "product_code": "DERM-UVZINC-50",
+        "category": "Sunscreen",
+        "base_uom": "ml",
+        "min_floor_qty": "500",
+        "product_type": "simple"
+      }
+    },
+    {
+      "name": "HYEO Bright Barrier Repair Cream 30gm",
+      "code": "HYEO-REPCR-30",
+      "unit": "pc",
+      "fields": {
+        "mrp": "₹750",
+        "pack_size": "30 gm",
+        "product_code": "HYEO-REPCR-30",
+        "category": "Cream",
+        "base_uom": "gm",
+        "min_floor_qty": "500",
+        "product_type": "simple"
+      }
+    },
+    {
+      "name": "HYEO Bright Niacinamide 10% Serum",
+      "code": "HYEO-SER-30",
+      "unit": "pc",
+      "fields": {
+        "mrp": "₹699",
+        "pack_size": "30 ml",
+        "product_code": "HYEO-SER-30",
+        "category": "Face Serum",
+        "base_uom": "ml",
+        "min_floor_qty": "500",
+        "product_type": "simple"
+      }
+    },
+    {
+      "name": "Miganz K AHA 30% + BHA 2% Peeling Solution 50ml",
+      "code": "MIG-PEEL-50",
+      "unit": "pc",
+      "fields": {
+        "mrp": "₹890",
+        "pack_size": "50 ml",
+        "product_code": "MIG-PEEL-50",
+        "category": "Face Serum",
+        "base_uom": "ml",
+        "min_floor_qty": "500",
+        "product_type": "simple"
+      }
+    },
+    {
+      "name": "Mishkae Radiance Cream",
+      "code": "MISH-RAD-01",
+      "unit": "ml",
+      "fields": {
+        "product_code": "MISH-RAD-01",
+        "category": "Serum",
+        "base_uom": "ml",
+        "min_floor_qty": "500",
+        "product_type": "simple"
+      }
+    },
+    {
+      "name": "Mishkae Serum",
+      "code": "MISH-SER-30",
+      "unit": "pc",
+      "fields": {
+        "mrp": "₹799",
+        "pack_size": "30 gm",
+        "product_code": "MISH-SER-30",
+        "category": "Face Serum",
+        "base_uom": "gm",
+        "min_floor_qty": "500",
+        "product_type": "simple"
+      }
+    },
+    {
+      "name": "Mishkae Sunscreen SPF50 50gm",
+      "code": "MISH-SUN-50",
+      "unit": "pc",
+      "fields": {
+        "mrp": "₹699",
+        "pack_size": "50 gm",
+        "product_code": "MISH-SUN-50",
+        "category": "Sunscreen",
+        "base_uom": "gm",
+        "min_floor_qty": "500",
+        "product_type": "simple"
+      }
+    },
+    {
+      "name": "NeuroCalm Gentle Foaming Cleanser",
+      "code": "NEUR-CLNS-100",
+      "unit": "pc",
+      "fields": {
+        "mrp": "₹499",
+        "pack_size": "100 ml",
+        "product_code": "NEUR-CLNS-100",
+        "category": "Face Wash",
+        "base_uom": "ml",
+        "min_floor_qty": "500",
+        "product_type": "simple"
+      }
+    },
+    {
+      "name": "NeuroLift Day Defense Peptide Serum 30ml",
+      "code": "NEUR-DAYSER-30",
+      "unit": "pc",
+      "fields": {
+        "mrp": "₹899",
+        "pack_size": "30 ml",
+        "product_code": "NEUR-DAYSER-30",
+        "category": "Face Serum",
+        "base_uom": "ml",
+        "min_floor_qty": "500",
+        "product_type": "simple"
+      }
+    },
+    {
+      "name": "NeuroHydrate Daily Gel Moisturiser 50gm",
+      "code": "NEUR-MOIST-50",
+      "unit": "pc",
+      "fields": {
+        "mrp": "₹650",
+        "pack_size": "50 gm",
+        "product_code": "NEUR-MOIST-50",
+        "category": "Gel",
+        "base_uom": "gm",
+        "min_floor_qty": "500",
+        "product_type": "simple"
+      }
+    },
+    {
+      "name": "NG Glow Daily Brightening Face Day Cream",
+      "code": "NGGL-DAYCR-60",
+      "unit": "pc",
+      "fields": {
+        "mrp": "₹550",
+        "pack_size": "60 gm",
+        "product_code": "NGGL-DAYCR-60",
+        "category": "Cream",
+        "base_uom": "gm",
+        "min_floor_qty": "500",
+        "product_type": "simple"
+      }
+    },
+    {
+      "name": "NG Glow Salicylic 2% Face Wash 60ml",
+      "code": "NGGL-FW-60",
+      "unit": "pc",
+      "fields": {
+        "mrp": "₹350",
+        "pack_size": "60 ml",
+        "product_code": "NGGL-FW-60",
+        "category": "Face Wash",
+        "base_uom": "ml",
+        "min_floor_qty": "500",
+        "product_type": "simple"
+      }
+    },
+    {
+      "name": "NG Glow Plus XT Retinol Night Cream 30gm",
+      "code": "NGGL-NIGHTCR-30",
+      "unit": "pc",
+      "fields": {
+        "mrp": "₹799",
+        "pack_size": "30 gm",
+        "product_code": "NGGL-NIGHTCR-30",
+        "category": "Cream",
+        "base_uom": "gm",
+        "min_floor_qty": "500",
+        "product_type": "simple"
+      }
+    },
+    {
+      "name": "Orange Skin Anti Ageing Night Serum 30ml",
+      "code": "RUDR-ORNG-30",
+      "unit": "pc",
+      "fields": {
+        "mrp": "599",
+        "brand_name": "Orange Skin",
+        "pack_size": "30 ml",
+        "product_type": "simple"
+      }
+    },
+    {
+      "name": "Sereneaura Capsule Cream 55gm",
+      "code": "SERA-CAPCR-55",
+      "unit": "pc",
+      "fields": {
+        "mrp": "₹1200",
+        "pack_size": "55 gm",
+        "product_code": "SERA-CAPCR-55",
+        "category": "Cream",
+        "base_uom": "gm",
+        "min_floor_qty": "500",
+        "product_type": "simple"
+      }
+    },
+    {
+      "name": "Sereneaura Reedle Serum",
+      "code": "SERA-REESER-30",
+      "unit": "pc",
+      "fields": {
+        "mrp": "₹1450",
+        "pack_size": "30 ml",
+        "product_code": "SERA-REESER-30",
+        "category": "Face Serum",
+        "base_uom": "ml",
+        "min_floor_qty": "500",
+        "product_type": "simple"
+      }
+    },
+    {
+      "name": "Skintheta Exosome Regenerative Cream 30gm",
+      "code": "SKTH-EXO-30",
+      "unit": "pc",
+      "fields": {
+        "mrp": "₹1950",
+        "pack_size": "30 gm",
+        "product_code": "SKTH-EXO-30",
+        "category": "Cream",
+        "base_uom": "gm",
+        "min_floor_qty": "500",
+        "product_type": "simple"
+      }
+    },
+    {
+      "name": "Skintheta PDRN Salmon DNA Serum 30ml",
+      "code": "SKTH-PDRN-30",
+      "unit": "pc",
+      "fields": {
+        "mrp": "₹1800",
+        "pack_size": "30 ml",
+        "product_code": "SKTH-PDRN-30",
+        "category": "Face Serum",
+        "base_uom": "ml",
+        "min_floor_qty": "500",
+        "product_type": "simple"
+      }
+    },
+    {
+      "name": "Vitamin C 15% Glow Face Serum 30ml",
+      "code": "VITC-SER-30",
+      "unit": "pc",
+      "fields": {
+        "mrp": "₹699",
+        "pack_size": "30 ml",
+        "product_code": "VITC-SER-30",
+        "category": "Face Serum",
+        "base_uom": "ml",
+        "min_floor_qty": "500",
+        "product_type": "simple"
+      }
+    },
+    {
+      "name": "Zitlite Rapid Acne Spot Gel 25gms",
+      "code": "ZITL-GEL-25",
+      "unit": "pc",
+      "fields": {
+        "mrp": "₹420",
+        "pack_size": "25 gm",
+        "product_code": "ZITL-GEL-25",
+        "category": "Gel",
+        "base_uom": "gm",
+        "min_floor_qty": "500",
+        "product_type": "simple"
+      }
+    }
+  ],
+  "rnd": []
+}

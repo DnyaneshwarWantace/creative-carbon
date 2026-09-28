@@ -1,0 +1,237 @@
+[
+  {
+    "name": "Accounts 1",
+    "email": "accounts1@dermat.test",
+    "roles": [
+      "Accounts",
+      "accounts"
+    ]
+  },
+  {
+    "name": "Accounts 2",
+    "email": "accounts2@dermat.test",
+    "roles": [
+      "Accounts",
+      "accounts"
+    ]
+  },
+  {
+    "name": "Accounts 3",
+    "email": "accounts3@dermat.test",
+    "roles": [
+      "Accounts",
+      "accounts"
+    ]
+  },
+  {
+    "name": "Design 1",
+    "email": "design1@dermat.test",
+    "roles": [
+      "Design"
+    ]
+  },
+  {
+    "name": "Design 2",
+    "email": "design2@dermat.test",
+    "roles": [
+      "Design"
+    ]
+  },
+  {
+    "name": "Design 3",
+    "email": "design3@dermat.test",
+    "roles": [
+      "Design"
+    ]
+  },
+  {
+    "name": "Finished Stock Manager",
+    "email": "finished.stock.manager1@dermat.test",
+    "roles": [
+      "Finished Stock"
+    ]
+  },
+  {
+    "name": "In Process QA 1",
+    "email": "in.process.qa1@dermat.test",
+    "roles": [
+      "In Process QA"
+    ]
+  },
+  {
+    "name": "In Process QA 2",
+    "email": "in.process.qa2@dermat.test",
+    "roles": [
+      "In Process QA"
+    ]
+  },
+  {
+    "name": "MIS",
+    "email": "mis1@dermat.test",
+    "roles": [
+      "MIS - Sameep Jain"
+    ]
+  },
+  {
+    "name": "Packing Supervisor 1",
+    "email": "packing.supervisor1@dermat.test",
+    "roles": [
+      "Packing"
+    ]
+  },
+  {
+    "name": "Packing Supervisor 2",
+    "email": "packing.supervisor2@dermat.test",
+    "roles": [
+      "Packing"
+    ]
+  },
+  {
+    "name": "Planning 1",
+    "email": "planning1@dermat.test",
+    "roles": [
+      "Planning"
+    ]
+  },
+  {
+    "name": "Planning 2",
+    "email": "planning2@dermat.test",
+    "roles": [
+      "Planning"
+    ]
+  },
+  {
+    "name": "Production 1",
+    "email": "production1@dermat.test",
+    "roles": [
+      "Production",
+      "production_staff"
+    ]
+  },
+  {
+    "name": "Production 2",
+    "email": "production2@dermat.test",
+    "roles": [
+      "Production",
+      "production_staff"
+    ]
+  },
+  {
+    "name": "Purchase 1",
+    "email": "purchase1@dermat.test",
+    "roles": [
+      "Purchase",
+      "procurement"
+    ]
+  },
+  {
+    "name": "Purchase 2",
+    "email": "purchase2@dermat.test",
+    "roles": [
+      "Purchase",
+      "procurement"
+    ]
+  },
+  {
+    "name": "QA Head",
+    "email": "qa.head1@dermat.test",
+    "roles": [
+      "Quality Assurance",
+      "quality_assurance"
+    ]
+  },
+  {
+    "name": "QC Analytical",
+    "email": "qc.analytical1@dermat.test",
+    "roles": [
+      "Quality Control",
+      "quality_control"
+    ],
+    "features": [
+      "attachments.manage",
+      "attachments.view",
+      "catalog.categories.view",
+      "catalog.products.view",
+      "dashboards.view",
+      "dermat_boms.view",
+      "dermat_dashboard.my_work",
+      "dermat_departments.view",
+      "dermat_orders.stages",
+      "dermat_orders.view",
+      "dermat_purchase.view",
+      "dermat_quality.chemical",
+      "dermat_quality.rules",
+      "dermat_quality.view",
+      "dermat_store.view",
+      "dermat_vendors.view",
+      "perspectives.use"
+    ]
+  },
+  {
+    "name": "QC Micro",
+    "email": "qc.micro1@dermat.test",
+    "roles": [
+      "Quality Control",
+      "quality_control"
+    ],
+    "features": [
+      "attachments.manage",
+      "attachments.view",
+      "catalog.categories.view",
+      "catalog.products.view",
+      "dashboards.view",
+      "dermat_boms.view",
+      "dermat_dashboard.my_work",
+      "dermat_departments.view",
+      "dermat_orders.stages",
+      "dermat_orders.view",
+      "dermat_purchase.view",
+      "dermat_quality.micro",
+      "dermat_quality.rules",
+      "dermat_quality.view",
+      "dermat_store.view",
+      "dermat_vendors.view",
+      "perspectives.use"
+    ]
+  },
+  {
+    "name": "R&D",
+    "email": "r.d1@dermat.test",
+    "roles": [
+      "R&D",
+      "research"
+    ]
+  },
+  {
+    "name": "Sales 1",
+    "email": "sales1@dermat.test",
+    "roles": [
+      "Sales",
+      "sales"
+    ]
+  },
+  {
+    "name": "Sales 2",
+    "email": "sales2@dermat.test",
+    "roles": [
+      "Sales",
+      "sales"
+    ]
+  },
+  {
+    "name": "Sales 3",
+    "email": "sales3@dermat.test",
+    "roles": [
+      "Sales",
+      "sales"
+    ]
+  },
+  {
+    "name": "Sales 4",
+    "email": "sales4@dermat.test",
+    "roles": [
+      "Sales",
+      "sales"
+    ]
+  }
+]

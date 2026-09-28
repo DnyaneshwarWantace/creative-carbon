@@ -1,0 +1,17 @@
+{
+  "name": "Dermat India",
+  "legalName": "Dermat India Pvt Ltd",
+  "gstin": "06AAPFD7375J1ZV",
+  "address": "Plot No. 696, Pace City-2, Sector 37, Gurugram, Haryana 122004",
+  "phone": "+91 80768 39213",
+  "email": "dermatindia@gmail.com",
+  "bankName": "Kotak Mahindra Bank Ltd.",
+  "bankBranch": "Eros City, Gurgaon",
+  "bankAccount": "1646270857",
+  "bankIfsc": "KKBK0004258",
+  "signatory": "Authorised signatory",
+  "piTerms": "1. Prices are ex-works unless stated.\n2. Advance as mentioned confirms the order; balance before dispatch.\n3. Delivery date is counted from advance receipt and artwork approval.\n4. Subject to local jurisdiction.",
+  "invoiceTerms": "1. Goods once dispatched will not be taken back.\n2. Interest @ 18% p.a. on payments delayed beyond the due date.\n3. Subject to local jurisdiction.",
+  "piValidityDays": 10,
+  "grnOverPercent": 0
+}

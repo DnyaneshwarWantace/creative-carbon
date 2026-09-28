@@ -1,0 +1,173 @@
+[
+  {
+    "key": "capacity",
+    "kind": "text",
+    "label": "Size / Capacity",
+    "fieldsets": [
+      "packing_material"
+    ],
+    "listVisible": true,
+    "filterable": false
+  },
+  {
+    "key": "item_code",
+    "kind": "text",
+    "label": "Code",
+    "listVisible": true,
+    "filterable": true
+  },
+  {
+    "key": "hsn_code",
+    "kind": "text",
+    "label": "HSN Code",
+    "listVisible": true,
+    "filterable": false
+  },
+  {
+    "key": "product_type",
+    "kind": "text",
+    "label": "Product Type",
+    "listVisible": true,
+    "filterable": false
+  },
+  {
+    "key": "selling_price",
+    "kind": "currency",
+    "label": "Selling Price",
+    "listVisible": true,
+    "filterable": false
+  },
+  {
+    "key": "cost_price",
+    "kind": "currency",
+    "label": "Cost Price",
+    "listVisible": true,
+    "filterable": false
+  },
+  {
+    "key": "inci_name",
+    "kind": "text",
+    "label": "INCI Name",
+    "fieldsets": [
+      "raw_material"
+    ],
+    "listVisible": true,
+    "filterable": false
+  },
+  {
+    "key": "benefit",
+    "kind": "text",
+    "label": "Benefit",
+    "fieldsets": [
+      "raw_material"
+    ],
+    "listVisible": true,
+    "filterable": false
+  },
+  {
+    "key": "alternative",
+    "kind": "text",
+    "label": "Alternative",
+    "fieldsets": [
+      "raw_material"
+    ],
+    "listVisible": true,
+    "filterable": false
+  },
+  {
+    "key": "make_brand",
+    "kind": "text",
+    "label": "Make / Brand",
+    "fieldsets": [
+      "raw_material",
+      "packing_material"
+    ],
+    "listVisible": true,
+    "filterable": false
+  },
+  {
+    "key": "supplier",
+    "kind": "text",
+    "label": "Supplier",
+    "fieldsets": [
+      "raw_material",
+      "packing_material"
+    ],
+    "listVisible": true,
+    "filterable": false
+  },
+  {
+    "key": "cap_colour",
+    "kind": "text",
+    "label": "Cap Colour",
+    "fieldsets": [
+      "packing_material"
+    ],
+    "listVisible": true,
+    "filterable": false
+  },
+  {
+    "key": "body_colour",
+    "kind": "text",
+    "label": "Body Colour",
+    "fieldsets": [
+      "packing_material"
+    ],
+    "listVisible": true,
+    "filterable": false
+  },
+  {
+    "key": "parent_product_id",
+    "kind": "text",
+    "label": "Made for product",
+    "fieldsets": [
+      "packing_material"
+    ],
+    "listVisible": true,
+    "filterable": false
+  },
+  {
+    "key": "packing_item_type",
+    "kind": "text",
+    "label": "Packing item type",
+    "fieldsets": [
+      "packing_material"
+    ],
+    "listVisible": true,
+    "filterable": false
+  },
+  {
+    "key": "brand_name",
+    "kind": "text",
+    "label": "Brand Name",
+    "fieldsets": [
+      "finished_goods",
+      "rnd"
+    ],
+    "listVisible": true,
+    "filterable": false
+  },
+  {
+    "key": "rd_number",
+    "kind": "text",
+    "label": "R&D No.",
+    "fieldsets": [
+      "bulk",
+      "rnd"
+    ],
+    "listVisible": true,
+    "filterable": false
+  },
+  {
+    "key": "specific_gravity",
+    "kind": "float",
+    "label": "Specific Gravity (g/ml)",
+    "fieldsets": [
+      "bulk",
+      "rnd",
+      "raw_material"
+    ],
+    "listVisible": true,
+    "filterable": false
+  }
+]
