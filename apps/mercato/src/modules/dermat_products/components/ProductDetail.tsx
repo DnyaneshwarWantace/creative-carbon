@@ -153,7 +153,9 @@ export function ProductDetail({ productId }: { productId: string }) {
   const config = kind && KIND_CONFIG[kind] ? KIND_CONFIG[kind] : null
 
   React.useEffect(() => {
+    if (!granted.ready) return
     let cancelled = false
+    const may = (feature: string) => granted.has(feature)
     ;(async () => {
       const call = await apiCall<{ items?: Row[] }>(`/api/catalog/products?id=${encodeURIComponent(productId)}&pageSize=1`, undefined, { fallback: { items: [] } })
       const item = call.result?.items?.[0]
@@ -166,7 +168,9 @@ export function ProductDetail({ productId }: { productId: string }) {
       const itemKind = String(read(item, 'custom_fieldset_code') ?? '')
       const [allDefs, profileCall, stockCall] = await Promise.all([
         loadProductFieldDefs(),
-        apiCall<{ items?: Row[] }>(`/api/wms/inventory-profiles?catalogProductId=${encodeURIComponent(productId)}&pageSize=1`, undefined, { fallback: { items: [] } }),
+        may('wms.view')
+          ? apiCall<{ items?: Row[] }>(`/api/wms/inventory-profiles?catalogProductId=${encodeURIComponent(productId)}&pageSize=1`, undefined, { fallback: { items: [] } })
+          : Promise.resolve({ result: { items: [] as Row[] } }),
         apiCall<StockDetail>(`/api/dermat_products/stock-detail?productId=${encodeURIComponent(productId)}`, undefined, { fallback: { stores: [], batches: [], movements: [] } }),
       ])
       if (cancelled) return
@@ -175,15 +179,20 @@ export function ProductDetail({ productId }: { productId: string }) {
       setProfile(profileCall.result?.items?.[0] ?? null)
       setStock(stockCall.result ?? { stores: [], batches: [], movements: [] })
       if (itemKind === 'raw_material' || itemKind === 'packing_material') {
-        apiCall<{ items?: StoreRequestRow[] }>(`/api/dermat_store/requests?productId=${encodeURIComponent(productId)}&pageSize=20`, undefined, { fallback: { items: [] } }).then((call) => {
-          if (!cancelled) setRequests(call.result?.items ?? [])
-        })
-        apiCall<{ items?: PurchaseRow[] }>(`/api/dermat_purchase/orders?productId=${encodeURIComponent(productId)}&pageSize=20`, undefined, { fallback: { items: [] } }).then((call) => {
-          if (!cancelled) setPurchases(call.result?.items ?? [])
-        })
+        if (may('dermat_store.view')) {
+          apiCall<{ items?: StoreRequestRow[] }>(`/api/dermat_store/requests?productId=${encodeURIComponent(productId)}&pageSize=20`, undefined, { fallback: { items: [] } }).then((call) => {
+            if (!cancelled) setRequests(call.result?.items ?? [])
+          })
+        } else setRequests([])
+        if (may('dermat_purchase.view')) {
+          apiCall<{ items?: PurchaseRow[] }>(`/api/dermat_purchase/orders?productId=${encodeURIComponent(productId)}&pageSize=20`, undefined, { fallback: { items: [] } }).then((call) => {
+            if (!cancelled) setPurchases(call.result?.items ?? [])
+          })
+        } else setPurchases([])
       }
 
-      if (itemKind === 'bulk' || itemKind === 'rnd' || itemKind === 'finished_goods') {
+      if ((itemKind === 'bulk' || itemKind === 'rnd' || itemKind === 'finished_goods') && !may('dermat_boms.view')) setBom(null)
+      else if (itemKind === 'bulk' || itemKind === 'rnd' || itemKind === 'finished_goods') {
         const list = await apiCall<{ items?: Array<{ id: string; status: string }> }>(`/api/dermat_boms/boms?productId=${encodeURIComponent(productId)}&pageSize=20`, undefined, { fallback: { items: [] } })
         const live = (list.result?.items ?? []).filter((entry) => entry.status !== 'superseded')
         const current = live.find((entry) => entry.status === 'approved') ?? live[0]
@@ -198,6 +207,8 @@ export function ProductDetail({ productId }: { productId: string }) {
         fgIds = [productId]
         const packCall = await apiCall<{ items?: Packing[] }>(`/api/dermat_products/packing?productId=${encodeURIComponent(productId)}`, undefined, { fallback: { items: [] } })
         if (!cancelled) setPacking(packCall.result?.items ?? [])
+      } else if (!may('dermat_boms.view')) {
+        setUsage({ usedIn: [], finishedGoods: [] })
       } else {
         const usageCall = await apiCall<Usage>(`/api/dermat_boms/where-used?productId=${encodeURIComponent(productId)}`, undefined, { fallback: { usedIn: [], finishedGoods: [] } })
         if (cancelled) return
@@ -211,7 +222,7 @@ export function ProductDetail({ productId }: { productId: string }) {
         if (!cancelled && parentRow) setParent({ id: parentRow.id, title: String(parentRow.title ?? '') })
       }
       const orderLists = await Promise.all(
-        fgIds.slice(0, 20).map((id) =>
+        (may('dermat_orders.view') ? fgIds.slice(0, 20) : []).map((id) =>
           apiCall<{ items?: OrderRow[] }>(
             `/api/dermat_orders/orders?productId=${encodeURIComponent(id)}&pageSize=20${itemKind === 'finished_goods' ? '' : '&status=open'}`,
             undefined,
@@ -227,7 +238,7 @@ export function ProductDetail({ productId }: { productId: string }) {
     return () => {
       cancelled = true
     }
-  }, [productId, t])
+  }, [productId, t, granted])
 
   if (loadError) {
     return (
