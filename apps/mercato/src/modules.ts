@@ -103,7 +103,7 @@ export const enabledModules: ModuleEntry[] = [
   { id: 'attachments', from: '@open-mercato/core' },
   { id: 'catalog', from: '@open-mercato/core' },
   { id: 'sales', from: '@open-mercato/core' },
-  // payment_gateways: disabled for Dermat (no online card payments).
+  { id: 'payment_gateways', from: '@open-mercato/core' },
   // Stock for every Dermat item kind: lots, balances, reservations, movement ledger.
   { id: 'wms', from: '@open-mercato/core' },
   // Required by wms (integration toggles); its admin pages are removed below.
@@ -118,7 +118,13 @@ export const enabledModules: ModuleEntry[] = [
   { id: 'translations', from: '@open-mercato/core' },
   { id: 'widgets', from: '@open-mercato/core' },
   // Removed for Dermat (not just hidden): devices, content, api_docs, messages,
-  // ai_assistant, scheduler, inbox_ops, integrations, workflows.
+  // ai_assistant, scheduler, inbox_ops, integrations.
+  // workflows: kept out of the sidebar/UI for Dermat, but @open-mercato/core and
+  // @open-mercato/shared both ship a "workflows" module id, and the build fails
+  // with an unresolved-duplicate error unless one is explicitly selected here —
+  // pointing at @open-mercato/shared's near-empty stub keeps the real, full
+  // workflows module (and its admin pages) out of this app.
+  { id: 'workflows', from: '@open-mercato/shared' },
   // Dermat India custom modules — app-local (@app), not part of upstream core.
   // Rebuild in progress: only the modules that survive the 2026-09-25 cleanup
   // are listed here (departments, vendors, customer profile fields).
