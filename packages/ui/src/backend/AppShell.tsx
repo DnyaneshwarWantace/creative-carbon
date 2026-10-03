@@ -20,6 +20,7 @@ import { Input } from '../primitives/input'
 import { SearchInput } from '../primitives/search-input'
 import { Checkbox } from '../primitives/checkbox'
 import { Separator } from '../primitives/separator'
+import { TableScrollAssist } from './TableScrollAssist'
 import { FlashMessages } from './FlashMessages'
 import { QueryProvider } from '../theme/QueryProvider'
 import { usePathname, useSearchParams } from 'next/navigation'
@@ -1387,7 +1388,7 @@ function AppShellBody({ productName, logo, email, canManageUpgradeActions = fals
       ) : null}
 
       <div className="flex min-h-svh flex-col min-w-0">
-        <header className="sticky top-0 z-sticky border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 px-3 sm:px-4 lg:px-6 py-3 flex items-center justify-between gap-2 sm:gap-3">
+        <header className="sticky top-0 z-sticky border-b bg-background px-3 sm:px-4 lg:px-6 py-3 flex items-center justify-between gap-2 sm:gap-3">
           <div
             data-testid="backend-chrome-ready"
             data-ready={isChromeReady ? 'true' : 'false'}
@@ -1491,6 +1492,7 @@ function AppShellBody({ productName, logo, email, canManageUpgradeActions = fals
         <main className="flex-1 p-4 lg:p-6 mx-auto w-full max-w-screen-2xl">
           <InjectionSpot spotId={BACKEND_LAYOUT_TOP_INJECTION_SPOT_ID} context={injectionContext} />
           <FlashMessages />
+          <TableScrollAssist />
           <PartialIndexBanner />
           {canManageUpgradeActions ? <UpgradeActionBanner /> : null}
           <LastOperationBanner />
@@ -1501,11 +1503,13 @@ function AppShellBody({ productName, logo, email, canManageUpgradeActions = fals
             context={injectionContext}
           />
           <div id="om-top-banners" className="mb-3 space-y-2" />
-          <OrganizationScopeBoundary active={isOnSettingsPath}>
-            <BackendRecordInjectionContextProvider setCurrentRecordInjectionContext={setCurrentRecordInjectionContext}>
-              {children}
-            </BackendRecordInjectionContextProvider>
-          </OrganizationScopeBoundary>
+          <div className="isolate">
+            <OrganizationScopeBoundary active={isOnSettingsPath}>
+              <BackendRecordInjectionContextProvider setCurrentRecordInjectionContext={setCurrentRecordInjectionContext}>
+                {children}
+              </BackendRecordInjectionContextProvider>
+            </OrganizationScopeBoundary>
+          </div>
           <InjectionSpot spotId={BACKEND_LAYOUT_FOOTER_INJECTION_SPOT_ID} context={injectionContext} />
         </main>
         {hideFooter ? null : (

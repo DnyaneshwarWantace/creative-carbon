@@ -162,7 +162,7 @@ function BoardView({ orders, onOpen, opening }: { orders: SheetOrder[]; onOpen: 
   const t = useT()
   const columns = STAGES.filter((def) => def.key !== 'order')
   return (
-    <div className="overflow-x-auto pb-2">
+    <div className="overflow-x-auto pb-2" data-drag-scroll>
       <div className="flex gap-3">
         {columns.map((def) => {
           const cards = orders.filter((order) => order.current.some((entry) => entry.key === def.key))
