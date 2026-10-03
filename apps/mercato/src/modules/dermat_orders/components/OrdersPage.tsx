@@ -69,7 +69,7 @@ function ReopenClock({ order, onOpen }: { order: SheetOrder; onOpen: (orderId: s
         <button
           type="button"
           onClick={(event) => event.stopPropagation()}
-          className="relative flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-dashed text-muted-foreground hover:border-primary hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="relative flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-dashed text-muted-foreground hover:border-primary hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           title={t('dermat_orders.book.reopenTitle', 'Reopen a stage sent on by mistake')}
           aria-label={t('dermat_orders.book.reopenTitle', 'Reopen a stage sent on by mistake')}
         >
@@ -101,13 +101,13 @@ function ReopenClock({ order, onOpen }: { order: SheetOrder; onOpen: (orderId: s
   )
 }
 
-function ActionCell({ order, onOpen }: { order: SheetOrder; onOpen: (orderId: string, stageKey: string) => void }) {
+function ActionCell({ order, onOpen, opening }: { order: SheetOrder; onOpen: (orderId: string, stageKey: string) => void; opening: string | null }) {
   const t = useT()
   const view = (
     <Link
       href={`/backend/orders/${order.id}`}
       onClick={(event) => event.stopPropagation()}
-      className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       title={t('dermat_orders.book.viewOrder', 'Open the order')}
       aria-label={t('dermat_orders.book.viewOrder', 'Open the order')}
     >
@@ -117,43 +117,48 @@ function ActionCell({ order, onOpen }: { order: SheetOrder; onOpen: (orderId: st
   if (order.status === 'cancelled') return <span className="flex items-center justify-between gap-1"><StatePill state="skipped" label={t('dermat_orders.status.cancelled', 'Cancelled')} />{view}</span>
   if (!order.current.length) return <span className="flex items-center justify-between gap-1"><StatePill state="completed" label={t('dermat_orders.book.allDone', 'All stages done')} /><span className="flex items-center gap-1"><ReopenClock order={order} onOpen={onOpen} />{view}</span></span>
   return (
-    <span className="flex items-start gap-1">
-    <span className="flex min-w-0 flex-1 flex-col gap-1">
-      {order.current.map((entry) => {
-        const state = sheetWorkState(order.stages[entry.key])
-        return (
-          <button
-            key={entry.key}
-            type="button"
-            onClick={(event) => {
-              event.stopPropagation()
-              onOpen(order.id, entry.key)
-            }}
-            className="group flex items-center justify-between gap-2 rounded-md border bg-card px-2 py-1.5 text-left shadow-xs transition-colors hover:border-primary hover:bg-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          >
-            <span className="min-w-0">
-              <span className="flex items-center gap-1.5">
-                <StatePill state={state} />
-                <span className="truncate text-xs font-semibold">{entry.label}</span>
-              </span>
-              <span className="block truncate text-xs text-muted-foreground">
-                {[entry.department, entry.responsibleName, entry.days != null ? `${formatQty(entry.days, 1)} d` : null, entry.status === 'on_hold' ? entry.holdParty : null].filter(Boolean).join(' · ')}
-              </span>
-            </span>
-            <ArrowRight className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:text-primary" aria-hidden="true" />
-          </button>
-        )
-      })}
-    </span>
-    <span className="flex flex-col items-center gap-1">
-      {view}
+    <span className="flex items-center gap-1">
+      <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+        {order.current.map((entry) => {
+          const state = sheetWorkState(order.stages[entry.key])
+          const detail = [entry.responsibleName ?? entry.department, entry.days != null ? `${formatQty(entry.days, 1)} d` : null, entry.status === 'on_hold' ? entry.holdParty : null].filter(Boolean).join(' · ')
+          const busy = opening === `${order.id}:${entry.key}`
+          return (
+            <button
+              key={entry.key}
+              type="button"
+              disabled={busy}
+              title={[entry.label, entry.department, entry.responsibleName, detail].filter(Boolean).join(' · ')}
+              onClick={(event) => {
+                event.stopPropagation()
+                onOpen(order.id, entry.key)
+              }}
+              className={cn('group flex h-7 min-w-0 items-center gap-1.5 rounded-md border bg-card pl-1 pr-1.5 text-left transition-colors hover:border-primary hover:bg-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring', busy && 'border-primary bg-primary/5')}
+            >
+              <span className={cn('h-5 w-1 shrink-0 rounded-full', STATE_BAR[state])} aria-hidden="true" />
+              <span className="truncate text-xs font-semibold">{entry.label}</span>
+              <span className="min-w-0 flex-1 truncate text-xs text-muted-foreground">{detail}</span>
+              {busy ? <Spinner className="h-3.5 w-3.5 shrink-0" /> : <ArrowRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:text-primary" aria-hidden="true" />}
+            </button>
+          )
+        })}
+      </span>
       <ReopenClock order={order} onOpen={onOpen} />
-    </span>
+      {view}
     </span>
   )
 }
 
-function BoardView({ orders, onOpen }: { orders: SheetOrder[]; onOpen: (orderId: string, stageKey: string) => void }) {
+const STATE_BAR: Record<string, string> = {
+  coming: 'bg-border',
+  pending: 'bg-status-warning-icon',
+  in_progress: 'bg-status-info-icon',
+  on_hold: 'bg-status-error-icon',
+  completed: 'bg-status-success-icon',
+  skipped: 'bg-muted-foreground',
+}
+
+function BoardView({ orders, onOpen, opening }: { orders: SheetOrder[]; onOpen: (orderId: string, stageKey: string) => void; opening: string | null }) {
   const t = useT()
   const columns = STAGES.filter((def) => def.key !== 'order')
   return (
@@ -162,7 +167,7 @@ function BoardView({ orders, onOpen }: { orders: SheetOrder[]; onOpen: (orderId:
         {columns.map((def) => {
           const cards = orders.filter((order) => order.current.some((entry) => entry.key === def.key))
           return (
-            <section key={def.key} className="flex w-72 shrink-0 flex-col rounded-lg border bg-muted/30">
+            <section key={def.key} className="flex w-64 shrink-0 flex-col rounded-lg border bg-muted/30">
               <header className="flex items-center justify-between gap-2 border-b px-3 py-2">
                 <span className="min-w-0">
                   <span className="block truncate text-sm font-semibold">{def.label}</span>
@@ -170,7 +175,7 @@ function BoardView({ orders, onOpen }: { orders: SheetOrder[]; onOpen: (orderId:
                 </span>
                 <span className="rounded-full bg-background px-2 py-0.5 text-xs font-semibold tabular-nums">{cards.length}</span>
               </header>
-              <div className="flex flex-col gap-2 p-2">
+              <div className="flex flex-col gap-1.5 p-1.5">
                 {cards.length ? (
                   cards.map((order) => {
                     const stage = order.stages[def.key]
@@ -180,27 +185,25 @@ function BoardView({ orders, onOpen }: { orders: SheetOrder[]; onOpen: (orderId:
                       <button
                         key={order.id}
                         type="button"
+                        disabled={opening === `${order.id}:${def.key}`}
+                        title={[WORK_STATE_LABEL[state], current?.responsibleName, order.late ? t('dermat_orders.book.wasDue', 'was due {date}', { date: formatDate(order.deliveryDate) }) : null].filter(Boolean).join(' · ')}
                         onClick={() => onOpen(order.id, def.key)}
-                        className="space-y-1.5 rounded-md border bg-card p-2.5 text-left shadow-xs transition-colors hover:border-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        className="flex gap-2 rounded-md border bg-card py-1.5 pl-1.5 pr-2 text-left text-xs transition-colors hover:border-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                       >
-                        <span className="flex items-center justify-between gap-2">
-                          <span className="font-mono text-xs font-semibold">{order.orderNo}</span>
-                          <StatePill state={state} />
-                        </span>
-                        <span className="block truncate text-sm font-medium">{order.customerName}</span>
-                        <span className="block truncate text-xs text-muted-foreground">
-                          {order.lines.map((line) => `${line.brandName ?? line.productTitle} × ${formatQty(line.quantity, 0)}`).join(', ')}
-                        </span>
-                        <span className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
-                          <span className="truncate">{current?.responsibleName ?? t('dermat_orders.book.unassigned', 'Not assigned')}</span>
-                          <span className="tabular-nums">{stage?.days != null ? `${formatQty(stage.days, 1)} d` : ''}</span>
-                        </span>
-                        {order.late ? (
-                          <span className="flex items-center gap-1 text-xs font-semibold text-status-error-text">
-                            <CalendarClock className="h-3 w-3" aria-hidden="true" />
-                            {t('dermat_orders.book.wasDue', 'was due {date}', { date: formatDate(order.deliveryDate) })}
+                        <span className={cn('w-1 shrink-0 self-stretch rounded-full', STATE_BAR[state])} aria-hidden="true" />
+                        <span className="min-w-0 flex-1">
+                          <span className="flex items-center justify-between gap-2">
+                            <span className="font-mono font-semibold">{order.orderNo}</span>
+                            <span className="flex items-center gap-1 tabular-nums text-muted-foreground">
+                              {order.late ? <CalendarClock className="h-3 w-3 text-status-error-icon" aria-hidden="true" /> : null}
+                              {opening === `${order.id}:${def.key}` ? <Spinner className="h-3 w-3" /> : stage?.days != null ? `${formatQty(stage.days, 1)} d` : ''}
+                            </span>
                           </span>
-                        ) : null}
+                          <span className="block truncate font-medium">{order.customerName}</span>
+                          <span className="block truncate text-muted-foreground">
+                            {[order.lines.map((line) => `${line.brandName ?? line.productTitle} × ${formatQty(line.quantity, 0)}`).join(', '), current?.responsibleName].filter(Boolean).join(' · ')}
+                          </span>
+                        </span>
                       </button>
                     )
                   })
@@ -299,8 +302,11 @@ export function OrdersPage() {
 
   const renderCell = table.renderCell
 
+  const [opening, setOpening] = React.useState<string | null>(null)
   const openStage = async (orderId: string, stageKey: string) => {
+    setOpening(`${orderId}:${stageKey}`)
     const call = await apiCall<Order>(`/api/dermat_orders/orders?id=${encodeURIComponent(orderId)}`)
+    setOpening(null)
     if (!call.ok || !call.result) {
       flash(t('dermat_orders.errors.load', 'Could not load the order.'), 'error')
       return
@@ -450,17 +456,17 @@ export function OrdersPage() {
               description={t('dermat_orders.book.emptyHint', 'Change the filters, or book a new order.')}
             />
           ) : view === 'board' ? (
-            <BoardView orders={orders} onOpen={openStage} />
+            <BoardView orders={orders} onOpen={openStage} opening={opening} />
           ) : (
-            <div className={cn('overflow-hidden rounded-lg border bg-card shadow-xs', loading && 'opacity-60')}>
-              <div className="max-h-screen overflow-auto">
+            <div className={cn('isolate overflow-hidden rounded-lg border bg-card shadow-xs transition-opacity', loading && 'opacity-60')}>
+              <div className="overflow-auto overscroll-contain" style={{ maxHeight: 'calc(100dvh - 9rem)' }}>
                 <table className="w-full border-collapse whitespace-nowrap text-left text-xs">
                   <thead className="sticky top-0 z-20 bg-muted">
                     <tr className="border-b">
                       <th className="sticky left-0 z-30 bg-muted px-3 py-1.5" />
                       <th className="bg-muted px-3 py-1.5" />
                       {sections.map((section, index) => (
-                        <th key={`${section.name}-${index}`} colSpan={section.span} className="border-l px-3 py-1.5 text-xs font-semibold uppercase tracking-wider text-primary">
+                        <th key={`${section.name}-${index}`} colSpan={section.span} className="border-l bg-muted px-3 py-1.5 text-xs font-semibold uppercase tracking-wider text-primary">
                           {section.name}
                         </th>
                       ))}
@@ -470,7 +476,7 @@ export function OrdersPage() {
                       <th className="sticky left-0 z-30 bg-muted px-3 py-2 font-semibold">{t('dermat_orders.book.order', 'Order')}</th>
                       <th className="bg-muted px-3 py-2 font-semibold text-foreground">{t('dermat_orders.book.brand', 'Brand / product name')}</th>
                       {columns.map((column) => (
-                        <th key={column.key} className={cn('px-3 py-2 font-semibold', column.align === 'right' && 'text-right', column.align === 'center' && 'text-center')}>
+                        <th key={column.key} className={cn('bg-muted px-3 py-2 font-semibold', column.align === 'right' && 'text-right', column.align === 'center' && 'text-center')}>
                           {column.label}
                         </th>
                       ))}
@@ -485,40 +491,40 @@ export function OrdersPage() {
                         return (
                           <tr
                             key={`${order.id}-${line?.id ?? 'none'}`}
-                            className={cn('align-top hover:bg-muted/30', index === lines.length - 1 && 'border-b', order.status === 'cancelled' && 'opacity-60')}
+                            className={cn('group/row align-middle hover:bg-muted/30', index === lines.length - 1 && 'border-b', order.status === 'cancelled' && 'opacity-60')}
                           >
                             {span ? (
-                              <td rowSpan={span} className="sticky left-0 z-10 border-r bg-card px-3 py-2">
-                                <Link href={`/backend/orders/${order.id}`} className="block font-mono font-semibold text-primary hover:underline">
-                                  {order.orderNo}
-                                </Link>
-                                <span className="block text-muted-foreground">{formatDate(order.orderDate)}</span>
-                                {order.late ? <span className="mt-0.5 block font-semibold text-status-error-text">{t('dermat_orders.book.late', 'Late')}</span> : null}
+                              <td rowSpan={span} className="sticky left-0 z-10 border-r bg-card px-3 py-1.5 group-hover/row:bg-muted" title={formatDate(order.orderDate)}>
+                                <span className="flex items-center gap-1.5">
+                                  <Link href={`/backend/orders/${order.id}`} className="font-mono font-semibold text-primary hover:underline">
+                                    {order.orderNo}
+                                  </Link>
+                                  {order.late ? <span className="rounded-sm bg-status-error-bg px-1 font-semibold text-status-error-text">{t('dermat_orders.book.late', 'Late')}</span> : null}
+                                </span>
                               </td>
                             ) : null}
-                            <td className="px-3 py-2">
-                              {renderCell(BRAND_COLUMN, { order, line })}
-                              <span className="block max-w-72 truncate text-muted-foreground" title={line?.productTitle}>
-                                {line?.productCode ? `${line.productCode} · ` : ''}
-                                {line?.productTitle ?? '—'}
+                            <td className="px-3 py-1.5">
+                              <span className="flex max-w-96 items-center gap-1.5" title={[line?.productCode, line?.productTitle].filter(Boolean).join(' · ')}>
+                                <span className="min-w-0 max-w-56 shrink">{renderCell(BRAND_COLUMN, { order, line })}</span>
+                                <span className="truncate text-muted-foreground">{line?.productCode ?? line?.productTitle ?? '—'}</span>
                               </span>
                             </td>
                             {columns.map((column) =>
                               column.scope === 'order' ? (
                                 span ? (
-                                  <td key={column.key} rowSpan={span} className={cn('px-3 py-2', column.align === 'right' && 'text-right tabular-nums', column.align === 'center' && 'text-center')}>
+                                  <td key={column.key} rowSpan={span} className={cn('px-3 py-1.5', column.align === 'right' && 'text-right tabular-nums', column.align === 'center' && 'text-center')}>
                                     {renderCell(column, { order, line })}
                                   </td>
                                 ) : null
                               ) : (
-                                <td key={column.key} className={cn('px-3 py-2', column.align === 'right' && 'text-right tabular-nums', column.align === 'center' && 'text-center')}>
+                                <td key={column.key} className={cn('px-3 py-1.5', column.align === 'right' && 'text-right tabular-nums', column.align === 'center' && 'text-center')}>
                                   {renderCell(column, { order, line })}
                                 </td>
                               ),
                             )}
                             {span ? (
-                              <td rowSpan={span} className="sticky right-0 z-10 min-w-64 border-l bg-card px-2 py-2" onClick={(event) => event.stopPropagation()}>
-                                <ActionCell order={order} onOpen={openStage} />
+                              <td rowSpan={span} className="sticky right-0 z-10 w-80 min-w-72 max-w-80 border-l bg-card px-2 py-1 group-hover/row:bg-muted" onClick={(event) => event.stopPropagation()}>
+                                <ActionCell order={order} onOpen={openStage} opening={opening} />
                               </td>
                             ) : null}
                           </tr>

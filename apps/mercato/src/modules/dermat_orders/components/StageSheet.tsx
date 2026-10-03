@@ -761,7 +761,7 @@ export function StageSheet({ order, stage, people, canWork, busy, shortCount, on
   const def = stage ? stageDef(stage.key) : undefined
   if (!stage || !def) return null
   return (
-    <Sheet open={Boolean(stage)} onOpenChange={(open) => !open && onClose()}>
+    <Sheet open={Boolean(stage)} modal={false} onOpenChange={(open) => !open && onClose()}>
       <SheetContent side="right" className="flex w-full flex-col gap-0 p-0 sm:max-w-lg">
         <SheetHeader className="border-b p-4">
           <div className="flex items-center gap-2">
