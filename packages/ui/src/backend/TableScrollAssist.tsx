@@ -7,6 +7,8 @@ import { IconButton } from '../primitives/icon-button'
 
 const ATTRIBUTE = 'data-table-scroll'
 const SELECTOR = `[${ATTRIBUTE}="on"]`
+const PIN_ATTRIBUTE = 'data-pin'
+const PIN_SELECTOR = `[${PIN_ATTRIBUTE}]`
 const DRAG_THRESHOLD = 5
 const HOLD_STEP = 18
 const BUTTON_STEP = 320
@@ -38,6 +40,12 @@ ${SELECTOR}::-webkit-scrollbar { height: 8px; width: 8px; }
 ${SELECTOR}::-webkit-scrollbar-track { background: var(--muted); }
 ${SELECTOR}::-webkit-scrollbar-thumb { background: var(--muted-foreground); border-radius: 9999px; border: 2px solid var(--muted); }
 ${SELECTOR}::-webkit-scrollbar-corner { background: var(--muted); }
+${SELECTOR} ${PIN_SELECTOR} { position: sticky; z-index: 1; background-color: var(--pin-bg, var(--background)); }
+${SELECTOR} th${PIN_SELECTOR} { z-index: 2; background-image: linear-gradient(color-mix(in oklch, var(--muted) 40%, transparent), color-mix(in oklch, var(--muted) 40%, transparent)); }
+${SELECTOR} tr:hover > td${PIN_SELECTOR} { background-image: linear-gradient(color-mix(in oklch, var(--muted) 30%, transparent), color-mix(in oklch, var(--muted) 30%, transparent)); }
+${SELECTOR} [${PIN_ATTRIBUTE}="left-edge"] { box-shadow: inset -2px 0 0 color-mix(in oklch, var(--muted-foreground) 70%, transparent); }
+${SELECTOR} [${PIN_ATTRIBUTE}="right"] { right: 0; box-shadow: inset 2px 0 0 color-mix(in oklch, var(--muted-foreground) 70%, transparent); }
+${SELECTOR} [${PIN_ATTRIBUTE}="left-edge"] + :is(th, td), ${SELECTOR} [${PIN_ATTRIBUTE}="right"] { border-left-color: transparent; }
 html[data-table-dragging] , html[data-table-dragging] * { cursor: grabbing !important; user-select: none !important; }
 :is(main, [role="dialog"]) table:not([data-own-grid]) :is(th, td) + :is(th, td) { border-left: 1px solid var(--border); }
 :is(main, [role="dialog"]) table:not([data-own-grid]) :is(th, td)[class*="sticky"][class*="left-0"] { box-shadow: inset -2px 0 0 color-mix(in oklch, var(--muted-foreground) 70%, transparent); }
@@ -59,7 +67,73 @@ function ownsDragScroll(element: HTMLElement): boolean {
   return Boolean(element.closest('.group\\/hscroll'))
 }
 
-function tagContainers(root: Element) {
+function clearPins(container: HTMLElement) {
+  container.querySelectorAll<HTMLElement>(PIN_SELECTOR).forEach((cell) => {
+    cell.removeAttribute(PIN_ATTRIBUTE)
+    cell.style.removeProperty('left')
+  })
+}
+
+function backgroundBehind(element: HTMLElement): string {
+  let node: HTMLElement | null = element
+  while (node) {
+    const color = getComputedStyle(node).backgroundColor
+    if (color && color !== 'transparent' && !/rgba\([^)]*,\s*0\)$/.test(color)) return color
+    node = node.parentElement
+  }
+  return getComputedStyle(document.body).backgroundColor
+}
+
+function isSelectionCell(cell: HTMLTableCellElement): boolean {
+  return Boolean(cell.querySelector('input[type="checkbox"], [role="checkbox"]')) && cell.textContent?.trim() === ''
+}
+
+function pinColumns(container: HTMLElement) {
+  const table = container.querySelector('table')
+  if (!table || table.hasAttribute('data-own-grid')) {
+    clearPins(container)
+    return
+  }
+  const ownLeft = Boolean(table.querySelector(':is(th, td)[class*="sticky"][class*="left-0"]:not([data-pin])'))
+  const ownRight = Boolean(table.querySelector(':is(th, td)[class*="sticky"][class*="right-0"]:not([data-pin])'))
+  if (ownLeft && ownRight) {
+    clearPins(container)
+    return
+  }
+  const rows = Array.from(table.rows)
+  const headerRow = table.tHead?.rows[table.tHead.rows.length - 1] ?? rows[0]
+  if (!headerRow) return
+  const columnCount = headerRow.cells.length
+  if (columnCount < 3) {
+    clearPins(container)
+    return
+  }
+  const leftCount = ownLeft ? 0 : isSelectionCell(headerRow.cells[0]) ? 2 : 1
+  const offsets: number[] = []
+  let running = 0
+  for (let index = 0; index < leftCount; index += 1) {
+    offsets.push(running)
+    running += headerRow.cells[index].getBoundingClientRect().width
+  }
+  table.style.setProperty('--pin-bg', backgroundBehind(container))
+  for (const row of rows) {
+    const cells = row.cells
+    if (cells.length !== columnCount) continue
+    for (let index = 0; index < columnCount; index += 1) {
+      const cell = cells[index]
+      const kind = index < leftCount ? (index === leftCount - 1 ? 'left-edge' : 'left') : index === columnCount - 1 && !ownRight ? 'right' : null
+      if (kind) {
+        if (cell.getAttribute(PIN_ATTRIBUTE) !== kind) cell.setAttribute(PIN_ATTRIBUTE, kind)
+        if (kind !== 'right') cell.style.left = `${offsets[index]}px`
+      } else if (cell.hasAttribute(PIN_ATTRIBUTE)) {
+        cell.removeAttribute(PIN_ATTRIBUTE)
+        cell.style.removeProperty('left')
+      }
+    }
+  }
+}
+
+function tagContainers(root: Element, pin: boolean) {
   const found = new Set<HTMLElement>()
   root.querySelectorAll('table, [data-drag-scroll]').forEach((element) => {
     const container = element.hasAttribute('data-drag-scroll') && element instanceof HTMLElement
@@ -75,6 +149,10 @@ function tagContainers(root: Element) {
     const overflows = container.scrollWidth > container.clientWidth + 1
     const value = overflows ? 'on' : 'off'
     if (container.getAttribute(ATTRIBUTE) !== value) container.setAttribute(ATTRIBUTE, value)
+    if (pin) {
+      if (overflows) pinColumns(container)
+      else clearPins(container)
+    }
     if (overflows) containers.push(container)
   })
   return containers
@@ -105,13 +183,16 @@ export function TableScrollAssist({ rootSelector = 'main' }: { rootSelector?: st
   const trackRef = React.useRef<HTMLDivElement | null>(null)
   const holdRef = React.useRef<number | null>(null)
   const frameRef = React.useRef<number | null>(null)
+  const pinDirtyRef = React.useRef(true)
   const [bar, setBar] = React.useState<BarState | null>(null)
 
   const measure = React.useCallback(() => {
     frameRef.current = null
     const root = document.querySelector(rootSelector)
     if (!root) return
-    const active = pickActive(tagContainers(root))
+    const pin = pinDirtyRef.current
+    pinDirtyRef.current = false
+    const active = pickActive(tagContainers(root, pin))
     activeRef.current = active
     if (!active) {
       setBar(null)
@@ -142,24 +223,29 @@ export function TableScrollAssist({ rootSelector = 'main' }: { rootSelector?: st
     frameRef.current = window.requestAnimationFrame(measure)
   }, [measure])
 
+  const scheduleLayout = React.useCallback(() => {
+    pinDirtyRef.current = true
+    schedule()
+  }, [schedule])
+
   React.useEffect(() => {
     const root = document.querySelector(rootSelector)
     if (!root) return
-    schedule()
-    const observer = new MutationObserver(schedule)
-    observer.observe(root, { childList: true, subtree: true })
-    const resizeObserver = new ResizeObserver(schedule)
+    scheduleLayout()
+    const observer = new MutationObserver(scheduleLayout)
+    observer.observe(root, { childList: true, subtree: true, characterData: true })
+    const resizeObserver = new ResizeObserver(scheduleLayout)
     resizeObserver.observe(root)
-    window.addEventListener('resize', schedule)
+    window.addEventListener('resize', scheduleLayout)
     document.addEventListener('scroll', schedule, { capture: true, passive: true })
     return () => {
       observer.disconnect()
       resizeObserver.disconnect()
-      window.removeEventListener('resize', schedule)
+      window.removeEventListener('resize', scheduleLayout)
       document.removeEventListener('scroll', schedule, { capture: true })
       if (frameRef.current !== null) window.cancelAnimationFrame(frameRef.current)
     }
-  }, [rootSelector, schedule])
+  }, [rootSelector, schedule, scheduleLayout])
 
   React.useEffect(() => {
     const onPointerDown = (event: PointerEvent) => {
