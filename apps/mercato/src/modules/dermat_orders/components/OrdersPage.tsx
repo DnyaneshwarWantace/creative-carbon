@@ -149,6 +149,10 @@ function ActionCell({ order, onOpen, opening }: { order: SheetOrder; onOpen: (or
   )
 }
 
+const SECTION_LINE = 'border-l-2 border-l-muted-foreground/40'
+const PIN_LEFT_LINE = 'border-r-2 border-r-muted-foreground/70'
+const PIN_RIGHT_LINE = 'border-l-2 border-l-muted-foreground/70'
+
 const STATE_BAR: Record<string, string> = {
   coming: 'bg-border',
   pending: 'bg-status-warning-icon',
@@ -337,6 +341,8 @@ export function OrdersPage() {
     if (last && last.name === column.section) last.span += 1
     else sections.push({ name: column.section, span: 1 })
   }
+  const sectionStarts = new Set(columns.filter((column, index) => index === 0 || columns[index - 1].section !== column.section).map((column) => column.key))
+  const columnLine = (key: string) => (sectionStarts.has(key) ? SECTION_LINE : 'border-l')
   const summary = data?.summary
   const orders = data?.items ?? []
   const selectedStage = working ? (working.order.stages.find((entry) => entry.key === working.stageKey) ?? null) : null
@@ -459,28 +465,28 @@ export function OrdersPage() {
             <BoardView orders={orders} onOpen={openStage} opening={opening} />
           ) : (
             <div className={cn('isolate overflow-hidden rounded-lg border bg-card shadow-xs transition-opacity', loading && 'opacity-60')}>
-              <div className="overflow-auto overscroll-contain" style={{ maxHeight: 'calc(100dvh - 9rem)' }}>
-                <table className="w-full border-collapse whitespace-nowrap text-left text-xs">
+              <div className="overflow-auto" style={{ maxHeight: 'calc(100dvh - 9rem)' }}>
+                <table data-own-grid className="w-full border-separate border-spacing-0 whitespace-nowrap text-left text-xs">
                   <thead className="sticky top-0 z-20 bg-muted">
-                    <tr className="border-b">
-                      <th className="sticky left-0 z-30 bg-muted px-3 py-1.5" />
-                      <th className="bg-muted px-3 py-1.5" />
+                    <tr>
+                      <th className={cn('sticky left-0 z-30 border-b bg-muted px-3 py-1.5', PIN_LEFT_LINE)} />
+                      <th className="border-b bg-muted px-3 py-1.5" />
                       {sections.map((section, index) => (
-                        <th key={`${section.name}-${index}`} colSpan={section.span} className="border-l bg-muted px-3 py-1.5 text-xs font-semibold uppercase tracking-wider text-primary">
+                        <th key={`${section.name}-${index}`} colSpan={section.span} className={cn('border-b bg-muted px-3 py-1.5 text-xs font-semibold uppercase tracking-wider text-primary', SECTION_LINE)}>
                           {section.name}
                         </th>
                       ))}
-                      <th className="sticky right-0 z-30 border-l bg-muted px-3 py-1.5" />
+                      <th className={cn('sticky right-0 z-30 border-b bg-muted px-3 py-1.5', PIN_RIGHT_LINE)} />
                     </tr>
-                    <tr className="border-b text-muted-foreground">
-                      <th className="sticky left-0 z-30 bg-muted px-3 py-2 font-semibold">{t('dermat_orders.book.order', 'Order')}</th>
-                      <th className="bg-muted px-3 py-2 font-semibold text-foreground">{t('dermat_orders.book.brand', 'Brand / product name')}</th>
+                    <tr className="text-muted-foreground">
+                      <th className={cn('sticky left-0 z-30 border-b bg-muted px-3 py-2 font-semibold', PIN_LEFT_LINE)}>{t('dermat_orders.book.order', 'Order')}</th>
+                      <th className="border-b bg-muted px-3 py-2 font-semibold text-foreground">{t('dermat_orders.book.brand', 'Brand / product name')}</th>
                       {columns.map((column) => (
-                        <th key={column.key} className={cn('bg-muted px-3 py-2 font-semibold', column.align === 'right' && 'text-right', column.align === 'center' && 'text-center')}>
+                        <th key={column.key} className={cn('border-b bg-muted px-3 py-2 font-semibold', columnLine(column.key), column.align === 'right' && 'text-right', column.align === 'center' && 'text-center')}>
                           {column.label}
                         </th>
                       ))}
-                      <th className="sticky right-0 z-30 border-l bg-muted px-3 py-2 font-semibold text-foreground">{t('dermat_orders.book.action', 'Now at · action')}</th>
+                      <th className={cn('sticky right-0 z-30 border-b bg-muted px-3 py-2 font-semibold text-foreground', PIN_RIGHT_LINE)}>{t('dermat_orders.book.action', 'Now at · action')}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -488,13 +494,14 @@ export function OrdersPage() {
                       const lines = order.lines.length ? order.lines : [null]
                       return lines.map((line, index) => {
                         const span = index === 0 ? lines.length : 0
+                        const lineBottom = index === lines.length - 1 && 'border-b'
                         return (
                           <tr
                             key={`${order.id}-${line?.id ?? 'none'}`}
-                            className={cn('group/row align-middle hover:bg-muted/30', index === lines.length - 1 && 'border-b', order.status === 'cancelled' && 'opacity-60')}
+                            className={cn('group/row align-middle hover:bg-muted/30', order.status === 'cancelled' && 'opacity-60')}
                           >
                             {span ? (
-                              <td rowSpan={span} className="sticky left-0 z-10 border-r bg-card px-3 py-1.5 group-hover/row:bg-muted" title={formatDate(order.orderDate)}>
+                              <td rowSpan={span} className={cn('sticky left-0 z-10 border-b bg-card px-3 py-1.5 group-hover/row:bg-muted', PIN_LEFT_LINE)} title={formatDate(order.orderDate)}>
                                 <span className="flex items-center gap-1.5">
                                   <Link href={`/backend/orders/${order.id}`} className="font-mono font-semibold text-primary hover:underline">
                                     {order.orderNo}
@@ -503,7 +510,7 @@ export function OrdersPage() {
                                 </span>
                               </td>
                             ) : null}
-                            <td className="px-3 py-1.5">
+                            <td className={cn('px-3 py-1.5', lineBottom)}>
                               <span className="flex max-w-96 items-center gap-1.5" title={[line?.productCode, line?.productTitle].filter(Boolean).join(' · ')}>
                                 <span className="min-w-0 max-w-56 shrink">{renderCell(BRAND_COLUMN, { order, line })}</span>
                                 <span className="truncate text-muted-foreground">{line?.productCode ?? line?.productTitle ?? '—'}</span>
@@ -512,18 +519,18 @@ export function OrdersPage() {
                             {columns.map((column) =>
                               column.scope === 'order' ? (
                                 span ? (
-                                  <td key={column.key} rowSpan={span} className={cn('px-3 py-1.5', column.align === 'right' && 'text-right tabular-nums', column.align === 'center' && 'text-center')}>
+                                  <td key={column.key} rowSpan={span} className={cn('border-b px-3 py-1.5', columnLine(column.key), column.align === 'right' && 'text-right tabular-nums', column.align === 'center' && 'text-center')}>
                                     {renderCell(column, { order, line })}
                                   </td>
                                 ) : null
                               ) : (
-                                <td key={column.key} className={cn('px-3 py-1.5', column.align === 'right' && 'text-right tabular-nums', column.align === 'center' && 'text-center')}>
+                                <td key={column.key} className={cn('px-3 py-1.5', columnLine(column.key), lineBottom, column.align === 'right' && 'text-right tabular-nums', column.align === 'center' && 'text-center')}>
                                   {renderCell(column, { order, line })}
                                 </td>
                               ),
                             )}
                             {span ? (
-                              <td rowSpan={span} className="sticky right-0 z-10 w-80 min-w-72 max-w-80 border-l bg-card px-2 py-1 group-hover/row:bg-muted" onClick={(event) => event.stopPropagation()}>
+                              <td rowSpan={span} className={cn('sticky right-0 z-10 w-80 min-w-72 max-w-80 border-b bg-card px-2 py-1 group-hover/row:bg-muted', PIN_RIGHT_LINE)} onClick={(event) => event.stopPropagation()}>
                                 <ActionCell order={order} onOpen={openStage} opening={opening} />
                               </td>
                             ) : null}

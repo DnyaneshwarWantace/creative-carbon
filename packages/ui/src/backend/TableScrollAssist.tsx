@@ -13,6 +13,8 @@ const BUTTON_STEP = 320
 const HOLD_DELAY = 300
 const MIN_VISIBLE_HEIGHT = 120
 const BAR_GAP = 12
+const BAR_MAX_WIDTH = 320
+const BAR_CHROME_WIDTH = 64
 
 const SKIP_DRAG_SELECTOR = [
   'input',
@@ -31,12 +33,16 @@ const SKIP_DRAG_SELECTOR = [
 ].join(',')
 
 const STYLE = `
-${SELECTOR} { cursor: grab; scrollbar-width: auto; scrollbar-color: var(--muted-foreground) var(--muted); }
-${SELECTOR}::-webkit-scrollbar { height: 12px; width: 12px; }
+${SELECTOR} { cursor: grab; scrollbar-width: thin; scrollbar-color: var(--muted-foreground) var(--muted); }
+${SELECTOR}::-webkit-scrollbar { height: 8px; width: 8px; }
 ${SELECTOR}::-webkit-scrollbar-track { background: var(--muted); }
-${SELECTOR}::-webkit-scrollbar-thumb { background: var(--muted-foreground); border-radius: 9999px; border: 3px solid var(--muted); }
+${SELECTOR}::-webkit-scrollbar-thumb { background: var(--muted-foreground); border-radius: 9999px; border: 2px solid var(--muted); }
 ${SELECTOR}::-webkit-scrollbar-corner { background: var(--muted); }
 html[data-table-dragging] , html[data-table-dragging] * { cursor: grabbing !important; user-select: none !important; }
+:is(main, [role="dialog"]) table:not([data-own-grid]) :is(th, td) + :is(th, td) { border-left: 1px solid var(--border); }
+:is(main, [role="dialog"]) table:not([data-own-grid]) :is(th, td)[class*="sticky"][class*="left-0"] { box-shadow: inset -2px 0 0 color-mix(in oklch, var(--muted-foreground) 70%, transparent); }
+:is(main, [role="dialog"]) table:not([data-own-grid]) :is(th, td)[class*="sticky"][class*="left-0"] + :is(th, td) { border-left-color: transparent; }
+:is(main, [role="dialog"]) table:not([data-own-grid]) :is(th, td)[class*="sticky"][class*="right-0"] { border-left-color: transparent; box-shadow: inset 2px 0 0 color-mix(in oklch, var(--muted-foreground) 70%, transparent); }
 `
 
 function scrollContainerOf(element: Element, boundary: Element): HTMLElement | null {
@@ -112,11 +118,13 @@ export function TableScrollAssist({ rootSelector = 'main' }: { rootSelector?: st
       return
     }
     const rect = active.getBoundingClientRect()
-    const left = Math.max(rect.left, 0)
-    const width = Math.min(rect.right, window.innerWidth) - left
-    const trackWidth = Math.max(width - 88, 40)
+    const visibleLeft = Math.max(rect.left, 0)
+    const visibleWidth = Math.min(rect.right, window.innerWidth) - visibleLeft
+    const width = Math.min(visibleWidth, BAR_MAX_WIDTH)
+    const left = visibleLeft + (visibleWidth - width) / 2
+    const trackWidth = Math.max(width - BAR_CHROME_WIDTH, 40)
     const ratio = active.clientWidth / active.scrollWidth
-    const thumbWidth = Math.max(trackWidth * ratio, 32)
+    const thumbWidth = Math.max(trackWidth * ratio, 24)
     const maxScroll = active.scrollWidth - active.clientWidth
     const thumbLeft = maxScroll > 0 ? (trackWidth - thumbWidth) * (active.scrollLeft / maxScroll) : 0
     setBar({
@@ -290,14 +298,15 @@ export function TableScrollAssist({ rootSelector = 'main' }: { rootSelector?: st
       <style>{STYLE}</style>
       {bar ? (
         <div
-          className="fixed z-sticky flex items-center gap-1 rounded-lg border bg-background p-1 shadow-md"
+          className="fixed z-sticky flex h-7 items-center gap-1 rounded-full border bg-background/95 px-0.5 shadow-sm"
           style={{ left: bar.left, width: bar.width, bottom: BAR_GAP }}
           title={t('ui.tableScroll.hint', 'Drag the table, drag this bar, or hold Shift and scroll to move left and right')}
         >
           <IconButton
             type="button"
             variant="ghost"
-            size="sm"
+            size="xs"
+            fullRadius
             aria-label={t('ui.tableScroll.left', 'Scroll left')}
             disabled={!bar.canLeft}
             onClick={() => step(-1)}
@@ -305,22 +314,24 @@ export function TableScrollAssist({ rootSelector = 'main' }: { rootSelector?: st
             onPointerUp={stopHold}
             onPointerLeave={stopHold}
           >
-            <ChevronLeft className="size-4" />
+            <ChevronLeft className="size-3.5" />
           </IconButton>
           <div
             ref={trackRef}
-            className="relative h-3 flex-1 cursor-pointer rounded-full bg-muted"
+            className="group/track relative h-full flex-1 cursor-pointer"
             onPointerDown={onTrackPointerDown}
           >
+            <div className="absolute inset-x-0 top-1/2 h-1 -translate-y-1/2 rounded-full bg-muted" />
             <div
-              className="absolute inset-y-0 rounded-full bg-muted-foreground/60 transition-colors hover:bg-muted-foreground"
+              className="absolute top-1/2 h-1 -translate-y-1/2 rounded-full bg-muted-foreground/50 transition-all group-hover/track:h-1.5 group-hover/track:bg-muted-foreground/80"
               style={{ left: bar.thumbLeft, width: bar.thumbWidth }}
             />
           </div>
           <IconButton
             type="button"
             variant="ghost"
-            size="sm"
+            size="xs"
+            fullRadius
             aria-label={t('ui.tableScroll.right', 'Scroll right')}
             disabled={!bar.canRight}
             onClick={() => step(1)}
@@ -328,7 +339,7 @@ export function TableScrollAssist({ rootSelector = 'main' }: { rootSelector?: st
             onPointerUp={stopHold}
             onPointerLeave={stopHold}
           >
-            <ChevronRight className="size-4" />
+            <ChevronRight className="size-3.5" />
           </IconButton>
         </div>
       ) : null}
