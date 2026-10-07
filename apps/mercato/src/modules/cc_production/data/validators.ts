@@ -55,3 +55,106 @@ export const masterImportSchema = z.object({
 })
 
 export type MasterImportInput = z.infer<typeof masterImportSchema>
+
+export const RESIN_GRADES = ['PFC', 'PFA', 'PFAC', 'E-GLASS'] as const
+
+export const RESIN_STEPS = ['check_ph_heat', 'stir_1', 'cool_change', 'stir_2'] as const
+
+const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/)
+const kgValue = z.coerce.number().min(0).max(1_000_000)
+const optionalNumber = z.preprocess((value) => (value === '' || value === undefined ? null : value), z.coerce.number().min(0).max(100_000).nullable())
+const clock = z.preprocess((value) => (value === '' || value === undefined ? null : value), z.string().trim().regex(/^\d{1,2}[:.]\d{2}$/).nullable())
+const reading = z
+  .object({ tempC: optionalNumber.optional(), time: clock.optional() })
+  .optional()
+  .transform((value) => ({ tempC: value?.tempC ?? null, time: value?.time ?? null }))
+
+const stepSchema = z.object({ done: z.boolean().optional(), ph: optionalNumber.optional() })
+
+export const resinProcessSchema = z
+  .object({
+    steps: z.record(z.string(), stepSchema).optional(),
+    startHeating: reading,
+    stopHeating: reading,
+    reactionStart: reading,
+    reactionComplete: reading,
+    gelChecked: z.boolean().optional(),
+    vacuumStart: clock.optional(),
+    coolingDuration: clock.optional(),
+  })
+  .optional()
+  .transform((value) => ({
+    steps: Object.fromEntries(Object.entries(value?.steps ?? {}).filter(([key]) => (RESIN_STEPS as readonly string[]).includes(key)).map(([key, step]) => [key, { done: Boolean(step?.done), ph: step?.ph ?? null }])) as Record<string, { done: boolean; ph: number | null }>,
+    startHeating: value?.startHeating ?? { tempC: null, time: null },
+    stopHeating: value?.stopHeating ?? { tempC: null, time: null },
+    reactionStart: value?.reactionStart ?? { tempC: null, time: null },
+    reactionComplete: value?.reactionComplete ?? { tempC: null, time: null },
+    gelChecked: Boolean(value?.gelChecked),
+    vacuumStart: value?.vacuumStart ?? null,
+    coolingDuration: value?.coolingDuration ?? null,
+  }))
+
+export const resinTestsSchema = z
+  .object({ ph: optionalNumber.optional(), gelTimeSec: optionalNumber.optional(), viscositySec: optionalNumber.optional(), solidPct: optionalNumber.optional() })
+  .optional()
+  .transform((value) => ({ ph: value?.ph ?? null, gelTimeSec: value?.gelTimeSec ?? null, viscositySec: value?.viscositySec ?? null, solidPct: value?.solidPct ?? null }))
+
+export const resinBatchInputSchema = z.object({
+  batchDate: isoDate,
+  batchNo: z.string().trim().min(3).max(40).optional(),
+  reactorId: z.string().uuid(),
+  grade: z.enum(RESIN_GRADES),
+  materials: z
+    .array(z.object({ productId: z.string().uuid(), kg: kgValue, lotId: z.string().uuid().nullable().optional() }))
+    .max(30)
+    .default([]),
+  process: resinProcessSchema,
+  tests: resinTestsSchema,
+  waterRemovedKg: optionalNumber.optional().transform((value) => value ?? null),
+  yieldKg: optionalNumber.optional().transform((value) => value ?? null),
+  notes: z.string().trim().max(2000).nullable().optional(),
+})
+
+export type ResinBatchInput = z.infer<typeof resinBatchInputSchema>
+
+export const resinBatchUpdateSchema = resinBatchInputSchema.extend({ id: z.string().uuid() })
+
+export const resinActionSchema = z.object({
+  id: z.string().uuid(),
+  action: z.enum(['post', 'fail', 'reopen', 'sign_chemist', 'sign_incharge', 'delete']),
+  reason: z.string().trim().max(500).optional(),
+})
+
+export const resinListSchema = z.object({
+  id: z.string().uuid().optional(),
+  status: z.enum(['draft', 'posted', 'failed', 'all']).default('all'),
+  grade: z.enum(RESIN_GRADES).optional(),
+  month: z.string().regex(/^\d{4}-\d{2}$/).optional(),
+  search: z.string().trim().max(100).optional(),
+  page: z.coerce.number().int().min(1).default(1),
+  pageSize: z.coerce.number().int().min(1).max(100).default(50),
+})
+
+export const resinSetupSchema = z.object({ date: isoDate.optional() })
+
+export const chemicalIssueInputSchema = z.object({
+  issueDate: isoDate,
+  productId: z.string().uuid(),
+  kg: z.coerce.number().positive().max(1_000_000),
+  usedFor: z.enum(['coating', 'other']),
+  dryerCode: z.string().trim().max(40).nullable().optional(),
+  lotId: z.string().uuid().nullable().optional(),
+  note: z.string().trim().max(500).nullable().optional(),
+})
+
+export const chemicalIssueListSchema = z.object({
+  month: z.string().regex(/^\d{4}-\d{2}$/).optional(),
+  productId: z.string().uuid().optional(),
+})
+
+export const chemicalIssueCancelSchema = z.object({ id: z.string().uuid(), reason: z.string().trim().min(2).max(500) })
+
+export const chemicalRegisterSchema = z.object({
+  item: z.string().uuid(),
+  month: z.string().regex(/^\d{4}-\d{2}$/),
+})

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { z } from 'zod'
 import type { OpenApiRouteDoc } from '@open-mercato/shared/lib/openapi'
 import { currentUserName, hasFeatures, resolveOrderContext } from '../../../cc_orders/lib/server'
+import { resolveStoreContext } from '../../../cc_store/lib/server'
 import { UploadBatch } from '../../data/entities'
 import { UPLOAD_REGISTERS, uploadRegister } from '../../lib/upload/registers'
 import { parsePastedRows, parseUploadFile } from '../../lib/upload/parse'
@@ -45,7 +46,7 @@ async function GET(req: Request) {
 }
 
 async function POST(req: Request) {
-  const ctx = await resolveOrderContext(req)
+  const ctx = await resolveStoreContext(req)
   if ('error' in ctx) return NextResponse.json({ error: ctx.error }, { status: ctx.status })
   try {
     const contentType = req.headers.get('content-type') ?? ''

@@ -40,6 +40,10 @@ export const CC_DEPARTMENTS: DepartmentSeed[] = [
       'cc_production.masters.view',
       'cc_production.masters.manage',
       'cc_production.upload.use',
+      'cc_production.resin.view',
+      'cc_production.resin.enter',
+      'cc_production.resin.sign',
+      'cc_production.chemicals.issue',
       'cc_orders.view',
       'cc_orders.full',
       'cc_orders.stages',
@@ -50,8 +54,8 @@ export const CC_DEPARTMENTS: DepartmentSeed[] = [
       'attachments.manage',
     ],
   },
-  { name: 'Resin plant', type: 'production', features: ['cc_production.masters.view', 'attachments.view'] },
-  { name: 'Coating', type: 'production', features: ['cc_production.masters.view', 'attachments.view'] },
+  { name: 'Resin plant', type: 'production', features: ['cc_production.masters.view', 'cc_production.resin.view', 'cc_production.resin.enter', 'cc_production.resin.sign', 'cc_production.chemicals.issue', 'attachments.view'] },
+  { name: 'Coating', type: 'production', features: ['cc_production.masters.view', 'cc_production.resin.view', 'cc_production.chemicals.issue', 'attachments.view'] },
   { name: 'Press & moulding', type: 'production', features: ['cc_production.masters.view', 'attachments.view'] },
   {
     name: 'Store & despatch',
@@ -59,6 +63,8 @@ export const CC_DEPARTMENTS: DepartmentSeed[] = [
     features: [
       'cc_store.view',
       'cc_store.adjust',
+      'cc_production.resin.view',
+      'cc_production.chemicals.issue',
       'cc_orders.view',
       'cc_orders.stages',
       'cc_orders.work.store',
@@ -89,7 +95,7 @@ export const CC_DEPARTMENTS: DepartmentSeed[] = [
   {
     name: 'Data entry',
     type: 'production',
-    features: ['cc_production.masters.view', 'cc_production.masters.manage', 'cc_production.upload.use', 'cc_orders.view', 'catalog.products.view', 'attachments.view', 'attachments.manage'],
+    features: ['cc_production.masters.view', 'cc_production.masters.manage', 'cc_production.upload.use', 'cc_production.resin.view', 'cc_production.resin.enter', 'cc_production.chemicals.issue', 'cc_orders.view', 'catalog.products.view', 'attachments.view', 'attachments.manage'],
   },
   {
     name: 'Accounts',

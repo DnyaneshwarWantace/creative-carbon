@@ -1,5 +1,6 @@
 import { MASTER_DEFS, type MasterColumn, type MasterDef } from '../masterDefs'
 import { importMasters } from '../masters'
+import { resinBatchRegister } from './resinRegister'
 import type { UploadColumn, UploadRegister } from './types'
 
 function fromMasterColumn(column: MasterColumn): UploadColumn {
@@ -39,6 +40,7 @@ function masterRegister(def: MasterDef, department: string, paperRef: string | n
 }
 
 export const UPLOAD_REGISTERS: UploadRegister[] = [
+  resinBatchRegister,
   masterRegister(MASTER_DEFS.moulds, 'Press & moulding', 'Mould / die list (Excel)'),
   masterRegister(MASTER_DEFS.tolerances, 'Press & moulding', 'Press loading register — specified range'),
   masterRegister(MASTER_DEFS.prices, 'Sales', 'Small and big size price lists'),

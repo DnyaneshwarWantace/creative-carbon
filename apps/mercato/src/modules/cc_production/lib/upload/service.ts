@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto'
 import { UploadBatch } from '../../data/entities'
 import type { OrderContext } from '../../../cc_orders/lib/server'
+import type { StoreContext } from '../../../cc_store/lib/server'
 import { listViews } from '../../../cc_lists/lib/service'
 import type { ParsedUpload } from './parse'
 import type { UploadRegister, UploadRowError } from './types'
@@ -36,7 +37,7 @@ function requiredErrors(register: UploadRegister, parsed: ParsedUpload): UploadR
 }
 
 export async function runUpload(
-  ctx: OrderContext,
+  ctx: StoreContext,
   register: UploadRegister,
   parsed: ParsedUpload,
   options: { dryRun: boolean; byName: string | null; fileName: string; hash: string },

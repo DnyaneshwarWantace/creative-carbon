@@ -184,7 +184,7 @@
 
 <div class="wrap">
   <header class="hero">
-    <span class="eyebrow">● Detailed build plan · v5 · Stages 0–2 done and tested</span>
+    <span class="eyebrow">● Detailed build plan · v6 · Stages 0–3 done and tested</span>
     <h1>Creative Carbon on the Dermat base: every stage, page, field and link</h1>
     <p class="lede">For each stage this page lists the screens, every field with its type and rule, what the detail page shows, which stage feeds it and which stage it feeds, the stock it moves, and the small things that are easy to miss. Sources are the dev brief, the 12 register photos and the Kheda audit recording. <strong>Anything we had to guess is marked "confirm".</strong></p>
     <div class="facts">
@@ -198,7 +198,7 @@
       <a class="pchip done" href="#s0"><div class="pn">Stage 0<span>Wk 1</span></div><div class="pv">Fork &amp; clean</div></a>
       <a class="pchip done" href="#s1"><div class="pn">Stage 1<span>Wk 2</span></div><div class="pv">Masters</div></a>
       <a class="pchip done" href="#s2"><div class="pn">Stage 2<span>Wk 2</span></div><div class="pv">Bulk upload</div></a>
-      <a class="pchip" href="#s3"><div class="pn">Stage 3<span>Wk 3</span></div><div class="pv">Resin · Chemicals</div></a>
+      <a class="pchip done" href="#s3"><div class="pn">Stage 3<span>Wk 3</span></div><div class="pv">Resin · Chemicals</div></a>
       <a class="pchip" href="#s4"><div class="pn">Stage 4<span>Wk 3</span></div><div class="pv">Coating · B-stage</div></a>
       <a class="pchip" href="#s5"><div class="pn">Stage 5<span>Wk 4</span></div><div class="pv">Press</div></a>
       <a class="pchip" href="#s6"><div class="pn">Stage 6<span>Wk 4</span></div><div class="pv">Moulding</div></a>
@@ -237,7 +237,7 @@
       <a href="#s0"><span class="dot done"></span>0 Fork &amp; clean</a>
       <a href="#s1"><span class="dot done"></span>1 Masters</a>
       <a href="#s2"><span class="dot done"></span>2 Bulk upload</a>
-      <a href="#s3"><span class="dot planned"></span>3 Resin · Chemicals</a>
+      <a href="#s3"><span class="dot done"></span>3 Resin · Chemicals</a>
       <a href="#s4"><span class="dot planned"></span>4 Coating · B-stage</a>
       <a href="#s5"><span class="dot planned"></span>5 Press</a>
       <a href="#s6"><span class="dot planned"></span>6 Moulding</a>
@@ -574,7 +574,7 @@
 
 <!-- ============ STAGE 3 ============ -->
       <section id="s3">
-        <div class="mod-head"><h2>Stage 3 · Resin plant and the chemical register</h2><span class="verdict planned">PLANNED</span><span class="when">Week 3</span></div>
+        <div class="mod-head"><h2>Stage 3 · Resin plant and the chemical register</h2><span class="verdict done">DONE · TESTED</span><span class="when">finished 7 Oct</span></div>
         <p class="mod-dek">Phenol formaldehyde resin batch report <code>CCCPL/F/QC/03</code>, one per batch, usually entered the next day.</p>
         <div class="meta"><span><b>Pages</b> /backend/resin/batches · /new · /&lt;id&gt; · /backend/resin/chemical-register?item=&amp;month= · /backend/resin/issues</span><span><b>Users</b> resin chemist, in-charge, data entry</span><span><b>Paper</b> IMG_7758, 7759, 7760</span></div>
 
@@ -626,6 +626,19 @@
         <h3>Detail page shows</h3>
         <p class="mod-dek">Header (batch no., vessel, grade, date, yield %, sign-offs) · the form · <b>Came from</b>: chemical lots and their GRNs · <b>Went to</b>: coating runs that used this resin, kg used and kg left · yield compared with the last 10 batches of the same grade · history.</p>
         <p class="exit"><b>Done when:</b> a batch posts, the September Phenol and Methanol pages rebuild from entries and match the photos.</p>
+      <h3>What was built</h3>
+        <div class="itemlist">
+          <div class="item done"><span class="mark">✓</span><span class="txt"><b>Resin batch report</b> (Plant → Resin batches): list with Not posted / Posted / Failed tiles, grade and month filters; the form follows the paper: date, vessel, Batch No. (next <code>CCCPL/DDMMYY/NN</code> for that day, editable), grade buttons, materials A–G with kg, stock lot (oldest first or picked) and stock in hand, extra material rows, steps 3–13 with pH per step, tests, water removed, yield; total input and yield % calculated as you type.</span></div>
+          <div class="item done"><span class="mark">✓</span><span class="txt"><b>Post</b> takes each chemical out of Warehouse A / B / shop floor, oldest approved lot first (lots still under QC test are never used), and puts the resin lot (lot no. = batch no.) into the <b>Resin tank</b>, all dated on the batch date. If any chemical is short nothing moves and the message says how much is in stock.</span></div>
+          <div class="item done"><span class="mark">✓</span><span class="txt"><b>Failed batch</b> with a reason: chemicals out as scrap, nothing into the tank. <b>Reopen</b> within 24 hours reverses both (refused if the resin has already been used). Chemist and in-charge <b>sign-offs</b> do not hold up posting.</span></div>
+          <div class="item done"><span class="mark">✓</span><span class="txt"><b>Batch detail page</b>: header facts, sign-offs, came from (lots with links to their GRNs), went to (resin left in the tank; coating runs appear here from Stage 4), yield against the last 10 batches of the same grade, history, print.</span></div>
+          <div class="item done"><span class="mark">✓</span><span class="txt"><b>Chemical register</b> (report, printable): one chemical, one month, book columns Dt · O.B. · Received · Total · Use · Balance, Phenol adds Water and Resin, with batch / GRN references. Built only from GRNs, stock adjustments, resin batches and chemical issues.</span></div>
+          <div class="item done"><span class="mark">✓</span><span class="txt"><b>Chemical issue</b>: date, chemical, kg, used for coating dryer N or other, note; oldest lot first; cancel puts the kg back in the same lots.</span></div>
+          <div class="item done"><span class="mark">✓</span><span class="txt"><b>Upload tile "Resin batches"</b> in the upload centre: one row per batch, Batch No. blank = next number, Post = Yes posts it, a Failed reason marks it failed; vessel accepted as VES-1 or CCCPL-VES-1.</span></div>
+          <div class="item done"><span class="mark">✓</span><span class="txt"><b>Rights</b>: see / enter / sign / issue chemicals, given to Resin plant, Coating (issue), Store (register, issue), Floor supervisor, Data entry and Management.</span></div>
+          <div class="item partial"><span class="mark">→</span><span class="txt">Matching the September Phenol and Methanol photos needs the September GRNs, opening balances and batches entered; that check is done when their books are loaded (Stage 12 opening data). The register arithmetic itself is tested.</span></div>
+        </div>
+        <p class="exit"><b>Tested 7 Oct:</b> type check 0 errors · end-to-end suite Stages 0 + 1 + 2 + 3: <b>39 / 39 passing</b> — form setup (vessels, grades, chemicals A–G, next Batch No.), opening stock into Warehouse A, draft does not move stock, duplicate Batch No. and stale edit refused, post moves exact kg out and resin into the tank, Phenol register Use / Water / Resin change by the batch figures, short stock refused with nothing moved, sign-offs, reopen reverses and re-post works, failed batch scraps chemicals, chemical issue to Dryer 1 shows as Use and cancel restores it, resin upload (paper date, ditto, NIL, unknown vessel reported, post from file), pages open, test data cleaned up.</p>
       </section>
 
 <!-- ============ STAGE 4 ============ -->

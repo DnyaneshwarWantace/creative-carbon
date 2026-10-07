@@ -339,3 +339,189 @@ export class UploadBatch {
   @Property({ name: 'updated_at', type: Date, onCreate: () => new Date(), onUpdate: () => new Date() })
   updatedAt: Date = new Date()
 }
+
+export type ResinMaterialLine = {
+  productId: string
+  title: string
+  kg: number
+  lotId: string | null
+  lots: Array<{ lotId: string; lotNumber: string | null; place: string; kg: number }>
+}
+
+export type ResinReading = { tempC: number | null; time: string | null }
+
+export type ResinProcess = {
+  steps: Record<string, { done: boolean; ph: number | null }>
+  startHeating: ResinReading
+  stopHeating: ResinReading
+  reactionStart: ResinReading
+  reactionComplete: ResinReading
+  gelChecked: boolean
+  vacuumStart: string | null
+  coolingDuration: string | null
+}
+
+export type ResinTests = { ph: number | null; gelTimeSec: number | null; viscositySec: number | null; solidPct: number | null }
+
+export type PlantHistoryEntry = { action: string; by: string | null; at: string; note: string | null }
+
+export type ResinBatchStatus = 'draft' | 'posted' | 'failed'
+
+@Entity({ tableName: 'cc_resin_batches' })
+@Index({ name: 'cc_resin_batches_scope_idx', properties: ['organizationId', 'tenantId', 'batchDate'] })
+@Index({
+  name: 'cc_resin_batches_no_unique_idx',
+  expression: 'create unique index "cc_resin_batches_no_unique_idx" on "cc_resin_batches" ("organization_id", "batch_no") where deleted_at is null',
+})
+export class ResinBatch {
+  [OptionalProps]?: 'createdAt' | 'updatedAt' | 'deletedAt' | 'updatedByName' | 'status' | 'waterRemovedKg' | 'yieldKg' | 'failReason' | 'chemistSign' | 'chemistSignedAt' | 'inchargeSign' | 'inchargeSignedAt' | 'postedAt' | 'postedByName' | 'resinProductId' | 'resinLotId' | 'resinLotNumber' | 'notes' | 'history'
+
+  @PrimaryKey({ type: 'uuid', defaultRaw: 'gen_random_uuid()' })
+  id!: string
+
+  @Property({ name: 'organization_id', type: 'uuid' })
+  organizationId!: string
+
+  @Property({ name: 'tenant_id', type: 'uuid' })
+  tenantId!: string
+
+  @Property({ name: 'batch_no', type: 'text' })
+  batchNo!: string
+
+  @Property({ name: 'batch_date', type: 'text' })
+  batchDate!: string
+
+  @Property({ name: 'reactor_id', type: 'uuid' })
+  reactorId!: string
+
+  @Property({ name: 'reactor_code', type: 'text' })
+  reactorCode!: string
+
+  @Property({ type: 'text' })
+  grade!: string
+
+  @Property({ type: 'json' })
+  materials!: ResinMaterialLine[]
+
+  @Property({ type: 'json' })
+  process!: ResinProcess
+
+  @Property({ type: 'json' })
+  tests!: ResinTests
+
+  @Property({ name: 'water_removed_kg', type: 'numeric', columnType: 'numeric(14,3)', nullable: true })
+  waterRemovedKg?: string | null
+
+  @Property({ name: 'yield_kg', type: 'numeric', columnType: 'numeric(14,3)', nullable: true })
+  yieldKg?: string | null
+
+  @Property({ type: 'text', default: 'draft' })
+  status: ResinBatchStatus = 'draft'
+
+  @Property({ name: 'fail_reason', type: 'text', nullable: true })
+  failReason?: string | null
+
+  @Property({ name: 'chemist_sign', type: 'text', nullable: true })
+  chemistSign?: string | null
+
+  @Property({ name: 'chemist_signed_at', type: Date, nullable: true })
+  chemistSignedAt?: Date | null
+
+  @Property({ name: 'incharge_sign', type: 'text', nullable: true })
+  inchargeSign?: string | null
+
+  @Property({ name: 'incharge_signed_at', type: Date, nullable: true })
+  inchargeSignedAt?: Date | null
+
+  @Property({ name: 'posted_at', type: Date, nullable: true })
+  postedAt?: Date | null
+
+  @Property({ name: 'posted_by_name', type: 'text', nullable: true })
+  postedByName?: string | null
+
+  @Property({ name: 'resin_product_id', type: 'uuid', nullable: true })
+  resinProductId?: string | null
+
+  @Property({ name: 'resin_lot_id', type: 'uuid', nullable: true })
+  resinLotId?: string | null
+
+  @Property({ name: 'resin_lot_number', type: 'text', nullable: true })
+  resinLotNumber?: string | null
+
+  @Property({ type: 'text', nullable: true })
+  notes?: string | null
+
+  @Property({ type: 'json', nullable: true })
+  history?: PlantHistoryEntry[] | null
+
+  @Property({ name: 'updated_by_name', type: 'text', nullable: true })
+  updatedByName?: string | null
+
+  @Property({ name: 'created_at', type: Date, onCreate: () => new Date() })
+  createdAt: Date = new Date()
+
+  @Property({ name: 'updated_at', type: Date, onCreate: () => new Date(), onUpdate: () => new Date() })
+  updatedAt: Date = new Date()
+
+  @Property({ name: 'deleted_at', type: Date, nullable: true })
+  deletedAt?: Date | null
+}
+
+export type ChemicalIssueStatus = 'posted' | 'cancelled'
+
+@Entity({ tableName: 'cc_chemical_issues' })
+@Index({ name: 'cc_chemical_issues_scope_idx', properties: ['organizationId', 'tenantId', 'issueDate'] })
+export class ChemicalIssue {
+  [OptionalProps]?: 'createdAt' | 'updatedAt' | 'deletedAt' | 'status' | 'dryerCode' | 'note' | 'byName' | 'history' | 'lots'
+
+  @PrimaryKey({ type: 'uuid', defaultRaw: 'gen_random_uuid()' })
+  id!: string
+
+  @Property({ name: 'organization_id', type: 'uuid' })
+  organizationId!: string
+
+  @Property({ name: 'tenant_id', type: 'uuid' })
+  tenantId!: string
+
+  @Property({ name: 'issue_date', type: 'text' })
+  issueDate!: string
+
+  @Property({ name: 'product_id', type: 'uuid' })
+  productId!: string
+
+  @Property({ name: 'product_title', type: 'text' })
+  productTitle!: string
+
+  @Property({ type: 'numeric', columnType: 'numeric(14,3)' })
+  kg!: string
+
+  @Property({ name: 'used_for', type: 'text' })
+  usedFor!: 'coating' | 'other'
+
+  @Property({ name: 'dryer_code', type: 'text', nullable: true })
+  dryerCode?: string | null
+
+  @Property({ type: 'text', nullable: true })
+  note?: string | null
+
+  @Property({ type: 'json', nullable: true })
+  lots?: Array<{ lotId: string; lotNumber: string | null; place: string; kg: number }> | null
+
+  @Property({ type: 'text', default: 'posted' })
+  status: ChemicalIssueStatus = 'posted'
+
+  @Property({ name: 'by_name', type: 'text', nullable: true })
+  byName?: string | null
+
+  @Property({ type: 'json', nullable: true })
+  history?: PlantHistoryEntry[] | null
+
+  @Property({ name: 'created_at', type: Date, onCreate: () => new Date() })
+  createdAt: Date = new Date()
+
+  @Property({ name: 'updated_at', type: Date, onCreate: () => new Date(), onUpdate: () => new Date() })
+  updatedAt: Date = new Date()
+
+  @Property({ name: 'deleted_at', type: Date, nullable: true })
+  deletedAt?: Date | null
+}

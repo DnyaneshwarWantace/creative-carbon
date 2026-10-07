@@ -1,4 +1,4 @@
-import type { OrderContext } from '../../../cc_orders/lib/server'
+import type { StoreContext } from '../../../cc_store/lib/server'
 
 export type UploadColumnKind = 'text' | 'number' | 'int' | 'date' | 'time' | 'select' | 'bool'
 
@@ -37,5 +37,5 @@ export type UploadRegister = {
   dated: boolean
   viewFeature: string
   manageFeature: string
-  run: (ctx: OrderContext, rows: UploadRow[], options: { dryRun: boolean; byName: string | null }) => Promise<UploadRunResult>
+  run: (ctx: StoreContext, rows: UploadRow[], options: { dryRun: boolean; byName: string | null }) => Promise<UploadRunResult>
 }

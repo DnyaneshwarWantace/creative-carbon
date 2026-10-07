@@ -28,6 +28,9 @@ const UI_FEATURES = [
   'cc_lists.manage',
   'cc_production.masters.manage',
   'cc_production.prices.view',
+  'cc_production.resin.enter',
+  'cc_production.resin.sign',
+  'cc_production.chemicals.issue',
   'catalog.products.manage',
 ]
 
