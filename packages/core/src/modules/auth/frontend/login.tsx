@@ -357,10 +357,10 @@ export default function LoginPage() {
       <Card className="w-full max-w-sm">
         <CardHeader className="flex flex-col items-center gap-3 text-center p-8">
           <div className="h-16 w-16 rounded-2xl bg-primary text-primary-foreground flex items-center justify-center font-extrabold text-2xl tracking-tighter shadow-md">
-            DI
+            CC
           </div>
           <h1 className="text-2xl font-bold tracking-tight">CREATIVE CARBON</h1>
-          <CardDescription>Enterprise Formulation & ERP Portal</CardDescription>
+          <CardDescription>Composites · Kanera plant ERP</CardDescription>
         </CardHeader>
         <CardContent>
           <LoginFormSection>

@@ -7,7 +7,7 @@ export async function resolveLocalizedAppMetadata(): Promise<Metadata> {
     title: t('app.metadata.title', 'Creative Carbon Composites'),
     description: t(
       'app.metadata.description',
-      'AI-supportive, modular ERP foundation for product & service companies',
+      'Plant, stock, orders and despatch for Creative Carbon Composites',
     ),
   }
 }

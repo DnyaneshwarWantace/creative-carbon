@@ -62,6 +62,7 @@
   .pchip .pn { font-size:0.66rem; font-weight:700; color:var(--ink-faint); text-transform:uppercase; letter-spacing:0.04em; margin-bottom:4px; display:flex; justify-content:space-between; gap:6px; }
   .pchip .pv { font-family:var(--mono); font-size:0.74rem; font-weight:700; text-transform:uppercase; letter-spacing:0.03em; line-height:1.35; color:var(--ink-soft); }
   .pchip.partial { border-color:var(--accent); } .pchip.partial .pv { color:var(--accent-ink); }
+  .pchip.done { border-color:var(--sage); background:var(--sage-bg); } .pchip.done .pv { color:var(--sage-ink); }
   .pchip.demo { border-color:var(--red-bg-strong); border-style:dashed; }
   .legend { display:flex; flex-wrap:wrap; gap:16px; font-size:0.8rem; color:var(--ink-soft); margin-top:16px; }
   .legend span { display:inline-flex; align-items:center; gap:6px; }
@@ -183,7 +184,7 @@
 
 <div class="wrap">
   <header class="hero">
-    <span class="eyebrow">● Detailed build plan · v2 · 7 Oct 2026</span>
+    <span class="eyebrow">● Detailed build plan · v3 · Stage 0 done and tested</span>
     <h1>Creative Carbon on the Dermat base: every stage, page, field and link</h1>
     <p class="lede">For each stage this page lists the screens, every field with its type and rule, what the detail page shows, which stage feeds it and which stage it feeds, the stock it moves, and the small things that are easy to miss. Sources are the dev brief, the 12 register photos and the Kheda audit recording. <strong>Anything we had to guess is marked "confirm".</strong></p>
     <div class="facts">
@@ -194,7 +195,7 @@
       <span>Code <b>branch creative-carbon</b></span>
     </div>
     <div class="phase-grid">
-      <a class="pchip partial" href="#s0"><div class="pn">Stage 0<span>Wk 1</span></div><div class="pv">Fork &amp; clean</div></a>
+      <a class="pchip done" href="#s0"><div class="pn">Stage 0<span>Wk 1</span></div><div class="pv">Fork &amp; clean</div></a>
       <a class="pchip" href="#s1"><div class="pn">Stage 1<span>Wk 2</span></div><div class="pv">Masters</div></a>
       <a class="pchip" href="#s2"><div class="pn">Stage 2<span>Wk 2</span></div><div class="pv">Bulk upload</div></a>
       <a class="pchip" href="#s3"><div class="pn">Stage 3<span>Wk 3</span></div><div class="pv">Resin · Chemicals</div></a>
@@ -233,7 +234,7 @@
       <a href="#reuse"><span class="dot done"></span>Dermat: keep / drop</a>
       <a href="#findings"><span class="dot done"></span>Photo &amp; audio findings</a>
       <p class="rail-title">Stages</p>
-      <a href="#s0"><span class="dot partial"></span>0 Fork &amp; clean</a>
+      <a href="#s0"><span class="dot done"></span>0 Fork &amp; clean</a>
       <a href="#s1"><span class="dot planned"></span>1 Masters</a>
       <a href="#s2"><span class="dot planned"></span>2 Bulk upload</a>
       <a href="#s3"><span class="dot planned"></span>3 Resin · Chemicals</a>
@@ -464,25 +465,28 @@
           <div class="item partial"><span class="mark">!</span><span class="txt"><b>Methanol is used every day (44–600 kg) but blank on the resin batch form.</b> So some chemicals go somewhere other than resin batches, probably coating. The chemical register cannot be fully derived from resin batches: we add a chemical issue entry. <b>Confirm</b> where methanol, DBP and oleic acid go.<span class="src">IMG_7759 · 7758</span></span></div>
           <div class="item partial"><span class="mark">!</span><span class="txt"><b>Phenol "Use" goes up to 2,700 kg a day and Resin up to 4,900.</b> That means more than one 877 kg batch on some days, or bigger batches. The NN in CCCPL/110726/06 may be the batch of the day. <b>Confirm.</b> The phenol page's Water column needs a "water removed (kg)" field on the resin batch.<span class="src">IMG_7760</span></span></div>
           <div class="item partial"><span class="mark">!</span><span class="txt"><b>Mould plates may be customer-linked after all.</b> The brief says dies are and plates are not. The recording says "if they are linked to the customer then the mould plates will also be linked to the customer". We make the customer optional on both and <b>confirm</b>.<span class="src">Kheda 3 audio</span></span></div>
+          <div class="item done"><span class="mark">✓</span><span class="txt"><b>From the full Kheda recording (43 min):</b> resin tests include specific gravity · pressing quality is loading weight <i>and number of layers</i> · customers also give their own mould number · tube length is per PO with fixed diameter · sheets also 4×4 ft · British Standard used besides IS 2036 / NEMA / IEC / BIS · payment terms include TT advance, LC, payment against documents and cash against documents · every order (regular or special) gets job cards that raise production batches · pre-preg is very rarely bought in · one floor head (decision maker) runs the system day to day · 95% repeat customers · export documents are prepared at the head office.<span class="src">Kheda audio</span></span></div>
+          <div class="item partial"><span class="mark">?</span><span class="txt">"We have two … one is taxable and one is not taxable" — unclear whether this means two companies, two kinds of sale, or export vs domestic. <b>Confirm.</b><span class="src">Kheda audio</span></span></div>
           <div class="item done"><span class="mark">✓</span><span class="txt"><b>From the recording:</b> production is planned one day ahead because a die takes a day to fit and cloth takes a day to treat. Cutting has an 8% trim loss on a manual trimming machine and a cutting machine. After trimming, finished sheets are numbered and weighed. Lab tests run per customer specification, not per batch, as uploads. Small-size and big-size price lists were photographed. Tubes and moulded parts differ by the machine used. A moulding job card is still to come. Final payment is 60 days after delivery.<span class="src">Kheda 3 audio</span></span></div>
         </div>
       </section>
 
 <!-- ============ STAGE 0 ============ -->
       <section id="s0">
-        <div class="mod-head"><h2>Stage 0 · Fork the Dermat code and clean it</h2><span class="verdict partial">IN PROGRESS</span><span class="when">Week 1</span></div>
-        <p class="mod-dek">Make the copy a clean Creative Carbon starting point without touching Dermat's GitHub or database.</p>
+        <div class="mod-head"><h2>Stage 0 · Fork the Dermat code and clean it</h2><span class="verdict done">DONE · TESTED</span><span class="when">Week 1 · finished 7 Oct</span></div>
+        <p class="mod-dek">The copy is now a clean Creative Carbon starting point. Dermat's GitHub and database were not touched.</p>
         <div class="itemlist">
           <div class="item done"><span class="mark">✓</span><span class="txt">Dermat state saved on local branch <code>snapshot/dermat-final-2026-10-07</code>; work continues on <code>creative-carbon</code>.</span></div>
           <div class="item done"><span class="mark">✓</span><span class="txt">GitHub link removed from this copy. Nothing can be pushed to the Dermat repository.</span></div>
-          <div class="item planned"><span class="mark">○</span><span class="txt">New database <code>creative_carbon</code>. The copy's settings still point at Dermat's development database, which stays untouched.</span></div>
-          <div class="item planned"><span class="mark">○</span><span class="txt">Remove BOMs, planning, cosmetics QC, R&amp;D, artwork, store requests and the bulk / filling production board. Unhook orders, products, purchase, store, dashboard, customers, number series and the access screen from them.</span></div>
-          <div class="item planned"><span class="mark">○</span><span class="txt">Remove Dermat data: seed scripts, the 110,000-line live seed file, the database dump, Dermat specs, users and departments.</span></div>
-          <div class="item planned"><span class="mark">○</span><span class="txt">Rebrand: login, header ("Creative Carbon Composites · Kanera"), titles, splash screen, settings file, email sender.</span></div>
-          <div class="item planned"><span class="mark">○</span><span class="txt">Rename kept modules <code>dermat_*</code> → <code>cc_*</code> while the database is empty. Rewrite the developer rules file for this client.</span></div>
-          <div class="item planned"><span class="mark">○</span><span class="txt">Type check and start the app after each removal (baseline today: 0 type errors).</span></div>
+          <div class="item done"><span class="mark">✓</span><span class="txt">Own database in its own containers: <code>creative-carbon-db</code> (port 5437, database <code>creative_carbon</code>) and <code>creative-carbon-redis</code> (6383). Dermat's containers untouched. App runs on port 3010.</span></div>
+          <div class="item done"><span class="mark">✓</span><span class="txt">Removed BOMs, planning, cosmetics QC, R&amp;D, artwork, store requests and the bulk / filling production pages; orders, products, purchase, store, dashboard, customers, number series and the access screen unhooked from them.</span></div>
+          <div class="item done"><span class="mark">✓</span><span class="txt">Removed Dermat data: seed scripts, the live seed file, the database dump, Dermat specs.</span></div>
+          <div class="item done"><span class="mark">✓</span><span class="txt">Rebranded: login, header, page titles ("Overview · Creative Carbon"), documents, customer messages, number series (<code>CCCPL/</code>).</span></div>
+          <div class="item done"><span class="mark">✓</span><span class="txt">Modules renamed <code>dermat_*</code> → <code>cc_*</code>; developer rules rewritten for this client.</span></div>
+          <div class="item done"><span class="mark">✓</span><span class="txt">Order page keeps Dermat's design with the 7 laminate stages; GRN lines get Pass / Hold; dropdown lists seeded with plant values.</span></div>
+          <div class="item partial"><span class="mark">→</span><span class="txt">Carried to Stage 1: product types and stores are still Dermat's (RM / PM / Bulk / FG / R&amp;D, RM-STORE…). Stage 1 replaces them.</span></div>
         </div>
-        <p class="exit"><b>Done when:</b> the app starts on an empty database, signs in as Creative Carbon, and has no Dermat screen, record or word left.</p>
+        <p class="exit"><b>Tested 7 Oct:</b> type check 0 errors · end-to-end suite <code>e2e/cc</code> 7 / 7 passing: login, 20 kept pages open with the Creative Carbon title and no Dermat text, 10 removed pages and 6 removed APIs return 404, orders carry the 7 laminate stages, dropdown lists hold plant values, number series use <code>CCCPL/</code>. Visual click-through waits for the Chrome extension to be connected.</p>
       </section>
 
 <!-- ============ STAGE 1 ============ -->

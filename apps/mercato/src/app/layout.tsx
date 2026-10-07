@@ -7,8 +7,8 @@ import { detectLocale, loadDictionary } from '@open-mercato/shared/lib/i18n/serv
 import { resolveForcedLocale } from '@open-mercato/shared/lib/i18n/locale'
 
 export const metadata: Metadata = {
-  title: 'Creative Carbon Composites ERP',
-  description: 'Enterprise Resource Planning & Formulation Management',
+  title: { default: 'Creative Carbon Composites ERP', template: '%s · Creative Carbon' },
+  description: 'Plant, stock, orders and despatch for Creative Carbon Composites',
 }
 
 export default async function RootLayout({
