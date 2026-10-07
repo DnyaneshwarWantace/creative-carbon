@@ -552,7 +552,7 @@ function AppShellBody({ productName, logo, email, canManageUpgradeActions = fals
   const { items: topbarInjectedMenuItems } = useInjectedMenuItems('menu:topbar:actions')
   useEventBridge() // SSE DOM Event Bridge — singleton SSE connection for real-time server events
   const rawProductName = productName ?? t('appShell.productName')
-  const resolvedProductName = !rawProductName || rawProductName === 'Open Mercato' ? 'DERMAT INDIA' : rawProductName
+  const resolvedProductName = !rawProductName || rawProductName === 'Open Mercato' ? 'CREATIVE CARBON' : rawProductName
   const resolvedLogo = chromePayload?.brand?.logo?.src ? chromePayload.brand.logo : logo
   const resolvedBrandName = chromePayload?.brand?.logo?.src
     ? chromePayload.brand.name ?? resolvedProductName

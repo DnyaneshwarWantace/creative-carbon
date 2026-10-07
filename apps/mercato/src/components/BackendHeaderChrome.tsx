@@ -177,7 +177,7 @@ export function BackendHeaderChrome({
       ) : null}
       <div className="hidden sm:flex items-center gap-2 px-2.5 py-1 rounded-lg bg-muted/50 border text-xs font-semibold text-foreground">
         <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
-        <span>Dermat India (Gurugram Plant)</span>
+        <span>Creative Carbon Composites (Kanera Plant)</span>
       </div>
 
       {/* Secondary actions — inline on md+, grouped under a More button on <md */}

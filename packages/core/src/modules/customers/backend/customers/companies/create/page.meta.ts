@@ -13,14 +13,14 @@ export const metadata = {
   requireAuth: true,
   requireFeatures: ['customers.companies.manage'],
   pageTitle: 'Create Customer',
-  pageTitleKey: 'dermat_customers.create.title',
+  pageTitleKey: 'cc_customers.create.title',
   pageGroup: 'Sales',
   pageGroupKey: 'customers~sales.nav.group',
   pagePriority: 10,
   pageOrder: 115,
   icon: createIcon,
   breadcrumb: [
-    { label: 'Customer', labelKey: 'dermat_customers.nav.customer', href: '/backend/customers/companies' },
-    { label: 'Create', labelKey: 'dermat_customers.create.title' },
+    { label: 'Customer', labelKey: 'cc_customers.nav.customer', href: '/backend/customers/companies' },
+    { label: 'Create', labelKey: 'cc_customers.create.title' },
   ],
 }

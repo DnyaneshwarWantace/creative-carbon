@@ -1,69 +1,55 @@
-# Dermat India ERP — Rules for Agents
+# Creative Carbon Composites ERP — Rules for Agents
 
-This app is **Dermat India's ERP** (cosmetics contract manufacturer) built on Open Mercato. Read this before touching any module. It overrides generic Open Mercato habits.
+This app is the ERP for **Creative Carbon Composites Pvt. Ltd.** (CCCPL, Kanera, Kheda, Gujarat): phenolic resin, impregnated cloth / paper (B-stage), compression-moulded laminates, tubes, rods and moulded components. It is built on Open Mercato and started as a copy of the Dermat India ERP; the cosmetics parts were removed on 7 Oct 2026. Read this before touching any module.
+
+The plan, stage by stage, is `.ai/docs/client-facing/creative-carbon-plan.html` (published as an artifact). The client brief is `Downloads/creative-carbon/Wantace_CreativeCarbon_DevBrief.md`; register photos and audit recordings are in `Downloads/creative-carbon/Archive 3/`.
 
 ## Always
 
-- Build every Dermat screen, API and seed inside a `dermat_*` module in this folder. Open Mercato core (`packages/core`, `packages/ui`) is the framework, not the product.
-- Reuse core **data and APIs** (catalog products, units, `wms` stock, sales documents, customers) instead of inventing new tables. Build the **screens** yourself in the Dermat module.
-- Trace every field to a client source: their Excel sheets, their paper order form, the Procuzy screenshots in `Downloads/Wantace-projects/dermat-reference-images/`, or the meeting transcripts. Write the source in the spec. No invented fields.
-- Keep forms short and per item type: an RM user sees RM fields only. Prefer plain text boxes; use a dropdown only when the value must come from a list. Name things the way Dermat staff do (Stock, Batches, Stores, Raw Materials — never "WMS", "zone", "variant").
-- Read the current rebuild spec first: `.ai/specs/2026-09-25-dermat-product-unit-stock-foundation.md`.
+- Build every screen, API and seed inside a `cc_*` module in this folder. Open Mercato core (`packages/core`, `packages/ui`) is the framework, not the product.
+- Make each plant screen look like the paper register it replaces: same columns, same order, same words (Chindi, Kushan, Daylight, Die No., B-stage, O.B.). Trace every field to a register photo, the brief or the audit recording.
+- Weights are kg with three decimals everywhere; piece counts only on moulded parts. Never use floats for weight or money.
+- Fields printed on the forms but left blank in practice are optional and switched off by default.
+- Every register gets an Excel template and upload (the client will hire a data-entry person for the first months).
+- Reuse core **data and APIs** (catalog products, `wms` stock, customers, dictionaries) instead of inventing new tables. Build the **screens** yourself in a `cc_*` module.
+- Every dropdown list lives in Masters → Dropdown Options (`cc_lists/lib/lists.ts`) so the client edits it without a developer.
 
 ## Never
 
-- Never edit, extend or "customise" an Open Mercato core screen for Dermat (for example `packages/core/src/modules/catalog/backend/catalog/products/create/page.tsx`). The previous build did this and it had to be deleted. Replace the route instead (see below).
-- Never assume a core screen you find in `packages/core` is what the client uses. Check the route table below.
-- Never add a second product, stock or unit table. There is exactly one product master (catalog products) and one stock system (`wms`).
-- Never leave a core page reachable just by hiding it from the sidebar. Replace it or remove the route (`null`) in `apps/mercato/src/modules.ts`.
-- Never bring back the deleted modules (`dermat_rm_master`, `dermat_pm_master`, `dermat_bom` (replaced by `dermat_boms`), `dermat_purchase_orders`, `dermat_qc`, `dermat_sampling`, `dermat_production`, `dermat_sales_flow`, `dermat_workflow`, core `manufacturing`, core `purchasing`). The last state before the cleanup is on branch `snapshot/pre-cleanup-2026-09-25` for reference only.
+- Never edit or "customise" an Open Mercato core screen. Replace the route in `apps/mercato/src/modules.ts` (under the `cc_customers` entry) or remove it (`null`).
+- Never leave a core page reachable just by hiding it from the sidebar.
+- Never add a second product, stock or unit table. One product master (catalog products), one stock system (`wms`).
+- Never bring back the Dermat cosmetics modules (BOMs, material planning, chemical / micro QC, R&D sampling, artwork, store requests, bulk → filling → packing production). The full Dermat code is on local branch `snapshot/dermat-final-2026-10-07` for reference only.
+- Never point this copy at Dermat's database or GitHub. It has no git remote on purpose.
 
-## Route table: what the client actually sees
+## Modules
 
-| Area | Client-facing screen | Module | Core screen status |
-|---|---|---|---|
-| Products (RM, PM, Bulk, FG, R&D) | `/backend/products` (tabs), `/backend/products/new/<type>`, `/backend/products/<id>` (detail: stock by store/batch, movements, BOM, where used, orders, customers), `/backend/products/<id>/edit` | `dermat_products` | `/backend/catalog/products*` removed; `/backend/catalog/products/[id]` loads the Dermat detail page |
-| Product categories | `/backend/catalog/categories` (from "Manage categories" on Products) | core catalog | kept, not in sidebar |
-| Customers | `/backend/customers/companies` (relabelled "Customer", Sales group); `/backend/customers/companies/<id>` replaced by the Dermat customer page (orders with stages, products, details edit sheet) | core customers + `dermat_customers` (fields, `components/CustomerDetail.tsx`) | people, deals, pipelines removed |
-| Stock | Store → Stock, Batches, Stock Ledger; Planning → Reservations; Masters → Stores | core `wms` (relabelled) | warehouses, zones, WMS config removed |
-| Departments, Vendors | Masters / Purchase | `dermat_departments`, `dermat_vendors` | — |
-| BOM (bulk formulas in RM %, FG pack BOMs per piece) | R&D → BOM `/backend/boms`, `/backend/boms/new?productId=`, `/backend/boms/<id>`; "BOM" button on Bulk/R&D/FG product pages | `dermat_boms` (spec `.ai/specs/2026-09-25-dermat-boms.md`) | — (old `dermat_boms`/`dermat_bom_lines` tables are dead demo data) |
-| Orders (one-page order + 11 stages, stage work pages per department) | Sales → Orders `/backend/orders`, `/backend/orders/new` (`?copyFrom=` repeat, `?customerId=`), `/backend/orders/<id>`, `/backend/orders/<id>/stages/<stage>` (stage detail page); department groups → `/backend/work/<stage>` | `dermat_orders` (spec `.ai/specs/2026-09-25-dermat-orders.md`) | core sales documents not used |
-| QC (rules per operation/product, checks with chemical + micro approvals; blocks manufacturing/filling/packing completion) | QC → QC checks `/backend/qc/checks`, `/backend/qc/checks/<id>`; QC rules `/backend/qc/rules`, `/backend/qc/rules/<id>`, `/backend/qc/rules/new` | `dermat_quality` (spec `.ai/specs/2026-09-26-dermat-quality.md`) | old `dermat_qc` is dead; its migration table blocks reuse of the name |
-| Artwork & PM | own sidebar group `dermat-03b-artwork.nav.group` → `/backend/work/artwork` | `dermat_orders` | — |
-| Store requests (production asks RM / PM store, issue by batch, receive, use, return) | Store → Store requests `/backend/store/requests`, `/backend/store/requests/<id>`, `/backend/store/requests/new?orderId&stageKey`; Production → Material from store `/backend/production/material` | `dermat_store` (spec `.ai/specs/2026-09-26-dermat-store-requests.md`); stock helpers `dermat_products/lib/stock.ts` | stock moves only through wms commands |
-| Planning board and reserved stock (several orders / BOMs → one total; reserve, clear, move; never expires) | Planning → Planning board `/backend/planning` (`?orders=`), Reserved stock `/backend/planning/reservations` | `dermat_planning` (spec `.ai/specs/2026-09-26-dermat-planning.md`) | core `/backend/wms/reservations` nulled; reservations are Dermat rows, not wms reservations |
-| Purchase (PO with approval, GRN into "under test" stock, inward QC approves / rejects the batch, return to vendor) | Purchase → Purchase orders `/backend/purchase/orders` (`/new?items=&orders=`, `/<id>`, `/<id>/edit`), Goods receiving `/backend/purchase/grns` (`/new?poId=`, `/<id>`) | `dermat_purchase` (spec `.ai/specs/2026-09-26-dermat-purchase.md`) | only `available` batches count as usable stock |
-| Overview dashboard, my pending work, morning email | Overview → Overview `/backend/overview`, My pending work `/backend/my-work`; CLI `mercato dermat_dashboard send-digest` | `dermat_dashboard` (spec `.ai/specs/2026-09-26-dermat-dashboard.md`) | email needs `RESEND_API_KEY` + `EMAIL_FROM` |
-| Accounts (GST / discount per line, payments, dues, PI / tax invoice / challan print, dispatch check on money due) | Accounts → Payments & dues `/backend/accounts/dues`; order page "Money" card | `dermat_accounts` + `dermat_orders/lib/pricing.ts` (spec `.ai/specs/2026-09-26-dermat-accounts.md`) | GST shown as one line until Dermat's GSTIN is set |
-| Production details and production stock (shift / times / wastage, bulk into PRODUCTION, filling usage, FG into FG-STORE with expiry, dispatch out, reuse one bulk batch across orders) | order stages Manufacturing / Filling / Packing / Dispatch; `GET /api/dermat_orders/orders/bulk` | `dermat_orders/lib/productionStock.ts` (spec `.ai/specs/2026-09-26-dermat-production-stock.md`) | missing stock records are created on demand (`dermat_store/lib/stockSetup.ts`) |
+| Module | What it owns |
+|---|---|
+| `cc_orders` | One-page order with 7 stages (`lib/stages.ts`): Order booked → Advance / LC → Stock allocation → QC & test report → Packing & weighment → Invoice & documents → Despatch. Order book, stage pages `/backend/orders/<id>/stages/<key>`, department queues `/backend/work/<stage>`, stage settings `/backend/masters/stages`. Line details (grade, weave, sheet size, thickness, pieces, die no., packing, test standard) are in `lib/specs.ts`. A stage changes only through `POST /api/cc_orders/orders/stage`. |
+| `cc_products` | Product screens on catalog products. Item types still the Dermat ones (RM / PM / Bulk / FG / R&D) until plan Stage 1 replaces them with Chemical, Reinforcement, Chindi, Resin, B-stage, Sheet / Tube / Rod, Moulded part, Bought-in / Consumable. |
+| `cc_store` | Stock by store and lot, stock ledger, adjustments, transfers, reports (`wms` underneath). Stores still RM / PM / Production / FG until Stage 1. |
+| `cc_purchase` | Indents, POs with approval, GRN. Received lots wait as "to check"; the GRN page passes or holds each line (`POST /api/cc_purchase/grns/decide`). |
+| `cc_accounts` | Company details, number series (prefix `CCCPL/`), proformas, tax invoices, payments, dues, vendor bills, Tally export. |
+| `cc_customers`, `cc_vendors` | Party pages on core customers, vendor master. |
+| `cc_departments` | Department logins and the access screen (`/backend/masters/access`, areas in `lib/access.ts`). |
+| `cc_dashboard` | Overview, my pending work, turnaround, morning email. |
+| `cc_lists` | Dropdown options and units. |
+| `cc_production` | Not built yet: the plant registers (resin, coating / B-stage, press, moulding, cutting, thickness, FG inspection, lab), the lot tree and the upload centre (plan Stages 2–8). |
 
-Every route override lives in `apps/mercato/src/modules.ts` under the `dermat_customers` entry. Add new ones there.
+## Data decisions (do not re-decide)
 
-## Data model decisions (do not re-decide)
-
-- **Product** = `catalog_products` row. Type = top-level category (Raw Material, Packing Material, Bulk, Finished Goods, R&D), stored in `custom_fieldset_code` (`raw_material`, `packing_material`, `bulk`, `finished_goods`, `rnd`). Type-specific fields are custom fields with that fieldset (`dermat_products/ce.ts`).
-- **Codes**: `sku` is auto-generated. The client's own code (AP-070, EP-181, FC-005, CP-001…) is custom field `item_code` (shown as "Internal Reference ID" on Finished Goods) and is never generated. Search everywhere goes through `dermat_products/lib/productSearch.ts`: internal ID with spaces/dashes ignored ("AP 293" = "AP-293"), name, or SKU.
-- **One ID through every stage**: a Finished Good's packing items (Carton, Label, Tube…) are created from the FG form ("Packing for this product", list `packing_item_type` in Dropdown Options) as packing materials named `<Type> - <FG name>` with SKU `<FG sku>-<TYPE>` and hidden fields `parent_product_id` / `packing_item_type` — never a new SKU number (Dermat India 4, 6:36–7:38). Renaming the FG renames them.
-- **BOM number** is internal only — never show it (Dermat India 4, 6:14–6:27).
-- **Units**: one unit per product (`default_unit`), picked from the `unit` dropdown list. No unit-conversion table — the client rejected it as too complex. Each type offers only its units (RM/Bulk/R&D: kg, g, l, ml; PM/FG: nos, pc) — see `dermat_products/lib/kindConfig.ts`.
-- **Dropdowns**: every dropdown list lives in Masters → Dropdown Options (core dictionaries) so the client edits them without a developer. Add new lists there, never hardcode option arrays in a form.
-- **Stock**: `wms` — one warehouse "Dermat India", stores `RM-STORE`, `PM-STORE`, `PRODUCTION`, `FG-STORE`. Min floor qty = inventory profile `reorder_point`. Pending QC = lot status `quarantine`.
-- **Tax**: GST rates `gst-0/5/12/18/28` (18% default).
-
-- **BOM**: one document per product version (`dermat_bom_headers` + `dermat_bom_items`), saved whole. Draft → Approved (locked) → Superseded when a newer version is approved; one draft per product. Formula lines store RM % (must total 100), pack lines store qty per piece. Components are catalog products (no copies).
-- **Custom write routes**: use `runRouteMutationGuards` plus `enforceCommandOptimisticLock` (see `dermat_boms/lib/guard.ts`). `validateCrudMutationGuard` is deprecated and does not enforce optimistic locking.
-
-- **Orders**: `dermat_orders` owns orders, lines, stages and history. Stage list, sub-steps and fields live in `dermat_orders/lib/stages.ts`; the client's order-form specs in `lib/specs.ts`. Customer names are encrypted — always read them through `findWithDecryption` (`lib/server.ts#loadCustomers`), never copy them into Dermat tables. A stage is completed only through `POST /api/dermat_orders/orders/stage` (same call from the order page and the stage work pages).
+- **Production is not order-driven.** Raw material is bought by reorder level and sheets are pressed to stock. Orders only allocate finished lots; the order has no manufacturing stage.
+- **Customer names are encrypted** — read them through `findWithDecryption` (`cc_orders/lib/server.ts#loadCustomers`), never copy them into `cc_*` tables.
+- **Custom write routes** use `runRouteMutationGuards` plus `enforceCommandOptimisticLock`.
+- **Number series** live in `cc_accounts/lib/numberSeries.ts` and are editable in Accounts → Number series.
 
 ## Seeding an existing tenant
 
 ```bash
 cd apps/mercato
 corepack yarn mercato entities install --tenant <tenantId>
-corepack yarn mercato dermat_products seed --tenant <tenantId> --org <organizationId>
+corepack yarn mercato cc_products seed --tenant <tenantId> --org <organizationId>
 ```
-
-Product fields are also managed by the client from the product form ("Customize fields" panel: hide/show, reuse a field from another type, create Text / Number / list fields — list options go to Dropdown Options). Re-running `entities install` resets the fields declared in `dermat_products/ce.ts` to their coded types, which undoes any "add to another type" the client did for those keys — run it only when you add or change a field in `ce.ts`, and re-apply client changes afterwards. Client-created fields are not touched.
 
 After enabling or disabling a core module, rebuild core (`cd packages/core && corepack yarn build`) so its compiled entity ids match.

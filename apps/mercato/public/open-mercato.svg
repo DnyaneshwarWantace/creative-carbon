@@ -1,11 +1,11 @@
 <svg width="176" height="176" viewBox="0 0 176 176" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <rect width="176" height="176" rx="38" fill="url(#dermat_gradient)"/>
+  <rect width="176" height="176" rx="38" fill="url(#cc_gradient)"/>
   <path d="M52 44C52 41.7909 53.7909 40 56 40H88C114.51 40 136 61.4903 136 88C136 114.51 114.51 136 88 136H56C53.7909 136 52 134.209 52 132V44Z" fill="white" fill-opacity="0.12"/>
   <path d="M60 48H86C108.091 48 126 65.9086 126 88C126 110.091 108.091 128 86 128H60V48Z" stroke="white" stroke-width="7" stroke-linejoin="round"/>
   <path d="M72 48V128" stroke="white" stroke-width="7" stroke-linecap="round"/>
   <path d="M96 74C96 74 110 90.5 110 99C110 106.732 103.732 113 96 113C88.268 113 82 106.732 82 99C82 90.5 96 74 96 74Z" fill="url(#drop_gradient)"/>
   <defs>
-    <linearGradient id="dermat_gradient" x1="0" y1="0" x2="176" y2="176" gradientUnits="userSpaceOnUse">
+    <linearGradient id="cc_gradient" x1="0" y1="0" x2="176" y2="176" gradientUnits="userSpaceOnUse">
       <stop offset="0%" stop-color="#0F766E"/>
       <stop offset="50%" stop-color="#0D9488"/>
       <stop offset="100%" stop-color="#0284C7"/>

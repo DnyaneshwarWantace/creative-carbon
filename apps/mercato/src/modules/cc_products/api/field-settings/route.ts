@@ -1,0 +1,81 @@
+import { NextResponse } from 'next/server'
+import { z } from 'zod'
+import { createRequestContainer } from '@open-mercato/shared/lib/di/container'
+import { getAuthFromRequest } from '@open-mercato/shared/lib/auth/server'
+import { runRouteMutationGuards } from '@open-mercato/shared/lib/crud/route-mutation-guard'
+import type { OpenApiRouteDoc } from '@open-mercato/shared/lib/openapi'
+import type { ModuleConfigService } from '@open-mercato/core/modules/configs/lib/module-config-service'
+import { PRODUCT_KINDS } from '../../lib/kinds'
+
+export const metadata = {
+  GET: { requireAuth: true, requireFeatures: ['catalog.products.view'] },
+  PUT: { requireAuth: true, requireFeatures: ['catalog.products.manage'] },
+}
+
+const MODULE_ID = 'cc_products'
+const SETTING_KEY = 'hiddenFields'
+
+const kindSchema = z.enum(PRODUCT_KINDS.map((kind) => kind.code) as [string, ...string[]])
+const fieldKeySchema = z.string().trim().min(1).max(64).regex(/^[a-z0-9_]+$/)
+const hiddenFieldsSchema = z.record(z.string(), z.array(fieldKeySchema).max(50))
+const KIND_CODES = new Set<string>(PRODUCT_KINDS.map((kind) => kind.code))
+const bodySchema = z.object({ kind: kindSchema, hiddenFields: z.array(fieldKeySchema).max(50) })
+const responseSchema = z.object({ hiddenFields: hiddenFieldsSchema })
+
+async function readHiddenFields(configService: ModuleConfigService, tenantId: string) {
+  const value = await configService.getValue<unknown>(MODULE_ID, SETTING_KEY, { defaultValue: {}, scope: { tenantId } })
+  const parsed = hiddenFieldsSchema.safeParse(value ?? {})
+  if (!parsed.success) return {}
+  return Object.fromEntries(Object.entries(parsed.data).filter(([kind]) => KIND_CODES.has(kind)))
+}
+
+async function GET(req: Request) {
+  const auth = await getAuthFromRequest(req)
+  if (!auth?.tenantId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const container = await createRequestContainer()
+  const configService = container.resolve('moduleConfigService') as ModuleConfigService
+  return NextResponse.json({ hiddenFields: await readHiddenFields(configService, auth.tenantId) })
+}
+
+async function PUT(req: Request) {
+  const auth = await getAuthFromRequest(req)
+  if (!auth?.tenantId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const parsed = bodySchema.safeParse(await req.json().catch(() => null))
+  if (!parsed.success) return NextResponse.json({ error: 'Invalid field settings' }, { status: 400 })
+  const container = await createRequestContainer()
+  const actorId = (typeof auth.sub === 'string' && auth.sub) || 'system'
+  const guard = await runRouteMutationGuards({
+    container,
+    req,
+    auth: { userId: actorId, tenantId: auth.tenantId, organizationId: auth.orgId ?? null },
+    input: { resourceKind: 'cc_products.field_settings', resourceId: parsed.data.kind, operation: 'custom', mutationPayload: parsed.data },
+  })
+  if (!guard.ok) return guard.response
+  const configService = container.resolve('moduleConfigService') as ModuleConfigService
+  const current = await readHiddenFields(configService, auth.tenantId)
+  const next = { ...current, [parsed.data.kind]: Array.from(new Set(parsed.data.hiddenFields)) }
+  await configService.setValue(MODULE_ID, SETTING_KEY, next, { tenantId: auth.tenantId })
+  await guard.runAfterSuccess()
+  return NextResponse.json({ hiddenFields: next })
+}
+
+export const openApi: OpenApiRouteDoc = {
+  tag: 'Creative Carbon Products',
+  summary: 'Which optional product fields are hidden per product type',
+  methods: {
+    GET: {
+      summary: 'Read hidden product fields per type',
+      tags: ['Creative Carbon Products'],
+      responses: [{ status: 200, description: 'Hidden field keys per product type', schema: responseSchema }],
+    },
+    PUT: {
+      summary: 'Set hidden product fields for one product type',
+      tags: ['Creative Carbon Products'],
+      requestBody: { schema: bodySchema },
+      responses: [{ status: 200, description: 'Updated hidden field keys', schema: responseSchema }],
+      errors: [{ status: 400, description: 'Invalid field settings' }],
+    },
+  },
+}
+
+export { GET, PUT }

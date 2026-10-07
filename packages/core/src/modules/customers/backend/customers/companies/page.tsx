@@ -712,14 +712,14 @@ export default function CustomersCompaniesPage() {
         <DataTable<CompanyRow>
           stickyFirstColumn
           stickyActionsColumn
-          title={t('dermat_customers.nav.customer', 'Customer')}
+          title={t('cc_customers.nav.customer', 'Customer')}
           refreshButton={{
             label: t('customers.companies.list.actions.refresh'),
             onRefresh: () => { setSearch(''); setPage(1); handleRefresh() },
           }}
           actions={(
             <Button type="button" onClick={() => setCreatePanelOpen(true)}>
-              {t('dermat_customers.create.title', 'Create Customer')}
+              {t('cc_customers.create.title', 'Create Customer')}
             </Button>
           )}
           columns={columns}

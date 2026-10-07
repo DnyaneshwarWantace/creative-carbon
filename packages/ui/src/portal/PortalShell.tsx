@@ -273,7 +273,7 @@ export function PortalShell({
                   DI
                 </div>
               )}
-              <span className="text-base font-semibold tracking-tight">{headerTitle || 'DERMAT INDIA'}</span>
+              <span className="text-base font-semibold tracking-tight">{headerTitle || 'CREATIVE CARBON'}</span>
             </Link>
             <nav aria-label="Primary" className="flex items-center gap-1">
               <Button asChild variant="ghost" size="sm" className="text-sm">
@@ -302,7 +302,7 @@ export function PortalShell({
                   DI
                 </div>
               )}
-              <span className="text-sm font-medium text-foreground">{headerTitle || 'DERMAT INDIA'}</span>
+              <span className="text-sm font-medium text-foreground">{headerTitle || 'CREATIVE CARBON'}</span>
             </Link>
             <p className="text-xs text-muted-foreground/60">
               {t('portal.footer.copyright', '\u00A9 {year} All rights reserved.', { year: new Date().getFullYear() })}
@@ -326,7 +326,7 @@ export function PortalShell({
               DI
             </div>
           )}
-          <span className="text-sm font-semibold tracking-tight truncate">{headerTitle || 'DERMAT INDIA'}</span>
+          <span className="text-sm font-semibold tracking-tight truncate">{headerTitle || 'CREATIVE CARBON'}</span>
         </Link>
       </div>
 

@@ -1,7 +1,7 @@
 import { apiCall } from '@open-mercato/ui/backend/utils/apiCall'
 import type { CrudFieldOption } from '@open-mercato/ui/backend/CrudForm'
 
-// Departments (an app-local module, `dermat_departments`) own a backing Role 1:1 —
+// Departments (an app-local module, `cc_departments`) own a backing Role 1:1 —
 // see `Department.roleId`. This module (`auth`, a core package) MUST NOT import
 // app-local module code directly (architecture rule: no direct cross-module/app
 // imports; core packages stay app-agnostic). Instead, resolve the department-backed
@@ -24,7 +24,7 @@ type FetchDepartmentOptionsParams = {
 export async function fetchDepartmentBackedRoleIds(): Promise<Set<string>> {
   try {
     const call = await apiCall<DepartmentListResponse>(
-      '/api/dermat_departments/departments?pageSize=100',
+      '/api/cc_departments/departments?pageSize=100',
       undefined,
       { fallback: { items: [] } },
     )

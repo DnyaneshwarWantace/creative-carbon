@@ -68,26 +68,20 @@ export const moduleOverrideExamples: ModuleOverrides = {
   },
 }
 
-// Dermat's own workflow order for the main sidebar, ranked ahead of the
-// framework's default alphabetical grouping: master setup, then master data,
-// then who supplies it, then the recipe, then the customer order that drives
-// it, then production/QC, then R&D. Ids not listed here keep their existing order.
-// Sidebar is organised by department (client ask): each department group opens
-// with its Work Queue, followed by that department's own pages.
-const dermatSidebarGroupOrder = [
-  'dermat-00-overview.nav.group',
-  'dermat-01-sales.nav.group',
-  'dermat-02-accounts.nav.group',
-  'dermat-03-rnd.nav.group',
-  'dermat-03b-artwork.nav.group',
-  'dermat-04-planning.nav.group',
-  'dermat-05-purchase.nav.group',
-  'dermat-06-store.nav.group',
-  'dermat-07-production.nav.group',
-  'dermat-08-qc.nav.group',
-  'dermat-09-qa.nav.group',
-  'dermat-10-dispatch.nav.group',
-  'dermat-11-masters.nav.group',
+// Creative Carbon's sidebar order, ranked ahead of the framework's default
+// alphabetical grouping: overview, sales, accounts, purchase, store, plant
+// production, QC & lab, despatch, masters. Each department group opens with its
+// work queue, followed by that department's own pages.
+const ccSidebarGroupOrder = [
+  'cc-00-overview.nav.group',
+  'cc-01-sales.nav.group',
+  'cc-02-accounts.nav.group',
+  'cc-05-purchase.nav.group',
+  'cc-06-store.nav.group',
+  'cc-07-production.nav.group',
+  'cc-08-qc.nav.group',
+  'cc-10-dispatch.nav.group',
+  'cc-11-masters.nav.group',
 ]
 
 export const enabledModules: ModuleEntry[] = [
@@ -104,7 +98,7 @@ export const enabledModules: ModuleEntry[] = [
   { id: 'catalog', from: '@open-mercato/core' },
   { id: 'sales', from: '@open-mercato/core' },
   { id: 'payment_gateways', from: '@open-mercato/core' },
-  // Stock for every Dermat item kind: lots, balances, reservations, movement ledger.
+  // Stock for every item type: lots, balances and the movement ledger.
   { id: 'wms', from: '@open-mercato/core' },
   // Required by wms (integration toggles); its admin pages are removed below.
   { id: 'feature_toggles', from: '@open-mercato/core' },
@@ -117,7 +111,7 @@ export const enabledModules: ModuleEntry[] = [
   { id: 'progress', from: '@open-mercato/core' },
   { id: 'translations', from: '@open-mercato/core' },
   { id: 'widgets', from: '@open-mercato/core' },
-  // Removed for Dermat (not just hidden): devices, content, api_docs, messages,
+  // Removed for Creative Carbon (not just hidden): devices, content, api_docs, messages,
   // ai_assistant, scheduler, inbox_ops, integrations.
   // workflows: @open-mercato/core and @open-mercato/shared both ship a
   // "workflows" module id, and the build fails with an unresolved-duplicate
@@ -131,64 +125,64 @@ export const enabledModules: ModuleEntry[] = [
   // cache resolver, so seeding crashes at boot unless business_rules is also
   // enabled — it has no UI of its own, just entities workflows depends on.
   { id: 'business_rules', from: '@open-mercato/core' },
-  // Dermat India custom modules — app-local (@app), not part of upstream core.
-  // Rebuild in progress: only the modules that survive the 2026-09-25 cleanup
-  // are listed here (departments, vendors, customer profile fields).
+  // Creative Carbon Composites modules — app-local (@app), not part of upstream core.
+  // Carried over from the Dermat India build and cut down for a laminate plant
+  // (see .ai/docs/client-facing/creative-carbon-plan.html).
   {
-    id: 'dermat_departments',
+    id: 'cc_departments',
     from: '@app',
     overrides: {
-      nav: { groupOrder: dermatSidebarGroupOrder },
+      nav: { groupOrder: ccSidebarGroupOrder },
     },
   },
   {
-    id: 'dermat_customers',
+    id: 'cc_customers',
     from: '@app',
     overrides: {
       routes: {
         pages: {
           '/backend/customers/companies': {
-            load: () => import('./modules/dermat_customers/components/CustomersList').then((mod) => mod.default),
+            load: () => import('./modules/cc_customers/components/CustomersList').then((mod) => mod.default),
             metadata: {
               pageTitle: 'Customer',
-              pageTitleKey: 'dermat_customers.nav.customer',
+              pageTitleKey: 'cc_customers.nav.customer',
               pageGroup: 'Sales',
-              pageGroupKey: 'dermat-01-sales.nav.group',
+              pageGroupKey: 'cc-01-sales.nav.group',
               pagePriority: 10,
               pageOrder: 20,
-              breadcrumb: [{ label: 'Customer', labelKey: 'dermat_customers.nav.customer' }],
+              breadcrumb: [{ label: 'Customer', labelKey: 'cc_customers.nav.customer' }],
             },
           },
           '/backend/customers/companies/create': {
-            load: () => import('./modules/dermat_customers/components/CustomerForm').then((mod) => mod.default),
+            load: () => import('./modules/cc_customers/components/CustomerForm').then((mod) => mod.default),
             metadata: {
               pageTitle: 'Create Customer',
-              pageTitleKey: 'dermat_customers.create.title',
+              pageTitleKey: 'cc_customers.create.title',
               pageGroup: 'Sales',
-              pageGroupKey: 'dermat-01-sales.nav.group',
+              pageGroupKey: 'cc-01-sales.nav.group',
               navHidden: true,
               breadcrumb: [
-                { label: 'Customer', labelKey: 'dermat_customers.nav.customer', href: '/backend/customers/companies' },
-                { label: 'Create', labelKey: 'dermat_customers.create.title' },
+                { label: 'Customer', labelKey: 'cc_customers.nav.customer', href: '/backend/customers/companies' },
+                { label: 'Create', labelKey: 'cc_customers.create.title' },
               ],
             },
           },
           '/backend/customers/companies/[id]': {
-            load: () => import('./modules/dermat_customers/components/CustomerDetail').then((mod) => mod.default),
+            load: () => import('./modules/cc_customers/components/CustomerDetail').then((mod) => mod.default),
             metadata: {
               pageTitle: 'Customer',
-              pageTitleKey: 'dermat_customers.nav.customer',
+              pageTitleKey: 'cc_customers.nav.customer',
               pageGroup: 'Sales',
-              pageGroupKey: 'dermat-01-sales.nav.group',
+              pageGroupKey: 'cc-01-sales.nav.group',
               navHidden: true,
               breadcrumb: [
-                { label: 'Customer', labelKey: 'dermat_customers.nav.customer', href: '/backend/customers/companies' },
-                { label: 'Details', labelKey: 'dermat_customers.nav.details' },
+                { label: 'Customer', labelKey: 'cc_customers.nav.customer', href: '/backend/customers/companies' },
+                { label: 'Details', labelKey: 'cc_customers.nav.details' },
               ],
             },
           },
           '/backend/sales/quotes': null,
-          // Enabled only so the build resolves (workflows needs them); their pages stay removed for Dermat.
+          // Enabled only so the build resolves (workflows needs them); their pages stay removed for Creative Carbon.
           '/backend/rules': null,
           '/backend/rules/[id]': null,
           '/backend/rules/create': null,
@@ -251,7 +245,7 @@ export const enabledModules: ModuleEntry[] = [
           '/backend/catalog/products': null,
           '/backend/catalog/products/create': null,
           '/backend/catalog/products/[id]': {
-            load: () => import('./modules/dermat_products/backend/products/[id]/page').then((mod) => mod.default),
+            load: () => import('./modules/cc_products/backend/products/[id]/page').then((mod) => mod.default),
             metadata: { navHidden: true },
           },
           '/backend/catalog/products/[productId]/variants/create': null,
@@ -271,18 +265,14 @@ export const enabledModules: ModuleEntry[] = [
       },
     },
   },
-  { id: 'dermat_products', from: '@app' },
-  { id: 'dermat_boms', from: '@app' },
-  { id: 'dermat_orders', from: '@app' },
-  { id: 'dermat_quality', from: '@app' },
-  { id: 'dermat_store', from: '@app' },
-  { id: 'dermat_planning', from: '@app' },
-  { id: 'dermat_purchase', from: '@app' },
-  { id: 'dermat_dashboard', from: '@app' },
-  { id: 'dermat_accounts', from: '@app' },
-  { id: 'dermat_vendors', from: '@app' },
-  { id: 'dermat_lists', from: '@app' },
-  { id: 'dermat_rnd', from: '@app' },
+  { id: 'cc_products', from: '@app' },
+  { id: 'cc_orders', from: '@app' },
+  { id: 'cc_store', from: '@app' },
+  { id: 'cc_purchase', from: '@app' },
+  { id: 'cc_dashboard', from: '@app' },
+  { id: 'cc_accounts', from: '@app' },
+  { id: 'cc_vendors', from: '@app' },
+  { id: 'cc_lists', from: '@app' },
 ]
 
 // Official modules activated via official-modules.json / official-modules.local.json

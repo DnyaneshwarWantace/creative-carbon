@@ -7,7 +7,7 @@ import { detectLocale, loadDictionary } from '@open-mercato/shared/lib/i18n/serv
 import { resolveForcedLocale } from '@open-mercato/shared/lib/i18n/locale'
 
 export const metadata: Metadata = {
-  title: 'Dermat India ERP',
+  title: 'Creative Carbon Composites ERP',
   description: 'Enterprise Resource Planning & Formulation Management',
 }
 

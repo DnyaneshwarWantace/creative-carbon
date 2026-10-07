@@ -359,7 +359,7 @@ export default function LoginPage() {
           <div className="h-16 w-16 rounded-2xl bg-primary text-primary-foreground flex items-center justify-center font-extrabold text-2xl tracking-tighter shadow-md">
             DI
           </div>
-          <h1 className="text-2xl font-bold tracking-tight">DERMAT INDIA</h1>
+          <h1 className="text-2xl font-bold tracking-tight">CREATIVE CARBON</h1>
           <CardDescription>Enterprise Formulation & ERP Portal</CardDescription>
         </CardHeader>
         <CardContent>
@@ -476,7 +476,7 @@ export default function LoginPage() {
                 ) : authOverride ? (
                   authOverride.providerLabel
                 ) : (
-                  translate('auth.signIn', 'Sign in to Dermat India')
+                  translate('auth.signIn', 'Sign in to Creative Carbon Composites')
                 )}
               </Button>
 

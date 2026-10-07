@@ -182,7 +182,7 @@ skills-lock.json
 # Local DB dump staging for server-side seeding — never commit real data.
 db-seed/
 
-# Dermat seed run state and local copies of login files
-dermat-seed-state.json
-Dermat_Test_Users.csv
+# Creative Carbon seed run state and local copies of login files
+cc-seed-state.json
+Creative Carbon_Test_Users.csv
 __pycache__/

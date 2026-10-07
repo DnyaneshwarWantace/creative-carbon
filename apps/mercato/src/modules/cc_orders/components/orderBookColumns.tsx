@@ -1,0 +1,361 @@
+import * as React from 'react'
+import { isMoneyStageField } from '../lib/moneyFields'
+import type { ReopenInfo } from '../lib/stages'
+import { cn } from '@open-mercato/shared/lib/utils'
+import { STAGES, WORK_STATE_LABEL, stageDef, workState, type StageFieldType, type WorkState } from '../lib/stages'
+import { LINE_SPEC_SECTIONS, type SpecSectionKey } from '../lib/specs'
+import { formatDate, formatQty } from './format'
+import { paymentTermLabel } from '../../cc_lists/lib/paymentTerms'
+import type { EditOption } from '../../cc_products/components/EditField'
+
+export type SheetStage = {
+  status: 'waiting' | 'open' | 'on_hold' | 'done' | 'skipped'
+  days: number | null
+  openedAt: string | null
+  completedAt: string | null
+  completedByName: string | null
+  responsibleName: string | null
+  stepsDone: number
+  stepsTotal: number
+  started: boolean
+  reopen?: ReopenInfo
+  fields: Record<string, string | number | null>
+}
+
+export type SheetLine = {
+  id: string
+  productId: string
+  productCode: string | null
+  productTitle: string
+  brandName: string | null
+  packSize: string | null
+  mrp: number | null
+  quantity: number
+  rate: number | null
+  gstPercent: number
+  discountPercent: number
+  total: number
+  batchNo: string | null
+  specs: Record<string, Record<string, string>>
+}
+
+export type SheetOrder = {
+  id: string
+  orderNo: string
+  orderDate: string
+  deliveryDate: string | null
+  orderType: 'new' | 'repeat' | 'revision'
+  status: 'booked' | 'confirmed' | 'completed' | 'cancelled'
+  customerId: string
+  customerName: string
+  customerPhone: string | null
+  customerPoRef: string | null
+  salesManager: string | null
+  paymentTerms: string | null
+  paymentRemarks: string | null
+  productRemarks: string | null
+  billingRemarks: string | null
+  packingRemarks: string | null
+  updatedAt: string
+  total: number
+  received: number
+  due: number
+  late: boolean
+  doneCount: number
+  stageCount: number
+  current: Array<{ key: string; label: string; department: string; status: string; days: number | null; responsibleName: string | null; holdParty: string | null; holdReason: string | null; started: boolean }>
+  stages: Record<string, SheetStage>
+  lines: SheetLine[]
+}
+
+export type CellInput = { order: SheetOrder; line: SheetLine | null }
+
+export type CellEdit = {
+  kind: StageFieldType
+  options?: EditOption[]
+  listKey?: string
+  target: 'order' | 'line' | 'spec' | 'stage'
+  field: string
+  section?: SpecSectionKey
+  stageKey?: string
+  get: (input: CellInput) => string
+  locked?: (input: CellInput) => string | null
+}
+
+export type SheetColumn = {
+  key: string
+  label: string
+  section: string
+  scope: 'order' | 'line'
+  align?: 'right' | 'center'
+  wide?: boolean
+  money?: boolean
+  render: (input: CellInput) => React.ReactNode
+  edit?: CellEdit
+}
+
+function closed(order: SheetOrder): string | null {
+  if (order.status === 'cancelled') return 'This order is cancelled'
+  if (order.status === 'completed') return 'This order is closed'
+  return null
+}
+
+function asText(value: unknown): string {
+  return value === null || value === undefined ? '' : String(value)
+}
+
+export function orderEdit(field: string, kind: StageFieldType = 'text', options?: EditOption[], listKey?: string): CellEdit {
+  return { kind, options, listKey, target: 'order', field, get: ({ order }) => asText((order as unknown as Record<string, unknown>)[field]), locked: ({ order }) => closed(order) }
+}
+
+export function lineEdit(field: keyof SheetLine, kind: StageFieldType = 'text', options?: EditOption[]): CellEdit {
+  return {
+    kind,
+    options,
+    target: 'line',
+    field,
+    get: ({ line }) => asText(line?.[field]),
+    locked: ({ order, line }) => {
+      if (!line) return 'No product on this row'
+      if (field === 'quantity' && ['done', 'skipped'].includes(order.stages.allocation?.status ?? '')) return 'Stock is allocated — quantity is locked'
+      return closed(order)
+    },
+  }
+}
+
+export function specEdit(section: SpecSectionKey, field: string, options?: string[], listKey?: string): CellEdit {
+  return {
+    kind: options ? 'select' : 'text',
+    options,
+    listKey,
+    target: 'spec',
+    section,
+    field,
+    get: ({ line }) => asText(line?.specs?.[section]?.[field]),
+    locked: ({ order, line }) => (line ? closed(order) : 'No product on this row'),
+  }
+}
+
+export function stageEdit(stageKey: string, field: string): CellEdit | undefined {
+  const def = stageDef(stageKey)?.fields.find((entry) => entry.key === field)
+  if (!def) return undefined
+  return {
+    kind: def.type,
+    options: def.options,
+    listKey: def.listKey,
+    target: 'stage',
+    stageKey,
+    field,
+    get: ({ order }) => asText(order.stages[stageKey]?.fields[field]),
+    locked: ({ order }) => {
+      const status = order.stages[stageKey]?.status ?? 'waiting'
+      const label = stageDef(stageKey)?.label ?? stageKey
+      if (closed(order)) return closed(order)
+      if (status === 'waiting') return `${label} has not started yet`
+      if (status === 'done' || status === 'skipped') return `${label} is finished — reopen it to change`
+      return null
+    },
+  }
+}
+
+const TYPE_LABEL: Record<SheetOrder['orderType'], string> = { new: 'NEW', repeat: 'REPEAT', revision: 'REVISION' }
+
+export const WORK_STATE_TONE: Record<WorkState, string> = {
+  coming: 'bg-muted text-muted-foreground',
+  pending: 'bg-status-warning-bg text-status-warning-text',
+  in_progress: 'bg-status-info-bg text-status-info-text',
+  on_hold: 'bg-status-error-bg text-status-error-text',
+  completed: 'bg-status-success-bg text-status-success-text',
+  skipped: 'bg-muted text-muted-foreground',
+}
+
+const SEGMENT_TONE: Record<WorkState, string> = {
+  coming: 'bg-muted',
+  pending: 'bg-status-warning-icon',
+  in_progress: 'bg-status-info-icon',
+  on_hold: 'bg-status-error-icon',
+  completed: 'bg-status-success-icon',
+  skipped: 'bg-muted-foreground/40',
+}
+
+export function sheetWorkState(stage: SheetStage | undefined): WorkState {
+  if (!stage) return 'coming'
+  return workState(stage.status, stage.started ? { __started: true } : null)
+}
+
+function dash(value: unknown): React.ReactNode {
+  if (value === null || value === undefined || value === '') return <span className="text-muted-foreground">—</span>
+  return String(value)
+}
+
+function money(value: number | null | undefined): React.ReactNode {
+  if (value === null || value === undefined) return <span className="text-muted-foreground">—</span>
+  return `₹${new Intl.NumberFormat('en-IN', { maximumFractionDigits: 2 }).format(value)}`
+}
+
+function field(order: SheetOrder, stageKey: string, key: string): string | number | null {
+  return order.stages[stageKey]?.fields[key] ?? null
+}
+
+export function StatePill({ state, label }: { state: WorkState; label?: string }) {
+  return <span className={cn('inline-flex items-center rounded-sm px-1.5 py-0.5 text-xs font-medium', WORK_STATE_TONE[state])}>{label ?? WORK_STATE_LABEL[state]}</span>
+}
+
+export function StageTrack({ order }: { order: SheetOrder }) {
+  return (
+    <span className="flex items-center gap-0.5" aria-label={`${order.doneCount} of ${order.stageCount} stages done`}>
+      {STAGES.map((def) => {
+        const state = sheetWorkState(order.stages[def.key])
+        return <span key={def.key} title={`${def.label}: ${WORK_STATE_LABEL[state]}`} className={cn('h-2.5 w-2.5 rounded-sm', SEGMENT_TONE[state])} />
+      })}
+      <span className="ml-1.5 text-xs tabular-nums text-muted-foreground">
+        {order.doneCount}/{order.stageCount}
+      </span>
+    </span>
+  )
+}
+
+const BASE_COLUMNS: SheetColumn[] = [
+  { key: 'orderDate', label: 'O.Date', section: 'Core identifiers', scope: 'order', render: ({ order }) => formatDate(order.orderDate) },
+  { key: 'orderType', label: 'New / Repeat', section: 'Core identifiers', scope: 'order', edit: orderEdit('orderType', 'select', [{ value: 'new', label: 'NEW' }, { value: 'repeat', label: 'REPEAT' }, { value: 'revision', label: 'REVISION' }]), render: ({ order }) => TYPE_LABEL[order.orderType] },
+  { key: 'productCode', label: 'Item code', section: 'Core identifiers', scope: 'line', render: ({ line }) => <span className="font-mono">{dash(line?.productCode)}</span> },
+  { edit: lineEdit('quantity', 'number'), key: 'quantity', label: 'Qty (kg)', section: 'Core identifiers', scope: 'line', align: 'right', render: ({ line }) => (line ? formatQty(line.quantity, 3) : dash(null)) },
+  { key: 'customer', label: 'Customer', section: 'Customer & dates', scope: 'order', wide: true, render: ({ order }) => <span className="font-medium">{dash(order.customerName)}</span> },
+  { edit: orderEdit('customerPoRef'), key: 'customerPo', label: 'Customer PO', section: 'Customer & dates', scope: 'order', render: ({ order }) => dash(order.customerPoRef) },
+  {
+    key: 'verified',
+    label: 'Advance / LC',
+    section: 'Customer & dates',
+    scope: 'order',
+    align: 'center',
+    render: ({ order }) => {
+      const state = sheetWorkState(order.stages.advance)
+      return <StatePill state={state} label={state === 'completed' ? 'Yes' : state === 'skipped' ? 'Skipped' : WORK_STATE_LABEL[state]} />
+    },
+  },
+  { edit: orderEdit('salesManager'), key: 'salesPoc', label: 'Sales owner', section: 'Customer & dates', scope: 'order', render: ({ order }) => dash(order.salesManager) },
+  { edit: orderEdit('deliveryDate', 'date'), key: 'delivery', label: 'Promised', section: 'Customer & dates', scope: 'order', render: ({ order }) => <span className={cn(order.late && 'font-semibold text-status-error-text')}>{order.deliveryDate ? formatDate(order.deliveryDate) : dash(null)}</span> },
+  { edit: stageEdit('allocation', 'allocation_status'), key: 'allocation', label: 'Allocation', section: 'Store, QC & packing', scope: 'order', render: ({ order }) => dash(field(order, 'allocation', 'allocation_status')) },
+  { edit: stageEdit('qc', 'report_no'), key: 'testReport', label: 'Test report', section: 'Store, QC & packing', scope: 'order', render: ({ order }) => dash(field(order, 'qc', 'report_no')) },
+  { edit: stageEdit('packing', 'net_kg'), key: 'netKg', label: 'Net kg packed', section: 'Store, QC & packing', scope: 'order', align: 'right', render: ({ order }) => (field(order, 'packing', 'net_kg') != null ? formatQty(Number(field(order, 'packing', 'net_kg')), 3) : dash(null)) },
+  { edit: lineEdit('rate', 'number'), money: true, key: 'rate', label: 'Rate (₹/kg)', section: 'Commercials & remarks', scope: 'line', align: 'right', render: ({ line }) => money(line?.rate ?? null) },
+  { key: 'gst', label: 'GST %', section: 'Commercials & remarks', scope: 'line', align: 'right', edit: lineEdit('gstPercent', 'select', ['0', '5', '12', '18', '28']), render: ({ line }) => (line ? `${formatQty(line.gstPercent, 0)}%` : dash(null)) },
+  { money: true, key: 'discount', label: 'Discount %', section: 'Commercials & remarks', scope: 'line', align: 'right', edit: lineEdit('discountPercent', 'number'), render: ({ line }) => (line?.discountPercent ? `${formatQty(line.discountPercent, 2)}%` : dash(null)) },
+  { money: true, key: 'lineTotal', label: 'Line total (₹)', section: 'Commercials & remarks', scope: 'line', align: 'right', render: ({ line }) => money(line?.total ?? null) },
+  { money: true, key: 'orderTotal', label: 'Order value (₹)', section: 'Commercials & remarks', scope: 'order', align: 'right', render: ({ order }) => (order.total ? money(order.total) : dash(null)) },
+  { money: true, key: 'received', label: 'Received (₹)', section: 'Commercials & remarks', scope: 'order', align: 'right', render: ({ order }) => money(order.received) },
+  {
+    key: 'due',
+    money: true,
+    label: 'Due (₹)',
+    section: 'Commercials & remarks',
+    scope: 'order',
+    align: 'right',
+    render: ({ order }) => (order.total ? <span className={cn(order.due > 0 && 'font-semibold text-status-warning-text')}>{money(order.due)}</span> : dash(null)),
+  },
+  { edit: orderEdit('billingRemarks', 'textarea'), key: 'billingRemarks', label: 'Billing remarks', section: 'Commercials & remarks', scope: 'order', wide: true, render: ({ order }) => <span className="block max-w-60 truncate">{dash(order.billingRemarks)}</span> },
+  { edit: stageEdit('invoice', 'invoice_number'), key: 'invoiceNo', label: 'Invoice no.', section: 'Commercials & remarks', scope: 'order', render: ({ order }) => dash(field(order, 'invoice', 'invoice_number')) },
+  { edit: stageEdit('dispatch', 'dispatch_date'), key: 'dispatchDate', label: 'Despatched on', section: 'Commercials & remarks', scope: 'order', render: ({ order }) => (field(order, 'dispatch', 'dispatch_date') ? formatDate(String(field(order, 'dispatch', 'dispatch_date'))) : dash(null)) },
+  { edit: orderEdit('paymentTerms', 'select', undefined, 'payment_terms'), key: 'paymentTerms', label: 'Payment terms', section: 'Commercials & remarks', scope: 'order', render: ({ order }) => dash(order.paymentTerms ? paymentTermLabel(order.paymentTerms) : null) },
+  { edit: orderEdit('productRemarks', 'textarea'), key: 'productRemarks', label: 'Product remarks', section: 'Commercials & remarks', scope: 'order', wide: true, render: ({ order }) => <span className="block max-w-60 truncate">{dash(order.productRemarks)}</span> },
+  { edit: orderEdit('packingRemarks', 'textarea'), key: 'packingRemarks', label: 'Packing remarks', section: 'Commercials & remarks', scope: 'order', wide: true, render: ({ order }) => <span className="block max-w-60 truncate">{dash(order.packingRemarks)}</span> },
+  { key: 'track', label: 'All stages', section: 'Stage progress', scope: 'order', render: ({ order }) => <StageTrack order={order} /> },
+]
+
+const STAGE_STATUS_COLUMNS: SheetColumn[] = STAGES.filter((def) => def.key !== 'order').map((def) => ({
+  key: `status:${def.key}`,
+  label: def.label,
+  section: 'Stage progress',
+  scope: 'order' as const,
+  render: ({ order }: CellInput) => {
+    const stage = order.stages[def.key]
+    const state = sheetWorkState(stage)
+    return (
+      <span className="inline-flex items-center gap-1.5">
+        <StatePill state={state} />
+        {stage && (state === 'pending' || state === 'in_progress' || state === 'on_hold') && stage.days != null ? <span className="text-xs tabular-nums text-muted-foreground">{formatQty(stage.days, 1)} d</span> : null}
+        {state === 'completed' && stage?.completedAt ? <span className="text-xs text-muted-foreground">{formatDate(stage.completedAt)}</span> : null}
+      </span>
+    )
+  },
+}))
+
+const USED_FIELDS = new Set(['allocation:allocation_status', 'qc:report_no', 'packing:net_kg', 'invoice:invoice_number', 'dispatch:dispatch_date'])
+
+const STAGE_FIELD_COLUMNS: SheetColumn[] = STAGES.flatMap((def) =>
+  def.fields
+    .filter((entry) => !USED_FIELDS.has(`${def.key}:${entry.key}`))
+    .map((entry) => ({
+      key: `field:${def.key}:${entry.key}`,
+      money: isMoneyStageField(def.key, entry.key),
+      label: entry.label,
+      section: `${def.label} details`,
+      scope: 'order' as const,
+      align: entry.type === 'number' ? ('right' as const) : undefined,
+      wide: entry.type === 'textarea',
+      edit: stageEdit(def.key, entry.key),
+      render: ({ order }: CellInput) => {
+        const value = field(order, def.key, entry.key)
+        if (value === null || value === '') return dash(null)
+        if (entry.type === 'date') return formatDate(String(value))
+        if (entry.type === 'number') return formatQty(Number(value), 2)
+        return <span className={cn(entry.type === 'textarea' && 'block max-w-60 truncate')}>{String(value)}</span>
+      },
+    })),
+)
+
+const SPEC_COLUMNS: SheetColumn[] = LINE_SPEC_SECTIONS.flatMap((section) =>
+  section.fields.map((entry) => ({
+    key: `spec:${section.key}:${entry.key}`,
+    label: entry.label,
+    section: section.title.charAt(0).toUpperCase() + section.title.slice(1),
+    scope: 'line' as const,
+    edit: specEdit(section.key, entry.key, entry.options, entry.listKey),
+    render: ({ line }: CellInput) => <span className="block max-w-60 truncate">{dash(line?.specs?.[section.key]?.[entry.key])}</span>,
+  })),
+)
+
+export const ALL_COLUMNS: SheetColumn[] = [...BASE_COLUMNS, ...STAGE_STATUS_COLUMNS, ...STAGE_FIELD_COLUMNS, ...SPEC_COLUMNS]
+
+export const SHEET_VIEWS: Array<{ key: string; label: string; hint: string; columns: string[] }> = [
+  {
+    key: 'master',
+    label: 'Order book',
+    hint: 'Every order line with its material, customer and where it stands',
+    columns: [
+      'orderDate', 'customer', 'customerPo', 'spec:material:grade', 'spec:material:weave', 'spec:material:sheet_size', 'spec:material:thickness_mm', 'quantity', 'spec:material:pieces',
+      'verified', 'allocation', 'testReport', 'netKg', 'invoiceNo', 'dispatchDate', 'delivery', 'track',
+    ],
+  },
+  {
+    key: 'stages',
+    label: 'Stage by stage',
+    hint: 'Where every order is, one column per stage',
+    columns: ['customer', 'spec:material:thickness_mm', 'quantity', 'delivery', ...STAGE_STATUS_COLUMNS.map((column) => column.key)],
+  },
+  {
+    key: 'sales',
+    label: 'Sales & accounts',
+    hint: 'Value, payments, invoice and despatch',
+    columns: ['orderDate', 'customer', 'customerPo', 'salesPoc', 'quantity', 'rate', 'lineTotal', 'orderTotal', 'received', 'due', 'paymentTerms', 'verified', 'invoiceNo', 'dispatchDate', 'delivery'],
+  },
+  {
+    key: 'despatch',
+    label: 'Store & despatch',
+    hint: 'Allocation, QC, packing and despatch',
+    columns: [
+      'customer', 'spec:material:grade', 'spec:material:sheet_size', 'spec:material:thickness_mm', 'quantity', 'spec:material:die_no', 'allocation', 'status:qc', 'testReport',
+      'spec:packing:pack_type', 'netKg', 'field:packing:packages', 'field:dispatch:container_no', 'field:dispatch:port', 'dispatchDate', 'delivery',
+    ],
+  },
+]
+
+export const DEFAULT_VIEW = SHEET_VIEWS[0]
+
+export const BRAND_COLUMN: SheetColumn = {
+  key: 'brand',
+  label: 'Item',
+  section: 'Core identifiers',
+  scope: 'line',
+  render: ({ line }) => <span className="block max-w-72 truncate font-semibold text-foreground">{line?.productTitle || '—'}</span>,
+}
