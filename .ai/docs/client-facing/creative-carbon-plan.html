@@ -1,11 +1,12 @@
 <title>Creative Carbon Build Plan</title>
 <style>
   :root {
-    --bg:#FBF9F6; --ink:#211C18; --ink-soft:#5C5349; --ink-faint:#948A7D;
+    --bg:#FBF9F6; --ink:#211C18; --ink-soft:#5C5349; --ink-faint:#8E8477;
     --line:#E7E0D6; --line-strong:#D6CCBD;
     --accent:#B0582F; --accent-ink:#7A3C1F; --accent-bg:#F5E3D6; --accent-bg-strong:#EDCBAE;
     --sage:#4B6F5F; --sage-ink:#35564A; --sage-bg:#E1EAE3;
     --red:#B23B3B; --red-ink:#8A2E2E; --red-bg:#F5E1DF; --red-bg-strong:#EAC5C1;
+    --blue-ink:#2F4E6E; --blue-bg:#E2EAF2;
     --plan-bg:#F3EFE9;
     --card:#FFFFFF; --shadow:0 1px 2px rgba(33,28,24,0.04), 0 8px 24px rgba(33,28,24,0.06);
     --serif:'Source Serif 4','Iowan Old Style','Palatino Linotype',Palatino,Georgia,serif;
@@ -20,6 +21,7 @@
       --accent:#E08650; --accent-ink:#F4B98A; --accent-bg:#3A2416; --accent-bg-strong:#4E2F19;
       --sage:#7FB09B; --sage-ink:#A6CBB9; --sage-bg:#1E2C25;
       --red:#E0847F; --red-ink:#F0B4B0; --red-bg:#3A2220; --red-bg-strong:#4E2C29;
+      --blue-ink:#A9C4E0; --blue-bg:#1C2633;
       --plan-bg:#201B15;
       --card:#1E1A14; --shadow:0 1px 2px rgba(0,0,0,0.3), 0 12px 32px rgba(0,0,0,0.4);
     }
@@ -31,370 +33,971 @@
     --accent:#E08650; --accent-ink:#F4B98A; --accent-bg:#3A2416; --accent-bg-strong:#4E2F19;
     --sage:#7FB09B; --sage-ink:#A6CBB9; --sage-bg:#1E2C25;
     --red:#E0847F; --red-ink:#F0B4B0; --red-bg:#3A2220; --red-bg-strong:#4E2C29;
+    --blue-ink:#A9C4E0; --blue-bg:#1C2633;
     --plan-bg:#201B15;
     --card:#1E1A14; --shadow:0 1px 2px rgba(0,0,0,0.3), 0 12px 32px rgba(0,0,0,0.4);
   }
   * { box-sizing:border-box; }
   html { scroll-behavior:smooth; }
   @media (prefers-reduced-motion: reduce) { html { scroll-behavior:auto; } }
-  body { margin:0; background:var(--bg); color:var(--ink); font-family:var(--sans); font-size:15.5px; line-height:1.6; -webkit-font-smoothing:antialiased; overflow-x:hidden; }
+  body { margin:0; background:var(--bg); color:var(--ink); font-family:var(--sans); font-size:15px; line-height:1.6; -webkit-font-smoothing:antialiased; overflow-x:hidden; }
   ::selection { background:var(--accent-bg-strong); color:var(--accent-ink); }
-  .wrap { max-width:1180px; margin:0 auto; padding-inline:32px; }
-  code, .mono { font-family:var(--mono); font-size:0.86em; }
+  .wrap { max-width:1240px; margin:0 auto; padding-inline:32px; }
+  code { font-family:var(--mono); font-size:0.84em; background:var(--plan-bg); border:1px solid var(--line); border-radius:4px; padding:0 4px; }
   a { color:var(--accent-ink); }
-  a:focus-visible { outline:2px solid var(--accent); outline-offset:2px; border-radius:3px; }
+  a:focus-visible, summary:focus-visible { outline:2px solid var(--accent); outline-offset:2px; border-radius:3px; }
+  p { margin:0 0 10px; }
 
-  .hero { padding-block:64px 36px; border-bottom:1px solid var(--line); }
+  .hero { padding-block:60px 34px; border-bottom:1px solid var(--line); }
   .eyebrow { display:inline-flex; align-items:center; gap:8px; font-size:12px; letter-spacing:0.09em; text-transform:uppercase; color:var(--sage-ink); background:var(--sage-bg); border:1px solid var(--sage); padding:6px 14px; border-radius:100px; font-weight:700; margin-bottom:22px; }
-  .hero h1 { font-family:var(--serif); font-weight:600; font-size:clamp(1.9rem,3.6vw,2.75rem); line-height:1.12; letter-spacing:-0.01em; margin:0 0 16px; text-wrap:balance; max-width:28ch; }
-  .hero .lede { font-size:1.06rem; color:var(--ink-soft); max-width:74ch; margin:0 0 28px; text-wrap:pretty; }
-  .hero .lede strong { color:var(--ink); font-weight:700; }
-  .facts { display:flex; flex-wrap:wrap; gap:8px 22px; font-size:0.84rem; color:var(--ink-soft); margin:-8px 0 26px; }
-  .facts b { color:var(--ink); font-weight:700; }
+  .hero h1 { font-family:var(--serif); font-weight:600; font-size:clamp(1.9rem,3.6vw,2.7rem); line-height:1.12; letter-spacing:-0.01em; margin:0 0 16px; text-wrap:balance; max-width:30ch; }
+  .hero .lede { font-size:1.04rem; color:var(--ink-soft); max-width:76ch; margin:0 0 24px; text-wrap:pretty; }
+  .hero .lede strong { color:var(--ink); }
+  .facts { display:flex; flex-wrap:wrap; gap:8px 22px; font-size:0.84rem; color:var(--ink-soft); margin:0 0 24px; }
+  .facts b { color:var(--ink); }
 
-  .phase-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(128px,1fr)); gap:10px; }
-  .pchip { border:1px solid var(--line); border-radius:11px; padding:12px 14px; background:var(--card); box-shadow:var(--shadow); text-decoration:none; color:inherit; display:block; }
+  .phase-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(124px,1fr)); gap:10px; }
+  .pchip { border:1px solid var(--line); border-radius:11px; padding:11px 13px; background:var(--card); box-shadow:var(--shadow); text-decoration:none; color:inherit; display:block; }
   .pchip:hover { border-color:var(--line-strong); }
-  .pchip .pn { font-size:0.68rem; font-weight:700; color:var(--ink-faint); text-transform:uppercase; letter-spacing:0.04em; margin-bottom:4px; display:flex; justify-content:space-between; gap:6px; }
-  .pchip .pv { font-family:var(--mono); font-size:0.76rem; font-weight:700; text-transform:uppercase; letter-spacing:0.03em; line-height:1.35; }
-  .pchip.done { border-color:var(--sage); } .pchip.done .pv { color:var(--sage-ink); }
+  .pchip .pn { font-size:0.66rem; font-weight:700; color:var(--ink-faint); text-transform:uppercase; letter-spacing:0.04em; margin-bottom:4px; display:flex; justify-content:space-between; gap:6px; }
+  .pchip .pv { font-family:var(--mono); font-size:0.74rem; font-weight:700; text-transform:uppercase; letter-spacing:0.03em; line-height:1.35; color:var(--ink-soft); }
   .pchip.partial { border-color:var(--accent); } .pchip.partial .pv { color:var(--accent-ink); }
-  .pchip.planned .pv { color:var(--ink-soft); }
   .pchip.demo { border-color:var(--red-bg-strong); border-style:dashed; }
-
   .legend { display:flex; flex-wrap:wrap; gap:16px; font-size:0.8rem; color:var(--ink-soft); margin-top:16px; }
   .legend span { display:inline-flex; align-items:center; gap:6px; }
 
-  .layout { display:grid; grid-template-columns:220px 1fr; gap:48px; padding-block:44px 40px; align-items:start; }
-  .rail { position:sticky; top:calc(env(safe-area-inset-top, 0px) + 26px); font-size:0.84rem; }
-  .rail .rail-title { font-size:11px; text-transform:uppercase; letter-spacing:0.08em; color:var(--ink-faint); font-weight:700; margin:0 0 10px; }
-  .rail .rail-title + a { margin-top:0; }
-  .rail .gap { height:16px; }
-  .rail a { display:flex; align-items:center; gap:8px; color:var(--ink-soft); text-decoration:none; padding:5px 0 5px 12px; border-left:2px solid transparent; margin-left:-1px; }
+  .layout { display:grid; grid-template-columns:210px minmax(0,1fr); gap:44px; padding-block:40px 40px; align-items:start; }
+  .rail { position:sticky; top:calc(env(safe-area-inset-top, 0px) + 22px); font-size:0.82rem; max-height:calc(100vh - 44px); overflow-y:auto; padding-bottom:20px; }
+  .rail .rail-title { font-size:10.5px; text-transform:uppercase; letter-spacing:0.08em; color:var(--ink-faint); font-weight:700; margin:14px 0 6px; }
+  .rail .rail-title:first-child { margin-top:0; }
+  .rail a { display:flex; align-items:center; gap:8px; color:var(--ink-soft); text-decoration:none; padding:3px 0 3px 11px; border-left:2px solid transparent; margin-left:-1px; }
   .rail a:hover { color:var(--ink); border-left-color:var(--line-strong); }
   .dot { width:7px; height:7px; border-radius:50%; flex-shrink:0; display:inline-block; }
   .dot.done { background:var(--sage); }
   .dot.partial { background:var(--accent); }
-  .dot.planned { background:transparent; border:1.5px solid var(--ink-faint); }
+  .dot.planned { border:1.5px solid var(--ink-faint); }
   .dot.missing { background:var(--red); }
-  main { min-width:0; }
 
-  section { margin-bottom:52px; scroll-margin-top:24px; }
-  .mod-head { display:flex; align-items:center; gap:12px; margin-bottom:6px; flex-wrap:wrap; }
-  h2 { font-family:var(--serif); font-weight:600; font-size:1.45rem; margin:0; letter-spacing:-0.01em; text-wrap:balance; }
-  h3 { font-size:0.74rem; text-transform:uppercase; letter-spacing:0.08em; color:var(--ink-faint); margin:22px 0 10px; font-weight:700; }
-  .verdict { font-family:var(--mono); font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.05em; padding:5px 12px; border-radius:7px; white-space:nowrap; }
+  section { margin-bottom:60px; scroll-margin-top:20px; }
+  .mod-head { display:flex; align-items:center; gap:12px; margin-bottom:4px; flex-wrap:wrap; }
+  h2 { font-family:var(--serif); font-weight:600; font-size:1.5rem; margin:0; letter-spacing:-0.01em; text-wrap:balance; }
+  h3 { font-size:0.72rem; text-transform:uppercase; letter-spacing:0.08em; color:var(--ink-faint); margin:26px 0 10px; font-weight:700; }
+  h4 { font-size:0.95rem; margin:0 0 6px; font-weight:700; }
+  .verdict { font-family:var(--mono); font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.05em; padding:4px 11px; border-radius:7px; white-space:nowrap; }
   .verdict.done { background:var(--sage-bg); color:var(--sage-ink); }
   .verdict.partial { background:var(--accent-bg); color:var(--accent-ink); }
   .verdict.planned { background:var(--plan-bg); color:var(--ink-soft); border:1px solid var(--line); }
   .verdict.missing { background:var(--red-bg); color:var(--red-ink); }
-  .when { font-family:var(--mono); font-size:11px; color:var(--ink-faint); letter-spacing:0.03em; }
-  .mod-dek { color:var(--ink-soft); font-size:0.94rem; max-width:80ch; margin:8px 0 14px; }
-  .exit { font-size:0.88rem; margin:12px 0 0; padding:10px 14px; border-left:3px solid var(--sage); background:var(--sage-bg); border-radius:0 8px 8px 0; max-width:80ch; }
-  .exit b { color:var(--sage-ink); }
+  .when { font-family:var(--mono); font-size:11px; color:var(--ink-faint); }
+  .mod-dek { color:var(--ink-soft); font-size:0.95rem; max-width:82ch; margin:8px 0 6px; }
+  .meta { display:flex; flex-wrap:wrap; gap:6px 18px; font-size:0.8rem; color:var(--ink-soft); margin:6px 0 4px; }
+  .meta b { color:var(--ink); font-weight:600; }
 
-  .itemlist { display:flex; flex-direction:column; gap:8px; }
-  .item { display:flex; gap:12px; align-items:flex-start; padding:11px 15px; border-radius:10px; border:1px solid var(--line); background:var(--card); box-shadow:var(--shadow); }
-  .item .mark { font-size:0.95rem; line-height:1.5; flex-shrink:0; width:18px; text-align:center; }
+  .itemlist { display:flex; flex-direction:column; gap:7px; }
+  .item { display:flex; gap:12px; align-items:flex-start; padding:10px 14px; border-radius:10px; border:1px solid var(--line); background:var(--card); }
+  .item .mark { line-height:1.55; flex-shrink:0; width:18px; text-align:center; font-weight:700; }
   .item.done .mark { color:var(--sage-ink); }
   .item.partial .mark { color:var(--accent-ink); }
   .item.planned .mark { color:var(--ink-faint); }
   .item.missing .mark { color:var(--red-ink); }
-  .item .txt { font-size:0.92rem; color:var(--ink); min-width:0; }
-  .item .txt .sub { display:block; color:var(--ink-faint); font-size:0.82rem; margin-top:2px; }
-  .item .src { display:inline-block; font-family:var(--mono); font-size:0.7rem; color:var(--ink-soft); background:var(--plan-bg); border:1px solid var(--line); border-radius:5px; padding:0 6px; margin-left:4px; white-space:nowrap; }
   .item.missing { background:var(--red-bg); border-color:var(--red-bg-strong); }
+  .item .txt { font-size:0.9rem; min-width:0; }
+  .item .sub { display:block; color:var(--ink-faint); font-size:0.81rem; margin-top:2px; }
+  .src { display:inline-block; font-family:var(--mono); font-size:0.68rem; color:var(--ink-soft); background:var(--plan-bg); border:1px solid var(--line); border-radius:5px; padding:0 6px; margin-left:4px; white-space:nowrap; vertical-align:1px; }
 
-  .tablewrap { overflow-x:auto; border:1px solid var(--line); border-radius:12px; background:var(--card); box-shadow:var(--shadow); }
-  table { border-collapse:collapse; width:100%; font-size:0.86rem; min-width:640px; }
-  th, td { text-align:left; padding:9px 14px; border-bottom:1px solid var(--line); vertical-align:top; }
-  th { font-size:0.7rem; text-transform:uppercase; letter-spacing:0.06em; color:var(--ink-faint); font-weight:700; background:var(--plan-bg); }
+  .tablewrap { overflow-x:auto; border:1px solid var(--line); border-radius:12px; background:var(--card); }
+  table { border-collapse:collapse; width:100%; font-size:0.84rem; }
+  table.wide { min-width:720px; }
+  th, td { text-align:left; padding:7px 12px; border-bottom:1px solid var(--line); vertical-align:top; }
+  th { font-size:0.68rem; text-transform:uppercase; letter-spacing:0.06em; color:var(--ink-faint); font-weight:700; background:var(--plan-bg); white-space:nowrap; }
   tr:last-child td { border-bottom:0; }
-  td.k { font-family:var(--mono); font-size:0.8rem; white-space:nowrap; }
-  .tag { font-family:var(--mono); font-size:0.7rem; font-weight:700; padding:2px 8px; border-radius:5px; white-space:nowrap; }
-  .tag.keep { background:var(--sage-bg); color:var(--sage-ink); }
-  .tag.change { background:var(--accent-bg); color:var(--accent-ink); }
+  td.k { font-weight:600; white-space:nowrap; }
+  td.t { font-family:var(--mono); font-size:0.76rem; color:var(--ink-soft); white-space:nowrap; }
+  td.r { font-family:var(--mono); font-size:0.74rem; text-align:center; white-space:nowrap; }
+  td.n { color:var(--ink-soft); }
+  tr.grp td { background:var(--plan-bg); font-size:0.7rem; text-transform:uppercase; letter-spacing:0.06em; color:var(--ink-faint); font-weight:700; padding-block:5px; }
+  .tag { font-family:var(--mono); font-size:0.68rem; font-weight:700; padding:1px 7px; border-radius:5px; white-space:nowrap; }
+  .tag.keep, .tag.req { background:var(--sage-bg); color:var(--sage-ink); }
+  .tag.change, .tag.calc { background:var(--accent-bg); color:var(--accent-ink); }
   .tag.drop { background:var(--red-bg); color:var(--red-ink); }
+  .tag.opt { background:var(--plan-bg); color:var(--ink-faint); border:1px solid var(--line); }
+  .tag.new { background:var(--blue-bg); color:var(--blue-ink); }
 
-  .flow { display:flex; flex-wrap:wrap; gap:6px; align-items:center; font-size:0.82rem; margin:6px 0 4px; }
+  .grid2 { display:grid; grid-template-columns:repeat(auto-fit,minmax(280px,1fr)); gap:12px; }
+  .grid3 { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:12px; }
+  .box { border:1px solid var(--line); border-radius:12px; background:var(--card); padding:13px 16px; font-size:0.86rem; min-width:0; }
+  .box ul { margin:0; padding-left:18px; }
+  .box li { margin:3px 0; }
+  .box.in { border-top:3px solid var(--blue-ink); }
+  .box.out { border-top:3px solid var(--sage); }
+  .box.stock { border-top:3px solid var(--accent); }
+  .box .lbl { font-size:0.68rem; text-transform:uppercase; letter-spacing:0.07em; font-weight:700; color:var(--ink-faint); margin-bottom:6px; }
+
+  .wire { border:1px solid var(--line-strong); border-radius:12px; background:var(--card); padding:12px; font-size:0.8rem; }
+  .wire .bar { display:flex; justify-content:space-between; gap:10px; flex-wrap:wrap; padding:8px 10px; border-radius:8px; background:var(--plan-bg); margin-bottom:8px; }
+  .wire .bar b { font-family:var(--mono); }
+  .wire .cols { display:grid; grid-template-columns:2fr 1fr; gap:8px; }
+  .wire .pane { border:1px dashed var(--line-strong); border-radius:8px; padding:8px 10px; color:var(--ink-soft); }
+  .wire .pane b { color:var(--ink); display:block; font-size:0.78rem; margin-bottom:2px; }
+  .wire .stack { display:flex; flex-direction:column; gap:8px; }
+
+  .chain { display:flex; flex-wrap:wrap; gap:6px; align-items:stretch; }
+  .chain .node { border:1px solid var(--line-strong); background:var(--card); border-radius:9px; padding:7px 10px; font-size:0.78rem; min-width:0; }
+  .chain .node b { display:block; font-size:0.8rem; }
+  .chain .node span { color:var(--ink-faint); font-family:var(--mono); font-size:0.7rem; }
+  .chain .node.lot { background:var(--sage-bg); border-color:var(--sage); }
+  .chain .arr { align-self:center; color:var(--ink-faint); }
+
+  .flow { display:flex; flex-wrap:wrap; gap:6px; align-items:center; font-size:0.8rem; margin:6px 0 4px; }
   .flow span { font-family:var(--mono); font-weight:700; padding:4px 10px; border-radius:7px; background:var(--card); border:1px solid var(--line-strong); }
   .flow i { color:var(--ink-faint); font-style:normal; }
 
+  .exit { font-size:0.87rem; margin:16px 0 0; padding:10px 14px; border-left:3px solid var(--sage); background:var(--sage-bg); border-radius:0 8px 8px 0; max-width:86ch; }
+  .exit b { color:var(--sage-ink); }
+  .warn { font-size:0.87rem; margin:12px 0 0; padding:10px 14px; border-left:3px solid var(--accent); background:var(--accent-bg); border-radius:0 8px 8px 0; max-width:86ch; }
+  .warn b { color:var(--accent-ink); }
+
+  details.stagecard { border:1px solid var(--line); border-radius:12px; background:var(--card); margin-bottom:10px; }
+  details.stagecard > summary { cursor:pointer; padding:12px 16px; display:flex; flex-wrap:wrap; align-items:center; gap:10px; list-style:none; }
+  details.stagecard > summary::-webkit-details-marker { display:none; }
+  details.stagecard > summary::before { content:'▸'; color:var(--ink-faint); transition:transform .15s; }
+  details.stagecard[open] > summary::before { transform:rotate(90deg); }
+  details.stagecard > summary .no { font-family:var(--mono); font-size:0.72rem; font-weight:700; color:var(--accent-ink); background:var(--accent-bg); border-radius:5px; padding:1px 7px; }
+  details.stagecard > summary b { font-size:0.98rem; }
+  details.stagecard > summary .dept { font-size:0.78rem; color:var(--ink-faint); }
+  details.stagecard .body { padding:0 16px 16px; }
+
   .closing { border-top:1px solid var(--line); padding-block:40px 80px; }
-  .closing h2 { margin-bottom:14px; }
-  .closing p { max-width:72ch; font-size:1rem; color:var(--ink-soft); }
-  .callout { margin-top:18px; padding:16px 20px; border-radius:12px; background:var(--accent-bg); border:1px solid var(--accent-bg-strong); font-size:0.94rem; color:var(--ink); max-width:90ch; }
+  .closing p { max-width:74ch; color:var(--ink-soft); }
+  .callout { margin-top:16px; padding:14px 18px; border-radius:12px; background:var(--accent-bg); border:1px solid var(--accent-bg-strong); font-size:0.92rem; max-width:92ch; }
   .callout strong { color:var(--accent-ink); }
   .callout.good { background:var(--sage-bg); border-color:var(--sage); }
   .callout.good strong { color:var(--sage-ink); }
 
-  @media (max-width:880px) {
+  @media (max-width:900px) {
     .layout { grid-template-columns:1fr; } .rail { display:none; }
     .wrap { padding-inline:16px; } .hero { padding-block:40px 26px; }
+    .wire .cols { grid-template-columns:1fr; }
   }
 </style>
 
 <div class="wrap">
   <header class="hero">
-    <span class="eyebrow">● Build plan · 7 Oct 2026 · built on the Dermat codebase</span>
-    <h1>How we build the Creative Carbon system, stage by stage</h1>
-    <p class="lede">Creative Carbon Composites makes phenolic laminates, tubes, rods and moulded parts at Kanera, Kheda. This plan takes the Dermat India system we already built (its screens, its one-page order that runs from booking to despatch, its stock and accounts) and turns it into Creative Carbon's system. <strong>We keep what is generic, remove what is cosmetics-only, and add the plant registers.</strong> Every screen copies a paper register we photographed on the audit day.</p>
+    <span class="eyebrow">● Detailed build plan · v2 · 7 Oct 2026</span>
+    <h1>Creative Carbon on the Dermat base: every stage, page, field and link</h1>
+    <p class="lede">For each stage this page lists the screens, every field with its type and rule, what the detail page shows, which stage feeds it and which stage it feeds, the stock it moves, and the small things that are easy to miss. Sources are the dev brief, the 12 register photos and the Kheda audit recording. <strong>Anything we had to guess is marked "confirm".</strong></p>
     <div class="facts">
-      <span>Engagement <b>WT/2026-27/CCC-01</b></span>
-      <span>Prototype demo <b>mid-November (after Diwali)</b></span>
+      <span>Client <b>Creative Carbon Composites Pvt. Ltd., Kanera</b></span>
+      <span>GSTIN <b>24AAICC5600P1ZJ</b></span>
+      <span>Demo <b>mid-November</b></span>
       <span>Go-live <b>before year-end</b></span>
-      <span>Plant output <b>80 T / month</b></span>
+      <span>Code <b>branch creative-carbon</b></span>
     </div>
-
     <div class="phase-grid">
       <a class="pchip partial" href="#s0"><div class="pn">Stage 0<span>Wk 1</span></div><div class="pv">Fork &amp; clean</div></a>
-      <a class="pchip planned" href="#s1"><div class="pn">Stage 1<span>Wk 2</span></div><div class="pv">Masters</div></a>
-      <a class="pchip planned" href="#s2"><div class="pn">Stage 2<span>Wk 2</span></div><div class="pv">Bulk upload</div></a>
-      <a class="pchip planned" href="#s3"><div class="pn">Stage 3<span>Wk 3</span></div><div class="pv">Resin plant</div></a>
-      <a class="pchip planned" href="#s4"><div class="pn">Stage 4<span>Wk 3</span></div><div class="pv">Coating · B-stage</div></a>
-      <a class="pchip planned" href="#s5"><div class="pn">Stage 5<span>Wk 4</span></div><div class="pv">Press · Moulding</div></a>
-      <a class="pchip planned" href="#s6"><div class="pn">Stage 6<span>Wk 4</span></div><div class="pv">QC · Finished goods</div></a>
-      <a class="pchip planned demo" href="#s7"><div class="pn">Stage 7<span>Wk 5</span></div><div class="pv">Stock · Dashboard · Demo</div></a>
-      <a class="pchip planned" href="#s8"><div class="pn">Stage 8<span>Wk 6–7</span></div><div class="pv">Order → Despatch</div></a>
-      <a class="pchip planned" href="#s9"><div class="pn">Stage 9<span>Wk 7–8</span></div><div class="pv">CRM · Purchase</div></a>
-      <a class="pchip planned" href="#s10"><div class="pn">Stage 10<span>Wk 8</span></div><div class="pv">Documents · Tally</div></a>
-      <a class="pchip planned" href="#s11"><div class="pn">Stage 11<span>Wk 9–12</span></div><div class="pv">Go-live</div></a>
+      <a class="pchip" href="#s1"><div class="pn">Stage 1<span>Wk 2</span></div><div class="pv">Masters</div></a>
+      <a class="pchip" href="#s2"><div class="pn">Stage 2<span>Wk 2</span></div><div class="pv">Bulk upload</div></a>
+      <a class="pchip" href="#s3"><div class="pn">Stage 3<span>Wk 3</span></div><div class="pv">Resin · Chemicals</div></a>
+      <a class="pchip" href="#s4"><div class="pn">Stage 4<span>Wk 3</span></div><div class="pv">Coating · B-stage</div></a>
+      <a class="pchip" href="#s5"><div class="pn">Stage 5<span>Wk 4</span></div><div class="pv">Press</div></a>
+      <a class="pchip" href="#s6"><div class="pn">Stage 6<span>Wk 4</span></div><div class="pv">Moulding</div></a>
+      <a class="pchip" href="#s7"><div class="pn">Stage 7<span>Wk 4</span></div><div class="pv">Cutting · QC · FG</div></a>
+      <a class="pchip demo" href="#s8"><div class="pn">Stage 8<span>Wk 5</span></div><div class="pv">Stock · Owner · Demo</div></a>
+      <a class="pchip" href="#s9"><div class="pn">Stage 9<span>Wk 6–7</span></div><div class="pv">Order → Despatch</div></a>
+      <a class="pchip" href="#s10"><div class="pn">Stage 10<span>Wk 7–8</span></div><div class="pv">CRM · Purchase</div></a>
+      <a class="pchip" href="#s11"><div class="pn">Stage 11<span>Wk 8</span></div><div class="pv">Documents · Tally</div></a>
+      <a class="pchip" href="#s12"><div class="pn">Stage 12<span>Wk 9–12</span></div><div class="pv">Go-live</div></a>
     </div>
     <div class="legend">
       <span><i class="dot done"></i>Done</span>
       <span><i class="dot partial"></i>In progress</span>
       <span><i class="dot planned"></i>Planned</span>
-      <span><i class="dot missing"></i>Blocked on the client</span>
+      <span><i class="dot missing"></i>Needs the client</span>
+      <span><span class="tag req">REQ</span> required</span>
+      <span><span class="tag opt">OPT</span> optional</span>
+      <span><span class="tag calc">CALC</span> worked out by the system</span>
+      <span><span class="tag new">NEW</span> not in the brief, found in photos or audio</span>
     </div>
   </header>
 
   <div class="layout">
     <nav class="rail" aria-label="Sections">
-      <p class="rail-title">Before we build</p>
-      <a href="#rules"><span class="dot done"></span>The four rules</a>
-      <a href="#reuse"><span class="dot done"></span>What we keep from Dermat</a>
-      <a href="#photos"><span class="dot done"></span>What the photos settled</a>
-      <div class="gap"></div>
+      <p class="rail-title">The whole system</p>
+      <a href="#rules"><span class="dot done"></span>Four rules</a>
+      <a href="#chain"><span class="dot done"></span>Material chain</a>
+      <a href="#anatomy"><span class="dot done"></span>Page pattern</a>
+      <a href="#moves"><span class="dot done"></span>Stock movements</a>
+      <a href="#numbers"><span class="dot done"></span>Numbering</a>
+      <a href="#menu"><span class="dot done"></span>Sidebar</a>
+      <a href="#roles"><span class="dot done"></span>Who sees what</a>
+      <a href="#reuse"><span class="dot done"></span>Dermat: keep / drop</a>
+      <a href="#findings"><span class="dot done"></span>Photo &amp; audio findings</a>
       <p class="rail-title">Stages</p>
-      <a href="#s0"><span class="dot partial"></span>0. Fork &amp; clean</a>
-      <a href="#s1"><span class="dot planned"></span>1. Masters</a>
-      <a href="#s2"><span class="dot planned"></span>2. Bulk upload</a>
-      <a href="#s3"><span class="dot planned"></span>3. Resin plant</a>
-      <a href="#s4"><span class="dot planned"></span>4. Coating · B-stage</a>
-      <a href="#s5"><span class="dot planned"></span>5. Press · Moulding</a>
-      <a href="#s6"><span class="dot planned"></span>6. QC · Finished goods</a>
-      <a href="#s7"><span class="dot planned"></span>7. Stock · Demo</a>
-      <a href="#s8"><span class="dot planned"></span>8. Order → Despatch</a>
-      <a href="#s9"><span class="dot planned"></span>9. CRM · Purchase</a>
-      <a href="#s10"><span class="dot planned"></span>10. Documents · Tally</a>
-      <a href="#s11"><span class="dot planned"></span>11. Go-live</a>
-      <div class="gap"></div>
-      <p class="rail-title">After</p>
-      <a href="#open"><span class="dot missing"></span>Still to confirm</a>
+      <a href="#s0"><span class="dot partial"></span>0 Fork &amp; clean</a>
+      <a href="#s1"><span class="dot planned"></span>1 Masters</a>
+      <a href="#s2"><span class="dot planned"></span>2 Bulk upload</a>
+      <a href="#s3"><span class="dot planned"></span>3 Resin · Chemicals</a>
+      <a href="#s4"><span class="dot planned"></span>4 Coating · B-stage</a>
+      <a href="#s5"><span class="dot planned"></span>5 Press</a>
+      <a href="#s6"><span class="dot planned"></span>6 Moulding</a>
+      <a href="#s7"><span class="dot planned"></span>7 Cutting · QC · FG</a>
+      <a href="#s8"><span class="dot planned"></span>8 Stock · Owner · Demo</a>
+      <a href="#s9"><span class="dot planned"></span>9 Order → Despatch</a>
+      <a href="#s10"><span class="dot planned"></span>10 CRM · Purchase</a>
+      <a href="#s11"><span class="dot planned"></span>11 Documents · Tally</a>
+      <a href="#s12"><span class="dot planned"></span>12 Go-live</a>
+      <p class="rail-title">Loose ends</p>
+      <a href="#small"><span class="dot partial"></span>Small things</a>
+      <a href="#alerts"><span class="dot planned"></span>Alerts</a>
+      <a href="#open"><span class="dot missing"></span>To confirm</a>
+      <a href="#deps"><span class="dot missing"></span>Waiting on client</a>
       <a href="#out"><span class="dot planned"></span>Not in this job</a>
     </nav>
 
     <main>
 
+<!-- ============ RULES ============ -->
       <section id="rules">
-        <div class="mod-head"><h2>The four rules every screen follows</h2></div>
-        <p class="mod-dek">From the brief, in the client's own words. When two ideas conflict, these decide.</p>
+        <div class="mod-head"><h2>Four rules every screen follows</h2></div>
         <div class="itemlist">
-          <div class="item done"><span class="mark">1</span><span class="txt">The screen looks like the register it replaces. Same columns, same order, same words (Chindi, Kushan, Daylight, Die No., B-stage).<span class="sub">"Initially we start in such a way that it looks like a register, and the entry is only as much as they would do on the register."</span></span></div>
-          <div class="item done"><span class="mark">2</span><span class="txt">80% of the value at 20% of the complexity. Fields printed on the forms but left blank (press top/bottom temperature, curing time) are built, switched off by default, and the owner can switch them on.</span></div>
-          <div class="item done"><span class="mark">3</span><span class="txt">One data-entry operator keys the day's registers for the first 3–4 months. Excel upload of every register is a first-release feature.</span></div>
-          <div class="item done"><span class="mark">4</span><span class="txt">The plant runs on a phone hotspot 15 km from town. Light pages, works offline on entry screens, phone first, one office desktop. Floor tablets come in phase 2.</span></div>
+          <div class="item done"><span class="mark">1</span><span class="txt"><b>It looks like the register.</b> Same columns, same order, same words: Chindi, Kushan, Daylight, Die No., B-stage, Batch, O.B. Tab order follows the paper. Enter saves the row and moves down.</span></div>
+          <div class="item done"><span class="mark">2</span><span class="txt"><b>Only what they write today is required.</b> Printed-but-blank fields (press top/bottom temp, curing time, heating slip) exist but are switched off. The owner switches them on in Masters → Register settings.</span></div>
+          <div class="item done"><span class="mark">3</span><span class="txt"><b>One data-entry person keys everything for 4–5 months.</b> Every register has an Excel template and upload. Client confirmed on the day they will hire a graduate for this.</span></div>
+          <div class="item done"><span class="mark">4</span><span class="txt"><b>Phone first, weak signal.</b> Installable app, entry screens keep typing when the hotspot drops, three-decimal kg everywhere, dates typed as dd/mm/yy. No tablets on the floor at first (confirmed again in the audio).</span></div>
         </div>
       </section>
 
-      <section id="reuse">
-        <div class="mod-head"><h2>What we keep from Dermat, what changes, what goes</h2><span class="verdict done">DECIDED</span></div>
-        <p class="mod-dek">Dermat's design, its order page with stages, and its stock and money plumbing carry over. Anything that only makes sense for cosmetics is removed. New Creative Carbon work goes into its own module, <code>cc_production</code>, for the plant registers.</p>
+<!-- ============ CHAIN ============ -->
+      <section id="chain">
+        <div class="mod-head"><h2>How the stages connect: the material chain</h2></div>
+        <p class="mod-dek">Every arrow is a stock movement. Green boxes are lots that carry a number you can trace both ways. From any finished sheet you can open its press batch, the B-stage lots it used, the coating runs behind those, the resin batch, and the chemical receipts behind that.</p>
+        <h3>Laminate sheets, tubes and rods</h3>
+        <div class="chain">
+          <div class="node"><b>Purchase · GRN</b><span>chemicals, cloth, paper</span></div><span class="arr">→</span>
+          <div class="node lot"><b>Chemical lot</b><span>Phenol, Formalin…</span></div><span class="arr">→</span>
+          <div class="node"><b>Resin batch</b><span>Stage 3</span></div><span class="arr">→</span>
+          <div class="node lot"><b>Resin lot</b><span>CCCPL/110726/06</span></div><span class="arr">→</span>
+          <div class="node"><b>Coating run</b><span>Stage 4 · + cloth</span></div><span class="arr">→</span>
+          <div class="node lot"><b>B-stage lot</b><span>7-day clock</span></div><span class="arr">→</span>
+          <div class="node"><b>Press batch</b><span>Stage 5</span></div><span class="arr">→</span>
+          <div class="node lot"><b>Pressed lot</b><span>per thickness</span></div><span class="arr">→</span>
+          <div class="node"><b>Cutting · trim</b><span>Stage 7</span></div><span class="arr">→</span>
+          <div class="node"><b>Thickness + FG inspection</b><span>Stage 7</span></div><span class="arr">→</span>
+          <div class="node lot"><b>Finished lot</b><span>allocated to …</span></div><span class="arr">→</span>
+          <div class="node"><b>Order allocation → packing → despatch</b><span>Stage 9</span></div>
+        </div>
+        <h3>Moulded components</h3>
+        <div class="chain">
+          <div class="node lot"><b>Chindi · cloth · B-stage</b><span>stock</span></div><span class="arr">→</span>
+          <div class="node"><b>Moulding entry</b><span>Stage 6 · machine × shift × die</span></div><span class="arr">→</span>
+          <div class="node lot"><b>Moulded lot</b><span>pieces + kg</span></div><span class="arr">→</span>
+          <div class="node"><b>Trim 5% · FG inspection</b><span>Stage 7</span></div><span class="arr">→</span>
+          <div class="node"><b>Order → despatch</b><span>Stage 9</span></div>
+        </div>
+        <h3>Side doors (the brief's quirks Q4 and Q6)</h3>
+        <div class="chain">
+          <div class="node lot"><b>B-stage lot</b><span>is saleable</span></div><span class="arr">→</span>
+          <div class="node"><b>Sold directly on an order</b><span>priced per kg</span></div>
+          <span class="arr">·</span>
+          <div class="node"><b>Bought-in finished goods</b><span>FG direct in, no batch</span></div><span class="arr">→</span>
+          <div class="node lot"><b>Finished lot</b><span>trading</span></div>
+          <span class="arr">·</span>
+          <div class="node"><b>Raw material</b><span>sold on directly</span></div><span class="arr">→</span>
+          <div class="node"><b>Order line</b><span>RM item</span></div>
+        </div>
+        <p class="warn"><b>Production is not driven by orders.</b> They buy in container loads and press to stock about a month ahead. The order only <i>allocates</i> finished lots. The link from orders back to production is the shortfall list on the owner's plan (Stage 8) and the "Allocated to" column on FG inspection (Stage 7). Moulded dies are the exception: dies belong to a customer and the moulding register carries the order quantity.</p>
+      </section>
+
+<!-- ============ ANATOMY ============ -->
+      <section id="anatomy">
+        <div class="mod-head"><h2>The page pattern every register uses</h2><span class="verdict done">FROM DERMAT</span></div>
+        <p class="mod-dek">Dermat's order and stage pages already have this shape (header, stage strip, work area, "before this stage" panel, history). Every Creative Carbon register gets the same four pages so staff learn one layout.</p>
+        <div class="grid2">
+          <div class="box"><h4>1. Register view (list)</h4><p>Looks like the open book: one day or one month at a time, columns exactly as printed, totals in a sticky footer. Filters: date, department equipment (dryer / press / machine), status. Buttons: New entry, Upload Excel, Print register.</p></div>
+          <div class="box"><h4>2. Entry page</h4><p>The paper form on screen. Draft saves itself every few seconds and survives a dropped connection. "Post" checks the rules, moves stock and locks the record. Warnings (tolerance, RC/VC, trim) show inline in amber and never stop posting.</p></div>
+          <div class="box"><h4>3. Record detail page</h4><p>Header strip with number, date, equipment, status and sign-offs. Main area: the posted form, read-only. Right column: <b>Came from</b> (lots consumed, with links), <b>Went to</b> (lots produced and where they went next), <b>Warnings logged</b>, <b>History</b> (who changed what). Reopen within 24 h with a reason, later only with the manager right (same as Dermat).</p></div>
+          <div class="box"><h4>4. Lot page</h4><p>One page per lot number: item, quantity left, store, age / expiry, parents and children as a tree, every movement, QC results, lab reports, which order it is allocated to. This is the page that answers "where is it kept" and "what went into it".</p></div>
+        </div>
+        <h3>Record detail page layout</h3>
+        <div class="wire" aria-label="Wireframe of a record detail page">
+          <div class="bar"><span><b>F/03/10/2026</b> · Press 2 · 2 Oct 2026</span><span>Posted · Checked by: Bharat · 24 sheets · 996.300 kg</span></div>
+          <div class="bar"><span>Stage strip: Resin ✓ → Coating ✓ → <b>Press</b> → Cutting → Thickness → FG inspection</span></div>
+          <div class="cols">
+            <div class="stack">
+              <div class="pane"><b>The form as entered</b>Daylights 1–9 with sheets, thickness, grade, loading weight; tolerance flags</div>
+              <div class="pane"><b>Output lots</b>F2F3 10×10 25 mm × 2 · 15 mm × 6 · 10 mm × 6 · 1.5 mm × 10 → each opens its lot page</div>
+              <div class="pane"><b>Heating slip</b> (collapsed, optional)</div>
+            </div>
+            <div class="stack">
+              <div class="pane"><b>Came from</b>B-stage lots used, oldest first, with age at use</div>
+              <div class="pane"><b>Went to</b>Cutting entry, thickness inspection, FG lots, orders</div>
+              <div class="pane"><b>Warnings</b>10 mm daylight 9: 46.600 kg above 46.300</div>
+              <div class="pane"><b>History</b>created, posted, reopened…</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+<!-- ============ STOCK MOVES ============ -->
+      <section id="moves">
+        <div class="mod-head"><h2>Every stock movement and which page posts it</h2></div>
+        <p class="mod-dek">One movement ledger (Dermat's stock system) with signed kg to three decimals. Balances are always summed from movements; a nightly check confirms the totals.</p>
         <div class="tablewrap">
-          <table>
-            <thead><tr><th>Dermat module</th><th>Decision</th><th>For Creative Carbon</th></tr></thead>
+          <table class="wide">
+            <thead><tr><th>Movement</th><th>Posted by</th><th>Out of stock</th><th>Into stock</th><th>Store</th></tr></thead>
             <tbody>
-              <tr><td class="k">dermat_orders</td><td><span class="tag change">REWORK</span></td><td>Keep the one-page order, stage engine, stage pages, history and order book. Replace the 11 cosmetics stages with 7 laminate sales stages (Stage 8). Production moves out of the order because raw material is not order-linked.</td></tr>
-              <tr><td class="k">dermat_products</td><td><span class="tag change">REWORK</span></td><td>Same product screens and custom fields. Item types become Chemical, Reinforcement, Resin, B-stage, Sheet / Tube / Rod, Moulded part, Bought-in, Consumable. Unit is kg except moulded parts.</td></tr>
-              <tr><td class="k">dermat_store</td><td><span class="tag change">TRIM</span></td><td>Keep stock pages, lots and the stock ledger. Remove store requests (no indent-to-production flow at this plant).</td></tr>
-              <tr><td class="k">dermat_purchase</td><td><span class="tag change">TRIM</span></td><td>Keep PO and GRN by weight. Replace the cosmetics inward QC with a simple pass / hold on the GRN line.</td></tr>
-              <tr><td class="k">dermat_accounts</td><td><span class="tag keep">KEEP</span></td><td>GST, proforma, tax invoice, payments, dues and the Tally export carry over. Add export fields (incoterm, port, container).</td></tr>
-              <tr><td class="k">dermat_customers · vendors</td><td><span class="tag keep">KEEP</span></td><td>Party master. Remove the samples and formulas tabs.</td></tr>
-              <tr><td class="k">dermat_lists</td><td><span class="tag keep">KEEP</span></td><td>Dropdown options and units, so the client edits lists without us.</td></tr>
-              <tr><td class="k">dermat_departments</td><td><span class="tag keep">KEEP</span></td><td>Department logins and the access screen, refilled with Creative Carbon's roles.</td></tr>
-              <tr><td class="k">dermat_dashboard</td><td><span class="tag change">REWORK</span></td><td>Keep the frame and "my pending work". The owner overview shows his three questions only.</td></tr>
-              <tr><td class="k">dermat_boms</td><td><span class="tag drop">REMOVE</span></td><td>No BOM. Resin materials are written per batch; laminates are made to stock.</td></tr>
-              <tr><td class="k">dermat_planning</td><td><span class="tag drop">REMOVE</span></td><td>No material planning. Buying runs on reorder level, not on orders.</td></tr>
-              <tr><td class="k">dermat_quality</td><td><span class="tag drop">REMOVE</span></td><td>Chemical / micro test approvals do not apply. Replaced by thickness and FG inspection registers and a lab report upload.</td></tr>
-              <tr><td class="k">dermat_rnd · artwork</td><td><span class="tag drop">REMOVE</span></td><td>Cosmetics sampling and label artwork. No equivalent here.</td></tr>
+              <tr><td class="k">Purchase in</td><td>GRN (Stage 10)</td><td class="n">—</td><td>Chemical / reinforcement / chindi / consumable lot</td><td class="n">Warehouse A or B</td></tr>
+              <tr><td class="k">Resin consume / produce</td><td>Resin batch post (Stage 3)</td><td>Each chemical line</td><td>Resin lot = resin yield kg</td><td class="n">Resin tank</td></tr>
+              <tr><td class="k">Resin failed</td><td>Resin batch "Failed"</td><td>All chemicals</td><td>Nothing; full input written as Scrap</td><td class="n">—</td></tr>
+              <tr><td class="k">Chemical issue <span class="tag new">NEW</span></td><td>Coating day sheet / chemical issue (Stage 3–4)</td><td>Methanol, DBP, oleic acid used outside resin batches</td><td class="n">—</td><td class="n">—</td></tr>
+              <tr><td class="k">Coat consume / produce</td><td>Coating run post (Stage 4)</td><td>Raw cloth or paper kg, resin kg</td><td>B-stage lot</td><td class="n">Shop floor</td></tr>
+              <tr><td class="k">Press consume / produce</td><td>Press batch post (Stage 5)</td><td>B-stage lots (FIFO)</td><td>One pressed lot per grade + weave + thickness</td><td class="n">Shop floor</td></tr>
+              <tr><td class="k">Mould consume / produce</td><td>Moulding entry post (Stage 6)</td><td>Chindi kg, cloth kg, B-stage kg</td><td>Moulded lot, pieces and kg</td><td class="n">Shop floor</td></tr>
+              <tr><td class="k">Trim loss</td><td>Cutting entry (Stage 7)</td><td>Pressed / moulded lot, kg cut off</td><td>Nothing (trim is not recoverable)</td><td class="n">—</td></tr>
+              <tr><td class="k">Transfer to FG</td><td>FG inspection pass (Stage 7)</td><td>Trimmed lot</td><td>Finished lot</td><td class="n">FG store</td></tr>
+              <tr><td class="k">FG direct in</td><td>Bought-in goods entry (Stage 7)</td><td class="n">—</td><td>Finished lot, no parent</td><td class="n">FG store</td></tr>
+              <tr><td class="k">Reserve</td><td>Order stock allocation (Stage 9)</td><td colspan="2">No quantity moves; the lot is held for that order</td><td class="n">—</td></tr>
+              <tr><td class="k">Sale out</td><td>Order despatch (Stage 9)</td><td>Finished / B-stage / RM lots, by sheet weights</td><td class="n">—</td><td class="n">—</td></tr>
+              <tr><td class="k">Scrap</td><td>B-stage board, FG inspection reject, damaged goods</td><td>The lot</td><td class="n">—</td><td class="n">—</td></tr>
+              <tr><td class="k">Stocktake / adjustment</td><td>Reinforcement stock list, opening stock (Stage 12)</td><td colspan="2">Difference between counted and book</td><td class="n">any</td></tr>
             </tbody>
           </table>
         </div>
       </section>
 
-      <section id="photos">
-        <div class="mod-head"><h2>What the 12 register photos settled</h2><span class="verdict done">CHECKED</span></div>
-        <p class="mod-dek">Read photo by photo against the brief. Four open questions now have an answer from the registers themselves, and two details in the brief need correcting.</p>
-        <div class="itemlist">
-          <div class="item done"><span class="mark">✓</span><span class="txt"><b>The <code>2/24</code> notation is "sheets of this thickness / total sheets in the batch".</b> Every batch on the page adds up: F/01 is 10 + 4 + 4 = 18, F/02 is 10 + 8 = 18, F/03 is 10 + 6 + 6 + 2 = 24, F/04 is 10 + 1 + 6 + 1 = 18. The system shows the total itself; nobody types it.<span class="src">IMG_7787</span></span></div>
-          <div class="item done"><span class="mark">✓</span><span class="txt"><b><code>10 ± 10</code> on the thickness register is the weave, not a tolerance.</b> It reads <code>10×10</code> and the readings under it are 25.5–25.8 mm, so it cannot mean 10 mm. The target thickness comes from the batch line; the tolerance needs its own number from the client.<span class="src">IMG_7777</span></span></div>
-          <div class="item done"><span class="mark">✓</span><span class="txt"><b>Despatch weighment records every sheet.</b> <code>10-16</code> means 16 sheets of 10 mm, and there are exactly 16 weights on those rows, written five per line. <code>12-10</code> has 10 weights, <code>15-5</code> has 5. The screen takes one weight per sheet and totals each thickness.<span class="src">IMG_7776</span></span></div>
-          <div class="item done"><span class="mark">✓</span><span class="txt"><b>One daylight can hold two sheets.</b> On press 2, batch F/3/10/2026, daylights 4 to 9 each carry a 15 mm and a 10 mm sheet side by side with separate loading weights. The press batch is batch → daylight → sheets, not one thickness per daylight.<span class="src">IMG_7785</span></span></div>
-          <div class="item partial"><span class="mark">!</span><span class="txt"><b>The FG inspection "Quantity KGS" column holds sheet counts.</b> Values are 1, 2, 6, 4, 20, 18 against 8×4 sheets of 25–60 mm, which cannot be kilograms. We record pieces and work out the weight.<span class="src">IMG_7778</span></span></div>
-          <div class="item partial"><span class="mark">!</span><span class="txt"><b>The FG form's "Reason for rejection" header is already crossed out and replaced by hand with ALLOCATION.</b> Entries are export, stock, BHEL, R.B, D.R and a customer name in Gujarati. So the column says who the sheet is set aside for. It becomes "Allocated to" (customer, export or stock), with rejection as a separate field.<span class="src">IMG_7778</span></span></div>
-          <div class="item done"><span class="mark">✓</span><span class="txt">The press heating slip is partly filled in practice (cycle 4, load 20, press 1, 12.7 mm, CBT max 165, total time 2:25). It stays optional and collapsed, but it is used sometimes.<span class="src">IMG_7788</span></span></div>
-          <div class="item done"><span class="mark">✓</span><span class="txt">The dryer QC report's Remarks column holds slot weights (637.000, 286.400…), and the ringed figures are day totals of raw cloth and coated pieces (861, 786, 1570). The screen computes those totals. Someone pencilled "Speed" over the RC/VC area and "Before treating" and "After coating" over the weight columns; Kushan is still unexplained.<span class="src">IMG_7783</span></span></div>
-          <div class="item done"><span class="mark">✓</span><span class="txt">The moulding register adds two operators to the list (Vinod and one more) and notes die thickness in the Die Heat Time row, for example "(34mm)". We add a die thickness field.<span class="src">IMG_7786</span></span></div>
-          <div class="item done"><span class="mark">✓</span><span class="txt">Seed data comes straight from the photos: chemical balances for Phenol and Methanol in September, 30 reinforcement grades with stock weights as of 29 June, and real batches F/01 to F/04 for 2 Oct.<span class="src">IMG_7759 · 7760 · 7782</span></span></div>
+<!-- ============ NUMBERS ============ -->
+      <section id="numbers">
+        <div class="mod-head"><h2>Numbering</h2></div>
+        <p class="mod-dek">Number series live in Dermat's number-series screen so the client can change prefixes. Plant numbers are gap-free and shown before saving so staff can match the book.</p>
+        <div class="tablewrap">
+          <table class="wide">
+            <thead><tr><th>Document</th><th>Format</th><th>Example</th><th>Source</th></tr></thead>
+            <tbody>
+              <tr><td class="k">Resin batch</td><td class="t">CCCPL/DDMMYY/NN</td><td class="t">CCCPL/110726/06</td><td class="n">Photo. NN resets daily or monthly: <b>confirm</b></td></tr>
+              <tr><td class="k">Laminate press batch</td><td class="t">F/NN/MM/YYYY</td><td class="t">F/03/10/2026</td><td class="n">Photo. Sequence restarts each month. Old style F/61/9/26 accepted on import</td></tr>
+              <tr><td class="k">Coating run · B-stage lot</td><td class="t">D&lt;dryer&gt;/DDMMYY/SN</td><td class="t">D2/030726/3</td><td class="n">Proposed. <b>Confirm</b> what is written on the lot label</td></tr>
+              <tr><td class="k">Moulded lot</td><td class="t">M/DDMMYY/&lt;machine&gt;/&lt;shift&gt;</td><td class="t">M/130626/07/1</td><td class="n">Proposed. Moulding job card still to come</td></tr>
+              <tr><td class="k">Finished lot</td><td class="t">press batch + thickness</td><td class="t">F/03/10/2026-25</td><td class="n">Proposed so FG inspection's batch column stays the press batch</td></tr>
+              <tr><td class="k">Order, quotation, PI, invoice, despatch, PO, GRN</td><td class="t">CCCPL/&lt;TYPE&gt;/&lt;FY&gt;/NNNN</td><td class="t">CCCPL/SO/2627/0001</td><td class="n">Dermat number series, prefix changed. <b>Confirm</b> against their Tally series</td></tr>
+            </tbody>
+          </table>
         </div>
       </section>
 
+<!-- ============ MENU ============ -->
+      <section id="menu">
+        <div class="mod-head"><h2>Sidebar</h2><span class="verdict done">DERMAT STYLE</span></div>
+        <p class="mod-dek">Grouped by department, each group opening with its work queue, the way Dermat's sidebar works. A login sees only its own groups.</p>
+        <div class="grid3">
+          <div class="box"><div class="lbl">Overview</div><ul><li>Owner overview</li><li>My pending work</li><li>Upload centre</li></ul></div>
+          <div class="box"><div class="lbl">Sales</div><ul><li>Enquiries</li><li>Quotations</li><li>Orders · Order book</li><li>Customers</li></ul></div>
+          <div class="box"><div class="lbl">Resin plant</div><ul><li>Resin batches</li><li>Chemical register</li></ul></div>
+          <div class="box"><div class="lbl">Coating</div><ul><li>Dryer QC report</li><li>B-stage board</li></ul></div>
+          <div class="box"><div class="lbl">Press &amp; moulding</div><ul><li>Daily production batch report</li><li>Press loading register</li><li>Moulded products register</li><li>Die availability</li></ul></div>
+          <div class="box"><div class="lbl">QC &amp; lab</div><ul><li>Cutting &amp; trim</li><li>Thickness inspection</li><li>FG inspection</li><li>Lab test reports</li></ul></div>
+          <div class="box"><div class="lbl">Store</div><ul><li>Stock (all types)</li><li>Lots</li><li>Stock ledger</li><li>Reinforcement stock list</li></ul></div>
+          <div class="box"><div class="lbl">Despatch</div><ul><li>Despatch queue</li><li>Weighment register</li></ul></div>
+          <div class="box"><div class="lbl">Purchase · Accounts</div><ul><li>Purchase orders · GRN</li><li>Invoices · Proformas · Dues</li><li>Tally sync</li></ul></div>
+          <div class="box"><div class="lbl">Masters</div><ul><li>Items · Grades</li><li>Reactors · Dryers · Presses</li><li>Moulds &amp; dies</li><li>Loading tolerance</li><li>Parties · Stores</li><li>Dropdown options · Number series</li><li>Register settings · Order stage settings</li><li>Departments &amp; access</li></ul></div>
+        </div>
+      </section>
+
+<!-- ============ ROLES ============ -->
+      <section id="roles">
+        <div class="mod-head"><h2>Who sees what</h2></div>
+        <p class="mod-dek">Dermat's department logins and access screen. Only the owner sees costs, rates and margins; everyone else sees quantities. V = view, E = enter / edit, A = approve or sign.</p>
+        <div class="tablewrap">
+          <table class="wide">
+            <thead><tr><th>Login</th><th>Resin</th><th>Coating · B-stage</th><th>Press · Moulding</th><th>Cutting · QC</th><th>Lab</th><th>Stock</th><th>Orders</th><th>Money</th><th>Upload</th></tr></thead>
+            <tbody>
+              <tr><td class="k">Owner (Dhairya Shah, father)</td><td class="r">V A</td><td class="r">V A</td><td class="r">V A</td><td class="r">V A</td><td class="r">V</td><td class="r">V</td><td class="r">V E</td><td class="r">V</td><td class="r">V</td></tr>
+              <tr><td class="k">Floor supervisor</td><td class="r">V A</td><td class="r">V E A</td><td class="r">V E A</td><td class="r">V E A</td><td class="r">V</td><td class="r">V</td><td class="r">V</td><td class="r">—</td><td class="r">V</td></tr>
+              <tr><td class="k">Resin operator / chemist</td><td class="r">V E A</td><td class="r">—</td><td class="r">—</td><td class="r">—</td><td class="r">—</td><td class="r">V</td><td class="r">—</td><td class="r">—</td><td class="r">—</td></tr>
+              <tr><td class="k">Coating operator</td><td class="r">—</td><td class="r">V E</td><td class="r">—</td><td class="r">—</td><td class="r">—</td><td class="r">V</td><td class="r">—</td><td class="r">—</td><td class="r">—</td></tr>
+              <tr><td class="k">Press / moulding / shift in-charge</td><td class="r">—</td><td class="r">V</td><td class="r">V E A</td><td class="r">—</td><td class="r">—</td><td class="r">V</td><td class="r">—</td><td class="r">—</td><td class="r">—</td></tr>
+              <tr><td class="k">Store in-charge</td><td class="r">V</td><td class="r">V</td><td class="r">V A</td><td class="r">V</td><td class="r">—</td><td class="r">V E</td><td class="r">V</td><td class="r">—</td><td class="r">—</td></tr>
+              <tr><td class="k">FG / despatch</td><td class="r">—</td><td class="r">—</td><td class="r">—</td><td class="r">V E</td><td class="r">—</td><td class="r">V E</td><td class="r">V E (allocation, packing, despatch)</td><td class="r">—</td><td class="r">—</td></tr>
+              <tr><td class="k">Lab / QC inspector</td><td class="r">V</td><td class="r">V</td><td class="r">V</td><td class="r">V E A</td><td class="r">V E</td><td class="r">V</td><td class="r">V E (QC stage)</td><td class="r">—</td><td class="r">—</td></tr>
+              <tr><td class="k">Data entry operator</td><td class="r">V E</td><td class="r">V E</td><td class="r">V E</td><td class="r">V E</td><td class="r">V E</td><td class="r">V</td><td class="r">—</td><td class="r">—</td><td class="r">V E</td></tr>
+              <tr><td class="k">Accounts (Ahmedabad, 3)</td><td class="r">—</td><td class="r">—</td><td class="r">—</td><td class="r">—</td><td class="r">—</td><td class="r">V</td><td class="r">V E (advance, invoice)</td><td class="r">V E</td><td class="r">—</td></tr>
+              <tr><td class="k">Sales (Ahmedabad)</td><td class="r">—</td><td class="r">—</td><td class="r">—</td><td class="r">—</td><td class="r">V</td><td class="r">V</td><td class="r">V E (enquiry, quote, order)</td><td class="r">rates only</td><td class="r">—</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+<!-- ============ REUSE ============ -->
+      <section id="reuse">
+        <div class="mod-head"><h2>What we keep from Dermat, change, or remove</h2><span class="verdict done">DECIDED</span></div>
+        <div class="tablewrap">
+          <table class="wide">
+            <thead><tr><th>Dermat module</th><th>Decision</th><th>For Creative Carbon</th></tr></thead>
+            <tbody>
+              <tr><td class="k">Orders (one-page order, stage engine, stage pages, work queues, order book, history, stage settings)</td><td><span class="tag change">REWORK</span></td><td>Same engine and pages. Replace the 11 cosmetics stages with the 7 laminate stages in Stage 9. Remove sampling, artwork, BOM, QC-check and rework hooks.</td></tr>
+              <tr><td class="k">Products (screens, custom fields per type, search, import)</td><td><span class="tag change">REWORK</span></td><td>Eight item types; kg by default. Fields per type in Stage 1.</td></tr>
+              <tr><td class="k">Store (stock, lots, ledger, reports)</td><td><span class="tag change">TRIM</span></td><td>Keep. Remove store requests and the reservation link to planning.</td></tr>
+              <tr><td class="k">Purchase (PO, approval, GRN, vendor file)</td><td><span class="tag change">TRIM</span></td><td>Keep. Inward QC becomes a pass / hold field on the GRN line.</td></tr>
+              <tr><td class="k">Accounts (GST, PI, invoice, payments, dues, number series, Tally export, company page)</td><td><span class="tag keep">KEEP</span></td><td>Add export fields. Company page filled with Creative Carbon details.</td></tr>
+              <tr><td class="k">Customers, vendors, dropdown lists, units, departments, access</td><td><span class="tag keep">KEEP</span></td><td>Drop the samples and formulas tabs on customers.</td></tr>
+              <tr><td class="k">Dashboard (overview, my work, morning email)</td><td><span class="tag change">REWORK</span></td><td>New owner tiles (Stage 8). Keep my-work and the morning email.</td></tr>
+              <tr><td class="k">BOMs, planning, quality (chemical / micro), R&amp;D, artwork, production board for bulk / filling</td><td><span class="tag drop">REMOVE</span></td><td>No equivalent at a laminate plant.</td></tr>
+              <tr><td class="k">New module <code>cc_production</code></td><td><span class="tag new">NEW</span></td><td>Every plant register in Stages 3–7, the lot tree, register settings and the upload centre.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+<!-- ============ FINDINGS ============ -->
+      <section id="findings">
+        <div class="mod-head"><h2>What the photos and the recording changed</h2><span class="verdict done">CHECKED</span></div>
+        <p class="mod-dek">Each register photo was read field by field against the brief. These change how we build.</p>
+        <div class="itemlist">
+          <div class="item done"><span class="mark">✓</span><span class="txt"><b>Batch report "2/24" is "sheets of this thickness / total sheets in the batch".</b> F/01 = 10 + 4 + 4 = 18, F/02 = 10 + 8 = 18, F/03 = 10 + 6 + 6 + 2 = 24, F/04 = 10 + 1 + 6 + 1 = 18. The total is calculated.<span class="src">IMG_7787</span></span></div>
+          <div class="item done"><span class="mark">✓</span><span class="txt"><b>Batch total weight is the sum of the loading weights.</b> F/03: 25 mm 235.8 + 15 mm 418.7 + 10 mm 277.8 + ten 1.5 mm sheets ≈ 64.0 gives 996.300. So the total is calculated from the loading register, not typed twice.<span class="src">IMG_7785 · 7787</span></span></div>
+          <div class="item done"><span class="mark">✓</span><span class="txt"><b>A daylight holds one or more sheets.</b> Press 2: daylights 4–9 each hold a 15 mm and a 10 mm sheet; daylight 3 holds ten 1.5 mm sheets (6.200 / 6.400). The model is batch → daylight → sheets.<span class="src">IMG_7785</span></span></div>
+          <div class="item done"><span class="mark">✓</span><span class="txt"><b>The dryer report is two tables side by side.</b> Left: cloth rows (cloth, GSM, Kushan, weights, coated nos, resin, RC, VC). Right: a two-hourly slot log (8, 10, 12, 2, 4, 6, 8, 10) with DBP, oleic acid and Remarks. Remarks is the output in kg per slot: 637.000 + 286.400 + 531.100 + 116.160 = 1570.66, the ringed day total. Raw cloth (861) and coated nos (786) are also ringed day totals.<span class="src">IMG_7783</span></span></div>
+          <div class="item done"><span class="mark">✓</span><span class="txt"><b>The moulding register's "Total" row is the running total against the order.</b> Machine 10: order 10,000, this shift 36, total 8,107. Machine 12: order 100, shift 17, total 97. The system adds up all shifts for that die and order.<span class="src">IMG_7786</span></span></div>
+          <div class="item done"><span class="mark">✓</span><span class="txt"><b>"10 ± 10" on the thickness register is the weave 10×10.</b> Readings below it are 25.5–25.8 mm. Target thickness comes from the batch line; the tolerance needs a number from the client.<span class="src">IMG_7777</span></span></div>
+          <div class="item done"><span class="mark">✓</span><span class="txt"><b>Despatch weighment is one weight per sheet.</b> "10-16" = 16 sheets of 10 mm with exactly 16 weights, five per line, row totals to 3 decimals. The packing screen takes per-sheet weights.<span class="src">IMG_7776</span></span></div>
+          <div class="item partial"><span class="mark">!</span><span class="txt"><b>FG inspection "Quantity KGS" holds piece counts</b> (1, 2, 6, 20, 18 sheets of 8×4). We record pieces and work out kg from lot weights.<span class="src">IMG_7778</span></span></div>
+          <div class="item partial"><span class="mark">!</span><span class="txt"><b>FG inspection's "Reason for rejection" is crossed out and relabelled ALLOCATION by hand.</b> Entries: export, stock, BHEL, Jay, R.B, D.R and a customer name in Gujarati. It is "Allocated to": customer, export or stock. Rejection becomes its own optional field. Item list adds Graphite 10×10, Fabric 6×6 SP and Fabric W-10×10.<span class="src">IMG_7778</span></span></div>
+          <div class="item partial"><span class="mark">!</span><span class="txt"><b>Methanol is used every day (44–600 kg) but blank on the resin batch form.</b> So some chemicals go somewhere other than resin batches, probably coating. The chemical register cannot be fully derived from resin batches: we add a chemical issue entry. <b>Confirm</b> where methanol, DBP and oleic acid go.<span class="src">IMG_7759 · 7758</span></span></div>
+          <div class="item partial"><span class="mark">!</span><span class="txt"><b>Phenol "Use" goes up to 2,700 kg a day and Resin up to 4,900.</b> That means more than one 877 kg batch on some days, or bigger batches. The NN in CCCPL/110726/06 may be the batch of the day. <b>Confirm.</b> The phenol page's Water column needs a "water removed (kg)" field on the resin batch.<span class="src">IMG_7760</span></span></div>
+          <div class="item partial"><span class="mark">!</span><span class="txt"><b>Mould plates may be customer-linked after all.</b> The brief says dies are and plates are not. The recording says "if they are linked to the customer then the mould plates will also be linked to the customer". We make the customer optional on both and <b>confirm</b>.<span class="src">Kheda 3 audio</span></span></div>
+          <div class="item done"><span class="mark">✓</span><span class="txt"><b>From the recording:</b> production is planned one day ahead because a die takes a day to fit and cloth takes a day to treat. Cutting has an 8% trim loss on a manual trimming machine and a cutting machine. After trimming, finished sheets are numbered and weighed. Lab tests run per customer specification, not per batch, as uploads. Small-size and big-size price lists were photographed. Tubes and moulded parts differ by the machine used. A moulding job card is still to come. Final payment is 60 days after delivery.<span class="src">Kheda 3 audio</span></span></div>
+        </div>
+      </section>
+
+<!-- ============ STAGE 0 ============ -->
       <section id="s0">
-        <div class="mod-head"><h2>Stage 0: Fork the Dermat code and clean it</h2><span class="verdict partial">IN PROGRESS</span><span class="when">Week 1</span></div>
-        <p class="mod-dek">Turn the copy into a clean starting point. Nothing on Dermat's own GitHub or database is touched.</p>
+        <div class="mod-head"><h2>Stage 0 · Fork the Dermat code and clean it</h2><span class="verdict partial">IN PROGRESS</span><span class="when">Week 1</span></div>
+        <p class="mod-dek">Make the copy a clean Creative Carbon starting point without touching Dermat's GitHub or database.</p>
         <div class="itemlist">
-          <div class="item done"><span class="mark">✓</span><span class="txt">Saved the full Dermat state, including unsaved work, on a local branch <code>snapshot/dermat-final-2026-10-07</code>. Creative Carbon work is on branch <code>creative-carbon</code>.</span></div>
-          <div class="item done"><span class="mark">✓</span><span class="txt">Removed the GitHub link from this copy, so nothing can be pushed to the Dermat repository by mistake.</span></div>
-          <div class="item planned"><span class="mark">○</span><span class="txt">Own database <code>creative_carbon</code>. The copy still points at the live Dermat development database, which we leave alone.</span></div>
-          <div class="item planned"><span class="mark">○</span><span class="txt">Remove BOM, planning, cosmetics QC, R&amp;D, artwork and store requests, and unhook the order engine, products, purchase, store, dashboard and access screen from them.</span></div>
-          <div class="item planned"><span class="mark">○</span><span class="txt">Remove Dermat's data: seed scripts, the 110,000-line live seed file, the database dump, Dermat specs and users.</span></div>
-          <div class="item planned"><span class="mark">○</span><span class="txt">Rebrand: login page, header, page titles, splash screen, environment file, "Creative Carbon Composites" throughout.</span></div>
-          <div class="item planned"><span class="mark">○</span><span class="txt">Rename the kept modules from <code>dermat_*</code> to <code>cc_*</code> while the database is still empty, and rewrite the agent rules file for this client.</span></div>
+          <div class="item done"><span class="mark">✓</span><span class="txt">Dermat state saved on local branch <code>snapshot/dermat-final-2026-10-07</code>; work continues on <code>creative-carbon</code>.</span></div>
+          <div class="item done"><span class="mark">✓</span><span class="txt">GitHub link removed from this copy. Nothing can be pushed to the Dermat repository.</span></div>
+          <div class="item planned"><span class="mark">○</span><span class="txt">New database <code>creative_carbon</code>. The copy's settings still point at Dermat's development database, which stays untouched.</span></div>
+          <div class="item planned"><span class="mark">○</span><span class="txt">Remove BOMs, planning, cosmetics QC, R&amp;D, artwork, store requests and the bulk / filling production board. Unhook orders, products, purchase, store, dashboard, customers, number series and the access screen from them.</span></div>
+          <div class="item planned"><span class="mark">○</span><span class="txt">Remove Dermat data: seed scripts, the 110,000-line live seed file, the database dump, Dermat specs, users and departments.</span></div>
+          <div class="item planned"><span class="mark">○</span><span class="txt">Rebrand: login, header ("Creative Carbon Composites · Kanera"), titles, splash screen, settings file, email sender.</span></div>
+          <div class="item planned"><span class="mark">○</span><span class="txt">Rename kept modules <code>dermat_*</code> → <code>cc_*</code> while the database is empty. Rewrite the developer rules file for this client.</span></div>
+          <div class="item planned"><span class="mark">○</span><span class="txt">Type check and start the app after each removal (baseline today: 0 type errors).</span></div>
         </div>
-        <p class="exit"><b>Done when:</b> the app starts on an empty Creative Carbon database, signs in under the Creative Carbon name, and has no Dermat screens, data or words left.</p>
+        <p class="exit"><b>Done when:</b> the app starts on an empty database, signs in as Creative Carbon, and has no Dermat screen, record or word left.</p>
       </section>
 
+<!-- ============ STAGE 1 ============ -->
       <section id="s1">
-        <div class="mod-head"><h2>Stage 1: Masters</h2><span class="verdict planned">PLANNED</span><span class="when">Week 2</span></div>
-        <p class="mod-dek">Everything later stages pick from. Seeded from the brief's vocabulary and the photos.</p>
-        <div class="itemlist">
-          <div class="item planned"><span class="mark">○</span><span class="txt">Item master with eight types. Kilograms everywhere; piece count only on moulded parts. Reinforcement named <code>&lt;brand&gt; &lt;GSM&gt;</code> for paper and by weave for cloth.<span class="sub">Seed: 7 chemicals, about 30 reinforcement grades from the 29 June page, resin grades PFC / PFA / PFAC / E-GLASS, laminate grade F2F3.</span></span></div>
-          <div class="item planned"><span class="mark">○</span><span class="txt">Equipment: reactors (CCCPL-VES-1, VES-2…), 3 dryers and the mixer oven, 25 presses (1–20 small, 21–24 big) with daylight count.</span></div>
-          <div class="item planned"><span class="mark">○</span><span class="txt">Mould and die master, about 3,000 rows imported from the client's Excel. Dies belong to a customer; plates do not. Die thickness added from the moulding register.</span></div>
-          <div class="item planned"><span class="mark">○</span><span class="txt">Loading tolerance by thickness: 25 mm 117.600–118.200, 15 mm 69.300–69.800, 10 mm 45.800–46.300 kg. Warns, never blocks.</span></div>
-          <div class="item planned"><span class="mark">○</span><span class="txt">Stores: Warehouse A and B only, no bins. Parties (customer, vendor, transporter, job work) with GSTIN and export flag.</span></div>
-          <div class="item planned"><span class="mark">○</span><span class="txt">Department logins for owner, floor supervisor, resin, coating, press / moulding, finished goods and despatch, lab, data entry, accounts (Ahmedabad) and sales. Only the owner sees costs.</span></div>
+        <div class="mod-head"><h2>Stage 1 · Masters</h2><span class="verdict planned">PLANNED</span><span class="when">Week 2</span></div>
+        <p class="mod-dek">Everything later stages pick from. Seeded from the photos and the brief's vocabulary.</p>
+        <div class="meta"><span><b>Pages</b> /backend/items · /items/new/&lt;type&gt; · /items/&lt;id&gt; · /masters/equipment · /masters/moulds · /masters/tolerance · /masters/grades · /customers · /vendors · /masters/stores · /masters/access</span></div>
+
+        <h3>Item types and their fields</h3>
+        <div class="tablewrap">
+          <table class="wide">
+            <thead><tr><th>Type</th><th>Unit</th><th>Type-specific fields</th><th>Seed</th></tr></thead>
+            <tbody>
+              <tr><td class="k">Chemical</td><td class="t">kg</td><td>Reorder level kg, tank / store, used in (resin / coating / both)</td><td class="n">Phenol, Formaldehyde, Cardinol, Liquid Ammonia, Caustic Soda Flakes, Methanol, Oxalic Acid, DBP, Oleic Acid</td></tr>
+              <tr><td class="k">Reinforcement</td><td class="t">kg (rolls as note)</td><td>Kind (paper / cloth), brand, GSM, weave, reorder level</td><td class="n">~30 from the 29 June page: Washing F2 1500/1300/1100/1000/900, V-220/260/300, V-6×6, 6×6, 10×10, HNT, 16×16×54/51/38, Star 140/130/80 Logo Toofan, Shrijee 110, ISCON 110/130, G.K. Virgin 110, Gold 110, Padding 210, Crystal 150, Black 660 GSM, AHBO Special</td></tr>
+              <tr><td class="k">Chindi</td><td class="t">kg</td><td>Source note</td><td class="n">Cotton fibre chips</td></tr>
+              <tr><td class="k">Resin</td><td class="t">kg</td><td>Resin grade, solid content target</td><td class="n">P.F. resin in PFC, PFA, PFAC, E-GLASS</td></tr>
+              <tr><td class="k">B-stage (pre-preg)</td><td class="t">kg + nos</td><td>Base cloth / paper, resin grade, shelf life days (default 7, max 10), saleable, RC / VC band</td><td class="n">Created from coating runs</td></tr>
+              <tr><td class="k">Sheet / tube / rod</td><td class="t">kg + nos</td><td>Form, laminate grade, weave, thickness mm, sheet size, standard</td><td class="n">F2F3, MUS2, Fabric, Paper, Rubber W, Coffee P1, P2 (m), Graphite; 8×4, 6×6, 1906×1250; 1–60 mm</td></tr>
+              <tr><td class="k">Moulded part</td><td class="t">nos (+ kg)</td><td>Die no., article weight kg, customer</td><td class="n">From the mould list</td></tr>
+              <tr><td class="k">Bought-in / consumable</td><td class="t">kg or nos</td><td>Supplier, resale yes/no</td><td class="n">Pallets, PP wrap, LDP</td></tr>
+            </tbody>
+          </table>
         </div>
-        <p class="exit"><b>Done when:</b> the mould list and item master are in the system, and each department login sees only its screens.</p>
+
+        <h3>Other masters</h3>
+        <div class="tablewrap">
+          <table class="wide">
+            <thead><tr><th>Master</th><th>Fields</th><th>Notes</th></tr></thead>
+            <tbody>
+              <tr><td class="k">Grades</td><td>Code, name, kind (resin / laminate), active</td><td class="n">One table with a kind column until the grades list arrives</td></tr>
+              <tr><td class="k">Reactors</td><td>Code (CCCPL-VES-1, VES-2…), capacity kg</td><td class="n">Capacity warns when a batch is bigger</td></tr>
+              <tr><td class="k">Dryers</td><td>No. 1, 2, 3 and mixer oven</td><td class="n">Tabs on the dryer report</td></tr>
+              <tr><td class="k">Presses</td><td>Number 1–25, small / big, daylight count, working yes/no</td><td class="n">20–21 working; 1–20 small, 21–24 big. Moulding grid shows machines 1–20</td></tr>
+              <tr><td class="k">Moulds &amp; dies</td><td>Die no. (500, 1140RL, 4306L, 115N, 16×11×1000…), plate or die, size, finish (mirror / satin), thickness mm <span class="tag new">NEW</span>, customer (optional), store, heat-up time, active</td><td class="n">~3,000 rows from their Excel. Their numbers kept as-is, no grouping (audio)</td></tr>
+              <tr><td class="k">Loading tolerance</td><td>Thickness mm, min kg, max kg, from date</td><td class="n">25 mm 117.600–118.200 · 15 mm 69.300–69.800 · 10 mm 45.800–46.300</td></tr>
+              <tr><td class="k">Parties</td><td>Name, type (customer / vendor / transporter / job work), GSTIN, phone, country, export yes/no, payment terms, ports</td><td class="n">Dermat customer and vendor screens. Short names as written: K.M. Mumbai, K.B., BHEL</td></tr>
+              <tr><td class="k">Stores</td><td>Warehouse A, Warehouse B, Resin tank, Shop floor, FG store</td><td class="n">No bins</td></tr>
+              <tr><td class="k">Operators</td><td>Name, department</td><td class="n">Anjani, Anil, Nagendra, Rajesh, Bharat, Vinod, Endresh (spelling to <b>confirm</b>)</td></tr>
+              <tr><td class="k">Price lists <span class="tag new">NEW</span></td><td>Small-size and big-size rates per grade / thickness</td><td class="n">Photographed on the day (audio). Owner-only</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="grid2" style="margin-top:12px">
+          <div class="box out"><div class="lbl">Feeds</div>Every register picks items, grades, equipment, dies, operators and stores from here. Tolerance feeds the press loading check. Price lists feed quotations.</div>
+          <div class="box"><div class="lbl">Small things</div><ul><li>Reinforcement names are typed loosely ("ISCON 110", "Iscon110"); search ignores spaces and case, like Dermat's code search.</li><li>"Washing F2" grades are paper GSM 900–1500; confirm whether they are paper or a washed cloth.</li><li>Hindi labels per user, with plant words left untranslated.</li></ul></div>
+        </div>
+        <p class="exit"><b>Done when:</b> the mould list and items are loaded and each department login sees only its menus.</p>
       </section>
 
+<!-- ============ STAGE 2 ============ -->
       <section id="s2">
-        <div class="mod-head"><h2>Stage 2: Bulk upload centre</h2><span class="verdict planned">PLANNED</span><span class="when">Week 2, used by every later stage</span></div>
-        <p class="mod-dek">The data-entry operator's main screen. Built once as a framework, then each register plugs in as it is built.</p>
-        <div class="itemlist">
-          <div class="item planned"><span class="mark">○</span><span class="txt">One tile per register. Download an Excel template whose columns match the paper register in the same order, with today's date filled in.</span></div>
-          <div class="item planned"><span class="mark">○</span><span class="txt">Upload CSV or Excel and see a preview first: rows found, errors, and what will be created. Nothing is saved until you confirm.</span></div>
-          <div class="item planned"><span class="mark">○</span><span class="txt">Good rows go in; bad rows come back as a file with a reason column. Uploading the same file twice never double-posts.</span></div>
+        <div class="mod-head"><h2>Stage 2 · Upload centre</h2><span class="verdict planned">PLANNED</span><span class="when">Week 2, then one tile per register</span></div>
+        <p class="mod-dek">The data-entry person's home screen. A framework built once; each register adds its tile as it is built.</p>
+        <div class="meta"><span><b>Page</b> /backend/upload · /upload/&lt;register&gt; · /upload/history</span></div>
+        <div class="grid2">
+          <div class="box"><h4>Tile per register</h4><ul><li>Download template: columns exactly as the paper, same order, date pre-filled, dropdown cells for items, equipment, dies</li><li>Upload CSV or Excel</li><li>Last upload: date, rows, by whom</li></ul></div>
+          <div class="box"><h4>Preview before saving</h4><ul><li>Rows found, rows OK, rows with errors</li><li>What will be created: batches, lots, stock moves</li><li>Warnings (tolerance, RC / VC) shown, not blocking</li><li>Confirm to post the good rows</li></ul></div>
+          <div class="box"><h4>Errors</h4><ul><li>Download a file of failed rows with a reason column</li><li>Fix and re-upload just those</li><li>Same file twice never double-posts (register + date + book number)</li></ul></div>
+          <div class="box"><h4>Small things</h4><ul><li>"NIL", "-" and blank read as 0</li><li>Dates 2/10/26, 02-10-2026 and 2.10.26 all accepted</li><li>Ditto marks (″ and ,,) in a column copy the row above, as they write on paper</li><li>Upload history kept per file for audit</li></ul></div>
         </div>
       </section>
 
+<!-- ============ STAGE 3 ============ -->
       <section id="s3">
-        <div class="mod-head"><h2>Stage 3: Resin plant</h2><span class="verdict planned">PLANNED</span><span class="when">Week 3</span></div>
-        <p class="mod-dek">Phenol formaldehyde resin batch report <code>CCCPL/F/QC/03</code>, one per batch, entered next day.</p>
-        <div class="itemlist">
-          <div class="item planned"><span class="mark">○</span><span class="txt">Resin batch entry, field for field: vessel, batch no. <code>CCCPL/DDMMYY/NN</code>, grade, materials in kg, the process steps with temperature and time, tests (pH, gel time, viscosity, solid content), resin yield, chemist and in-charge sign-off.<span class="src">IMG_7758</span></span></div>
-          <div class="item planned"><span class="mark">○</span><span class="txt">Posting the batch takes the chemicals out of stock and puts the resin in, so the chemical book is never written twice. Yield % is worked out and trended (sample batch: 1600 ÷ 2971.5 = 53.8%).</span></div>
-          <div class="item planned"><span class="mark">○</span><span class="txt">A failed batch writes off all its input as scrap. No rework path.</span></div>
-          <div class="item planned"><span class="mark">○</span><span class="txt">Chemical register as a printable report in the book's own columns (Dt., O.B., Received, Total, Use, Balance), one page per chemical per month. Phenol adds Water and Resin.<span class="src">IMG_7759 · 7760</span></span></div>
+        <div class="mod-head"><h2>Stage 3 · Resin plant and the chemical register</h2><span class="verdict planned">PLANNED</span><span class="when">Week 3</span></div>
+        <p class="mod-dek">Phenol formaldehyde resin batch report <code>CCCPL/F/QC/03</code>, one per batch, usually entered the next day.</p>
+        <div class="meta"><span><b>Pages</b> /backend/resin/batches · /new · /&lt;id&gt; · /backend/resin/chemical-register?item=&amp;month= · /backend/resin/issues</span><span><b>Users</b> resin chemist, in-charge, data entry</span><span><b>Paper</b> IMG_7758, 7759, 7760</span></div>
+
+        <h3>Resin batch: fields</h3>
+        <div class="tablewrap">
+          <table class="wide">
+            <thead><tr><th>#</th><th>Field</th><th>Type</th><th>Rule</th></tr></thead>
+            <tbody>
+              <tr class="grp"><td colspan="4">Header</td></tr>
+              <tr><td class="r">—</td><td class="k">Date</td><td class="t">date</td><td><span class="tag req">REQ</span> dd/mm/yy</td></tr>
+              <tr><td class="r">—</td><td class="k">Vessel</td><td class="t">reactor</td><td><span class="tag req">REQ</span> CCCPL-VES-2</td></tr>
+              <tr><td class="r">1</td><td class="k">Batch No.</td><td class="t">CCCPL/DDMMYY/NN</td><td><span class="tag calc">CALC</span> next number shown, editable for old books, unique</td></tr>
+              <tr><td class="r">1</td><td class="k">Grade</td><td class="t">PFC · PFA · PFAC · E-GLASS</td><td><span class="tag req">REQ</span> tick one</td></tr>
+              <tr class="grp"><td colspan="4">2 · Materials (quantity in kg)</td></tr>
+              <tr><td class="r">A–G</td><td class="k">Phenol, Formaldehyde, Cardinol, Liquid Ammonia, Caustic Soda Flakes, Methanol, Oxalic Acid</td><td class="t">kg 12,3</td><td><span class="tag opt">OPT</span> blank = not used. Stock lot picked oldest first, changeable</td></tr>
+              <tr><td class="r">+</td><td class="k">Extra material row</td><td class="t">item + kg</td><td><span class="tag opt">OPT</span> any chemical, no code change (blank row on the form)</td></tr>
+              <tr class="grp"><td colspan="4">3–13 · Process</td></tr>
+              <tr><td class="r">3–6</td><td class="k">Check pH and heat to 45–50 °C · Stir 15 min · Cool to 35 °C and change LiqNH3 / caustic · Stir 15 min</td><td class="t">tick each</td><td><span class="tag opt">OPT</span> right-hand pH reading per step <span class="tag new">NEW</span></td></tr>
+              <tr><td class="r">7</td><td class="k">Start heating up to</td><td class="t">°C + time</td><td>53 °C at 9:10</td></tr>
+              <tr><td class="r">8</td><td class="k">Stop heating up to</td><td class="t">°C + time</td><td>86 °C at 9:35</td></tr>
+              <tr><td class="r">9</td><td class="k">Reaction start at</td><td class="t">°C + time</td><td>98 °C at 9:53</td></tr>
+              <tr><td class="r">10</td><td class="k">Reaction complete at</td><td class="t">°C + time</td><td>99 °C at 10:31</td></tr>
+              <tr><td class="r">11</td><td class="k">Gel time checked on hot plate</td><td class="t">tick</td><td></td></tr>
+              <tr><td class="r">12</td><td class="k">Water removal under vacuum starts</td><td class="t">time</td><td>10:31</td></tr>
+              <tr><td class="r">13</td><td class="k">Cooling time to 35–45 °C</td><td class="t">duration</td><td>4:00</td></tr>
+              <tr class="grp"><td colspan="4">14–15 · Tests and yield</td></tr>
+              <tr><td class="r">14</td><td class="k">pH · Gel time (sec) · Viscosity (sec) · Solid content at 150 °C 1 h (%)</td><td class="t">num</td><td><span class="tag opt">OPT</span> 560 · 39 · 79%</td></tr>
+              <tr><td class="r">—</td><td class="k">Water removed <span class="tag new">NEW</span></td><td class="t">kg</td><td><span class="tag opt">OPT</span> feeds the Water column on the Phenol page</td></tr>
+              <tr><td class="r">15</td><td class="k">Resin yield</td><td class="t">kg</td><td><span class="tag req">REQ</span> to post. 1600.00</td></tr>
+              <tr><td class="r">—</td><td class="k">Total input · Yield %</td><td class="t">kg · %</td><td><span class="tag calc">CALC</span> 2971.5 kg · 53.8%</td></tr>
+              <tr><td class="r">—</td><td class="k">Chemist sign · In-charge sign</td><td class="t">approval</td><td>Two sign-offs; posting does not wait for them</td></tr>
+              <tr><td class="r">—</td><td class="k">Failed batch</td><td class="t">yes + reason</td><td>Reactor jammed, ~₹15–20 lakh, about once a year</td></tr>
+            </tbody>
+          </table>
         </div>
-        <p class="exit"><b>Done when:</b> a resin batch posts, the chemical pages update by themselves, and the Phenol page matches September's book.</p>
+
+        <h3>Chemical register (report, not an entry screen)</h3>
+        <p class="mod-dek">One page per chemical per month in the book's own columns: <b>Dt. · O.B. · Received · Total · Use · Balance</b>; Phenol adds <b>Water · Resin</b>. Received comes from GRNs, Use from resin batches and chemical issues. Printable, so the store keeper still has "his book".</p>
+
+        <h3>Chemical issue <span class="tag new">NEW</span></h3>
+        <p class="mod-dek">Date, chemical, kg, used for (coating dryer N / other), note. Covers methanol, DBP and oleic acid that never appear on a resin batch. Without it the Methanol page would never match the book.</p>
+
+        <h3>Connections</h3>
+        <div class="grid3">
+          <div class="box in"><div class="lbl">Comes from</div><ul><li>Chemical lots received on GRN (Stage 10) or opening stock</li><li>Reactor and grade masters</li></ul></div>
+          <div class="box out"><div class="lbl">Feeds</div><ul><li>Resin lot used by coating runs (Stage 4) via "Resine type / batch"</li><li>Yield trend on the owner overview (Stage 8)</li><li>Chemical register and reorder alerts</li></ul></div>
+          <div class="box stock"><div class="lbl">Stock</div><ul><li>Post: chemicals out, resin in (one transaction)</li><li>Failed: chemicals out, scrap, nothing in</li><li>Reopen within 24 h reverses both</li></ul></div>
+        </div>
+        <h3>Detail page shows</h3>
+        <p class="mod-dek">Header (batch no., vessel, grade, date, yield %, sign-offs) · the form · <b>Came from</b>: chemical lots and their GRNs · <b>Went to</b>: coating runs that used this resin, kg used and kg left · yield compared with the last 10 batches of the same grade · history.</p>
+        <p class="exit"><b>Done when:</b> a batch posts, the September Phenol and Methanol pages rebuild from entries and match the photos.</p>
       </section>
 
+<!-- ============ STAGE 4 ============ -->
       <section id="s4">
-        <div class="mod-head"><h2>Stage 4: Coating and the B-stage board</h2><span class="verdict planned">PLANNED</span><span class="when">Week 3</span></div>
-        <div class="itemlist">
-          <div class="item planned"><span class="mark">○</span><span class="txt">Dryer QC report, one tab per dryer: cloth name, GSM, Kushan, treated and raw cloth weight, balance raw cloth, coated pieces, resin batch, RC %, VC %, two-hourly time slot, DBP, oleic acid, remarks. Day totals worked out.<span class="src">IMG_7783</span></span></div>
-          <div class="item planned"><span class="mark">○</span><span class="txt">This is the only place resin is used against a batch, so each row links to its resin batch. RC and VC outside their range warn.</span></div>
-          <div class="item planned"><span class="mark">○</span><span class="txt">Each coating run makes a B-stage lot with a 7-day clock (usable to 10). The B-stage board lists lots by age: amber at day 5, red when expired, with use, sell and scrap actions. Oldest first by default; picking out of order asks for a reason.</span></div>
+        <div class="mod-head"><h2>Stage 4 · Coating (impregnation) and the B-stage board</h2><span class="verdict planned">PLANNED</span><span class="when">Week 3</span></div>
+        <p class="mod-dek">"Quality Control Report, Dryer No. N": one sheet per dryer per day, two dryers to a printed page.</p>
+        <div class="meta"><span><b>Pages</b> /backend/coating?date=&amp;dryer= (tabs Dryer 1, 2, 3, Mixer) · /coating/&lt;id&gt; · /backend/bstage (board) · /lots/&lt;lot&gt;</span><span><b>Users</b> coating operator, floor supervisor</span><span><b>Paper</b> IMG_7783</span></div>
+
+        <h3>Dryer day sheet: cloth rows (S.N. 1–10)</h3>
+        <div class="tablewrap">
+          <table class="wide">
+            <thead><tr><th>Column</th><th>Type</th><th>Rule</th><th>Example</th></tr></thead>
+            <tbody>
+              <tr><td class="k">Cloth Name</td><td class="t">reinforcement item</td><td><span class="tag req">REQ</span></td><td class="n">10×10, 6×6, G 10×10, G 6×6</td></tr>
+              <tr><td class="k">GSM</td><td class="t">int</td><td>Defaults from the item, editable</td><td class="n">280, 290, 300, 400</td></tr>
+              <tr><td class="k">Kushan</td><td class="t">num</td><td><span class="tag opt">OPT</span> meaning to <b>confirm</b></td><td class="n">920–1240</td></tr>
+              <tr><td class="k">Treated Cloth Weight</td><td class="t">num</td><td><span class="tag req">REQ</span> pencilled "after coating"; unit to <b>confirm</b></td><td class="n">1686–2260</td></tr>
+              <tr><td class="k">Raw Cloth Weight</td><td class="t">kg</td><td><span class="tag req">REQ</span> pencilled "before treating"</td><td class="n">65–347</td></tr>
+              <tr><td class="k">Balance Raw Cloth</td><td class="t">kg</td><td>NIL = 0</td><td class="n">NIL, 140</td></tr>
+              <tr><td class="k">Coated Cloth Nos</td><td class="t">int</td><td><span class="tag req">REQ</span> sheets cut after the dryer</td><td class="n">66–325</td></tr>
+              <tr><td class="k">Resine Type / Batch</td><td class="t">resin lot</td><td><span class="tag req">REQ</span> P.F. + resin batch; this is the only link between resin and coating</td><td class="n">P.F</td></tr>
+              <tr><td class="k">RC · VC</td><td class="t">% 5,2</td><td>Out of band warns</td><td class="n">44–45% · 2.9–3.5%</td></tr>
+              <tr><td class="k">Totals</td><td class="t">kg · nos</td><td><span class="tag calc">CALC</span> the ringed figures</td><td class="n">861 · 786</td></tr>
+            </tbody>
+          </table>
         </div>
+        <h3>Dryer day sheet: two-hourly slot log <span class="tag new">NEW</span></h3>
+        <div class="tablewrap">
+          <table class="wide">
+            <thead><tr><th>Column</th><th>Type</th><th>Rule</th></tr></thead>
+            <tbody>
+              <tr><td class="k">Time</td><td class="t">fixed slots</td><td>8.00, 10.00, 12.00, 2.00, 4.00, 6.00, 8.00, 10.00</td></tr>
+              <tr><td class="k">DBP</td><td class="t">kg</td><td><span class="tag opt">OPT</span> written once across several slots (16 kg); posts a chemical issue</td></tr>
+              <tr><td class="k">Olic Acid</td><td class="t">kg</td><td><span class="tag opt">OPT</span> usually blank; posts a chemical issue</td></tr>
+              <tr><td class="k">Remarks (output kg in the slot)</td><td class="t">kg 12,3</td><td>637.000, 286.400…; <span class="tag calc">CALC</span> day total 1570</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3>B-stage lots and the board</h3>
+        <div class="grid2">
+          <div class="box"><h4>One lot per cloth row</h4><p>Cloth + GSM + resin lot + date + dryer. Quantity in nos (coated cloth nos) and kg. Expiry = coating date + shelf life (7, usable to 10). Physical label printed with the lot number. <b>Confirm:</b> one lot per row, or per dryer per day; and which column is the lot's kg.</p></div>
+          <div class="box"><h4>Board</h4><p>Columns by age: Day 0–4 · <b>Day 5–7 amber</b> · <b>Past 7 red</b> · past 10 blocked from pressing. Each card: lot no., cloth, GSM, nos and kg left, dryer, resin batch. Actions: use in a press batch, sell (goes to an order line), scrap with reason. Phone friendly.</p></div>
+        </div>
+        <h3>Connections</h3>
+        <div class="grid3">
+          <div class="box in"><div class="lbl">Comes from</div><ul><li>Resin lot (Stage 3)</li><li>Reinforcement lots</li><li>Methanol / DBP / oleic acid as chemical issues</li></ul></div>
+          <div class="box out"><div class="lbl">Feeds</div><ul><li>Press batch picker, oldest first, other order needs a reason (Stage 5)</li><li>Moulding entries using B-stage (Stage 6)</li><li>Order lines selling B-stage per kg (Stage 9)</li></ul></div>
+          <div class="box stock"><div class="lbl">Stock</div><ul><li>Raw cloth kg out (raw − balance)</li><li>Resin kg out: <b>confirm</b> how they measure it (treated − raw, or RC%)</li><li>B-stage lot in</li></ul></div>
+        </div>
+        <p class="warn"><b>From the recording:</b> B-stage is "mostly FIFO" but the grade needed today decides. A lot treated today may be used in two days. Sheets are made grade by grade, depending on orders. So the picker sorts oldest first but filters by grade first.</p>
+        <p class="exit"><b>Done when:</b> the 3 July dryer 2 and 3 sheets type in and give 1570 and 1664 kg day totals, and lots appear on the board with their clocks.</p>
       </section>
 
+<!-- ============ STAGE 5 ============ -->
       <section id="s5">
-        <div class="mod-head"><h2>Stage 5: Pressing and moulding</h2><span class="verdict planned">PLANNED</span><span class="when">Week 4</span></div>
-        <div class="itemlist">
-          <div class="item planned"><span class="mark">○</span><span class="txt">Daily production batch report <code>CCCPL/F/PRP/02</code>: batch no. <code>F/NN/MM/YYYY</code> numbered without gaps inside the month, item, size and count per thickness, batch total kg, checked by.<span class="src">IMG_7787</span></span></div>
-          <div class="item planned"><span class="mark">○</span><span class="txt">Press loading register for the same batch: press, daylights, sheets per daylight with thickness, grade and loading weight, checked against the tolerance table.<span class="src">IMG_7785</span></span></div>
-          <div class="item planned"><span class="mark">○</span><span class="txt">One batch produces one finished lot per thickness. Press heating slip available but collapsed and optional.<span class="src">IMG_7788</span></span></div>
-          <div class="item planned"><span class="mark">○</span><span class="txt">Moulded products register: machines 1–20 across the top, shift 1 and shift 2 down the page, Die No., order qty, article weight, chindi, cloth, production, operator. A die can't be on two machines in the same shift. Three sign-offs that never hold up posting. Built first as a prototype because it is the hardest grid.<span class="src">IMG_7786</span></span></div>
+        <div class="mod-head"><h2>Stage 5 · Laminate pressing</h2><span class="verdict planned">PLANNED</span><span class="when">Week 4</span></div>
+        <p class="mod-dek">Three papers describe one press load: the press loading register (per press, per daylight), the daily production batch report <code>CCCPL/F/PRP/02</code> (per batch summary) and the optional press heating slip. In the system they are one record seen three ways.</p>
+        <div class="meta"><span><b>Pages</b> /backend/press/batches · /new · /&lt;id&gt; · /backend/press/daily-report?date= · /backend/press/loading?press=&amp;date=</span><span><b>Users</b> press in-charge, supervisor</span><span><b>Paper</b> IMG_7785, 7787, 7788</span></div>
+        <h3>Press batch: fields</h3>
+        <div class="tablewrap">
+          <table class="wide">
+            <thead><tr><th>Level</th><th>Field</th><th>Type</th><th>Rule</th></tr></thead>
+            <tbody>
+              <tr><td class="t">Batch</td><td class="k">Batch No.</td><td class="t">F/NN/MM/YYYY</td><td><span class="tag calc">CALC</span> gap-free in the month; the paper number shown before saving</td></tr>
+              <tr><td class="t">Batch</td><td class="k">Date · Press No. · Cycle no.</td><td class="t">date · press · int</td><td><span class="tag req">REQ</span> date and press</td></tr>
+              <tr><td class="t">Daylight</td><td class="k">Daylight no.</td><td class="t">1 … press daylights</td><td>Can't exceed the press's daylight count</td></tr>
+              <tr><td class="t">Sheet</td><td class="k">Thickness</td><td class="t">mm 6,2</td><td><span class="tag req">REQ</span> 1.5, 10, 15, 25, 27, 35…</td></tr>
+              <tr><td class="t">Sheet</td><td class="k">Count</td><td class="t">int</td><td>Default 1; "1.5 mm × 10" = 10</td></tr>
+              <tr><td class="t">Sheet</td><td class="k">Loading weight</td><td class="t">kg 12,3</td><td><span class="tag req">REQ</span> one or a range "6.200 / 6.400"; checked against the tolerance</td></tr>
+              <tr><td class="t">Sheet</td><td class="k">Grade / weave</td><td class="t">F2F3 · 10×10 · 6×6</td><td><span class="tag req">REQ</span> copies the line above (ditto)</td></tr>
+              <tr><td class="t">Sheet</td><td class="k">B-stage lots used</td><td class="t">lot(s)</td><td>Picked oldest first per grade; override needs a reason</td></tr>
+              <tr><td class="t">Batch</td><td class="k">Size &amp; total weight</td><td class="t">"25 mm = 2/24" · kg</td><td><span class="tag calc">CALC</span> counts per thickness over total sheets; total = sum of loading weights</td></tr>
+              <tr><td class="t">Batch</td><td class="k">Checked by · Remark · Reviewed / approved by</td><td class="t">user · text · user</td><td>Approval never blocks</td></tr>
+              <tr class="grp"><td colspan="4">Heating slip (collapsed, switched off by default)</td></tr>
+              <tr><td class="t">Heating</td><td class="k">Hydraulic pressure, forming start / complete, steam start, 120° temp time, max temp (150) time, soaking time, CBT max temp, cooling start / stop, total time, total input weight, remarks, in-charge and operator sign</td><td class="t">time · °C · kg</td><td><span class="tag opt">OPT</span> total time calculated; total input weight = batch total</td></tr>
+            </tbody>
+          </table>
         </div>
-        <p class="exit"><b>Done when:</b> chemical → resin → B-stage → sheet runs end to end on batch F/03/10/2026 (996.300 kg).</p>
+        <div class="grid3" style="margin-top:12px">
+          <div class="box in"><div class="lbl">Comes from</div><ul><li>B-stage lots (Stage 4); expired lots hidden, past 10 days blocked</li><li>Loading tolerance and press masters (Stage 1)</li></ul></div>
+          <div class="box out"><div class="lbl">Feeds</div><ul><li>Pressed lots, one per grade + weave + thickness</li><li>Cutting / trim (Stage 7) and thickness inspection, which pick the batch and thickness</li><li>Owner tile "produced today"</li></ul></div>
+          <div class="box stock"><div class="lbl">Stock</div><ul><li>B-stage kg out = loading weights</li><li>Pressed lot in, kg = loading weights for that thickness, nos = sheet count</li></ul></div>
+        </div>
+        <p class="mod-dek" style="margin-top:12px"><b>Detail page:</b> header strip (batch, press, date, 24 sheets, 996.300 kg) · daylight grid with tolerance flags · output lots with links · B-stage lots used and their age · heating slip · warnings · history.</p>
+        <p class="exit"><b>Done when:</b> F/01 to F/04 of 2 Oct type in and show 814.600, 1008.800, 996.300 and 776.700 kg with the right "n/18" and "n/24" counts.</p>
       </section>
 
+<!-- ============ STAGE 6 ============ -->
       <section id="s6">
-        <div class="mod-head"><h2>Stage 6: Quality and finished goods</h2><span class="verdict planned">PLANNED</span><span class="when">Week 4</span></div>
-        <div class="itemlist">
-          <div class="item planned"><span class="mark">○</span><span class="txt">Thickness inspection: 12 readings per board (rows 4′, 8′, 4′, 8′ by three), target from the batch line. All 12 are needed to clear a board.<span class="src">IMG_7777</span></span></div>
-          <div class="item planned"><span class="mark">○</span><span class="txt">FG inspection test report <code>CCCPL/F/QC/04</code>: batch, item, sheet size, pieces, thickness, allocated to (required), rejection reason (optional).<span class="src">IMG_7778</span></span></div>
-          <div class="item planned"><span class="mark">○</span><span class="txt">Trim loss recorded as weight: expected 7–8% on sheets, 5% on moulded parts, warns when 2 points off.</span></div>
-          <div class="item planned"><span class="mark">○</span><span class="txt">Bought-in finished goods enter stock without a batch. Lab test is a file upload per lot and customer, with copy-from-last-time.</span></div>
+        <div class="mod-head"><h2>Stage 6 · Moulded products</h2><span class="verdict planned">PLANNED</span><span class="when">Week 4 (prototype first)</span></div>
+        <p class="mod-dek">Moulded products daily production register: machines 1–20 across the top, a 1st-shift and a 2nd-shift block down the page. The hardest grid in the build, so it is prototyped first.</p>
+        <div class="meta"><span><b>Pages</b> /backend/moulding?date= (the grid) · /moulding/entries/&lt;id&gt; · /backend/moulding/dies (availability by shift)</span><span><b>Users</b> shift in-charge, store in-charge, operators</span><span><b>Paper</b> IMG_7786 · job card to come</span></div>
+        <div class="tablewrap">
+          <table class="wide">
+            <thead><tr><th>Row (per machine, per shift)</th><th>Type</th><th>Rule</th><th>Example</th></tr></thead>
+            <tbody>
+              <tr><td class="k">Die No.</td><td class="t">mould</td><td><span class="tag req">REQ</span> a die on two machines in the same shift is blocked</td><td class="n">500, 1155, 1140RL, 4306L, 16×11×1000</td></tr>
+              <tr><td class="k">Die Heat Time</td><td class="t">duration</td><td><span class="tag opt">OPT</span> die thickness noted here today, e.g. "(34 mm)", moves to the die master</td><td class="n"></td></tr>
+              <tr><td class="k">Order Qty.</td><td class="t">int</td><td>From the order line using this die, editable</td><td class="n">15, 400, 10000</td></tr>
+              <tr><td class="k">Weight of Article</td><td class="t">kg 12,3</td><td>Defaults from the die</td><td class="n">0.600–15.300</td></tr>
+              <tr><td class="k">Weight of Chindi · Weight of Cloth</td><td class="t">kg</td><td><span class="tag opt">OPT</span> consumed from stock; "15×2, 6×1" means pieces × size, <b>confirm</b></td><td class="n"></td></tr>
+              <tr><td class="k">1st / 2nd Shift Prod.</td><td class="t">int</td><td><span class="tag req">REQ</span> pieces this shift</td><td class="n">3–36</td></tr>
+              <tr><td class="k">Start Time · Operator Name</td><td class="t">time · operator</td><td>Operator <span class="tag req">REQ</span></td><td class="n">Anjani, Anil, Vinod</td></tr>
+              <tr><td class="k">Top Temp · Bottom Temp · Curing Time</td><td class="t">°C · min</td><td><span class="tag opt">OPT</span> switched off by default</td><td class="n">blank in practice</td></tr>
+              <tr><td class="k">Total</td><td class="t">int</td><td><span class="tag calc">CALC</span> running total for this die and order <span class="tag new">NEW</span></td><td class="n">97 of 100</td></tr>
+              <tr><td class="k">Grand Total · Weight Total</td><td class="t">nos · kg</td><td><span class="tag calc">CALC</span> page footer</td><td class="n"></td></tr>
+              <tr><td class="k">Shift in-charge · Store in-charge · Authorised</td><td class="t">3 sign-offs</td><td>Never block posting</td><td class="n"></td></tr>
+            </tbody>
+          </table>
         </div>
+        <div class="grid3" style="margin-top:12px">
+          <div class="box in"><div class="lbl">Comes from</div><ul><li>Die master, customer on the die</li><li>Open order lines for that die (Stage 9)</li><li>Production plan written the day before (die change takes a day)</li></ul></div>
+          <div class="box out"><div class="lbl">Feeds</div><ul><li>Moulded lots → trim 5% → FG inspection (Stage 7)</li><li>Order progress: "97 of 100 made" on the order page</li><li>Die availability by shift</li></ul></div>
+          <div class="box stock"><div class="lbl">Stock</div><ul><li>Chindi, cloth, B-stage kg out</li><li>Moulded lot in: pieces, kg = pieces × article weight</li></ul></div>
+        </div>
+        <p class="warn"><b>Phone layout:</b> 20 machine columns don't fit a phone. On a phone the grid becomes one card per machine with the two shifts stacked; on the desktop it is the full page as printed.</p>
       </section>
 
+<!-- ============ STAGE 7 ============ -->
       <section id="s7">
-        <div class="mod-head"><h2>Stage 7: Stock, owner dashboard and the demo</h2><span class="verdict planned">PLANNED</span><span class="when">Week 5 · mid-November demo</span></div>
-        <div class="itemlist">
-          <div class="item planned"><span class="mark">○</span><span class="txt">One stock screen for all item types, weight first, filtered by type and warehouse, with the movement history behind every balance (Dermat's stock pages and ledger, relabelled).</span></div>
-          <div class="item planned"><span class="mark">○</span><span class="txt">Owner dashboard with his three questions and nothing else: what was produced today, is it on plan, any breakdown.</span></div>
-          <div class="item planned"><span class="mark">○</span><span class="txt">Installable on the phone. Entry screens keep working when the hotspot drops and sync later, with a "waiting to sync" badge. First screen under 3 seconds on 3G.</span></div>
-          <div class="item planned"><span class="mark">○</span><span class="txt">Polish resin entry, the B-stage board and the moulding grid first. A narrow, near-perfect demo beats a wide rough one with this client.</span></div>
+        <div class="mod-head"><h2>Stage 7 · Cutting, thickness, FG inspection, lab</h2><span class="verdict planned">PLANNED</span><span class="when">Week 4</span></div>
+        <div class="meta"><span><b>Pages</b> /backend/cutting · /backend/quality/thickness · /quality/fg-inspection · /quality/lab · /backend/fg/direct-in</span><span><b>Paper</b> IMG_7777, 7778 · audio</span></div>
+
+        <details class="stagecard" open>
+          <summary><span class="no">7a</span><b>Cutting &amp; trimming</b><span class="dept">no paper form yet · <span class="tag new">NEW</span></span></summary>
+          <div class="body">
+            <p class="mod-dek">The recording says sheets go through a manual trimming machine and a cutting machine, with about 8% trim loss, then are numbered and weighed. No form was photographed, so this screen is proposed: <b>confirm</b> what they write today.</p>
+            <div class="tablewrap"><table class="wide"><thead><tr><th>Field</th><th>Type</th><th>Rule</th></tr></thead><tbody>
+              <tr><td class="k">Date · pressed lot (batch + thickness)</td><td class="t">date · lot</td><td><span class="tag req">REQ</span></td></tr>
+              <tr><td class="k">Sheets in</td><td class="t">nos</td><td>From the lot</td></tr>
+              <tr><td class="k">Cut size</td><td class="t">8×4 · 6×6 · 1906×1250 · custom</td><td><span class="tag req">REQ</span></td></tr>
+              <tr><td class="k">Sheet no. and weight after trimming</td><td class="t">per sheet kg</td><td>Sheets numbered in order; weights to 3 dp</td></tr>
+              <tr><td class="k">Trim loss</td><td class="t">kg · %</td><td><span class="tag calc">CALC</span> warns outside 6–10% for sheets, 3–7% for moulded</td></tr>
+            </tbody></table></div>
+          </div>
+        </details>
+
+        <details class="stagecard" open>
+          <summary><span class="no">7b</span><b>Thickness inspection, 12-point grid</b><span class="dept">QC · IMG_7777</span></summary>
+          <div class="body">
+            <div class="tablewrap"><table class="wide"><thead><tr><th>Field</th><th>Type</th><th>Rule</th></tr></thead><tbody>
+              <tr><td class="k">Date · lot ref</td><td class="t">date · lot</td><td>F/61/9/26 style accepted</td></tr>
+              <tr><td class="k">Grade · weave · daylight</td><td class="t">from the batch</td><td>F2 F3, 10×10, D4</td></tr>
+              <tr><td class="k">Target thickness</td><td class="t">mm</td><td><span class="tag calc">CALC</span> from the batch line (27 mm, 25 mm)</td></tr>
+              <tr><td class="k">Tolerance ±</td><td class="t">mm</td><td>Per thickness, <b>confirm</b> values</td></tr>
+              <tr><td class="k">12 readings: rows 4′, 8′, 4′, 8′ × 3</td><td class="t">mm 6,2</td><td><span class="tag req">REQ</span> all 12 to clear; out-of-tolerance cells red</td></tr>
+              <tr><td class="k">Result · inspector</td><td class="t">pass / hold · user</td><td>Hold keeps the lot out of FG</td></tr>
+            </tbody></table></div>
+          </div>
+        </details>
+
+        <details class="stagecard" open>
+          <summary><span class="no">7c</span><b>FG inspection test report <code>CCCPL/F/QC/04</code></b><span class="dept">QC · IMG_7778</span></summary>
+          <div class="body">
+            <div class="tablewrap"><table class="wide"><thead><tr><th>Column</th><th>Type</th><th>Rule</th></tr></thead><tbody>
+              <tr><td class="k">Sr. · Batch Number</td><td class="t">int · batch</td><td>F/74/07/26</td></tr>
+              <tr><td class="k">Item Description</td><td class="t">item</td><td>MUS2 10×10, Fabric 6×6 SP, Coffee P1, Fabric W-10×10, F2F3, P2 (m), Graphite 10×10</td></tr>
+              <tr><td class="k">Sheet Size · Thickness</td><td class="t">size · mm</td><td>Ditto marks copy the row above</td></tr>
+              <tr><td class="k">Quantity</td><td class="t">nos</td><td>Pieces (the form says kg, the entries are pieces); kg <span class="tag calc">CALC</span></td></tr>
+              <tr><td class="k">Allocated to</td><td class="t">customer · Export · Stock · Allocation</td><td><span class="tag req">REQ</span> picks a customer → offers their open order (Stage 9)</td></tr>
+              <tr><td class="k">Rejection reason</td><td class="t">list</td><td><span class="tag opt">OPT</span> rejected pieces go to scrap</td></tr>
+              <tr><td class="k">Q.C. Inspector · Approved by</td><td class="t">users</td><td></td></tr>
+            </tbody></table></div>
+          </div>
+        </details>
+
+        <details class="stagecard" open>
+          <summary><span class="no">7d</span><b>Lab test reports</b><span class="dept">Lab · audio</span></summary>
+          <div class="body">
+            <p class="mod-dek">Tests run per customer specification, not per batch. No parameters are typed: date, lot(s), customer, test type (mechanical / electrical), standard (IS 2036, NEMA, IEC, BIS, customer spec), file upload. "Copy last time" for the same item and customer. Test list to come from the client.</p>
+          </div>
+        </details>
+
+        <details class="stagecard" open>
+          <summary><span class="no">7e</span><b>Bought-in goods and damaged material</b><span class="dept">Store · audio</span></summary>
+          <div class="body">
+            <p class="mod-dek">FG direct in: supplier, invoice, item, size, thickness, nos, kg; creates a finished lot with no parent. Damaged material (seen on the day): lot, kg, reason → scrap, shown on the owner overview.</p>
+          </div>
+        </details>
+
+        <div class="grid3" style="margin-top:12px">
+          <div class="box in"><div class="lbl">Comes from</div><ul><li>Pressed lots (Stage 5), moulded lots (Stage 6)</li><li>Bought-in goods</li></ul></div>
+          <div class="box out"><div class="lbl">Feeds</div><ul><li>Finished lots in FG store, with allocation</li><li>Order stage "Stock allocation" and "QC &amp; test report" (Stage 9) read these results</li></ul></div>
+          <div class="box stock"><div class="lbl">Stock</div><ul><li>Trim loss out</li><li>Pass: pressed / moulded lot → finished lot in FG store</li><li>Reject: scrap</li></ul></div>
         </div>
-        <p class="exit"><b>Done when:</b> the demo runs on their own batch F/03/10/2026 and he recognises every number.</p>
       </section>
 
+<!-- ============ STAGE 8 ============ -->
       <section id="s8">
-        <div class="mod-head"><h2>Stage 8: One-page order, booking to despatch</h2><span class="verdict planned">PLANNED</span><span class="when">Weeks 6–7</span></div>
-        <p class="mod-dek">Dermat's order page, stage pages, department queues, history and order book stay as they are. Only the stages change. Production is not a stage, because laminates are made to stock; the order allocates finished lots instead.</p>
-        <div class="flow" aria-label="Order stages">
-          <span>Order booked</span><i>→</i><span>Advance / LC</span><i>→</i><span>Stock allocation</span><i>→</i><span>QC &amp; test report</span><i>→</i><span>Packing &amp; weighment</span><i>→</i><span>Invoice &amp; documents</span><i>→</i><span>Despatch</span>
+        <div class="mod-head"><h2>Stage 8 · Stock, owner overview, offline, demo</h2><span class="verdict planned">PLANNED</span><span class="when">Week 5 · mid-November demo</span></div>
+        <div class="grid2">
+          <div class="box"><h4>Stock</h4><p>One grid for every type, weight first: item, type, store, kg, nos, lots, oldest lot age, reorder flag. Filters by type and store, search as you type. Click a row → lots → lot page. Reinforcement stock list (the dated diary page) becomes a stocktake screen that posts the difference.</p></div>
+          <div class="box"><h4>Owner overview (three questions only)</h4><ul><li><b>Produced today:</b> press batches and kg by thickness, moulded pieces, resin kg and yield %</li><li><b>On plan:</b> today's plan (written the day before) against actual, and the order shortfall list</li><li><b>Breakdowns:</b> failed batches, idle presses, damaged material, B-stage at risk</li></ul></div>
+          <div class="box"><h4>Phone and offline</h4><ul><li>Installs to the home screen</li><li>Masters cached; entry screens queue while offline with a "waiting to sync" badge</li><li>Same record changed twice: last save wins, the clash is logged for the owner</li><li>First screen under 3 s on 3G; no heavy images</li></ul></div>
+          <div class="box"><h4>Demo script</h4><ol style="margin:0;padding-left:18px"><li>Resin batch CCCPL/110726/06 → yield 53.8%</li><li>Dryer 2 day sheet → B-stage lots on the board</li><li>Press batch F/03/10/2026 → 996.300 kg, 24 sheets</li><li>Thickness and FG inspection</li><li>Stock and his three-question overview on a phone</li></ol></div>
         </div>
-        <div class="itemlist">
-          <div class="item planned"><span class="mark">○</span><span class="txt">Order lines by grade, weave, sheet size and thickness, in kg (pieces for moulded parts), with die number on moulded lines. Export orders carry incoterm, port (Mundra, Kandla, Nhava Sheva) and country.</span></div>
-          <div class="item planned"><span class="mark">○</span><span class="txt">Stock allocation picks finished lots by thickness and size. If there isn't enough, the shortfall is shown to production.</span></div>
-          <div class="item planned"><span class="mark">○</span><span class="txt">Packing records one weight per sheet, as the despatch book does, and totals each thickness. Pallet for export, PP wrap with LDP stitch for local.<span class="src">IMG_7776</span></span></div>
-          <div class="item planned"><span class="mark">○</span><span class="txt">Despatch takes stock out by lot and can never send more than is in stock. Container number, vehicle, LR, e-way bill and IRN are written on the order.</span></div>
-        </div>
+        <p class="exit"><b>Done when:</b> the demo runs on their own numbers on a phone over a hotspot. Polish resin, the B-stage board and the moulding grid before anything else.</p>
       </section>
 
+<!-- ============ STAGE 9 ============ -->
       <section id="s9">
-        <div class="mod-head"><h2>Stage 9: CRM, quotation and purchase</h2><span class="verdict planned">PLANNED</span><span class="when">Weeks 7–8</span></div>
-        <div class="itemlist">
-          <div class="item planned"><span class="mark">○</span><span class="txt">Enquiries from IndiaMART, WhatsApp, email, phone, walk-in and referral, each with an owner and a next action. Overdue ones go to the owner's dashboard.</span></div>
-          <div class="item planned"><span class="mark">○</span><span class="txt">Quotation in INR or export currency, converts to an order without re-typing.</span></div>
-          <div class="item planned"><span class="mark">○</span><span class="txt">Purchase order and goods receipt by weight with the supplier's lot, driven by reorder level (Dermat's purchase screens, trimmed).</span></div>
+        <div class="mod-head"><h2>Stage 9 · One-page order, booking to despatch</h2><span class="verdict planned">PLANNED</span><span class="when">Weeks 6–7</span></div>
+        <p class="mod-dek">Dermat's order engine as it is: the order page with the stage strip, one stage page per department, department work queues (Coming, Pending, In progress, On hold, Completed), steps, required fields, document uploads, holds with follow-up dates, 24-hour reopen, history of every field change, stage settings the owner can edit. Only the stages are new.</p>
+        <div class="flow" aria-label="Order stages">
+          <span>1 Order booked</span><i>→</i><span>2 Advance / LC</span><i>→</i><span>3 Stock allocation</span><i>→</i><span>4 QC &amp; test report</span><i>→</i><span>5 Packing &amp; weighment</span><i>→</i><span>6 Invoice &amp; documents</span><i>→</i><span>7 Despatch</span>
         </div>
+
+        <h3>Order page</h3>
+        <div class="wire" aria-label="Wireframe of the order page">
+          <div class="bar"><span><b>CCCPL/SO/2627/0014</b> · K.M. Mumbai · PO 4471 · Export FOB Mundra</span><span>Confirmed · promised 30 Nov</span></div>
+          <div class="bar"><span>Booked ✓ → Advance ✓ → <b>Allocation</b> → QC → Packing → Invoice → Despatch</span></div>
+          <div class="cols">
+            <div class="stack">
+              <div class="pane"><b>Lines</b>F2F3 10×10 · 8×4 · 10 mm · 16 sheets · 690 kg · allocated 690 / made 0 short 0</div>
+              <div class="pane"><b>Current stage work area</b>steps, fields, documents, Complete / Hold</div>
+            </div>
+            <div class="stack">
+              <div class="pane"><b>Needs attention</b>what blocks the next stage</div>
+              <div class="pane"><b>Money</b> (owner, accounts): total, advance, due</div>
+              <div class="pane"><b>History</b></div>
+            </div>
+          </div>
+        </div>
+
+        <h3>Order header and lines</h3>
+        <div class="tablewrap"><table class="wide"><thead><tr><th>Field</th><th>Type</th><th>Rule</th></tr></thead><tbody>
+          <tr><td class="k">Customer · customer PO no. and date · order date · promised date</td><td class="t">party · text · date</td><td><span class="tag req">REQ</span> customer, order date</td></tr>
+          <tr><td class="k">Domestic / export · incoterm (FOB, CIF, CNF, EXW) · port of loading (Mundra, Kandla, Nhava Sheva) · country · currency</td><td class="t">lists</td><td>Export fields only when export</td></tr>
+          <tr><td class="k">Payment terms · sales owner · test standard required · packing (pallet / PP wrap + LDP stitch) · marking remarks</td><td class="t">lists · text</td><td></td></tr>
+          <tr><td class="k">Line: item kind (sheet, tube, rod, moulded, B-stage, RM, bought-in) · grade · weave · sheet size · thickness · qty kg · qty nos · die no. (moulded) · rate per kg or per piece · GST %</td><td class="t">per line</td><td><span class="tag req">REQ</span> item and qty. Small / big-size rate suggested from the price list</td></tr>
+          <tr><td class="k">Line progress: allocated · made (moulded) · packed · despatched</td><td class="t">kg / nos</td><td><span class="tag calc">CALC</span></td></tr>
+        </tbody></table></div>
+
+        <h3>The seven stages</h3>
+        <details class="stagecard" open>
+          <summary><span class="no">1</span><b>Order booked</b><span class="dept">Sales · opens when the order is saved</span></summary>
+          <div class="body"><div class="grid3">
+            <div class="box"><div class="lbl">Steps</div>none (done on save)</div>
+            <div class="box"><div class="lbl">Fields · documents</div>Remarks · customer PO file</div>
+            <div class="box"><div class="lbl">Connects</div>From an enquiry or quotation (Stage 10), lines carried over. Moulded lines tell the moulding register the order qty.</div>
+          </div></div>
+        </details>
+        <details class="stagecard" open>
+          <summary><span class="no">2</span><b>Advance / LC</b><span class="dept">Accounts · can be skipped for credit customers</span></summary>
+          <div class="body"><div class="grid3">
+            <div class="box"><div class="lbl">Steps</div>PI sent · advance received / LC opened</div>
+            <div class="box"><div class="lbl">Fields</div>PI no. · advance % · amount <span class="tag req">REQ</span> · received on <span class="tag req">REQ</span> · UTR · LC no. and expiry (export)</div>
+            <div class="box"><div class="lbl">Documents · connects</div>Payment proof · records the payment in Accounts (Dermat's money card)</div>
+          </div></div>
+        </details>
+        <details class="stagecard" open>
+          <summary><span class="no">3</span><b>Stock allocation</b><span class="dept">FG store · new</span></summary>
+          <div class="body"><div class="grid3">
+            <div class="box"><div class="lbl">Steps</div>Stock checked · lots allocated · shortfall sent to production (optional) · goods ready</div>
+            <div class="box"><div class="lbl">Fields</div>Allocation status (all from stock / part / to be made) <span class="tag req">REQ</span> · ready date</div>
+            <div class="box"><div class="lbl">Panel · connects</div>Per line: matching finished lots by grade, size and thickness, oldest first; lots already marked "allocated to" this customer on FG inspection come first. Shortfall shows on the owner's plan. B-stage lines show expiry.</div>
+          </div></div>
+        </details>
+        <details class="stagecard" open>
+          <summary><span class="no">4</span><b>QC &amp; test report</b><span class="dept">Lab / QC</span></summary>
+          <div class="body"><div class="grid3">
+            <div class="box"><div class="lbl">Steps</div>Thickness passed (read from 7b) · FG inspection passed (7c) · customer tests done (optional) · report sent</div>
+            <div class="box"><div class="lbl">Fields</div>Standard · report no. · tested on</div>
+            <div class="box"><div class="lbl">Documents · gate</div>Test report required when the order asks for a standard. Can't complete while an allocated lot is on hold.</div>
+          </div></div>
+        </details>
+        <details class="stagecard" open>
+          <summary><span class="no">5</span><b>Packing &amp; weighment</b><span class="dept">Despatch · IMG_7776</span></summary>
+          <div class="body"><div class="grid3">
+            <div class="box"><div class="lbl">Steps</div>Sheets weighed · packed · marked</div>
+            <div class="box"><div class="lbl">Fields</div>Per line, per thickness: one weight per sheet, five per row like the book, row and line totals <span class="tag calc">CALC</span> · pack type · pallets / bundles · gross and net kg</div>
+            <div class="box"><div class="lbl">Documents · connects</div>Packing photo · weights become the despatch quantity and the packing list</div>
+          </div></div>
+        </details>
+        <details class="stagecard" open>
+          <summary><span class="no">6</span><b>Invoice &amp; documents</b><span class="dept">Accounts</span></summary>
+          <div class="body"><div class="grid3">
+            <div class="box"><div class="lbl">Steps</div>Invoice made · packing list · e-way bill (over ₹50,000) · IRN · shipping bill (export) · sent to Tally</div>
+            <div class="box"><div class="lbl">Fields</div>Invoice no. and date <span class="tag req">REQ</span> · e-way no. · IRN · shipping bill no.</div>
+            <div class="box"><div class="lbl">Connects</div>Documents made from the order and weights, generated once (Stage 11). Tally push logged.</div>
+          </div></div>
+        </details>
+        <details class="stagecard" open>
+          <summary><span class="no">7</span><b>Despatch</b><span class="dept">Despatch</span></summary>
+          <div class="body"><div class="grid3">
+            <div class="box"><div class="lbl">Steps</div>Loaded · despatched · delivered (optional)</div>
+            <div class="box"><div class="lbl">Fields</div>Date <span class="tag req">REQ</span> · transporter · vehicle no. · LR no. · container no. · seal no. · port · delivered on · reason if sent with money due</div>
+            <div class="box"><div class="lbl">Stock · gate</div>Sale out by lot using packed weights. Never more than allocated stock. Money-due check from Dermat stays.</div>
+          </div></div>
+        </details>
       </section>
 
+<!-- ============ STAGE 10 ============ -->
       <section id="s10">
-        <div class="mod-head"><h2>Stage 10: Documents and Tally</h2><span class="verdict planned">PLANNED</span><span class="when">Week 8</span></div>
-        <div class="itemlist">
-          <div class="item planned"><span class="mark">○</span><span class="txt">Invoice, packing list, proforma and e-way bill made from the despatch (Dermat's print layouts with Creative Carbon's GSTIN 24AAICC5600P1ZJ).</span></div>
-          <div class="item planned"><span class="mark">○</span><span class="txt">Sales invoices, purchase bills and job work sent one way to Tally. Every send is logged; failures retry and are never dropped. Ledger mapping set with their accountant on the second visit.</span></div>
+        <div class="mod-head"><h2>Stage 10 · Enquiries, quotations, purchase</h2><span class="verdict planned">PLANNED</span><span class="when">Weeks 7–8</span></div>
+        <div class="grid3">
+          <div class="box"><h4>Enquiry</h4><p>Source (IndiaMART, WhatsApp, email, phone, walk-in, referral), received at, contact, subject, owner, stage (new, quoted, negotiating, won, lost), next action date and note, lost reason. Overdue goes to the owner. A separate WhatsApp Business number feeds it.</p></div>
+          <div class="box"><h4>Quotation</h4><p>Lines as on an order, currency, incoterm, valid until, PDF. "Convert to order" carries everything across. Fields to match their sample quotation and proforma.</p></div>
+          <div class="box"><h4>Purchase</h4><p>PO by weight, reorder-level suggestions (not from orders), GRN with supplier lot and pass / hold, container loads. Vendor master as they have it today.</p></div>
         </div>
       </section>
 
+<!-- ============ STAGE 11 ============ -->
       <section id="s11">
-        <div class="mod-head"><h2>Stage 11: Migration, parallel run, go-live</h2><span class="verdict planned">PLANNED</span><span class="when">Weeks 9–12</span></div>
-        <div class="itemlist">
-          <div class="item planned"><span class="mark">○</span><span class="txt">Masters plus opening stock on cutover day. No history import, because the registers are 80–90% accurate and old errors would spoil the yield trends.</span></div>
-          <div class="item planned"><span class="mark">○</span><span class="txt">Paper and system run side by side until both show the same stock, with training on site.</span></div>
-          <div class="item planned"><span class="mark">○</span><span class="txt">Choose cloud or a server at the plant from the signal survey. This decision is due in week 1 because it changes how we deploy.</span></div>
+        <div class="mod-head"><h2>Stage 11 · Documents and Tally</h2><span class="verdict planned">PLANNED</span><span class="when">Week 8</span></div>
+        <div class="grid2">
+          <div class="box"><h4>Documents</h4><p>Tax invoice, export invoice, packing list (with sheet weights), proforma, delivery challan, job-work challan, B-stage sale invoice, test certificate cover. Dermat's print layouts with Creative Carbon's name, GSTIN and bank. Made step by step on the order, generated once at the end (as discussed on the day).</p></div>
+          <div class="box"><h4>Tally</h4><p>One way: sales invoices, purchase bills, job work. Every push logged with what was sent and what came back; failures retry and are listed. Ledger mapping set with their accountant at the Ahmedabad office visit.</p></div>
         </div>
       </section>
 
-      <section id="open">
-        <div class="mod-head"><h2>Still to confirm in week 1</h2><span class="verdict missing">NEEDS CLIENT</span></div>
+<!-- ============ STAGE 12 ============ -->
+      <section id="s12">
+        <div class="mod-head"><h2>Stage 12 · Opening stock, parallel run, go-live</h2><span class="verdict planned">PLANNED</span><span class="when">Weeks 9–12</span></div>
         <div class="itemlist">
-          <div class="item missing"><span class="mark">?</span><span class="txt">Thickness tolerance in mm for the 12-point check. The register doesn't give one (see the photo findings).</span></div>
-          <div class="item missing"><span class="mark">?</span><span class="txt">What Kushan is on the dryer report (values 920–1240). Also whether DBP and oleic acid come out of chemical stock.</span></div>
-          <div class="item missing"><span class="mark">?</span><span class="txt">Resin and laminate grades: one list or two. Normal resin batch size (said about 6 T; the sample form is 2,971.5 kg in).</span></div>
-          <div class="item missing"><span class="mark">?</span><span class="txt">Cloud or plant server. Whether plates ever need a customer.</span></div>
-          <div class="item missing"><span class="mark">?</span><span class="txt">Documents promised on the day: grades list, mould / die Excel (about 3,000 rows), moulding job card, one week's production plan, opening stock, test report samples, a full despatch document set, sample quotation / proforma / PO, a B-stage sale invoice, named floor supervisor, and a WhatsApp Business number for enquiries.<span class="sub">The first four block Stages 1–3.</span></span></div>
+          <div class="item planned"><span class="mark">○</span><span class="txt">Masters and opening stock on cutover day; no history import (registers are 80–90% accurate).</span></div>
+          <div class="item planned"><span class="mark">○</span><span class="txt">Paper and system side by side until stock agrees; training on site; data-entry person in place.</span></div>
+          <div class="item planned"><span class="mark">○</span><span class="txt">Hosting: cloud or a plant server, decided from the signal readings taken on the day.</span></div>
+          <div class="item planned"><span class="mark">○</span><span class="txt">Final payment is 60 days after delivery, so the parallel run has to prove stock matches.</span></div>
         </div>
+      </section>
+
+<!-- ============ SMALL THINGS ============ -->
+      <section id="small">
+        <div class="mod-head"><h2>Small things that are easy to miss</h2><span class="verdict partial">CHECKLIST</span></div>
+        <div class="itemlist">
+          <div class="item partial"><span class="mark">•</span><span class="txt">Every weight is kg to three decimals; every percentage two; thickness two; never floats.</span></div>
+          <div class="item partial"><span class="mark">•</span><span class="txt">Ditto marks and "NIL" on paper must work in entry and upload.</span></div>
+          <div class="item partial"><span class="mark">•</span><span class="txt">Gap-free batch numbers that staff can check against the book; a deleted draft does not use up a number.</span></div>
+          <div class="item partial"><span class="mark">•</span><span class="txt">Old-style numbers (F/61/9/26) are accepted on import and searchable.</span></div>
+          <div class="item partial"><span class="mark">•</span><span class="txt">Sign-off fields (chemist, in-charge, three on moulding) record who and when but never stop posting.</span></div>
+          <div class="item partial"><span class="mark">•</span><span class="txt">B-stage sold to a customer needs its own invoice format (sample promised) and is priced per kg.</span></div>
+          <div class="item partial"><span class="mark">•</span><span class="txt">Expired B-stage stays visible and saleable with an override reason; only pressing is blocked after 10 days.</span></div>
+          <div class="item partial"><span class="mark">•</span><span class="txt">Trim scrap never returns to stock.</span></div>
+          <div class="item partial"><span class="mark">•</span><span class="txt">Bought-in finished goods and raw material sold directly are normal documents, not workarounds.</span></div>
+          <div class="item partial"><span class="mark">•</span><span class="txt">The die booking check covers both shifts and both registers, and the day-ahead production plan.</span></div>
+          <div class="item partial"><span class="mark">•</span><span class="txt">Tubes and moulded parts differ by machine: the item form is decided by the press used.</span></div>
+          <div class="item partial"><span class="mark">•</span><span class="txt">Accounts and sales sit in Ahmedabad, the plant in Kanera: two locations, one system, India time everywhere.</span></div>
+          <div class="item partial"><span class="mark">•</span><span class="txt">The owner travels 10–12 days a month, so his overview, the B-stage board and stock must work one-handed on a phone.</span></div>
+          <div class="item partial"><span class="mark">•</span><span class="txt">Printed reports (chemical register, daily batch report, FG inspection, weighment) carry the form code and rev. no. as on the paper.</span></div>
+          <div class="item partial"><span class="mark">•</span><span class="txt">Reopening a posted record reverses its stock moves; after 24 hours only a manager can reopen.</span></div>
+          <div class="item partial"><span class="mark">•</span><span class="txt">Users' Hindi labels never translate plant words (Chindi, Kushan, Daylight, Die No., B-stage).</span></div>
+        </div>
+      </section>
+
+<!-- ============ ALERTS ============ -->
+      <section id="alerts">
+        <div class="mod-head"><h2>Alerts</h2></div>
+        <div class="tablewrap"><table class="wide"><thead><tr><th>When</th><th>Who hears</th><th>Blocks?</th></tr></thead><tbody>
+          <tr><td class="k">B-stage lot reaches day 5 · expires</td><td>Production head, owner</td><td class="n">No</td></tr>
+          <tr><td class="k">Loading weight outside tolerance · RC / VC out of band · trim loss off by 2 points</td><td>Logged on the record, supervisor</td><td class="n">No</td></tr>
+          <tr><td class="k">Die booked on two machines in a shift</td><td>Person entering</td><td class="n">Yes</td></tr>
+          <tr><td class="k">Resin batch failed</td><td>Owner</td><td class="n">No</td></tr>
+          <tr><td class="k">Chemical or reinforcement below reorder level</td><td>Store, purchase</td><td class="n">No</td></tr>
+          <tr><td class="k">Despatch more than allocated stock</td><td>Despatch</td><td class="n">Yes</td></tr>
+          <tr><td class="k">Enquiry next action overdue · order stage over its day limit</td><td>Owner of it, then owner</td><td class="n">No</td></tr>
+          <tr><td class="k">Tally push failed · offline save clashed</td><td>Accounts · owner</td><td class="n">No</td></tr>
+        </tbody></table></div>
+        <p class="mod-dek" style="margin-top:10px">In-app first, plus Dermat's morning email. WhatsApp alerts are not in this job.</p>
+      </section>
+
+<!-- ============ OPEN ============ -->
+      <section id="open">
+        <div class="mod-head"><h2>To confirm in week 1</h2><span class="verdict missing">NEEDS CLIENT</span></div>
+        <div class="itemlist">
+          <div class="item missing"><span class="mark">?</span><span class="txt">What Kushan is (920–1240), and the unit of Treated Cloth Weight (1686–2260 against raw 65–347).</span></div>
+          <div class="item missing"><span class="mark">?</span><span class="txt">Is one B-stage lot one cloth row, or one dryer-day? What is written on the lot label?</span></div>
+          <div class="item missing"><span class="mark">?</span><span class="txt">Where methanol, DBP and oleic acid are used, and how resin used in coating is measured.</span></div>
+          <div class="item missing"><span class="mark">?</span><span class="txt">Resin batch NN: per day or per month? Normal batch size (said ~6 T, sample 2,971.5 kg in), and how many batches a day.</span></div>
+          <div class="item missing"><span class="mark">?</span><span class="txt">Thickness tolerance per thickness for the 12-point check.</span></div>
+          <div class="item missing"><span class="mark">?</span><span class="txt">Do mould plates carry a customer? (brief says no, audio suggests yes)</span></div>
+          <div class="item missing"><span class="mark">?</span><span class="txt">What "15×2, 6×1" in the cloth row of the moulding register means.</span></div>
+          <div class="item missing"><span class="mark">?</span><span class="txt">What is written at cutting and trimming today, if anything.</span></div>
+          <div class="item missing"><span class="mark">?</span><span class="txt">Resin and laminate grades: one list or two. Hosting: cloud or plant server.</span></div>
+        </div>
+      </section>
+
+      <section id="deps">
+        <div class="mod-head"><h2>Waiting on the client</h2><span class="verdict missing">BLOCKING</span></div>
+        <div class="tablewrap"><table class="wide"><thead><tr><th>Item</th><th>Blocks</th></tr></thead><tbody>
+          <tr><td class="k">Grades list (resin and laminate)</td><td>Stage 1</td></tr>
+          <tr><td class="k">Mould / die Excel (~3,000 rows)</td><td>Stage 1, Stage 6</td></tr>
+          <tr><td class="k">Moulding job card photo</td><td>Stage 6</td></tr>
+          <tr><td class="k">One week's production plan as written</td><td>Stage 8 plan tile</td></tr>
+          <tr><td class="k">Batch registers and opening stock for all three departments</td><td>Stage 12</td></tr>
+          <tr><td class="k">Test list and a mechanical + electrical report sample</td><td>Stage 7d</td></tr>
+          <tr><td class="k">Full despatch document set for one order · challan</td><td>Stage 9, 11</td></tr>
+          <tr><td class="k">Sample quotation, proforma, PO, B-stage sale invoice</td><td>Stage 10, 11</td></tr>
+          <tr><td class="k">Price lists (small and big size) as photographed</td><td>Stage 1, 10</td></tr>
+          <tr><td class="k">Tally ledgers and fields (office visit with accountant)</td><td>Stage 11</td></tr>
+          <tr><td class="k">Named floor supervisor, two contacts, WhatsApp Business number, data-entry hire</td><td>Stage 2, 10, 12</td></tr>
+        </tbody></table></div>
       </section>
 
       <section id="out">
         <div class="mod-head"><h2>Not in this job</h2><span class="verdict planned">CONTRACTUAL</span></div>
-        <p class="mod-dek">Asking for any of these during the build is a change order: floor tablets (phase 2), PLC or machine links, in-process testing, lab parameter capture, bin locations, replacing Tally, demand forecasting, HR and payroll, per-sheet serial numbers, the EPC company, website and branding, marketing automation.</p>
+        <p class="mod-dek">Floor tablets (phase 2) · PLC or machine links · in-process testing · lab parameter capture · bin locations · replacing Tally · demand forecasting · HR and payroll · per-sheet serial numbers · the EPC company · website and branding · marketing automation · WhatsApp alerts.</p>
       </section>
 
     </main>
@@ -402,8 +1005,8 @@
 
   <div class="closing">
     <h2>The short version</h2>
-    <p>We start from the Dermat system because its order page, stock, purchase and accounts already work and already look the way we want. Stage 0 strips out the cosmetics parts and Dermat's data. Stages 1 to 7 add the plant registers, from resin to finished sheet, in time for the mid-November demo. Stages 8 to 11 rebuild the order page for laminate sales, link Tally, and take the plant live before year-end.</p>
-    <div class="callout good"><strong>Already done:</strong> the Dermat code is saved on its own branch, this copy is cut off from Dermat's GitHub, and all 12 register photos have been read against the brief. They answered four open questions and corrected two details.</div>
-    <div class="callout"><strong>Next:</strong> finish Stage 0 (own database, remove the cosmetics modules, rebrand), then start the masters. The audit recordings from Kheda are being transcribed and will be checked against this plan.</div>
+    <p>Dermat's order page, stock, purchase and accounts carry over as they are. Stage 0 removes the cosmetics parts. Stages 1 to 8 add the plant registers in the order material flows (chemicals, resin, coating, B-stage, press and moulding, cutting and QC), each linked to the next by lot numbers, ready for the mid-November demo. Stages 9 to 12 turn the order page into laminate sales with per-sheet weighment, add enquiries and Tally, and go live.</p>
+    <div class="callout good"><strong>Done:</strong> Dermat saved on its own branch, this copy cut off from Dermat's GitHub, all 12 photos and the short audit recording checked against the brief.</div>
+    <div class="callout"><strong>Next:</strong> finish Stage 0 (own database, remove the cosmetics modules, rebrand). The 43-minute Kheda recording is still being transcribed; anything new from it gets added here.</div>
   </div>
 </div>
