@@ -39,6 +39,7 @@ export const CC_DEPARTMENTS: DepartmentSeed[] = [
       'cc_dashboard.everyone',
       'cc_production.masters.view',
       'cc_production.masters.manage',
+      'cc_production.upload.use',
       'cc_orders.view',
       'cc_orders.full',
       'cc_orders.stages',
@@ -88,7 +89,7 @@ export const CC_DEPARTMENTS: DepartmentSeed[] = [
   {
     name: 'Data entry',
     type: 'production',
-    features: ['cc_production.masters.view', 'cc_production.masters.manage', 'cc_orders.view', 'catalog.products.view', 'attachments.view', 'attachments.manage'],
+    features: ['cc_production.masters.view', 'cc_production.masters.manage', 'cc_production.upload.use', 'cc_orders.view', 'catalog.products.view', 'attachments.view', 'attachments.manage'],
   },
   {
     name: 'Accounts',

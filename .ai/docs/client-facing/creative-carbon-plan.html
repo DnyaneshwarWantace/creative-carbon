@@ -184,7 +184,7 @@
 
 <div class="wrap">
   <header class="hero">
-    <span class="eyebrow">● Detailed build plan · v4 · Stages 0–1 done and tested</span>
+    <span class="eyebrow">● Detailed build plan · v5 · Stages 0–2 done and tested</span>
     <h1>Creative Carbon on the Dermat base: every stage, page, field and link</h1>
     <p class="lede">For each stage this page lists the screens, every field with its type and rule, what the detail page shows, which stage feeds it and which stage it feeds, the stock it moves, and the small things that are easy to miss. Sources are the dev brief, the 12 register photos and the Kheda audit recording. <strong>Anything we had to guess is marked "confirm".</strong></p>
     <div class="facts">
@@ -197,7 +197,7 @@
     <div class="phase-grid">
       <a class="pchip done" href="#s0"><div class="pn">Stage 0<span>Wk 1</span></div><div class="pv">Fork &amp; clean</div></a>
       <a class="pchip done" href="#s1"><div class="pn">Stage 1<span>Wk 2</span></div><div class="pv">Masters</div></a>
-      <a class="pchip" href="#s2"><div class="pn">Stage 2<span>Wk 2</span></div><div class="pv">Bulk upload</div></a>
+      <a class="pchip done" href="#s2"><div class="pn">Stage 2<span>Wk 2</span></div><div class="pv">Bulk upload</div></a>
       <a class="pchip" href="#s3"><div class="pn">Stage 3<span>Wk 3</span></div><div class="pv">Resin · Chemicals</div></a>
       <a class="pchip" href="#s4"><div class="pn">Stage 4<span>Wk 3</span></div><div class="pv">Coating · B-stage</div></a>
       <a class="pchip" href="#s5"><div class="pn">Stage 5<span>Wk 4</span></div><div class="pv">Press</div></a>
@@ -236,7 +236,7 @@
       <p class="rail-title">Stages</p>
       <a href="#s0"><span class="dot done"></span>0 Fork &amp; clean</a>
       <a href="#s1"><span class="dot done"></span>1 Masters</a>
-      <a href="#s2"><span class="dot planned"></span>2 Bulk upload</a>
+      <a href="#s2"><span class="dot done"></span>2 Bulk upload</a>
       <a href="#s3"><span class="dot planned"></span>3 Resin · Chemicals</a>
       <a href="#s4"><span class="dot planned"></span>4 Coating · B-stage</a>
       <a href="#s5"><span class="dot planned"></span>5 Press</a>
@@ -550,7 +550,7 @@
 
 <!-- ============ STAGE 2 ============ -->
       <section id="s2">
-        <div class="mod-head"><h2>Stage 2 · Upload centre</h2><span class="verdict planned">PLANNED</span><span class="when">Week 2, then one tile per register</span></div>
+        <div class="mod-head"><h2>Stage 2 · Upload centre</h2><span class="verdict done">DONE · TESTED</span><span class="when">Week 2, then one tile per register</span></div>
         <p class="mod-dek">The data-entry person's home screen. A framework built once; each register adds its tile as it is built.</p>
         <div class="meta"><span><b>Page</b> /backend/upload · /upload/&lt;register&gt; · /upload/history</span></div>
         <div class="grid2">
@@ -559,6 +559,17 @@
           <div class="box"><h4>Errors</h4><ul><li>Download a file of failed rows with a reason column</li><li>Fix and re-upload just those</li><li>Same file twice never double-posts (register + date + book number)</li></ul></div>
           <div class="box"><h4>Small things</h4><ul><li>"NIL", "-" and blank read as 0</li><li>Dates 2/10/26, 02-10-2026 and 2.10.26 all accepted</li><li>Ditto marks (″ and ,,) in a column copy the row above, as they write on paper</li><li>Upload history kept per file for audit</li></ul></div>
         </div>
+      <h3>What was built</h3>
+        <div class="itemlist">
+          <div class="item done"><span class="mark">✓</span><span class="txt"><b>Upload centre</b> (Overview → Upload centre) with one tile per register, last upload shown on each tile, and an upload history page.</span></div>
+          <div class="item done"><span class="mark">✓</span><span class="txt"><b>Real Excel templates</b> (.xlsx, ExcelJS): columns in register order, required columns marked *, dropdown cells for lists, date pre-filled for dated registers, a "How to fill" sheet.</span></div>
+          <div class="item done"><span class="mark">✓</span><span class="txt"><b>Check, then post</b>: the file is read (Excel or CSV, header row found even with a title above it), every row checked, and a preview shows new / updated / problem rows before anything is saved. Only good rows are posted.</span></div>
+          <div class="item done"><span class="mark">✓</span><span class="txt"><b>Rows to fix</b> come back as an .xlsx with the same columns, the sheet row number and a Reason column.</span></div>
+          <div class="item done"><span class="mark">✓</span><span class="txt"><b>Paper habits</b>: NIL and - read as 0 in number columns, ditto marks (" ,, do) copy the row above, dates like 2/10/26 or 02-10-2026 and times like 9.10 are understood, commas in numbers ignored.</span></div>
+          <div class="item done"><span class="mark">✓</span><span class="txt"><b>No double posting</b>: rows are matched on the register's key (Die No., thickness…), so posting the same file again updates instead of adding; the same file is recognised and flagged.</span></div>
+          <div class="item partial"><span class="mark">→</span><span class="txt">Tiles live now: Moulds &amp; dies, Loading tolerance, Price lists. Each plant register adds its own tile as it is built in Stages 3–7 (resin batch, dryer report, press batch, moulding, cutting, thickness, FG inspection).</span></div>
+        </div>
+        <p class="exit"><b>Tested 7 Oct:</b> type check 0 errors · end-to-end suite Stages 0 + 1 + 2: <b>27 / 27 passing</b> — register list, template columns / dropdowns / how-to sheet, an Excel file with a title row, ditto and NIL checked then posted with problem rows reported (missing Die No., unknown customer), re-posting the same file updates instead of duplicating, rows-to-fix file with a Reason column, CSV and pasted rows, wrong file type and missing columns refused, upload pages open.</p>
       </section>
 
 <!-- ============ STAGE 3 ============ -->

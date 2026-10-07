@@ -69,6 +69,7 @@ export const ACCESS_AREAS: AccessArea[] = [
     abilities: [
       { feature: 'cc_production.masters.view', label: 'See plant masters', short: 'View' },
       { feature: 'cc_production.masters.manage', label: 'Add and change plant masters, import the mould list', short: 'Edit' },
+      { feature: 'cc_production.upload.use', label: 'Use the upload centre (Excel templates and uploads)', short: 'Upload' },
     ],
   },
   {

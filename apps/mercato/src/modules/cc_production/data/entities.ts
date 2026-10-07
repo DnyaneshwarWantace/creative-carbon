@@ -288,3 +288,54 @@ export class PriceRate {
   @Property({ type: 'text', nullable: true })
   notes?: string | null
 }
+
+@Entity({ tableName: 'cc_upload_batches' })
+@Index({ name: 'cc_upload_batches_scope_idx', properties: ['organizationId', 'tenantId', 'registerKey'] })
+export class UploadBatch {
+  [OptionalProps]?: 'createdAt' | 'updatedAt' | 'byName' | 'registerDate' | 'errors'
+
+  @PrimaryKey({ type: 'uuid', defaultRaw: 'gen_random_uuid()' })
+  id!: string
+
+  @Property({ name: 'organization_id', type: 'uuid' })
+  organizationId!: string
+
+  @Property({ name: 'tenant_id', type: 'uuid' })
+  tenantId!: string
+
+  @Property({ name: 'register_key', type: 'text' })
+  registerKey!: string
+
+  @Property({ name: 'file_name', type: 'text' })
+  fileName!: string
+
+  @Property({ name: 'file_hash', type: 'text' })
+  fileHash!: string
+
+  @Property({ name: 'register_date', type: 'text', nullable: true })
+  registerDate?: string | null
+
+  @Property({ name: 'total_rows', type: 'int' })
+  totalRows!: number
+
+  @Property({ name: 'created_rows', type: 'int' })
+  createdRows!: number
+
+  @Property({ name: 'updated_rows', type: 'int' })
+  updatedRows!: number
+
+  @Property({ name: 'failed_rows', type: 'int' })
+  failedRows!: number
+
+  @Property({ type: 'json', nullable: true })
+  errors?: Array<{ row: number; error: string }> | null
+
+  @Property({ name: 'by_name', type: 'text', nullable: true })
+  byName?: string | null
+
+  @Property({ name: 'created_at', type: Date, onCreate: () => new Date() })
+  createdAt: Date = new Date()
+
+  @Property({ name: 'updated_at', type: Date, onCreate: () => new Date(), onUpdate: () => new Date() })
+  updatedAt: Date = new Date()
+}
