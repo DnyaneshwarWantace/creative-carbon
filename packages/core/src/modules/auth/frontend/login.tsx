@@ -11,6 +11,7 @@ import { EmailInput } from '@open-mercato/ui/primitives/email-input'
 import { PasswordInput } from '@open-mercato/ui/primitives/password-input'
 import { Label } from '@open-mercato/ui/primitives/label'
 import { Button } from '@open-mercato/ui/primitives/button'
+import { Spinner } from '@open-mercato/ui/primitives/spinner'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { translateWithFallback } from '@open-mercato/shared/lib/i18n/translate'
 import { clearAllOperations } from '@open-mercato/ui/backend/operations/store'
@@ -270,11 +271,12 @@ export default function LoginPage() {
         clearAllOperations()
         clearAllPerspectiveState()
         notifyAuthIdentityChange()
-        // NextResponse.redirect from API
+        // NextResponse.redirect from API - keep submitting true during page navigation
         router.replace(res.url)
         return
       }
       if (!res.ok) {
+        setSubmitting(false)
         const fallback = (() => {
           if (res.status === 403) {
             return translate(
@@ -327,13 +329,15 @@ export default function LoginPage() {
       notifyAuthIdentityChange()
       if (data && typeof data.redirect === 'string' && data.redirect.length > 0) {
         router.replace(data.redirect)
+      } else {
+        router.replace('/backend')
       }
+      // Keep submitting=true while the dashboard is compiling and navigating
     } catch (err: unknown) {
+      setSubmitting(false)
       // Handle any errors thrown (e.g., network errors or thrown exceptions)
       const message = err instanceof Error ? err.message : ''
       setError(message || translate('auth.login.errors.generic', 'An error occurred. Please try again.'))
-    } finally {
-      setSubmitting(false)
     }
   }
 
@@ -429,6 +433,7 @@ export default function LoginPage() {
                   id="email"
                   name="email"
                   required
+                  disabled={submitting}
                   aria-invalid={!!error}
                   onChange={(e) => setEmail(e.target.value)}
                   onBlur={(e) => setEmail(e.target.value)}
@@ -441,21 +446,38 @@ export default function LoginPage() {
               {authOverride?.hidePassword ? null : (
                 <div className="grid gap-1">
                   <Label htmlFor="password">{t('auth.password')}</Label>
-                  <PasswordInput id="password" name="password" required={!authOverride} aria-invalid={!!error} autoComplete="current-password" />
+                  <PasswordInput
+                    id="password"
+                    name="password"
+                    required={!authOverride}
+                    disabled={submitting}
+                    aria-invalid={!!error}
+                    autoComplete="current-password"
+                  />
                 </div>
               )}
               {!authOverride?.hideRememberMe && !authOverride?.hidePassword && (
                 <label className="flex items-center gap-2 text-xs text-muted-foreground">
-                  <input type="checkbox" name="remember" className="accent-foreground" />
+                  <input
+                    type="checkbox"
+                    name="remember"
+                    disabled={submitting}
+                    className="accent-foreground disabled:opacity-50"
+                  />
                   <span>{translate('auth.login.rememberMe', 'Remember me')}</span>
                 </label>
               )}
-              <Button type="submit" disabled={submitting || !formReady} className="h-10 mt-2 font-bold">
-                {submitting
-                  ? translate('auth.login.loading', 'Loading...')
-                  : authOverride
-                    ? authOverride.providerLabel
-                    : translate('auth.signIn', 'Sign in to Dermat India')}
+              <Button type="submit" disabled={submitting || !formReady} className="h-10 mt-2 font-bold flex items-center justify-center gap-2">
+                {submitting ? (
+                  <>
+                    <Spinner size="sm" className="border-primary-foreground/30 border-t-primary-foreground" />
+                    <span>{translate('auth.login.loading', 'Signing in...')}</span>
+                  </>
+                ) : authOverride ? (
+                  authOverride.providerLabel
+                ) : (
+                  translate('auth.signIn', 'Sign in to Dermat India')
+                )}
               </Button>
 
             </form>

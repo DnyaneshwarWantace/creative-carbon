@@ -1,3 +1,4 @@
+import { resolveOrderAccess, visibleStageData } from '../../../lib/visibility'
 import { NextResponse } from 'next/server'
 import { canSeeMoney, isMoneyStageField, withoutMoneyFields } from '../../../lib/money'
 import { z } from 'zod'
@@ -9,7 +10,7 @@ import { orderFilter } from '../../../lib/orderFilter'
 import { orderListQuerySchema } from '../../../data/validators'
 import { priceOrder } from '../../../lib/pricing'
 import { paymentsFor, received } from '../../../../dermat_accounts/lib/service'
-import { withStageOverrides } from '../../../lib/stageSettings'
+import { loadStageOverrides, withStageOverrides } from '../../../lib/stageSettings'
 
 export const metadata = {
   GET: { requireAuth: true, requireFeatures: ['dermat_orders.view'] },
@@ -95,10 +96,13 @@ async function GET(req: Request) {
         .join('; ')
     const pieces = (orderId: string) => lines.filter((line) => line.orderId === orderId).reduce((sum, line) => sum + Number(line.quantity), 0)
     const money = await canSeeMoney(ctx)
+    const access = await resolveOrderAccess(ctx)
+    const overrides = access.full ? undefined : await loadStageOverrides(ctx)
     const stageOf = (orderId: string, key: string): DermatOrderStage | undefined => {
       const stage = stages.find((entry) => entry.orderId === orderId && entry.stageKey === key)
-      if (!stage || money) return stage
-      return Object.assign(Object.create(Object.getPrototypeOf(stage)) as DermatOrderStage, stage, { data: withoutMoneyFields(key, (stage.data as Record<string, unknown>) ?? {}) })
+      if (!stage || (money && access.full)) return stage
+      const priced = money ? ((stage.data as Record<string, unknown>) ?? {}) : withoutMoneyFields(key, (stage.data as Record<string, unknown>) ?? {})
+      return Object.assign(Object.create(Object.getPrototypeOf(stage)) as DermatOrderStage, stage, { data: visibleStageData(access, key, priced, overrides) })
     }
     let rows: unknown[][]
     let name: string

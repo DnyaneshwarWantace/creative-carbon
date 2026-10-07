@@ -213,6 +213,56 @@ export const LIST_DEFS: ListDef[] = [
     defaults: ['Raw material supplier', 'Packing material supplier', 'RM and PM supplier'],
     fixed: 'Decides which store a vendor delivers to.',
   },
+  {
+    key: 'rnd_product_types',
+    label: 'R&D product types',
+    department: 'R&D',
+    usedIn: 'R&D request',
+    defaults: ['Serum', 'Cream', 'Lotion', 'Gel', 'Face wash', 'Cleanser', 'Toner', 'Sunscreen', 'Shampoo', 'Conditioner', 'Hair oil', 'Mask', 'Scrub', 'Lip care', 'Body wash', 'Body butter'],
+  },
+  {
+    key: 'rnd_formula_phases',
+    label: 'Formula phases',
+    department: 'R&D',
+    usedIn: 'R&D trial formula',
+    defaults: ['A · Water phase', 'B · Oil phase', 'C · Cool-down', 'D · Actives', 'E · Fragrance and preservative'],
+  },
+  {
+    key: 'rnd_ingredient_functions',
+    label: 'Ingredient functions',
+    department: 'R&D',
+    usedIn: 'R&D trial formula',
+    defaults: ['Solvent', 'Humectant', 'Emollient', 'Emulsifier', 'Thickener', 'Active', 'Preservative', 'Fragrance', 'Colour', 'pH adjuster', 'Chelating agent', 'Antioxidant', 'Surfactant', 'Conditioning agent', 'UV filter'],
+  },
+  {
+    key: 'rnd_test_parameters',
+    label: 'R&D lab test parameters',
+    department: 'R&D',
+    usedIn: 'R&D trial lab results',
+    defaults: ['Description', 'Appearance', 'Colour', 'Odour', 'Texture', 'pH', 'Viscosity (cps)', 'Specific gravity', 'Spreadability'],
+  },
+  {
+    key: 'rnd_stability_conditions',
+    label: 'Stability conditions',
+    department: 'R&D',
+    usedIn: 'R&D stability study',
+    defaults: ['45 °C', '40 °C / 75% RH', 'Room temperature', '4 °C', 'Freeze-thaw', 'Light'],
+  },
+  {
+    key: 'rnd_stability_checkpoints',
+    label: 'Stability checkpoints (days)',
+    department: 'R&D',
+    usedIn: 'R&D stability study',
+    defaults: ['0', '7', '14', '30', '60', '90'],
+    fixed: 'Numbers of days from the start of the study.',
+  },
+  {
+    key: 'rnd_stability_parameters',
+    label: 'Stability checks',
+    department: 'R&D',
+    usedIn: 'R&D stability readings',
+    defaults: ['Appearance', 'Colour', 'Odour', 'pH', 'Viscosity (cps)', 'Phase separation'],
+  },
 ]
 
 export const LIST_KEYS = LIST_DEFS.map((def) => def.key)

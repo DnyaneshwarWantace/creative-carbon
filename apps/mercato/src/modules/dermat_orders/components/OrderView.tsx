@@ -12,6 +12,7 @@ import { cn } from '@open-mercato/shared/lib/utils'
 import { Page, PageBody } from '@open-mercato/ui/backend/Page'
 import { Button } from '@open-mercato/ui/primitives/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@open-mercato/ui/primitives/card'
+import { HorizontalScroll } from '@open-mercato/ui/primitives/drag-scroll'
 import { Textarea } from '@open-mercato/ui/primitives/textarea'
 import { StatusBadge } from '@open-mercato/ui/primitives/status-badge'
 import { SegmentedControl, SegmentedControlItem } from '@open-mercato/ui/primitives/segmented-control'
@@ -85,14 +86,15 @@ function StageCard({ order, stage, onOpen }: { order: Order; stage: Stage; onOpe
       className={cn(
         'w-full rounded-lg border p-2.5 text-left transition-shadow',
         stage.status === 'waiting' ? 'cursor-default' : 'hover:shadow-sm',
-        stage.status === 'open' && 'ring-2 ring-status-warning-border',
+        stage.status === 'open' && !stage.locked && 'ring-2 ring-status-warning-border',
+        stage.locked && 'opacity-80',
         STAGE_TONE[stage.status] ?? STAGE_TONE.waiting,
       )}
     >
       <div className="flex items-start justify-between gap-1">
         <span className="text-xs font-semibold leading-tight">{stage.label}</span>
         {stage.status === 'done' ? <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-status-success-icon" /> : null}
-        {stage.status === 'waiting' ? <Lock className="h-3 w-3 shrink-0 text-muted-foreground" /> : null}
+        {stage.status === 'waiting' || stage.locked ? <Lock className="h-3 w-3 shrink-0 text-muted-foreground" aria-label={stage.locked ? t('dermat_orders.locked.with', 'Details with {department}', { department: stage.department }) : undefined} /> : null}
       </div>
       <div className="mt-1 text-xs text-muted-foreground">{stage.department}</div>
       <div className="mt-1.5 truncate text-xs">
@@ -171,6 +173,19 @@ export function OrderView({ orderId }: { orderId: string }) {
     }
     setOrder(call.result)
   }, [orderId, t])
+
+  React.useEffect(() => {
+    const asked = searchParams?.get('stage')
+    if (!order || !asked || !order.access || order.access.full) return
+    router.replace(`/backend/orders/${order.id}/stages/${asked}`)
+  }, [order, searchParams, router])
+
+  React.useEffect(() => {
+    if (!order || openStage || !order.access || order.access.full) return
+    const mine = order.stages.filter((stage) => !stage.locked)
+    const focus = mine.find((stage) => stage.status === 'open' || stage.status === 'on_hold') ?? mine.find((stage) => stage.status !== 'waiting')
+    if (focus) setOpenStage(focus.key)
+  }, [order, openStage])
 
   React.useEffect(() => {
     load()
@@ -259,7 +274,8 @@ export function OrderView({ orderId }: { orderId: string }) {
   const totalPieces = order.lines.reduce((sum, line) => sum + line.quantity, 0)
   const shortCount = file ? (file.open ? file.summary.short + (file.summary.reserveProblems ?? 0) : 0) : null
   const statusLabel = t(`dermat_orders.status.${order.status}`, order.status)
-  const attention = orderAttention(order, shortCount, t)
+  const limited = Boolean(order.access && !order.access.full)
+  const attention = orderAttention(order, shortCount, t).filter((item) => !limited || (item.action?.stageKey ? !stagesByKey.get(item.action.stageKey)?.locked : false))
   const goToStage = (key: string) => {
     setTab('work')
     setOpenStage(key)
@@ -291,9 +307,13 @@ export function OrderView({ orderId }: { orderId: string }) {
                 {order.orderType !== 'new' ? <StatusBadge variant="info">{t(`dermat_orders.type.${order.orderType}`, order.orderType)}</StatusBadge> : null}
               </div>
               <p className="text-sm">
-                <Link href={`/backend/customers/companies/${order.customerId}`} className="font-semibold text-primary hover:underline">
-                  {order.customer?.name || t('dermat_orders.view.customer', 'Customer')}
-                </Link>
+                {limited ? (
+                  <span className="font-semibold">{order.customer?.name || t('dermat_orders.view.customer', 'Customer')}</span>
+                ) : (
+                  <Link href={`/backend/customers/companies/${order.customerId}`} className="font-semibold text-primary hover:underline">
+                    {order.customer?.name || t('dermat_orders.view.customer', 'Customer')}
+                  </Link>
+                )}
                 <span className="text-muted-foreground">
                   {' · '}
                   {t('dermat_orders.view.progress', '{done} of {total} stages done', { done, total: order.stages.length })}
@@ -302,7 +322,7 @@ export function OrderView({ orderId }: { orderId: string }) {
               </p>
             </div>
             <div className="flex flex-wrap items-center gap-2">
-              <WhatsAppMenu phone={order.customer?.phone} recipient={order.customer?.name ?? t('dermat_orders.view.customer', 'Customer')} messages={customerMessages(order)} />
+              {limited ? null : <WhatsAppMenu phone={order.customer?.phone} recipient={order.customer?.name ?? t('dermat_orders.view.customer', 'Customer')} messages={customerMessages(order)} />}
               <ExportButton
                 size="sm"
                 label={t('dermat_orders.view.export', 'Export order file')}
@@ -340,42 +360,44 @@ export function OrderView({ orderId }: { orderId: string }) {
                 {t('dermat_orders.view.stagesHint', 'Green = done · Orange = in progress · Red = on hold · Grey = coming. Click a stage to open its work.')}
               </CardDescription>
             </CardHeader>
-            <CardContent className="overflow-x-auto p-4">
-              <div className="flex min-w-max items-stretch gap-2">
-                {RAIL.map((block, index) => (
-                  <React.Fragment key={block.kind === 'single' ? block.key : 'arms'}>
-                    {index > 0 ? <div className="flex items-center text-muted-foreground">›</div> : null}
-                    {block.kind === 'single' ? (
-                      <div className="flex w-36 flex-col justify-center">
-                        {stagesByKey.get(block.key) ? (
-                          <StageCard order={order} stage={stagesByKey.get(block.key)!} onOpen={() => goToStage(block.key)} />
-                        ) : null}
-                      </div>
-                    ) : (
-                      <div className="flex flex-col gap-2 rounded-lg border border-dashed p-2">
-                        {block.lanes.map((lane) => (
-                          <div key={lane.label} className="flex items-center gap-2">
-                            <span className="w-20 shrink-0 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                              {t(`dermat_orders.rail.lane.${lane.keys[0]}`, lane.label)}
-                            </span>
-                            {lane.keys.map((key, laneIndex) => (
-                              <React.Fragment key={key}>
-                                {laneIndex > 0 ? <span className="text-muted-foreground">›</span> : null}
-                                <div className="w-36">
-                                  {stagesByKey.get(key) ? <StageCard order={order} stage={stagesByKey.get(key)!} onOpen={() => goToStage(key)} /> : null}
-                                </div>
-                              </React.Fragment>
-                            ))}
-                          </div>
-                        ))}
-                        <span className="text-center text-xs text-muted-foreground">
-                          {t('dermat_orders.rail.merge', 'Both arms must finish before Manufacturing')}
-                        </span>
-                      </div>
-                    )}
-                  </React.Fragment>
-                ))}
-              </div>
+            <CardContent className="p-3">
+              <HorizontalScroll showButtons showGradients step={340}>
+                <div className="flex min-w-max items-stretch gap-2 py-1 px-1">
+                  {RAIL.map((block, index) => (
+                    <React.Fragment key={block.kind === 'single' ? block.key : 'arms'}>
+                      {index > 0 ? <div className="flex items-center text-muted-foreground">›</div> : null}
+                      {block.kind === 'single' ? (
+                        <div className="flex w-36 flex-col justify-center">
+                          {stagesByKey.get(block.key) ? (
+                            <StageCard order={order} stage={stagesByKey.get(block.key)!} onOpen={() => goToStage(block.key)} />
+                          ) : null}
+                        </div>
+                      ) : (
+                        <div className="flex flex-col gap-2 rounded-lg border border-dashed p-2">
+                          {block.lanes.map((lane) => (
+                            <div key={lane.label} className="flex items-center gap-2">
+                              <span className="w-20 shrink-0 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                                {t(`dermat_orders.rail.lane.${lane.keys[0]}`, lane.label)}
+                              </span>
+                              {lane.keys.map((key, laneIndex) => (
+                                <React.Fragment key={key}>
+                                  {laneIndex > 0 ? <span className="text-muted-foreground">›</span> : null}
+                                  <div className="w-36">
+                                    {stagesByKey.get(key) ? <StageCard order={order} stage={stagesByKey.get(key)!} onOpen={() => goToStage(key)} /> : null}
+                                  </div>
+                                </React.Fragment>
+                              ))}
+                            </div>
+                          ))}
+                          <span className="text-center text-xs text-muted-foreground">
+                            {t('dermat_orders.rail.merge', 'Both arms must finish before Manufacturing')}
+                          </span>
+                        </div>
+                      )}
+                    </React.Fragment>
+                  ))}
+                </div>
+              </HorizontalScroll>
             </CardContent>
           </Card>
 
@@ -385,7 +407,7 @@ export function OrderView({ orderId }: { orderId: string }) {
                 <SegmentedControlItem value="work">{t('dermat_orders.view.tabWork', 'Stage work')}</SegmentedControlItem>
                 <SegmentedControlItem value="products">{t('dermat_orders.view.tabProducts', 'Products & specs')}</SegmentedControlItem>
                 <SegmentedControlItem value="materials">{t('dermat_orders.view.tabMaterials', 'Materials')}</SegmentedControlItem>
-                <SegmentedControlItem value="record">{t('dermat_orders.view.tabRecord', 'Order record')}</SegmentedControlItem>
+                {limited ? null : <SegmentedControlItem value="record">{t('dermat_orders.view.tabRecord', 'Order record')}</SegmentedControlItem>}
                 <SegmentedControlItem value="documents">{t('dermat_orders.view.tabDocuments', 'Documents')}</SegmentedControlItem>
                 {order.canSeeMoney ? <SegmentedControlItem value="money">{t('dermat_orders.view.tabMoney', 'Money')}</SegmentedControlItem> : null}
                 <SegmentedControlItem value="history">{t('dermat_orders.view.tabHistory', 'History')}</SegmentedControlItem>
@@ -461,8 +483,8 @@ export function OrderView({ orderId }: { orderId: string }) {
           </Card>
               ) : null}
               {tab === 'materials' ? <MaterialsAccount file={file} order={order} /> : null}
-              {tab === 'record' ? <OrderRecord file={file} /> : null}
-              {tab === 'documents' ? <DocumentsOverview order={order} onStage={goToStage} /> : null}
+              {tab === 'record' && !limited ? <OrderRecord file={file} /> : null}
+              {tab === 'documents' ? <DocumentsOverview order={limited ? { ...order, stages: order.stages.filter((stage) => !stage.locked) } : order} onStage={goToStage} /> : null}
               {tab === 'money' && order.canSeeMoney ? <OrderMoneyCard order={order} onChanged={load} /> : null}
               {tab === 'history' ? <OrderHistory events={order.events} /> : null}
             </div>
@@ -521,9 +543,11 @@ export function OrderView({ orderId }: { orderId: string }) {
             </Info>
             <Info label={t('dermat_orders.view.pieces', 'Total pieces')}>{formatQty(totalPieces, 0)}</Info>
             <Info label={t('dermat_orders.view.salesManager', 'Sales manager')}>{order.salesManager ?? '—'}</Info>
-            <Info label={t('dermat_orders.view.payment', 'Payment')}>
-              {[paymentTermLabel(order.paymentTerms), order.paymentRemarks].filter(Boolean).join(' · ') || '—'}
-            </Info>
+            {order.paymentTerms || order.paymentRemarks ? (
+              <Info label={t('dermat_orders.view.payment', 'Payment')}>
+                {[paymentTermLabel(order.paymentTerms), order.paymentRemarks].filter(Boolean).join(' · ')}
+              </Info>
+            ) : null}
             <Info label={t('dermat_orders.view.po', 'Customer PO')}>{order.customerPoRef ?? '—'}</Info>
               </section>
             </aside>

@@ -83,6 +83,7 @@ export const stageSettingSchema = z.object({
   reopenHours: z.coerce.number().int().min(0).max(720).optional().nullable(),
   hiddenSteps: z.array(settingKey).max(30).default([]),
   requiredFields: z.array(settingKey).max(40).default([]),
+  sharedFields: z.array(settingKey).max(60).optional().nullable(),
   extraFields: z
     .array(
       z.object({

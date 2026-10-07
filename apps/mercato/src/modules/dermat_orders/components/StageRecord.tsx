@@ -12,6 +12,7 @@ import { StageWorkArea, type StageActionRequest } from './StageSheet'
 import { subStageProgress } from './subStages'
 import type { Order, Stage } from './types'
 import { StageFileDetails, type OrderFileData } from './OrderFile'
+import { LockedNote, SharedStageFields, lockedStatusText } from './LockedStageRow'
 
 type Props = {
   order: Order
@@ -144,6 +145,7 @@ function DoneSummary({ order, stage, file }: { order: Order; stage: Stage; file:
 
 export function StageRecord({ order, file, people, busy, shortCount, focusKey, onAction }: Props) {
   const t = useT()
+  const limited = Boolean(order.access && !order.access.full)
   const [expanded, setExpanded] = React.useState<Set<string>>(new Set())
 
   React.useEffect(() => {
@@ -163,9 +165,11 @@ export function StageRecord({ order, file, people, busy, shortCount, focusKey, o
   return (
     <section className="overflow-hidden rounded-lg border bg-card shadow-sm">
       <header className="border-b bg-muted/20 px-4 py-3">
-        <h2 className="text-sm font-bold">{t('dermat_orders.record.title', 'Order file: every stage on one page')}</h2>
+        <h2 className="text-sm font-bold">{limited ? t('dermat_orders.record.titleMine', 'Your work on this order') : t('dermat_orders.record.title', 'Order file: every stage on one page')}</h2>
         <p className="text-xs text-muted-foreground">
-          {t('dermat_orders.record.hint', 'Finished stages keep everything that was filled in. The stage in progress is open below: finish it here and the next stage opens.')}
+          {limited
+            ? t('dermat_orders.record.hintMine', 'Your stages open in full. Other departments\' stages show only where they are and the details they share.')
+            : t('dermat_orders.record.hint', 'Finished stages keep everything that was filled in. The stage in progress is open below: finish it here and the next stage opens.')}
         </p>
       </header>
       <ol className="relative">
@@ -175,6 +179,22 @@ export function StageRecord({ order, file, people, busy, shortCount, focusKey, o
           const finished = stage.status === 'done' || stage.status === 'skipped'
           const isOpen = working || expanded.has(stage.key)
           const waitingFor = (def?.after ?? []).map((key) => order.stages.find((entry) => entry.key === key)).filter((entry): entry is Stage => Boolean(entry) && entry!.status !== 'done' && entry!.status !== 'skipped')
+          if (stage.locked) {
+            return (
+              <li key={stage.key} id={`stage-row-${stage.key}`} className={cn('flex scroll-mt-4 items-center gap-4 border-b px-4 py-2 last:border-b-0', stage.status === 'waiting' && 'opacity-60')}>
+                <StatusIcon status={stage.status} />
+                <span className="flex min-w-0 flex-1 flex-col gap-1">
+                  <span className="flex flex-wrap items-center gap-2">
+                    <span className="text-xs tabular-nums text-muted-foreground">{index + 1}</span>
+                    <span className="font-semibold">{stage.label}</span>
+                    <span className="text-xs text-muted-foreground">{lockedStatusText(stage, t)}</span>
+                  </span>
+                  <SharedStageFields stage={stage} />
+                </span>
+                {stage.status !== 'waiting' ? <LockedNote department={stage.department} /> : null}
+              </li>
+            )
+          }
           return (
             <li key={stage.key} id={`stage-row-${stage.key}`} className={cn('relative scroll-mt-4 border-b last:border-b-0', working && 'bg-status-warning-bg/30', stage.status === 'waiting' && 'opacity-60')}>
               <button

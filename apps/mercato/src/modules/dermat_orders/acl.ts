@@ -1,6 +1,7 @@
 export const features = [
   { id: 'dermat_orders.view', title: 'View orders', module: 'dermat_orders' },
   { id: 'dermat_orders.manage', title: 'Create and edit orders', module: 'dermat_orders', dependsOn: ['dermat_orders.view'] },
+  { id: 'dermat_orders.full', title: 'Open the full order: every stage and its details (others see only their own stages)', module: 'dermat_orders', dependsOn: ['dermat_orders.view'] },
   { id: 'dermat_orders.money', title: 'See order prices, totals and payments', module: 'dermat_orders', dependsOn: ['dermat_orders.view'] },
   { id: 'dermat_orders.stages', title: 'Work on order stages', module: 'dermat_orders', dependsOn: ['dermat_orders.view'] },
   { id: 'dermat_orders.work.accounts', title: 'Accounts work: advance and billing stages', module: 'dermat_orders', dependsOn: ['dermat_orders.stages'] },

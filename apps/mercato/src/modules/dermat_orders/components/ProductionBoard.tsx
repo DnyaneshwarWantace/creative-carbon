@@ -9,6 +9,7 @@ import { Page, PageBody } from '@open-mercato/ui/backend/Page'
 import { ErrorMessage, LoadingMessage } from '@open-mercato/ui/backend/detail'
 import { Button } from '@open-mercato/ui/primitives/button'
 import { SegmentedControl, SegmentedControlItem } from '@open-mercato/ui/primitives/segmented-control'
+import { HorizontalScroll } from '@open-mercato/ui/primitives/drag-scroll'
 import { apiCall } from '@open-mercato/ui/backend/utils/apiCall'
 import { formatDate, formatQty } from './format'
 
@@ -82,8 +83,8 @@ export function ProductionBoard() {
           {!data && !error ? <LoadingMessage label={t('dermat_orders.board.loading', 'Loading…')} /> : null}
 
           {data && tab === 'board' ? (
-            <div className="overflow-x-auto pb-2">
-              <div className="flex min-w-max gap-3">
+            <HorizontalScroll showButtons showGradients step={280} className="pb-2">
+              <div className="flex min-w-max gap-3 py-1">
                 {data.columns.map((column) => {
                   const cards = data.cards.filter((card) => card.column === column.key)
                   return (
@@ -119,7 +120,7 @@ export function ProductionBoard() {
                   )
                 })}
               </div>
-            </div>
+            </HorizontalScroll>
           ) : null}
 
           {data && tab === 'schedule' ? (

@@ -5,7 +5,7 @@ import type { OpenApiRouteDoc } from '@open-mercato/shared/lib/openapi'
 import { BomHeader } from '../../data/entities'
 import { bomCreateSchema, bomListQuerySchema, bomUpdateSchema } from '../../data/validators'
 import { BOM_KINDS } from '../../lib/bomKinds'
-import { BomError, findBom, replaceItems, resolveProductKind, serializeBom, validateItems } from '../../lib/service'
+import { BomError, createDraftBom, findBom, prepareDraftBom, replaceItems, resolveProductKind, serializeBom, validateItems } from '../../lib/service'
 import { currentUserName, nextBomCode, resolveBomContext } from '../../lib/server'
 import { bomErrorResponse, enforceBomLock, runGuarded } from '../../lib/guard'
 
@@ -125,45 +125,9 @@ async function POST(req: Request) {
   if (!parsed.success) return NextResponse.json({ error: 'Invalid BOM', details: parsed.error.flatten() }, { status: 400 })
   const input = parsed.data
   try {
-    const { product, kind } = await resolveProductKind(ctx, input.productId)
-    const existingDraft = await ctx.em.findOne(BomHeader, {
-      productId: input.productId,
-      orderId: null,
-      status: 'draft',
-      tenantId: ctx.tenantId,
-      organizationId: ctx.organizationId,
-      deletedAt: null,
-    })
-    if (existingDraft) throw new BomError('This product already has a draft BOM', 409, { id: existingDraft.id })
-    const items = await validateItems(ctx, kind, input.productId, input.items)
-    const latest = await ctx.em.findOne(
-      BomHeader,
-      { productId: input.productId, tenantId: ctx.tenantId, organizationId: ctx.organizationId, deletedAt: null },
-      { orderBy: { version: 'desc' } },
-    )
+    const prepared = await prepareDraftBom(ctx, input)
     return await runGuarded(ctx, req, { resourceId: input.productId, operation: 'create', payload: input }, async () => {
-      const createdByName = await currentUserName(ctx)
-      const bom = await ctx.em.transactional(async (em) => {
-        const txCtx = { ...ctx, em: em as EntityManager }
-        const header = em.create(BomHeader, {
-          organizationId: ctx.organizationId,
-          tenantId: ctx.tenantId,
-          code: await nextBomCode(txCtx),
-          productId: input.productId,
-          productKind: product.kind ?? '',
-          version: (latest?.version ?? 0) + 1,
-          status: 'draft',
-          batchSize: String(input.batchSize),
-          batchUnit: BOM_KINDS[kind].defaultBatchUnit ?? product.unit ?? 'kg',
-          notes: input.notes?.trim() || null,
-          createdByName,
-        })
-        em.persist(header)
-        await em.flush()
-        await replaceItems(txCtx, header, kind, items)
-        await em.flush()
-        return header
-      })
+      const bom = await createDraftBom(ctx, input, prepared)
       return NextResponse.json({ id: bom.id, code: bom.code }, { status: 201 })
     })
   } catch (error) {

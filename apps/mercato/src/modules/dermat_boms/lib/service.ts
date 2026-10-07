@@ -1,7 +1,8 @@
 import { BomHeader, BomItem } from '../data/entities'
 import type { BomItemInput } from '../data/validators'
 import { BOM_KINDS, PERCENT_TOLERANCE, PERCENT_TOTAL, batchQuantity, bomKindForProduct, fillToBulkQuantity, type BomKind } from './bomKinds'
-import { loadProducts, loadStock, type BomRequestContext, type ProductSummary } from './server'
+import type { EntityManager } from '@mikro-orm/postgresql'
+import { currentUserName, loadProducts, loadStock, nextBomCode, type BomRequestContext, type ProductSummary } from './server'
 
 export class BomError extends Error {
   constructor(
@@ -249,4 +250,51 @@ export function assertReadyToApprove(kind: BomKind, items: Array<{ value: number
       throw new BomError(`RM % must total 100 before approving (now ${total})`)
     }
   }
+}
+
+export type DraftBomInput = { productId: string; batchSize: number; notes?: string | null; items: BomItemInput[] }
+
+export async function prepareDraftBom(ctx: BomRequestContext, input: DraftBomInput) {
+  const { product, kind } = await resolveProductKind(ctx, input.productId)
+  const existingDraft = await ctx.em.findOne(BomHeader, {
+    productId: input.productId,
+    orderId: null,
+    status: 'draft',
+    tenantId: ctx.tenantId,
+    organizationId: ctx.organizationId,
+    deletedAt: null,
+  })
+  if (existingDraft) throw new BomError('This product already has a draft BOM', 409, { id: existingDraft.id })
+  const items = await validateItems(ctx, kind, input.productId, input.items)
+  return { product, kind, items }
+}
+
+export async function createDraftBom(ctx: BomRequestContext, input: DraftBomInput, prepared: Awaited<ReturnType<typeof prepareDraftBom>>): Promise<BomHeader> {
+  const latest = await ctx.em.findOne(
+    BomHeader,
+    { productId: input.productId, tenantId: ctx.tenantId, organizationId: ctx.organizationId, deletedAt: null },
+    { orderBy: { version: 'desc' } },
+  )
+  const createdByName = await currentUserName(ctx)
+  return ctx.em.transactional(async (em) => {
+    const txCtx = { ...ctx, em: em as EntityManager }
+    const header = em.create(BomHeader, {
+      organizationId: ctx.organizationId,
+      tenantId: ctx.tenantId,
+      code: await nextBomCode(txCtx),
+      productId: input.productId,
+      productKind: prepared.product.kind ?? '',
+      version: (latest?.version ?? 0) + 1,
+      status: 'draft',
+      batchSize: String(input.batchSize),
+      batchUnit: BOM_KINDS[prepared.kind].defaultBatchUnit ?? prepared.product.unit ?? 'kg',
+      notes: input.notes?.trim() || null,
+      createdByName,
+    })
+    em.persist(header)
+    await em.flush()
+    await replaceItems(txCtx, header, prepared.kind, prepared.items)
+    await em.flush()
+    return header
+  })
 }

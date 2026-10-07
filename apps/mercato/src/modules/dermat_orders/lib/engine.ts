@@ -1,3 +1,4 @@
+import { canReadStage, resolveOrderAccess, trimEvents, trimStages } from './visibility'
 import { RdRequest } from '../../dermat_rnd/data/entities'
 import { DermatOrder, DermatOrderEvent, DermatOrderLine, DermatOrderStage, type FieldChange } from '../data/entities'
 import type { StageActionInput } from '../data/validators'
@@ -659,14 +660,33 @@ export async function serializeOrder(ctx: OrderContext, order: DermatOrder) {
       at: event.createdAt.toISOString(),
     })),
   }
-  if (money) return { ...view, canSeeMoney: true }
+  const access = await resolveOrderAccess(ctx)
+  const priced = money
+    ? { ...view, canSeeMoney: true }
+    : {
+        ...view,
+        canSeeMoney: false,
+        lines: view.lines.map((line) => ({ ...line, rate: null, discountPercent: null, price: null })),
+        totals: null,
+        payments: null,
+        stages: view.stages.map((stage) => ({ ...stage, data: withoutMoneyFields(stage.key, stage.data) })),
+        events: view.events.map((event) => ({ ...event, note: isMoneyEvent(event.action) ? null : event.note, changes: event.changes.filter((change) => !event.stageKey || !isMoneyStageField(event.stageKey, change.key)) })),
+      }
+  const accessView = { full: access.full, stages: Array.from(access.stages) }
+  if (access.full) return { ...priced, access: accessView, stages: priced.stages.map((stage) => ({ ...stage, locked: false })) }
+  const contact = access.accounts || access.dispatch
+  const customer = priced.customer
   return {
-    ...view,
-    canSeeMoney: false,
-    lines: view.lines.map((line) => ({ ...line, rate: null, discountPercent: null, price: null })),
-    totals: null,
-    payments: null,
-    stages: view.stages.map((stage) => ({ ...stage, data: withoutMoneyFields(stage.key, stage.data) })),
-    events: view.events.map((event) => ({ ...event, note: isMoneyEvent(event.action) ? null : event.note, changes: event.changes.filter((change) => !event.stageKey || !isMoneyStageField(event.stageKey, change.key)) })),
+    ...priced,
+    access: accessView,
+    customer: customer ? (contact ? customer : { ...customer, gstin: null, phone: null, email: null, paymentTerms: null, paymentRemarks: null }) : null,
+    paymentTerms: access.accounts ? priced.paymentTerms : null,
+    paymentRemarks: access.accounts ? priced.paymentRemarks : null,
+    billingRemarks: access.accounts ? priced.billingRemarks : null,
+    billingAddress: access.accounts ? priced.billingAddress : null,
+    shippingAddress: contact ? priced.shippingAddress : null,
+    stages: trimStages(access, priced.stages, overrides),
+    events: trimEvents(access, priced.events),
+    qc: Object.fromEntries(Object.entries(priced.qc).filter(([key]) => canReadStage(access, key))),
   }
 }

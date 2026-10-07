@@ -8,7 +8,7 @@ import { DermatStageSetting } from '../../data/entities'
 import { stageSettingSchema } from '../../data/validators'
 import { currentUserName, resolveOrderContext, type OrderContext } from '../../lib/server'
 import { overrideOf } from '../../lib/stageSettings'
-import { DEFAULT_REOPEN_HOURS, EXTRA_FIELD_TYPES, LOCKED_STEPS, STAGES, STAGE_DAY_LIMIT, STAGE_DOCUMENTS } from '../../lib/stages'
+import { DEFAULT_REOPEN_HOURS, DEFAULT_SHARED_FIELDS, EXTRA_FIELD_TYPES, LOCKED_STEPS, STAGES, STAGE_DAY_LIMIT, STAGE_DOCUMENTS } from '../../lib/stages'
 
 export const metadata = {
   GET: { requireAuth: true },
@@ -29,10 +29,15 @@ async function payload(ctx: OrderContext) {
       dayLimit: STAGE_DAY_LIMIT[stage.key] ?? null,
       reopenHours: DEFAULT_REOPEN_HOURS,
       steps: stage.steps.map((step) => ({ ...step, locked: (LOCKED_STEPS[stage.key] ?? []).includes(step.key) })),
-      fields: stage.fields.map((field) => ({ key: field.key, label: field.label, type: field.type, required: Boolean(field.required) })),
+      fields: stage.fields.map((field) => ({ key: field.key, label: field.label, type: field.type, required: Boolean(field.required), shared: (DEFAULT_SHARED_FIELDS[stage.key] ?? []).includes(field.key) })),
       documents: (STAGE_DOCUMENTS[stage.key] ?? []).map((doc) => ({ key: doc.key, label: doc.label, required: doc.required ?? null })),
     })),
   }
+}
+
+function sameKeys(input: string[] | null, defaults: string[]): boolean {
+  if (input == null) return true
+  return input.length === defaults.length && input.every((key) => defaults.includes(key))
 }
 
 async function guarded(ctx: OrderContext, req: Request, stageKey: string, body: Record<string, unknown>, run: () => Promise<Response>) {
@@ -84,6 +89,7 @@ async function PUT(req: Request) {
       row.requiredFields = input.requiredFields.filter((key) => !base.fields.find((field) => field.key === key)?.required)
       row.extraFields = input.extraFields.map((field) => ({ key: field.key, label: field.label.trim(), type: field.type, ...(field.type === 'select' ? { options: field.options ?? [] } : {}), required: Boolean(field.required) }))
       row.documents = input.documents
+      row.sharedFields = sameKeys(input.sharedFields ?? null, DEFAULT_SHARED_FIELDS[base.key] ?? []) ? null : input.sharedFields ?? null
       row.extraDocuments = input.extraDocuments
       row.updatedByName = await currentUserName(ctx)
       row.updatedAt = new Date()

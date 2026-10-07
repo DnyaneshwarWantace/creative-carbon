@@ -27,14 +27,14 @@ type BaseStage = {
   dayLimit: number | null
   reopenHours: number
   steps: Array<{ key: string; label: string; optional?: boolean; locked: boolean }>
-  fields: Array<{ key: string; label: string; type: string; required: boolean }>
+  fields: Array<{ key: string; label: string; type: string; required: boolean; shared: boolean }>
   documents: Array<{ key: string; label: string; required: 'always' | 'eway' | null }>
 }
 type ExtraField = { key: string; label: string; type: FieldType; options?: string[]; required?: boolean }
 type ExtraDoc = { key: string; label: string; required: boolean }
-type Override = { stageKey: string; label: string | null; dayLimit: number | null; reopenHours: number | null; hiddenSteps: string[]; requiredFields: string[]; extraFields: ExtraField[]; documents: Record<string, 'always' | 'optional'>; extraDocuments: ExtraDoc[]; updatedAt: string; updatedByName: string | null }
+type Override = { stageKey: string; label: string | null; dayLimit: number | null; reopenHours: number | null; hiddenSteps: string[]; requiredFields: string[]; sharedFields: string[] | null; extraFields: ExtraField[]; documents: Record<string, 'always' | 'optional'>; extraDocuments: ExtraDoc[]; updatedAt: string; updatedByName: string | null }
 type Payload = { stages: BaseStage[]; overrides: Override[]; fieldTypes: FieldType[] }
-type Draft = { label: string; dayLimit: string; reopenHours: string; hiddenSteps: string[]; requiredFields: string[]; extraFields: Array<ExtraField & { optionsText: string }>; documents: Record<string, 'always' | 'optional'>; extraDocuments: ExtraDoc[] }
+type Draft = { label: string; dayLimit: string; reopenHours: string; hiddenSteps: string[]; requiredFields: string[]; sharedFields: string[]; extraFields: Array<ExtraField & { optionsText: string }>; documents: Record<string, 'always' | 'optional'>; extraDocuments: ExtraDoc[] }
 
 const TYPE_LABEL: Record<FieldType, string> = { text: 'Text', number: 'Number', date: 'Date', textarea: 'Long text', select: 'Dropdown' }
 
@@ -49,6 +49,7 @@ function draftFor(stage: BaseStage, override: Override | undefined): Draft {
     reopenHours: String(override?.reopenHours ?? stage.reopenHours),
     hiddenSteps: override?.hiddenSteps ?? [],
     requiredFields: override?.requiredFields ?? [],
+    sharedFields: override?.sharedFields ?? stage.fields.filter((field) => field.shared).map((field) => field.key),
     extraFields: (override?.extraFields ?? []).map((field) => ({ ...field, optionsText: (field.options ?? []).join(', ') })),
     documents: override?.documents ?? {},
     extraDocuments: override?.extraDocuments ?? [],
@@ -105,6 +106,7 @@ export function StageSettingsPage() {
         reopenHours: draft.reopenHours.trim() === '' ? null : Number(draft.reopenHours),
         hiddenSteps: draft.hiddenSteps,
         requiredFields: draft.requiredFields,
+        sharedFields: draft.sharedFields,
         extraFields: draft.extraFields.map((field) => ({ key: field.key, label: field.label.trim(), type: field.type, required: Boolean(field.required), ...(field.type === 'select' ? { options: field.optionsText.split(',').map((option) => option.trim()).filter(Boolean) } : {}) })),
         documents: draft.documents,
         extraDocuments: draft.extraDocuments.map((doc) => ({ ...doc, label: doc.label.trim() })),
@@ -197,6 +199,18 @@ export function StageSettingsPage() {
                       <span className="text-xs text-muted-foreground">{field.required ? t('dermat_orders.stageSettings.alwaysRequired', 'always required') : t('dermat_orders.stageSettings.required', 'required')}</span>
                     </label>
                   ))}
+                </div>
+                <div className="mt-4 space-y-2 border-t pt-3">
+                  <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{t('dermat_orders.stageSettings.shared', 'Shown to other departments')}</h3>
+                  <p className="text-xs text-muted-foreground">{t('dermat_orders.stageSettings.sharedHint', 'Ticked fields are shown to every department on this order. Everything else stays with {department}, Sales and managers.', { department: stage.department })}</p>
+                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                    {stage.fields.map((field) => (
+                      <label key={field.key} htmlFor={`shared-${field.key}`} className="flex cursor-pointer items-center gap-2 text-sm">
+                        <Checkbox id={`shared-${field.key}`} checked={draft.sharedFields.includes(field.key)} onCheckedChange={(checked) => patch({ sharedFields: checked === true ? [...draft.sharedFields, field.key] : draft.sharedFields.filter((key) => key !== field.key) })} />
+                        <span className="flex-1">{field.label}</span>
+                      </label>
+                    ))}
+                  </div>
                 </div>
                 <div className="mt-4 space-y-2 border-t pt-3">
                   <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{t('dermat_orders.stageSettings.extraFields', 'Your own fields')}</h3>

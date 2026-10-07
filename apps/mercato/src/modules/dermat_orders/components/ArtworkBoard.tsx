@@ -8,6 +8,7 @@ import { cn } from '@open-mercato/shared/lib/utils'
 import { Page, PageBody } from '@open-mercato/ui/backend/Page'
 import { ErrorMessage, LoadingMessage } from '@open-mercato/ui/backend/detail'
 import { SegmentedControl, SegmentedControlItem } from '@open-mercato/ui/primitives/segmented-control'
+import { HorizontalScroll } from '@open-mercato/ui/primitives/drag-scroll'
 import { apiCall } from '@open-mercato/ui/backend/utils/apiCall'
 import { ExportButton } from '../../dermat_products/components/ExportButton'
 import { downloadCsv } from '../../dermat_products/lib/csvExport'
@@ -109,7 +110,7 @@ export function ArtworkBoard() {
           {!data && !error ? <LoadingMessage label={t('dermat_orders.artworkBoard.loading', 'Loading…')} /> : null}
 
           {data && tab === 'jobs' ? (
-            <div className="overflow-x-auto rounded-lg border bg-card">
+            <HorizontalScroll showButtons showGradients step={300} className="rounded-lg border bg-card">
               <table className="w-full text-sm">
                 <thead className="bg-muted/40 text-xs text-muted-foreground">
                   <tr>
@@ -161,7 +162,7 @@ export function ArtworkBoard() {
                   ) : null}
                 </tbody>
               </table>
-            </div>
+            </HorizontalScroll>
           ) : null}
 
           {data && tab === 'pm' ? (
@@ -176,7 +177,7 @@ export function ArtworkBoard() {
                   </button>
                 ))}
               </div>
-              <div className="overflow-x-auto rounded-lg border bg-card">
+              <HorizontalScroll showButtons showGradients step={300} className="rounded-lg border bg-card">
                 <table className="w-full text-sm">
                   <thead className="bg-muted/40 text-xs text-muted-foreground">
                     <tr>
@@ -222,7 +223,7 @@ export function ArtworkBoard() {
                     ) : null}
                   </tbody>
                 </table>
-              </div>
+              </HorizontalScroll>
             </>
           ) : null}
         </div>

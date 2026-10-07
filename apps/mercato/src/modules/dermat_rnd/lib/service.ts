@@ -1,6 +1,6 @@
 import { currentUserName, loadCustomers, type OrderContext } from '../../dermat_orders/lib/server'
 import { DermatOrder, DermatOrderStage } from '../../dermat_orders/data/entities'
-import { RdRequest, type RdRound } from '../data/entities'
+import { RdRequest, RdTrial, type RdRound } from '../data/entities'
 import type { RdAction, RdInput } from '../data/validators'
 import { nextSeriesCode } from '../../dermat_accounts/lib/numberSeries'
 
@@ -63,6 +63,12 @@ async function applyInput(ctx: OrderContext, request: RdRequest, input: RdInput)
   request.notes = clean(input.notes)
   request.dueDate = input.dueDate ?? null
   request.assignedName = clean(input.assignedName)
+  request.clientInstruction = clean(input.clientInstruction)
+  request.textureReference = clean(input.textureReference)
+  request.targetPh = clean(input.targetPh)
+  request.claims = clean(input.claims)
+  request.sampleQty = clean(input.sampleQty)
+  request.ingredientRefs = input.ingredientRefs?.length ? input.ingredientRefs : null
 }
 
 async function linkToOrder(ctx: OrderContext, request: RdRequest) {
@@ -102,11 +108,14 @@ export async function actOnRequest(ctx: OrderContext, request: RdRequest, input:
       request.status = 'in_progress'
       request.assignedName = request.assignedName ?? byName
       break
-    case 'sample_sent':
+    case 'sample_sent': {
       if (request.status !== 'in_progress' && request.status !== 'requested' && request.status !== 'changes') throw new RdError('A sample can be sent while the request is being worked on', 409)
-      rounds.push({ round: rounds.length + 1, madeOn: todayIst(), sentOn: input.sentOn ?? todayIst(), sentVia: clean(input.sentVia), feedback: null, feedbackOn: null, result: null, by: byName })
+      const trial = input.trialId ? await ctx.em.findOne(RdTrial, { id: input.trialId, requestId: request.id, tenantId: ctx.tenantId, organizationId: ctx.organizationId, deletedAt: null }) : null
+      if (input.trialId && !trial) throw new RdError('Trial not found on this request', 404)
+      rounds.push({ round: rounds.length + 1, madeOn: trial?.batchDate ?? todayIst(), sentOn: input.sentOn ?? todayIst(), sentVia: clean(input.sentVia), feedback: null, feedbackOn: null, result: null, by: byName, trialId: trial?.id ?? null, trialCode: trial?.code ?? null })
       request.status = 'sample_sent'
       break
+    }
     case 'feedback':
       if (request.status !== 'sample_sent' || !current) throw new RdError('Record feedback after a sample has been sent', 409)
       if (!input.result) throw new RdError('Did the client approve or ask for changes?')
@@ -154,6 +163,15 @@ export function requestView(request: RdRequest) {
     notes: request.notes ?? null,
     dueDate: request.dueDate ?? null,
     assignedName: request.assignedName ?? null,
+    clientInstruction: request.clientInstruction ?? null,
+    textureReference: request.textureReference ?? null,
+    targetPh: request.targetPh ?? null,
+    claims: request.claims ?? null,
+    sampleQty: request.sampleQty ?? null,
+    ingredientRefs: request.ingredientRefs ?? [],
+    approvedTrialId: request.approvedTrialId ?? null,
+    bomId: request.bomId ?? null,
+    bomProductId: request.bomProductId ?? null,
     requestedByName: request.requestedByName ?? null,
     rounds,
     lastSentOn: rounds[rounds.length - 1]?.sentOn ?? null,

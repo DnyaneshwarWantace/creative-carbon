@@ -1,3 +1,5 @@
+import { canReadStage, resolveOrderAccess, visibleStageData } from '../../../lib/visibility'
+import { loadStageOverrides } from '../../../lib/stageSettings'
 import { NextResponse } from 'next/server'
 import { canSeeMoney, isMoneyStageField } from '../../../lib/money'
 import { z } from 'zod'
@@ -186,9 +188,22 @@ async function GET(req: Request) {
       })
 
     const money = await canSeeMoney(ctx)
-    const shown = money
+    const access = await resolveOrderAccess(ctx)
+    const overrides = access.full ? undefined : await loadStageOverrides(ctx)
+    const visible = access.full
       ? items
       : items.map((item) => ({
+          ...item,
+          customerPhone: access.accounts || access.dispatch ? item.customerPhone : null,
+          paymentTerms: access.accounts ? item.paymentTerms : null,
+          paymentRemarks: access.accounts ? item.paymentRemarks : null,
+          billingRemarks: access.accounts ? item.billingRemarks : null,
+          current: item.current.map((stage) => (canReadStage(access, stage.key) ? stage : { ...stage, holdReason: null })),
+          stages: Object.fromEntries(Object.entries(item.stages).map(([key, stage]) => [key, { ...stage, locked: !canReadStage(access, key), fields: visibleStageData(access, key, stage.fields, overrides) }])),
+        }))
+    const shown = money
+      ? visible
+      : visible.map((item) => ({
           ...item,
           total: null,
           received: null,
@@ -198,6 +213,7 @@ async function GET(req: Request) {
         }))
     return NextResponse.json({
       canSeeMoney: money,
+      access: { full: access.full, stages: Array.from(access.stages) },
       items: shown,
       total,
       page: query.page,

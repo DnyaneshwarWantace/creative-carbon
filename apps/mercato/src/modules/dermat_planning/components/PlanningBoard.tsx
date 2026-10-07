@@ -35,6 +35,7 @@ import { Alert, AlertDescription, AlertTitle } from '@open-mercato/ui/primitives
 import { EmptyState } from '@open-mercato/ui/primitives/empty-state'
 import { Spinner } from '@open-mercato/ui/primitives/spinner'
 import { SegmentedControl, SegmentedControlItem } from '@open-mercato/ui/primitives/segmented-control'
+import { HorizontalScroll } from '@open-mercato/ui/primitives/drag-scroll'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@open-mercato/ui/primitives/select'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@open-mercato/ui/primitives/dialog'
 import { apiCall, withScopedApiRequestHeaders } from '@open-mercato/ui/backend/utils/apiCall'
@@ -626,7 +627,7 @@ export function PlanningBoard() {
                     <Spinner />
                   </div>
                 ) : (
-                  <div className={cn('overflow-x-auto transition-opacity', calculating && 'opacity-60')}>
+                  <HorizontalScroll showButtons showGradients step={300} className={cn('transition-opacity', calculating && 'opacity-60')}>
                     <table className="w-full text-sm">
                       <thead className="bg-muted/40 text-left text-overline font-semibold uppercase tracking-widest text-muted-foreground">
                         <tr>
@@ -851,7 +852,7 @@ export function PlanningBoard() {
                         ) : null}
                       </tbody>
                     </table>
-                  </div>
+                  </HorizontalScroll>
                 )}
               </div>
             </section>

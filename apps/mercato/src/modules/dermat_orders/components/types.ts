@@ -60,6 +60,7 @@ export type OrderPayment = {
 
 export type Stage = {
   key: string
+  locked?: boolean
   label: string
   department: string
   hint: string
@@ -141,6 +142,7 @@ export type Order = {
   packItems: Array<{ productId: string; title: string; code: string | null; unit: string; quantity: number }>
   pricesIncludeGst: boolean
   canSeeMoney: boolean
+  access?: { full: boolean; stages: string[] }
   totals: { gross: number; discount: number; taxable: number; gst: number; total: number } | null
   payments: { received: number; due: number; items: OrderPayment[] } | null
   events: OrderEvent[]

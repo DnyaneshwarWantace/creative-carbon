@@ -35,7 +35,7 @@ export async function notifyStagesOpened(ctx: Scope, order: DermatOrder, stageKe
           sourceModule: 'dermat_orders',
           sourceEntityType: 'dermat_orders:order',
           sourceEntityId: order.id,
-          linkHref: `/backend/orders/${order.id}?stage=${key}`,
+          linkHref: `/backend/orders/${order.id}/stages/${key}`,
           groupKey: `dermat_orders:${order.id}:${key}:ready`,
         },
         { tenantId: ctx.tenantId, organizationId: ctx.organizationId },
@@ -63,7 +63,7 @@ export async function notifyStagesPaused(ctx: Scope, order: DermatOrder, reopene
           sourceModule: 'dermat_orders',
           sourceEntityType: 'dermat_orders:order',
           sourceEntityId: order.id,
-          linkHref: `/backend/orders/${order.id}?stage=${reopenedKey}`,
+          linkHref: `/backend/orders/${order.id}/stages/${reopenedKey}`,
           groupKey: `dermat_orders:${order.id}:${key}:paused`,
         },
         { tenantId: ctx.tenantId, organizationId: ctx.organizationId },
@@ -88,7 +88,7 @@ export async function notifyAssigned(ctx: Scope, order: DermatOrder, stageKey: s
         sourceModule: 'dermat_orders',
         sourceEntityType: 'dermat_orders:order',
         sourceEntityId: order.id,
-        linkHref: `/backend/orders/${order.id}?stage=${stageKey}`,
+        linkHref: `/backend/orders/${order.id}/stages/${stageKey}`,
       },
       { tenantId: ctx.tenantId, organizationId: ctx.organizationId },
     )
@@ -129,7 +129,7 @@ export async function sweepOverdueStages(ctx: Scope, options: { force?: boolean 
       sourceModule: 'dermat_orders',
       sourceEntityType: 'dermat_orders:order',
       sourceEntityId: order.id,
-      linkHref: `/backend/orders/${order.id}?stage=${stage.stageKey}`,
+      linkHref: `/backend/orders/${order.id}/stages/${stage.stageKey}`,
       groupKey: `dermat_orders:${order.id}:${stage.stageKey}:overdue`,
     }
     try {

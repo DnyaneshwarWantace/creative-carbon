@@ -345,6 +345,25 @@ export type StageOverride = {
   extraFields?: StageField[] | null
   documents?: Record<string, 'always' | 'optional'> | null
   extraDocuments?: Array<{ key: string; label: string; required: boolean }> | null
+  sharedFields?: string[] | null
+}
+
+export const DEFAULT_SHARED_FIELDS: Record<string, string[]> = {
+  advance: ['received_on'],
+  sampling: ['rd_number', 'sample_name', 'sample_sent_on'],
+  artwork: ['designer_status', 'artwork_approved_on'],
+  formulation: [],
+  planning: ['material_status', 'planned_for', 'planned_vessel'],
+  manufacturing: ['bulk_source', 'batch_no', 'batch_size', 'mfg_date'],
+  filling: ['filled_units', 'filling_date'],
+  packing: ['packed_qty', 'packed_on', 'shippers', 'location'],
+  qc_qa: ['qc_result', 'released_on', 'coa_no'],
+  billing: ['invoice_number', 'invoice_date'],
+  dispatch: ['dispatch_date', 'transporter', 'lr_number', 'delivered_on'],
+}
+
+export function sharedFieldKeys(stageKey: string, override?: StageOverride | null): Set<string> {
+  return new Set(override?.sharedFields ?? DEFAULT_SHARED_FIELDS[stageKey] ?? [])
 }
 
 export const LOCKED_STEPS: Record<string, string[]> = {
