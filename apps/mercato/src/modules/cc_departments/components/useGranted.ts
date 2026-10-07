@@ -26,6 +26,8 @@ const UI_FEATURES = [
   'cc_vendors.manage',
   'cc_store.adjust',
   'cc_lists.manage',
+  'cc_production.masters.manage',
+  'cc_production.prices.view',
   'catalog.products.manage',
 ]
 

@@ -23,24 +23,22 @@ import { ExportButton } from '../../cc_products/components/ExportButton'
 import { downloadCsv } from '../../cc_products/lib/csvExport'
 import { ListSelectItems } from '../../cc_lists/components/ListSelectItems'
 import { ViewsButton } from '../../cc_products/components/ViewsPanel'
+import { STORES, type StockPlace as StorePlace } from '../../cc_products/lib/stock'
 
-type Place = 'rm' | 'pm' | 'production' | 'fg'
+type Place = StorePlace
 type View = 'all' | 'under_test' | 'expiring' | 'hold'
 type Lot = { lotId: string | null; lotNumber: string | null; status: string; onHand: number; free: number; expiresAt: string | null; manufacturedAt: string | null; receivedAt: string | null; daysToExpiry: number | null }
 type Item = { productId: string; code: string | null; title: string; kind: string | null; unit: string | null; lots: Lot[]; onHand: number; usable: number; underTest: number; onHold: number; free: number; nextExpiryDays: number | null }
 type Book = { place: Place; label: string; summary: { items: number; lots: number; underTest: number; onHold: number; expiringSoon: number; expired: number }; items: Item[]; expiryWarningDays: number }
 type ProductOption = { id: string; title: string; code: string | null; unit: string | null }
 
-const PLACES: Array<{ value: Place; label: string; kinds: string }> = [
-  { value: 'rm', label: 'RM store', kinds: 'raw_material' },
-  { value: 'pm', label: 'PM store', kinds: 'packing_material' },
-  { value: 'production', label: 'Production floor', kinds: 'bulk,raw_material,packing_material' },
-  { value: 'fg', label: 'FG store', kinds: 'finished_goods' },
-]
+const PLACE_KINDS: Record<Place, string> = { wh_a: 'chemical,reinforcement,chindi,bought_in', wh_b: 'chemical,reinforcement,chindi,bought_in', tank: 'resin', floor: 'resin,reinforcement,chindi,bstage', fg: 'laminate,moulded,bstage,bought_in' }
+
+const PLACES: Array<{ value: Place; label: string; kinds: string }> = STORES.map((store) => ({ value: store.key, label: store.label, kinds: PLACE_KINDS[store.key] }))
 
 const LOT_STATUS: Record<string, { label: string; variant: StatusBadgeVariant }> = {
   available: { label: 'Approved', variant: 'success' },
-  quarantine: { label: 'Under QC test', variant: 'warning' },
+  quarantine: { label: 'Waiting for check', variant: 'warning' },
   hold: { label: 'Rejected / on hold', variant: 'error' },
   expired: { label: 'Expired', variant: 'error' },
 }
@@ -113,7 +111,7 @@ function StockDialog({ state, place, onClose, onDone }: { state: DialogState; pl
   const [expiry, setExpiry] = React.useState('')
   const [mfg, setMfg] = React.useState('')
   const [reason, setReason] = React.useState('')
-  const [target, setTarget] = React.useState<Place>(place === 'production' ? 'rm' : 'production')
+  const [target, setTarget] = React.useState<Place>(place === 'floor' ? 'wh_a' : 'floor')
   const [note, setNote] = React.useState('')
   const [saving, setSaving] = React.useState(false)
 
@@ -128,7 +126,7 @@ function StockDialog({ state, place, onClose, onDone }: { state: DialogState; pl
     setMfg('')
     setReason(state.kind === 'in' ? 'Opening stock' : '')
     setNote('')
-    setTarget(place === 'production' ? 'rm' : 'production')
+    setTarget(place === 'floor' ? 'wh_a' : 'floor')
   }, [state, place])
 
   React.useEffect(() => {
@@ -136,7 +134,7 @@ function StockDialog({ state, place, onClose, onDone }: { state: DialogState; pl
       setOptions([])
       return
     }
-    const kinds = PLACES.find((entry) => entry.value === place)?.kinds ?? 'raw_material'
+    const kinds = PLACES.find((entry) => entry.value === place)?.kinds ?? 'chemical'
     const handle = window.setTimeout(async () => {
       const call = await apiCall<{ items?: ProductOption[] }>(`/api/cc_products/search?kinds=${kinds}&q=${encodeURIComponent(search.trim())}&limit=20`, undefined, { fallback: { items: [] } })
       setOptions(call.result?.items ?? [])
@@ -327,8 +325,8 @@ export function StockPage({ fixedPlace, title }: { fixedPlace?: Place; title?: s
   const t = useT()
   const router = useRouter()
   const params = useSearchParams()
-  const initialPlace = fixedPlace ?? (params?.get('place') as Place | null) ?? 'rm'
-  const [place, setPlace] = React.useState<Place>(PLACES.some((entry) => entry.value === initialPlace) ? initialPlace : 'rm')
+  const initialPlace = fixedPlace ?? (params?.get('place') as Place | null) ?? 'wh_a'
+  const [place, setPlace] = React.useState<Place>(PLACES.some((entry) => entry.value === initialPlace) ? initialPlace : 'wh_a')
   const [view, setView] = React.useState<View>('all')
   const [search, setSearch] = React.useState('')
   const [book, setBook] = React.useState<Book | null>(null)

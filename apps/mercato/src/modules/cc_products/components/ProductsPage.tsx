@@ -49,7 +49,7 @@ export function ProductsPage() {
   const canManage = !granted.ready || granted.has('catalog.products.manage')
   const router = useRouter()
   const searchParams = useSearchParams()
-  const kind: ProductKind = kindFromSlug(searchParams?.get('tab')) ?? 'raw_material'
+  const kind: ProductKind = kindFromSlug(searchParams?.get('tab')) ?? 'chemical'
   const config = KIND_CONFIG[kind]
 
   const [categoryIds, setCategoryIds] = React.useState<Record<ProductKind, string[]> | null>(null)

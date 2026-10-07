@@ -1,9 +1,10 @@
 import { z } from 'zod'
+import { STOCK_PLACES } from '../../cc_products/lib/stock'
 
-export const STOCK_PLACES = ['rm', 'pm', 'production', 'fg'] as const
+export { STOCK_PLACES }
 
 export const stockQuerySchema = z.object({
-  place: z.enum(STOCK_PLACES).default('rm'),
+  place: z.enum(STOCK_PLACES).default('wh_a'),
   q: z.string().trim().max(200).optional(),
   view: z.enum(['all', 'under_test', 'expiring', 'hold']).default('all'),
 })

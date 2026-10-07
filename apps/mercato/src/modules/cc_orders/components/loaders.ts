@@ -41,7 +41,7 @@ export async function loadCustomer(id: string): Promise<Customer | null> {
 }
 
 export async function searchFinishedGoods(search: string): Promise<PickerOption<ProductInfo>[]> {
-  const params = new URLSearchParams({ kinds: 'finished_goods', limit: '20' })
+  const params = new URLSearchParams({ limit: '20' })
   if (search) params.set('q', search)
   const call = await apiCall<{ items?: Array<{ id: string; title: string; code: string | null; sku: string | null; kind: string; unit: string | null }> }>(
     `/api/cc_products/search?${params.toString()}`,

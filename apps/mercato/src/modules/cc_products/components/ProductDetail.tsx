@@ -13,8 +13,9 @@ import { StatusBadge, type StatusBadgeVariant } from '@open-mercato/ui/primitive
 import { apiCall } from '@open-mercato/ui/backend/utils/apiCall'
 import { ErrorMessage, LoadingMessage } from '@open-mercato/ui/backend/detail'
 import { KIND_CONFIG } from '../lib/kindConfig'
-import type { ProductKind } from '../lib/kinds'
+import { PURCHASED_KINDS, SELLABLE_KINDS, type ProductKind } from '../lib/kinds'
 import { COMMON_FIELD_KEYS, fieldsForKind, loadProductFieldDefs, type ProductFieldDef } from '../lib/fieldDefs'
+import { PRODUCT_KINDS } from '../lib/kinds'
 
 type Row = Record<string, unknown> & { id: string }
 type StockDetail = {
@@ -32,13 +33,12 @@ type OrderRow = {
   products: Array<{ id: string; title: string; quantity: number }>
   current: Array<{ label: string; status: string; responsibleName: string | null }>
 }
-type Packing = { id: string; title: string; type: string; sku: string | null }
 type PurchaseRow = { id: string; code: string; vendorName: string; poDate: string; expectedDate: string | null; status: string; product: { quantity: number; received: number; rate: number; unit: string } | null }
 const PO_VARIANT: Record<string, StatusBadgeVariant> = { draft: 'neutral', pending_approval: 'warning', approved: 'info', partly_received: 'info', received: 'success', cancelled: 'error' }
 const PO_LABEL: Record<string, string> = { draft: 'Draft', pending_approval: 'Waiting approval', approved: 'Approved', partly_received: 'Partly received', received: 'Received', cancelled: 'Cancelled' }
 
 const ORDER_VARIANT: Record<string, StatusBadgeVariant> = { booked: 'info', confirmed: 'warning', completed: 'success', cancelled: 'neutral' }
-const KIND_SHORT: Record<string, string> = { raw_material: 'RM', packing_material: 'PM', bulk: 'Bulk', finished_goods: 'FG', rnd: 'R&D' }
+const KIND_SHORT: Record<string, string> = Object.fromEntries(PRODUCT_KINDS.map((kind) => [kind.code, kind.label]))
 
 function read(row: Row | null, key: string): unknown {
   if (!row) return undefined
@@ -107,9 +107,7 @@ export function ProductDetail({ productId }: { productId: string }) {
   const [profile, setProfile] = React.useState<Row | null>(null)
   const [stock, setStock] = React.useState<StockDetail | null>(null)
   const [orders, setOrders] = React.useState<OrderRow[] | null>(null)
-  const [packing, setPacking] = React.useState<Packing[]>([])
   const [purchases, setPurchases] = React.useState<PurchaseRow[] | null>(null)
-  const [parent, setParent] = React.useState<{ id: string; title: string } | null>(null)
 
   const kind = (text(read(product, 'custom_fieldset_code')) as ProductKind) || null
   const config = kind && KIND_CONFIG[kind] ? KIND_CONFIG[kind] : null
@@ -140,7 +138,7 @@ export function ProductDetail({ productId }: { productId: string }) {
       setDefs(kindConfig ? fieldsForKind(allDefs, itemKind as ProductKind, kindConfig.fields.map((field) => field.key)) : [])
       setProfile(profileCall.result?.items?.[0] ?? null)
       setStock(stockCall.result ?? { stores: [], batches: [], movements: [] })
-      if (itemKind === 'raw_material' || itemKind === 'packing_material') {
+      if (PURCHASED_KINDS.has(itemKind as ProductKind)) {
         if (may('cc_purchase.view')) {
           apiCall<{ items?: PurchaseRow[] }>(`/api/cc_purchase/orders?productId=${encodeURIComponent(productId)}&pageSize=20`, undefined, { fallback: { items: [] } }).then((call) => {
             if (!cancelled) setPurchases(call.result?.items ?? [])
@@ -148,22 +146,11 @@ export function ProductDetail({ productId }: { productId: string }) {
         } else setPurchases([])
       }
 
-      let fgIds: string[] = []
-      if (itemKind === 'finished_goods') {
-        fgIds = [productId]
-        const packCall = await apiCall<{ items?: Packing[] }>(`/api/cc_products/packing?productId=${encodeURIComponent(productId)}`, undefined, { fallback: { items: [] } })
-        if (!cancelled) setPacking(packCall.result?.items ?? [])
-      }
-      const parentId = String(read(item, 'parent_product_id') ?? '')
-      if (parentId) {
-        const parentCall = await apiCall<{ items?: Row[] }>(`/api/catalog/products?id=${encodeURIComponent(parentId)}&pageSize=1`, undefined, { fallback: { items: [] } })
-        const parentRow = parentCall.result?.items?.[0]
-        if (!cancelled && parentRow) setParent({ id: parentRow.id, title: String(parentRow.title ?? '') })
-      }
+      const fgIds = SELLABLE_KINDS.has(itemKind as ProductKind) ? [productId] : []
       const orderLists = await Promise.all(
         (may('cc_orders.view') ? fgIds.slice(0, 20) : []).map((id) =>
           apiCall<{ items?: OrderRow[] }>(
-            `/api/cc_orders/orders?productId=${encodeURIComponent(id)}&pageSize=20${itemKind === 'finished_goods' ? '' : '&status=open'}`,
+            `/api/cc_orders/orders?productId=${encodeURIComponent(id)}&pageSize=20`,
             undefined,
             { fallback: { items: [] } },
           ),
@@ -204,7 +191,7 @@ export function ProductDetail({ productId }: { productId: string }) {
   const minStock = Number(read(profile, 'reorder_point') ?? read(profile, 'reorderPoint') ?? 0)
   const code = text(read(product, 'item_code'))
   const customers = new Map<string, { id: string; name: string; pieces: number; last: string }>()
-  if (kind === 'finished_goods') {
+  if (SELLABLE_KINDS.has(kind)) {
     for (const order of orders ?? []) {
       if (order.status === 'cancelled') continue
       const pieces = order.products.filter((entry) => entry.id === productId).reduce((sum, entry) => sum + entry.quantity, 0)
@@ -218,15 +205,14 @@ export function ProductDetail({ productId }: { productId: string }) {
     }
   }
 
-  const liquid = ['l', 'ml'].includes(unit.toLowerCase())
-  const showField = (key: string) => !COMMON_FIELD_KEYS.has(key) && (key !== 'specific_gravity' || kind !== 'raw_material' || liquid)
+  const showField = (key: string) => !COMMON_FIELD_KEYS.has(key)
   const details: Array<[string, string]> = [
     [config.codeLabel, code],
     [t('cc_products.form.unit', 'Unit'), unit],
     [t('cc_products.detail.hsn', 'HSN code'), text(read(product, 'hsn_code'))],
     ...defs.filter((def) => showField(def.key)).map((def) => [def.label, text(read(product, def.key))] as [string, string]),
     [t('cc_products.detail.cost', 'Cost price'), read(product, 'cost_price') ? `₹ ${text(read(product, 'cost_price'))}` : '—'],
-    ...(kind === 'finished_goods'
+    ...(SELLABLE_KINDS.has(kind)
       ? [[t('cc_products.detail.selling', 'Selling price'), read(product, 'selling_price') ? `₹ ${text(read(product, 'selling_price'))}` : '—'] as [string, string]]
       : []),
   ]
@@ -249,19 +235,10 @@ export function ProductDetail({ productId }: { productId: string }) {
               </div>
               <p className="text-xs text-muted-foreground">
                 {[`SKU ${text(read(product, 'sku'))}`, unit !== '—' ? `${t('cc_products.detail.countedIn', 'Counted in')} ${unit}` : null].filter(Boolean).join(' · ')}
-                {parent ? (
-                  <>
-                    {' · '}
-                    {t('cc_products.packing.madeFor', 'Packing item of')}{' '}
-                    <Link href={`/backend/products/${parent.id}`} className="text-primary hover:underline">
-                      {parent.title}
-                    </Link>
-                  </>
-                ) : null}
               </p>
             </div>
             <div className="flex flex-wrap gap-2">
-              {kind === 'finished_goods' && granted.has('cc_orders.manage') ? (
+              {SELLABLE_KINDS.has(kind) && granted.has('cc_orders.manage') ? (
                 <Button asChild variant="outline" size="sm">
                   <Link href="/backend/orders/new">
                     <Plus className="mr-1.5 h-4 w-4" />
@@ -423,35 +400,7 @@ export function ProductDetail({ productId }: { productId: string }) {
             </div>
 
             <div className="space-y-5 lg:col-span-5">
-              {kind === 'finished_goods' ? (
-                <Section
-                  icon={Boxes}
-                  title={t('cc_products.packing.title', 'Packing for this product')}
-                  action={
-                    <Link href={`/backend/products/${productId}/edit`} className="text-xs text-primary hover:underline">
-                      {t('cc_products.detail.change', 'Change')}
-                    </Link>
-                  }
-                  flush
-                >
-                  {packing.length ? (
-                    <ul className="divide-y text-sm">
-                      {packing.map((item) => (
-                        <li key={item.id}>
-                          <Link href={`/backend/products/${item.id}`} className="flex items-center justify-between gap-3 px-4 py-2 hover:bg-muted/30">
-                            <span className="truncate">{item.title}</span>
-                            <span className="shrink-0 font-mono text-xs text-muted-foreground">{item.sku}</span>
-                          </Link>
-                        </li>
-                      ))}
-                    </ul>
-                  ) : (
-                    <Empty>{t('cc_products.detail.noPacking', 'No packing items yet. Tick them on the edit page.')}</Empty>
-                  )}
-                </Section>
-              ) : null}
-
-              {kind === 'finished_goods' ? (
+              {SELLABLE_KINDS.has(kind) ? (
                 <Section
                   icon={ClipboardList}
                   title={t('cc_products.orders.title', 'Orders for this product')}
@@ -488,7 +437,7 @@ export function ProductDetail({ productId }: { productId: string }) {
                 </Section>
               ) : null}
 
-              {kind === 'finished_goods' && customers.size ? (
+              {SELLABLE_KINDS.has(kind) && customers.size ? (
                 <Section icon={Users} title={t('cc_products.detail.customers', 'Customers who order it')} flush>
                   <ul className="divide-y text-sm">
                     {Array.from(customers.values()).map((entry) => (

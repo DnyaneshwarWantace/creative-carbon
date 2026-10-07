@@ -273,6 +273,7 @@ export const enabledModules: ModuleEntry[] = [
   { id: 'cc_accounts', from: '@app' },
   { id: 'cc_vendors', from: '@app' },
   { id: 'cc_lists', from: '@app' },
+  { id: 'cc_production', from: '@app' },
 ]
 
 // Official modules activated via official-modules.json / official-modules.local.json

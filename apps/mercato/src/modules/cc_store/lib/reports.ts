@@ -1,9 +1,9 @@
 import { loadProducts } from '../../cc_orders/lib/server'
-import { LOCATION_CODES, ccWarehouse } from '../../cc_products/lib/stock'
+import { LOCATION_CODES, STOCK_PLACES, ccWarehouse, type StockPlace } from '../../cc_products/lib/stock'
 import { StoreError, type StoreContext } from './server'
 
 const DAY_MS = 86400000
-const PLACES = Object.entries(LOCATION_CODES) as Array<['rm' | 'pm' | 'production' | 'fg', string]>
+const PLACES = Object.entries(LOCATION_CODES) as Array<[StockPlace, string]>
 
 function round(value: number): number {
   return Math.round(value * 1000) / 1000
@@ -12,7 +12,7 @@ function round(value: number): number {
 async function locations(ctx: StoreContext) {
   const warehouse = await ccWarehouse(ctx)
   if (!warehouse) throw new StoreError('The Creative Carbon warehouse is not set up yet', 409)
-  const byId = new Map<string, 'rm' | 'pm' | 'production' | 'fg'>()
+  const byId = new Map<string, StockPlace>()
   for (const [place, code] of PLACES) {
     const id = warehouse.locations.get(code)
     if (id) byId.set(id, place)
@@ -38,21 +38,21 @@ export async function stockOverview(ctx: StoreContext) {
   const rows = await balances(ctx)
   const productIds = [...new Set(rows.map((row) => row.product_id))]
   const products = await loadProducts(ctx, productIds)
-  const items = new Map<string, { productId: string; code: string | null; title: string; kind: string | null; unit: string | null; rm: number; pm: number; production: number; fg: number; underTest: number; onHold: number; total: number; free: number }>()
+  const items = new Map<string, { productId: string; code: string | null; title: string; kind: string | null; unit: string | null; stores: Record<StockPlace, number>; underTest: number; onHold: number; total: number; free: number }>()
   for (const row of rows) {
     const place = byId.get(row.location_id)
     if (!place) continue
     const product = products.get(row.product_id)
-    const entry = items.get(row.product_id) ?? { productId: row.product_id, code: product?.code ?? null, title: product?.title ?? '(deleted product)', kind: product?.kind ?? null, unit: product?.unit ?? null, rm: 0, pm: 0, production: 0, fg: 0, underTest: 0, onHold: 0, total: 0, free: 0 }
+    const entry = items.get(row.product_id) ?? { productId: row.product_id, code: product?.code ?? null, title: product?.title ?? '(deleted product)', kind: product?.kind ?? null, unit: product?.unit ?? null, stores: Object.fromEntries(STOCK_PLACES.map((key) => [key, 0])) as Record<StockPlace, number>, underTest: 0, onHold: 0, total: 0, free: 0 }
     const quantity = Number(row.on_hand)
-    entry[place] = round(entry[place] + quantity)
+    entry.stores[place] = round(entry.stores[place] + quantity)
     entry.total = round(entry.total + quantity)
     if (row.status === 'quarantine') entry.underTest = round(entry.underTest + quantity)
     if (row.status === 'hold' || row.status === 'expired') entry.onHold = round(entry.onHold + quantity)
     items.set(row.product_id, entry)
   }
   for (const entry of items.values()) {
-    entry.free = round(Math.max(0, entry.rm + entry.pm - entry.underTest - entry.onHold))
+    entry.free = round(Math.max(0, entry.total - entry.underTest - entry.onHold))
   }
   return [...items.values()].sort((a, b) => (a.kind ?? '').localeCompare(b.kind ?? '') || (a.code ?? a.title).localeCompare(b.code ?? b.title))
 }

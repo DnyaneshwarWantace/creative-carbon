@@ -163,7 +163,7 @@ export async function overview(ctx: Scope) {
                        where l.product_id = cp.id and po.deleted_at is null and po.status in ('pending_approval', 'approved', 'partly_received')), 0)::text as on_po
        from wms_product_inventory_profiles p join catalog_products cp on cp.id = p.catalog_product_id
       where cp.tenant_id = ? and cp.organization_id = ? and cp.deleted_at is null and p.deleted_at is null
-        and cp.custom_fieldset_code in ('raw_material', 'packing_material') and p.reorder_point > 0
+        and cp.custom_fieldset_code in ('chemical', 'reinforcement', 'chindi', 'bought_in') and p.reorder_point > 0
       group by cp.id, cp.title, cp.custom_fieldset_code, cp.default_unit`,
     [ctx.tenantId, ctx.organizationId],
   )

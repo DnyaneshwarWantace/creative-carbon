@@ -52,7 +52,6 @@ async function validateInput(ctx: OrderContext, input: OrderInput): Promise<void
   input.lines.forEach((line, index) => {
     const product = products.get(line.productId)
     if (!product) rows[String(index + 1)] = 'Product not found'
-    else if (product.kind !== 'finished_goods') rows[String(index + 1)] = `${product.title} is not a Finished Good`
   })
   if (Object.keys(rows).length) throw new OrderError('Some lines need fixing', 400, { rows })
   if (input.deliveryDate && input.deliveryDate < input.orderDate) throw new OrderError('Delivery date is before the order date')

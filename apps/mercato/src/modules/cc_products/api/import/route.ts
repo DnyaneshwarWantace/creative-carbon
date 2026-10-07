@@ -24,11 +24,14 @@ export const metadata = {
 const KIND_CODES = PRODUCT_KINDS.map((kind) => kind.code) as [ProductKind, ...ProductKind[]]
 
 const STORE_BY_KIND: Record<ProductKind, string> = {
-  raw_material: 'RM-STORE',
-  packing_material: 'PM-STORE',
-  bulk: 'PRODUCTION',
-  finished_goods: 'FG-STORE',
-  rnd: 'RM-STORE',
+  chemical: 'WH-A',
+  reinforcement: 'WH-A',
+  chindi: 'WH-A',
+  resin: 'RESIN-TANK',
+  bstage: 'SHOP-FLOOR',
+  laminate: 'FG-STORE',
+  moulded: 'FG-STORE',
+  bought_in: 'WH-A',
 }
 
 const UNIT_ALIASES: Record<string, string> = {

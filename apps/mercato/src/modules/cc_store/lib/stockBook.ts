@@ -1,13 +1,14 @@
 import { randomUUID } from 'node:crypto'
 import { currentUserName, loadProducts, userNames } from '../../cc_orders/lib/server'
-import { LOCATION_CODES, ccWarehouse, variantsForProducts } from '../../cc_products/lib/stock'
+import { LOCATION_CODES, PLACE_LABEL, ccWarehouse, variantsForProducts, type StockPlace } from '../../cc_products/lib/stock'
 import { activeOptions } from '../../cc_lists/lib/service'
 import { ensureStockRecords } from './stockSetup'
 import { StoreError, performerId, runCommand, type StoreContext } from './server'
 
-export type StockPlace = keyof typeof LOCATION_CODES
+export type { StockPlace }
 
-export const PLACE_LABEL: Record<StockPlace, string> = { rm: 'RM store', pm: 'PM store', production: 'Production floor', fg: 'FG store' }
+export { PLACE_LABEL }
+
 
 const EPSILON = 0.000001
 const EXPIRY_WARNING_DAYS = 90

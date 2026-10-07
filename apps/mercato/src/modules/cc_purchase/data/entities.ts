@@ -1,5 +1,6 @@
 import { Entity, Index, PrimaryKey, Property, Unique } from '@mikro-orm/decorators/legacy'
 import { OptionalProps } from '@mikro-orm/core'
+import type { StoreKey } from '../../cc_products/lib/stock'
 
 export type PoStatus = 'draft' | 'pending_approval' | 'approved' | 'partly_received' | 'received' | 'cancelled'
 export type GrnStatus = 'under_test' | 'partly_approved' | 'approved' | 'rejected'
@@ -234,7 +235,7 @@ export class GoodsReceiptLine {
   unit!: string
 
   @Property({ type: 'text' })
-  store!: 'rm' | 'pm'
+  store!: StoreKey
 
   @Property({ type: 'decimal', precision: 14, scale: 4 })
   quantity!: string

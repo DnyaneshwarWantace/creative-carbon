@@ -16,6 +16,7 @@ import { apiCall } from '@open-mercato/ui/backend/utils/apiCall'
 import { useGuardedMutation } from '@open-mercato/ui/backend/injection/useGuardedMutation'
 import { flash } from '@open-mercato/ui/backend/FlashMessages'
 import { money, todayIso } from './shared'
+import { PLACE_LABEL, receivingStoreFor } from '../../cc_products/lib/stock'
 
 type VendorOption = { id: string; name: string; code: string | null; gstNumber: string | null }
 type ProductOption = { id: string; title: string; code: string | null; kind: string; unit: string | null }
@@ -42,7 +43,7 @@ function useDebouncedSearch<T>(term: string, url: (value: string) => string): T[
 }
 
 const vendorUrl = (value: string) => `/api/cc_purchase/vendors?q=${encodeURIComponent(value)}`
-const productUrl = (value: string) => `/api/cc_products/search?kinds=raw_material,packing_material&limit=8&q=${encodeURIComponent(value)}`
+const productUrl = (value: string) => `/api/cc_products/search?kinds=chemical,reinforcement,chindi,bstage,bought_in&limit=8&q=${encodeURIComponent(value)}`
 
 export function DirectGrnPage() {
   const t = useT()
@@ -114,7 +115,7 @@ export function DirectGrnPage() {
         flash(call.result?.error ?? t('cc_purchase.grn.error', 'Could not save the GRN.'), 'error')
         return
       }
-      flash(t('cc_purchase.grn.saved', '{code} saved. Material is in the store under QC test.', { code: call.result.code ?? '' }), 'success')
+      flash(t('cc_purchase.grn.saved', '{code} saved. Material is in the store, waiting to be checked.', { code: call.result.code ?? '' }), 'success')
       router.push(`/backend/purchase/grns/${call.result.id}`)
     } finally {
       setBusy(false)
@@ -150,7 +151,7 @@ export function DirectGrnPage() {
           </div>
 
           <Alert status="information" style="lighter" className="rounded-lg">
-            <AlertTitle>{t('cc_purchase.grn.howTitle', 'Material goes into the store as "under QC test"')}</AlertTitle>
+            <AlertTitle>{t('cc_purchase.grn.howTitle', 'Material goes into the store as "waiting for check"')}</AlertTitle>
             <AlertDescription>{t('cc_purchase.grn.howBody', 'It is counted in the store but cannot be reserved or issued until QC approves the batch. A QC check is created for every line.')}</AlertDescription>
           </Alert>
 
@@ -230,7 +231,7 @@ export function DirectGrnPage() {
                       <tr key={line.key}>
                         <td className="px-5 py-3">
                           <p className="font-medium">{line.title}</p>
-                          <p className="font-mono text-xs text-muted-foreground">{line.code ?? '—'} · {line.kind === 'raw_material' ? 'RM store' : 'PM store'}</p>
+                          <p className="font-mono text-xs text-muted-foreground">{line.code ?? '—'} · {PLACE_LABEL[receivingStoreFor(line.kind ?? null)]}</p>
                         </td>
                         <td className="px-3 py-3">
                           <div className="flex items-center gap-1.5">

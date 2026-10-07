@@ -17,7 +17,7 @@ export const LIST_DEFS: ListDef[] = [
     label: 'Payment remarks',
     department: 'Sales',
     usedIn: 'Customer form and customer details',
-    defaults: ['30% advance, 70% before despatch', '50% advance, 50% before despatch', '100% advance', 'LC at sight', '30 days credit', '60 days credit', 'As discussed'],
+    defaults: ['30% advance, 70% before despatch', '50% advance, 50% before despatch', '100% advance', 'TT advance', 'LC at sight', 'Payment against documents', 'Cash against documents', '30 days credit', '60 days credit', 'As discussed'],
     customField: { entityId: 'customers:customer_company_profile', key: 'payment_remarks' },
   },
   {
@@ -35,6 +35,13 @@ export const LIST_DEFS: ListDef[] = [
     defaults: ['F2F3', 'MUS2', 'Fabric', 'Paper', 'Rubber W', 'Coffee P1', 'P2 (m)', 'Graphite'],
   },
   {
+    key: 'resin_grades',
+    label: 'Resin grades',
+    department: 'Masters',
+    usedIn: 'Resin batches, resin and B-stage items',
+    defaults: ['PFC', 'PFA', 'PFAC', 'E-GLASS'],
+  },
+  {
     key: 'weaves',
     label: 'Weave / paper',
     department: 'Masters',
@@ -46,7 +53,7 @@ export const LIST_DEFS: ListDef[] = [
     label: 'Sheet sizes',
     department: 'Masters',
     usedIn: 'Order lines, FG inspection, despatch weighment',
-    defaults: ['8x4', '6x6', '1906x1250'],
+    defaults: ['8x4', '6x6', '4x4', '1906x1250'],
   },
   {
     key: 'pack_types',
@@ -60,7 +67,7 @@ export const LIST_DEFS: ListDef[] = [
     label: 'Test standards',
     department: 'QC',
     usedIn: 'Order lines, QC & test report stage',
-    defaults: ['IS 2036', 'NEMA', 'IEC', 'BIS', 'Customer spec'],
+    defaults: ['IS 2036', 'NEMA', 'IEC', 'BIS', 'British Standard', 'Customer spec'],
   },
   {
     key: 'allocation_status',
@@ -145,7 +152,7 @@ export const LIST_DEFS: ListDef[] = [
     label: 'Vendor supplies',
     department: 'Purchase',
     usedIn: 'Vendor form',
-    defaults: ['Chemicals', 'Cloth / paper', 'Chindi', 'Consumables', 'Bought-in finished goods', 'Transport'],
+    defaults: ['Chemicals', 'Cloth / paper', 'Chindi', 'Consumables', 'Bought-in finished goods', 'Job work', 'Transport'],
   },
 ]
 

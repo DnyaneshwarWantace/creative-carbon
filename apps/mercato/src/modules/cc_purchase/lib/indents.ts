@@ -4,6 +4,7 @@ import { currentUserName, loadProducts, type OrderContext } from '../../cc_order
 import { PurchaseIndent, type PurchaseOrder } from '../data/entities'
 import type { IndentInput } from '../data/validators'
 import { PurchaseError, nextCode } from './service'
+import { PURCHASED_KINDS, type ProductKind } from '../../cc_products/lib/kinds'
 
 const logger = createLogger('cc_purchase')
 
@@ -33,7 +34,7 @@ export async function createIndent(ctx: OrderContext, input: IndentInput): Promi
   const products = await loadProducts(ctx, input.lines.map((line) => line.productId))
   const missing = input.lines.filter((line) => !products.has(line.productId))
   if (missing.length) throw new PurchaseError('A material on this indent was not found')
-  const wrongKind = input.lines.filter((line) => !['raw_material', 'packing_material'].includes(products.get(line.productId)?.kind ?? ''))
+  const wrongKind = input.lines.filter((line) => !PURCHASED_KINDS.has((products.get(line.productId)?.kind ?? '') as ProductKind))
   if (wrongKind.length) throw new PurchaseError(`Only raw or packing material can be indented: ${wrongKind.map((line) => products.get(line.productId)?.title).join(', ')}`)
   const byName = await currentUserName(ctx)
   const indent = ctx.em.create(PurchaseIndent, {

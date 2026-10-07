@@ -2,9 +2,29 @@ import type { EntityManager } from '@mikro-orm/postgresql'
 
 export type StockScope = { em: EntityManager; tenantId: string; organizationId: string }
 
-export const LOCATION_CODES = { rm: 'RM-STORE', pm: 'PM-STORE', production: 'PRODUCTION', fg: 'FG-STORE' } as const
+export const STORES = [
+  { key: 'wh_a', code: 'WH-A', label: 'Warehouse A', receives: true },
+  { key: 'wh_b', code: 'WH-B', label: 'Warehouse B', receives: true },
+  { key: 'tank', code: 'RESIN-TANK', label: 'Resin tank', receives: false },
+  { key: 'floor', code: 'SHOP-FLOOR', label: 'Shop floor', receives: false },
+  { key: 'fg', code: 'FG-STORE', label: 'FG store', receives: true },
+] as const
 
-export type StoreKey = 'rm' | 'pm'
+export type StockPlace = (typeof STORES)[number]['key']
+
+export const LOCATION_CODES = Object.fromEntries(STORES.map((store) => [store.key, store.code])) as Record<StockPlace, string>
+
+export const PLACE_LABEL = Object.fromEntries(STORES.map((store) => [store.key, store.label])) as Record<StockPlace, string>
+
+export const STOCK_PLACES = STORES.map((store) => store.key) as [StockPlace, ...StockPlace[]]
+
+export type StoreKey = 'wh_a' | 'wh_b' | 'fg'
+
+export const RECEIVING_STORES = STORES.filter((store) => store.receives).map((store) => store.key) as StoreKey[]
+
+export function receivingStoreFor(kind: string | null): StoreKey {
+  return kind === 'laminate' || kind === 'moulded' || kind === 'bstage' ? 'fg' : 'wh_a'
+}
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 

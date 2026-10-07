@@ -62,6 +62,26 @@ export const ACCESS_AREAS: AccessArea[] = [
     ],
   },
   {
+    key: 'plant',
+    label: 'Plant masters',
+    department: 'Production',
+    pages: 'Reactors, dryers, presses, moulds & dies, loading tolerance',
+    abilities: [
+      { feature: 'cc_production.masters.view', label: 'See plant masters', short: 'View' },
+      { feature: 'cc_production.masters.manage', label: 'Add and change plant masters, import the mould list', short: 'Edit' },
+    ],
+  },
+  {
+    key: 'prices',
+    label: 'Price lists',
+    department: 'Sales',
+    pages: 'Small and big size rates per kg',
+    abilities: [
+      { feature: 'cc_production.prices.view', label: 'See price lists', short: 'View' },
+      { feature: 'cc_production.prices.manage', label: 'Change price lists', short: 'Edit' },
+    ],
+  },
+  {
     key: 'purchase',
     label: 'Purchase',
     department: 'Purchase',

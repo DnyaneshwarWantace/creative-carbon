@@ -26,7 +26,7 @@ export function EditProduct({ productId }: { productId: string }) {
       const product = call.result?.items?.[0]
       const code = product?.custom_fieldset_code ?? product?.customFieldsetCode
       if (!call.ok || !product) setError(t('cc_products.errors.notFound', 'Product not found.'))
-      else setKind(isKind(code) ? code : 'raw_material')
+      else setKind(isKind(code) ? code : 'chemical')
     })
     return () => {
       cancelled = true

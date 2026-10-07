@@ -184,7 +184,7 @@
 
 <div class="wrap">
   <header class="hero">
-    <span class="eyebrow">● Detailed build plan · v3 · Stage 0 done and tested</span>
+    <span class="eyebrow">● Detailed build plan · v4 · Stages 0–1 done and tested</span>
     <h1>Creative Carbon on the Dermat base: every stage, page, field and link</h1>
     <p class="lede">For each stage this page lists the screens, every field with its type and rule, what the detail page shows, which stage feeds it and which stage it feeds, the stock it moves, and the small things that are easy to miss. Sources are the dev brief, the 12 register photos and the Kheda audit recording. <strong>Anything we had to guess is marked "confirm".</strong></p>
     <div class="facts">
@@ -196,7 +196,7 @@
     </div>
     <div class="phase-grid">
       <a class="pchip done" href="#s0"><div class="pn">Stage 0<span>Wk 1</span></div><div class="pv">Fork &amp; clean</div></a>
-      <a class="pchip" href="#s1"><div class="pn">Stage 1<span>Wk 2</span></div><div class="pv">Masters</div></a>
+      <a class="pchip done" href="#s1"><div class="pn">Stage 1<span>Wk 2</span></div><div class="pv">Masters</div></a>
       <a class="pchip" href="#s2"><div class="pn">Stage 2<span>Wk 2</span></div><div class="pv">Bulk upload</div></a>
       <a class="pchip" href="#s3"><div class="pn">Stage 3<span>Wk 3</span></div><div class="pv">Resin · Chemicals</div></a>
       <a class="pchip" href="#s4"><div class="pn">Stage 4<span>Wk 3</span></div><div class="pv">Coating · B-stage</div></a>
@@ -235,7 +235,7 @@
       <a href="#findings"><span class="dot done"></span>Photo &amp; audio findings</a>
       <p class="rail-title">Stages</p>
       <a href="#s0"><span class="dot done"></span>0 Fork &amp; clean</a>
-      <a href="#s1"><span class="dot planned"></span>1 Masters</a>
+      <a href="#s1"><span class="dot done"></span>1 Masters</a>
       <a href="#s2"><span class="dot planned"></span>2 Bulk upload</a>
       <a href="#s3"><span class="dot planned"></span>3 Resin · Chemicals</a>
       <a href="#s4"><span class="dot planned"></span>4 Coating · B-stage</a>
@@ -491,7 +491,7 @@
 
 <!-- ============ STAGE 1 ============ -->
       <section id="s1">
-        <div class="mod-head"><h2>Stage 1 · Masters</h2><span class="verdict planned">PLANNED</span><span class="when">Week 2</span></div>
+        <div class="mod-head"><h2>Stage 1 · Masters</h2><span class="verdict done">DONE · TESTED</span><span class="when">finished 7 Oct</span></div>
         <p class="mod-dek">Everything later stages pick from. Seeded from the photos and the brief's vocabulary.</p>
         <div class="meta"><span><b>Pages</b> /backend/items · /items/new/&lt;type&gt; · /items/&lt;id&gt; · /masters/equipment · /masters/moulds · /masters/tolerance · /masters/grades · /customers · /vendors · /masters/stores · /masters/access</span></div>
 
@@ -535,6 +535,17 @@
           <div class="box"><div class="lbl">Small things</div><ul><li>Reinforcement names are typed loosely ("ISCON 110", "Iscon110"); search ignores spaces and case, like Dermat's code search.</li><li>"Washing F2" grades are paper GSM 900–1500; confirm whether they are paper or a washed cloth.</li><li>Hindi labels per user, with plant words left untranslated.</li></ul></div>
         </div>
         <p class="exit"><b>Done when:</b> the mould list and items are loaded and each department login sees only its menus.</p>
+      <h3>What was built</h3>
+        <div class="itemlist">
+          <div class="item done"><span class="mark">✓</span><span class="txt"><b>Eight item types</b> replace Dermat's RM / PM / Bulk / FG / R&amp;D, each with its own fields and units; the cosmetics "packing items per product" feature is removed. 57 real items seeded: 9 chemicals, 29 reinforcement grades from the 29 June page, chindi, 4 resin grades, 11 laminates from the FG inspection report, 3 consumables (<code>apps/mercato/scripts/cc-seed</code>).</span></div>
+          <div class="item done"><span class="mark">✓</span><span class="txt"><b>Five stores</b>: Warehouse A, Warehouse B, Resin tank, Shop floor, FG store. Stock, ledger, reports and GRN use them; bought-in laminates go to FG store, everything else bought goes to Warehouse A.</span></div>
+          <div class="item done"><span class="mark">✓</span><span class="txt"><b>Plant masters</b> (new module <code>cc_production</code>): reactors (VES-1, VES-2), dryers 1–3 and mixer oven, presses 1–25, loading tolerance 25 / 15 / 10 mm, moulds &amp; dies with the customer's own mould number, price lists (small / big size, per kg). Register-style grid with add, edit (edit lock), remove. Pages: Masters → Plant machines, Moulds &amp; dies, Loading tolerance, Price lists.</span></div>
+          <div class="item done"><span class="mark">✓</span><span class="txt"><b>Mould list import</b>: paste from Excel or load a CSV, "Check" shows new / updated / problem rows before anything is saved, re-import updates by Die No., unknown customers are reported per row.</span></div>
+          <div class="item done"><span class="mark">✓</span><span class="txt"><b>Departments and logins</b>: Management, Floor supervisor, Resin plant, Coating, Press &amp; moulding, Store &amp; despatch, QC &amp; lab, Data entry, Accounts, Sales, Purchase — each with its own role and rights; prices visible only to Management and Sales.</span></div>
+          <div class="item done"><span class="mark">✓</span><span class="txt"><b>Lists</b>: resin grades, laminate grades, weaves, sheet sizes (incl. 4×4), standards (incl. British Standard), payment terms (TT advance, LC, against documents), Job work vendors.</span></div>
+          <div class="item partial"><span class="mark">!</span><span class="txt">Decisions taken: grades kept as editable dropdown lists (resin and laminate separate) until the grades list arrives; export customers are GST type "Overseas" and the port is picked per order at despatch; press numbering seeded as 1–20 small (moulding) and 21–24 big (laminate) — the laminate forms say "Press 1 / Press 2", so <b>confirm the numbering</b>.</span></div>
+        </div>
+        <p class="exit"><b>Tested 7 Oct:</b> type check 0 errors · end-to-end suite Stages 0 + 1: <b>21 / 21 passing</b> — item types and seeded items, a new moulded part keeps its die no. and unit, five stores live and old ones rejected, plant masters seeded from the registers, add / edit-lock / stale-edit rejected / remove, required fields checked, mould import check → import → re-import update with problem rows reported, price rates, 11 departments, new lists, all master pages open, and an order can pick a laminate item (this test caught and fixed a broken item search in the order form).</p>
       </section>
 
 <!-- ============ STAGE 2 ============ -->

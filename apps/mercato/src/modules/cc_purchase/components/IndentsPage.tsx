@@ -75,7 +75,7 @@ function NewIndentDialog({ open, onOpenChange, onCreated, prefill }: { open: boo
     setSearch('')
     setOptions([])
     if (prefill?.lines.length) {
-      apiCall<{ items?: ProductOption[] }>(`/api/cc_products/search?kinds=raw_material,packing_material&limit=100&ids=${prefill.lines.map((line) => line.productId).join(',')}`, undefined, { fallback: { items: [] } }).then((call) => {
+      apiCall<{ items?: ProductOption[] }>(`/api/cc_products/search?kinds=chemical,reinforcement,chindi,bstage,bought_in&limit=100&ids=${prefill.lines.map((line) => line.productId).join(',')}`, undefined, { fallback: { items: [] } }).then((call) => {
         const found = call.result?.items ?? []
         setLines(
           prefill.lines
@@ -95,7 +95,7 @@ function NewIndentDialog({ open, onOpenChange, onCreated, prefill }: { open: boo
       return
     }
     const handle = window.setTimeout(async () => {
-      const call = await apiCall<{ items?: ProductOption[] }>(`/api/cc_products/search?kinds=raw_material,packing_material&q=${encodeURIComponent(search.trim())}&limit=20`, undefined, { fallback: { items: [] } })
+      const call = await apiCall<{ items?: ProductOption[] }>(`/api/cc_products/search?kinds=chemical,reinforcement,chindi,bstage,bought_in&q=${encodeURIComponent(search.trim())}&limit=20`, undefined, { fallback: { items: [] } })
       setOptions(call.result?.items ?? [])
     }, 200)
     return () => window.clearTimeout(handle)

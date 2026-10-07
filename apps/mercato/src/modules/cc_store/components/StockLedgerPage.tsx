@@ -13,17 +13,12 @@ import { SegmentedControl, SegmentedControlItem } from '@open-mercato/ui/primiti
 import { apiCall } from '@open-mercato/ui/backend/utils/apiCall'
 import { ExportButton } from '../../cc_products/components/ExportButton'
 import { downloadCsv } from '../../cc_products/lib/csvExport'
+import { STORES, type StockPlace } from '../../cc_products/lib/stock'
 
-type Place = 'rm' | 'pm' | 'production' | 'fg' | 'all'
+type Place = StockPlace | 'all'
 type Movement = { id: string; at: string; type: string; quantity: number; unit: string | null; from: string | null; to: string | null; productId: string | null; title: string; code: string | null; lotNumber: string | null; reason: string | null; reasonCode: string | null; by: string | null; orderNo: string | null; orderId: string | null }
 
-const PLACES: Array<{ value: Place; label: string }> = [
-  { value: 'all', label: 'All stores' },
-  { value: 'rm', label: 'RM store' },
-  { value: 'pm', label: 'PM store' },
-  { value: 'production', label: 'Production floor' },
-  { value: 'fg', label: 'FG store' },
-]
+const PLACES: Array<{ value: Place; label: string }> = [{ value: 'all', label: 'All stores' }, ...STORES.map((store) => ({ value: store.key, label: store.label }))]
 
 const KIND_LABEL: Record<string, string> = {
   receipt: 'Received',
@@ -97,7 +92,7 @@ export function StockLedgerPage() {
         <div className="flex flex-col gap-5">
           <header className="flex flex-col gap-3 border-b pb-4 lg:flex-row lg:items-end lg:justify-between">
             <div className="space-y-1">
-              <Link href={`/backend/store/stock?place=${place === 'all' ? 'rm' : place}`} className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground">
+              <Link href={`/backend/store/stock?place=${place === 'all' ? 'wh_a' : place}`} className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground">
                 <ArrowLeft className="h-3 w-3" aria-hidden="true" />
                 {t('cc_store.ledger.back', 'Stock')}
               </Link>

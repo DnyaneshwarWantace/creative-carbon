@@ -19,6 +19,7 @@ import { useGuardedMutation } from '@open-mercato/ui/backend/injection/useGuarde
 import { flash } from '@open-mercato/ui/backend/FlashMessages'
 import { ErrorMessage, LoadingMessage } from '@open-mercato/ui/backend/detail'
 import { GRN_STATUS, HISTORY_LABEL, LINE_QC, day, qty, when, type GrnLineView, type GrnView } from './shared'
+import { PLACE_LABEL } from '../../cc_products/lib/stock'
 
 export function GrnPage({ grnId }: { grnId: string }) {
   const t = useT()
@@ -177,7 +178,7 @@ export function GrnPage({ grnId }: { grnId: string }) {
                         {line.title}
                       </Link>
                       <p className="font-mono text-xs text-muted-foreground">
-                        {line.code ?? '—'} · {line.store === 'rm' ? 'RM-STORE' : 'PM-STORE'}
+                        {line.code ?? '—'} · {PLACE_LABEL[line.store]}
                       </p>
                     </div>
                     <div className="md:col-span-3">

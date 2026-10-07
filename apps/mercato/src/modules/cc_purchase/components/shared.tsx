@@ -58,7 +58,7 @@ export type GrnLineView = {
   title: string
   code: string | null
   unit: string
-  store: 'rm' | 'pm'
+  store: 'wh_a' | 'wh_b' | 'fg'
   quantity: number
   rate: number | null
   lotNumber: string

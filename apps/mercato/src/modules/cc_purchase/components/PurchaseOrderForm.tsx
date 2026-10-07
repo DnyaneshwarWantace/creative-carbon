@@ -94,7 +94,7 @@ export function PurchaseOrderForm({ poId }: { poId?: string }) {
     }
     if (!wanted.length) return
     ;(async () => {
-      const call = await apiCall<{ items: ProductOption[] }>(`/api/cc_products/search?kinds=raw_material,packing_material&limit=100&ids=${wanted.map(([id]) => id).join(',')}`, undefined, { fallback: { items: [] } })
+      const call = await apiCall<{ items: ProductOption[] }>(`/api/cc_products/search?kinds=chemical,reinforcement,chindi,bstage,bought_in&limit=100&ids=${wanted.map(([id]) => id).join(',')}`, undefined, { fallback: { items: [] } })
       const found = call.result?.items ?? []
       setLines(
         wanted
@@ -131,7 +131,7 @@ export function PurchaseOrderForm({ poId }: { poId?: string }) {
     }
     let cancelled = false
     const handle = window.setTimeout(async () => {
-      const call = await apiCall<{ items: ProductOption[] }>(`/api/cc_products/search?kinds=raw_material,packing_material&limit=8&q=${encodeURIComponent(productSearch.trim())}`, undefined, { fallback: { items: [] } })
+      const call = await apiCall<{ items: ProductOption[] }>(`/api/cc_products/search?kinds=chemical,reinforcement,chindi,bstage,bought_in&limit=8&q=${encodeURIComponent(productSearch.trim())}`, undefined, { fallback: { items: [] } })
       if (!cancelled) setProductOptions(call.result?.items ?? [])
     }, 200)
     return () => {

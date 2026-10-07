@@ -6,8 +6,8 @@ import { rebuildCategoryHierarchyForOrganization } from '@open-mercato/core/modu
 import { Warehouse, WarehouseLocation } from '@open-mercato/core/modules/wms/data/entities'
 import { SalesTaxRate } from '@open-mercato/core/modules/sales/data/entities'
 import { E } from '@/.mercato/generated/entities.ids.generated'
+import { STORES } from './stock'
 import {
-  CC_STORES,
   CC_UNITS,
   CC_WAREHOUSE,
   KIND_SUBCATEGORIES,
@@ -132,6 +132,13 @@ async function ensureCategory(
 }
 
 export async function seedCcCategories(em: EntityManager, scope: CcSeedScope) {
+  const kindCodes = new Set<string>(PRODUCT_KINDS.map((kind) => kind.code))
+  const stale = await em.find(CatalogProductCategory, { ...scope, deletedAt: null })
+  for (const category of stale) {
+    const kind = (category.metadata as Record<string, unknown> | null)?.ccKind
+    if (typeof kind === 'string' && !kindCodes.has(kind)) category.deletedAt = new Date()
+  }
+  await em.flush()
   for (const kind of PRODUCT_KINDS) {
     const root = await ensureCategory(em, scope, kind.label, null, kind.code)
     for (const child of KIND_SUBCATEGORIES[kind.code]) {
@@ -157,10 +164,14 @@ export async function seedCcStores(em: EntityManager, scope: CcSeedScope) {
     em.persist(warehouse)
     await em.flush()
   }
-  for (const code of CC_STORES) {
-    const existing = await em.findOne(WarehouseLocation, { ...scope, warehouse, code, deletedAt: null })
+  const wanted = new Set<string>(STORES.map((store) => store.code))
+  for (const legacy of await em.find(WarehouseLocation, { ...scope, warehouse, deletedAt: null })) {
+    if (!wanted.has(legacy.code) && ['RM-STORE', 'PM-STORE', 'PRODUCTION'].includes(legacy.code)) legacy.deletedAt = new Date()
+  }
+  for (const store of STORES) {
+    const existing = await em.findOne(WarehouseLocation, { ...scope, warehouse, code: store.code, deletedAt: null })
     if (existing) continue
-    em.persist(em.create(WarehouseLocation, { ...scope, warehouse, code, type: 'zone', isActive: true }))
+    em.persist(em.create(WarehouseLocation, { ...scope, warehouse, code: store.code, type: 'zone', isActive: true }))
   }
   await em.flush()
 }

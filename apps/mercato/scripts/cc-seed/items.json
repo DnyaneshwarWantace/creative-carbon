@@ -1,0 +1,396 @@
+{
+ "chemical": [
+  {
+   "name": "Phenol",
+   "fields": {
+    "used_in": "Resin"
+   }
+  },
+  {
+   "name": "Formaldehyde",
+   "fields": {
+    "used_in": "Resin"
+   }
+  },
+  {
+   "name": "Cardinol",
+   "fields": {
+    "used_in": "Resin"
+   }
+  },
+  {
+   "name": "Liquid Ammonia",
+   "fields": {
+    "used_in": "Resin"
+   }
+  },
+  {
+   "name": "Caustic Soda Flakes",
+   "fields": {
+    "used_in": "Resin"
+   }
+  },
+  {
+   "name": "Methanol",
+   "fields": {
+    "used_in": "Resin and coating"
+   }
+  },
+  {
+   "name": "Oxalic Acid",
+   "fields": {
+    "used_in": "Resin"
+   }
+  },
+  {
+   "name": "DBP",
+   "fields": {
+    "used_in": "Coating"
+   }
+  },
+  {
+   "name": "Oleic Acid",
+   "fields": {
+    "used_in": "Coating"
+   }
+  }
+ ],
+ "reinforcement": [
+  {
+   "name": "Washing F2 1500",
+   "fields": {
+    "material_kind": "Paper",
+    "gsm": "1500"
+   }
+  },
+  {
+   "name": "Washing F2 1300",
+   "fields": {
+    "material_kind": "Paper",
+    "gsm": "1300"
+   }
+  },
+  {
+   "name": "Washing F2 1100",
+   "fields": {
+    "material_kind": "Paper",
+    "gsm": "1100"
+   }
+  },
+  {
+   "name": "Washing F2 1000",
+   "fields": {
+    "material_kind": "Paper",
+    "gsm": "1000"
+   }
+  },
+  {
+   "name": "Washing F2 900",
+   "fields": {
+    "material_kind": "Paper",
+    "gsm": "900"
+   }
+  },
+  {
+   "name": "10x10",
+   "fields": {
+    "material_kind": "Cloth",
+    "weave": "10x10"
+   }
+  },
+  {
+   "name": "6x6",
+   "fields": {
+    "material_kind": "Cloth",
+    "weave": "6x6"
+   }
+  },
+  {
+   "name": "G 10x10",
+   "fields": {
+    "material_kind": "Cloth",
+    "weave": "10x10"
+   }
+  },
+  {
+   "name": "G 6x6",
+   "fields": {
+    "material_kind": "Cloth",
+    "weave": "6x6"
+   }
+  },
+  {
+   "name": "V-220",
+   "fields": {}
+  },
+  {
+   "name": "V-260",
+   "fields": {}
+  },
+  {
+   "name": "V-300",
+   "fields": {}
+  },
+  {
+   "name": "V-6x6",
+   "fields": {
+    "material_kind": "Cloth",
+    "weave": "6x6"
+   }
+  },
+  {
+   "name": "HNT",
+   "fields": {}
+  },
+  {
+   "name": "16x16x54",
+   "fields": {
+    "material_kind": "Cloth",
+    "weave": "16x16x54"
+   }
+  },
+  {
+   "name": "16x16x51",
+   "fields": {
+    "material_kind": "Cloth",
+    "weave": "16x16x51"
+   }
+  },
+  {
+   "name": "16x16x38",
+   "fields": {
+    "material_kind": "Cloth",
+    "weave": "16x16x38"
+   }
+  },
+  {
+   "name": "Star 140",
+   "fields": {
+    "material_kind": "Paper",
+    "make_brand": "Star",
+    "gsm": "140"
+   }
+  },
+  {
+   "name": "Star 130",
+   "fields": {
+    "material_kind": "Paper",
+    "make_brand": "Star",
+    "gsm": "130"
+   }
+  },
+  {
+   "name": "Star 80 Logo Toofan",
+   "fields": {
+    "material_kind": "Paper",
+    "make_brand": "Star",
+    "gsm": "80"
+   }
+  },
+  {
+   "name": "Shrijee 110",
+   "fields": {
+    "material_kind": "Paper",
+    "make_brand": "Shrijee",
+    "gsm": "110"
+   }
+  },
+  {
+   "name": "ISCON 110",
+   "fields": {
+    "material_kind": "Paper",
+    "make_brand": "ISCON",
+    "gsm": "110"
+   }
+  },
+  {
+   "name": "ISCON 130",
+   "fields": {
+    "material_kind": "Paper",
+    "make_brand": "ISCON",
+    "gsm": "130"
+   }
+  },
+  {
+   "name": "G.K. Virgin 110",
+   "fields": {
+    "material_kind": "Paper",
+    "make_brand": "G.K.",
+    "gsm": "110"
+   }
+  },
+  {
+   "name": "G.K. Gold 110",
+   "fields": {
+    "material_kind": "Paper",
+    "make_brand": "G.K.",
+    "gsm": "110"
+   }
+  },
+  {
+   "name": "G.K. Padding 210",
+   "fields": {
+    "material_kind": "Paper",
+    "make_brand": "G.K.",
+    "gsm": "210"
+   }
+  },
+  {
+   "name": "G.K. Crystal 150",
+   "fields": {
+    "material_kind": "Paper",
+    "make_brand": "G.K.",
+    "gsm": "150"
+   }
+  },
+  {
+   "name": "Black 660 GSM",
+   "fields": {
+    "gsm": "660"
+   }
+  },
+  {
+   "name": "AHBO Special",
+   "fields": {}
+  }
+ ],
+ "chindi": [
+  {
+   "name": "Cotton chindi",
+   "fields": {}
+  }
+ ],
+ "resin": [
+  {
+   "name": "P.F. Resin PFC",
+   "fields": {
+    "resin_grade": "PFC"
+   }
+  },
+  {
+   "name": "P.F. Resin PFA",
+   "fields": {
+    "resin_grade": "PFA"
+   }
+  },
+  {
+   "name": "P.F. Resin PFAC",
+   "fields": {
+    "resin_grade": "PFAC"
+   }
+  },
+  {
+   "name": "P.F. Resin E-GLASS",
+   "fields": {
+    "resin_grade": "E-GLASS"
+   }
+  }
+ ],
+ "laminate": [
+  {
+   "name": "F2F3 10x10 Sheet",
+   "fields": {
+    "product_form": "Sheet",
+    "laminate_grade": "F2F3",
+    "weave": "10x10"
+   }
+  },
+  {
+   "name": "MUS2 10x10 Sheet",
+   "fields": {
+    "product_form": "Sheet",
+    "laminate_grade": "MUS2",
+    "weave": "10x10"
+   }
+  },
+  {
+   "name": "Fabric 10x10 Sheet",
+   "fields": {
+    "product_form": "Sheet",
+    "laminate_grade": "Fabric",
+    "weave": "10x10"
+   }
+  },
+  {
+   "name": "Fabric 6x6 Sheet",
+   "fields": {
+    "product_form": "Sheet",
+    "laminate_grade": "Fabric",
+    "weave": "6x6"
+   }
+  },
+  {
+   "name": "Fabric W-10x10 Sheet",
+   "fields": {
+    "product_form": "Sheet",
+    "laminate_grade": "Fabric",
+    "weave": "W-10x10"
+   }
+  },
+  {
+   "name": "Paper 6x6 Sheet",
+   "fields": {
+    "product_form": "Sheet",
+    "laminate_grade": "Paper",
+    "weave": "6x6"
+   }
+  },
+  {
+   "name": "Rubber W-10x10 Sheet",
+   "fields": {
+    "product_form": "Sheet",
+    "laminate_grade": "Rubber W",
+    "weave": "10x10"
+   }
+  },
+  {
+   "name": "Coffee P1 Sheet",
+   "fields": {
+    "product_form": "Sheet",
+    "laminate_grade": "Coffee P1"
+   }
+  },
+  {
+   "name": "P2 (m) Sheet",
+   "fields": {
+    "product_form": "Sheet",
+    "laminate_grade": "P2 (m)"
+   }
+  },
+  {
+   "name": "Graphite 10x10 Sheet",
+   "fields": {
+    "product_form": "Sheet",
+    "laminate_grade": "Graphite",
+    "weave": "10x10"
+   }
+  },
+  {
+   "name": "Tube 6x6",
+   "fields": {
+    "product_form": "Tube",
+    "weave": "6x6"
+   }
+  }
+ ],
+ "bought_in": [
+  {
+   "name": "Wooden pallet",
+   "fields": {
+    "resale": "No"
+   }
+  },
+  {
+   "name": "PP wrap",
+   "fields": {
+    "resale": "No"
+   }
+  },
+  {
+   "name": "LDP sheet",
+   "fields": {
+    "resale": "No"
+   }
+  }
+ ]
+}

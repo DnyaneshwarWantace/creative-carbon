@@ -13,14 +13,16 @@ import { SegmentedControl, SegmentedControlItem } from '@open-mercato/ui/primiti
 import { apiCall } from '@open-mercato/ui/backend/utils/apiCall'
 import { ExportButton } from '../../cc_products/components/ExportButton'
 import { downloadCsv } from '../../cc_products/lib/csvExport'
+import { STORES } from '../../cc_products/lib/stock'
+import { PRODUCT_KINDS } from '../../cc_products/lib/kinds'
 
 type Report = 'overview' | 'ageing' | 'consumption'
 type Base = { productId: string; code: string | null; title: string; kind: string | null; unit: string | null }
-type OverviewRow = Base & { rm: number; pm: number; production: number; fg: number; underTest: number; onHold: number; total: number; free: number }
+type OverviewRow = Base & { stores: Record<string, number>; underTest: number; onHold: number; total: number; free: number }
 type AgeingRow = Base & { d30: number; d90: number; d180: number; older: number; total: number; oldestDays: number; expired: number; expiring90: number }
 type UseRow = Base & { used: number; rejected: number; byMonth: Record<string, number> }
 
-const KIND: Record<string, string> = { raw_material: 'RM', packing_material: 'PM', bulk: 'Bulk', finished_goods: 'FG' }
+const KIND: Record<string, string> = Object.fromEntries(PRODUCT_KINDS.map((kind) => [kind.code, kind.label]))
 
 function qty(value: number): string {
   return value ? new Intl.NumberFormat('en-IN', { maximumFractionDigits: 3 }).format(value) : '—'
@@ -78,10 +80,7 @@ export function InventoryReports() {
         { header: 'Material', value: (row) => row.title },
         { header: 'Type', value: (row) => KIND[row.kind ?? ''] ?? row.kind },
         { header: 'Unit', value: (row) => row.unit },
-        { header: 'RM store', value: (row) => row.rm },
-        { header: 'PM store', value: (row) => row.pm },
-        { header: 'Production floor', value: (row) => row.production },
-        { header: 'FG store', value: (row) => row.fg },
+        ...STORES.map((store) => ({ header: store.label, value: (row: OverviewRow) => row.stores[store.key] ?? 0 })),
         { header: 'Under QC test', value: (row) => row.underTest },
         { header: 'Rejected / on hold', value: (row) => row.onHold },
         { header: 'Free in stores', value: (row) => row.free },
@@ -144,10 +143,9 @@ export function InventoryReports() {
               ) : null}
               <SegmentedControl value={kind} onValueChange={setKind} aria-label={t('cc_store.reports.kind', 'Material type')}>
                 <SegmentedControlItem value="all">{t('cc_store.reports.all', 'All')}</SegmentedControlItem>
-                <SegmentedControlItem value="raw_material">RM</SegmentedControlItem>
-                <SegmentedControlItem value="packing_material">PM</SegmentedControlItem>
-                <SegmentedControlItem value="bulk">{t('cc_store.reports.bulk', 'Bulk')}</SegmentedControlItem>
-                <SegmentedControlItem value="finished_goods">FG</SegmentedControlItem>
+                {PRODUCT_KINDS.map((entry) => (
+                  <SegmentedControlItem key={entry.code} value={entry.code}>{entry.label}</SegmentedControlItem>
+                ))}
               </SegmentedControl>
               <div className="relative w-64">
                 <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
@@ -165,7 +163,7 @@ export function InventoryReports() {
                   {report === 'overview' ? (
                     <tr>
                       <th className="px-3 py-2 text-left font-semibold">{t('cc_store.reports.material', 'Material')}</th>
-                      {['RM store', 'PM store', 'Production floor', 'FG store', 'Under QC test', 'Rejected / hold', 'Free in stores'].map((label) => (
+                      {[...STORES.map((store) => store.label), 'Under QC test', 'Rejected / hold', 'Free in stores'].map((label) => (
                         <th key={label} className="px-3 py-2 text-right font-semibold">{label}</th>
                       ))}
                     </tr>
@@ -194,7 +192,7 @@ export function InventoryReports() {
                       {report === 'overview'
                         ? (() => {
                             const r = row as OverviewRow
-                            return [r.rm, r.pm, r.production, r.fg].map((value, index) => <td key={index} className="px-3 py-2 text-right tabular-nums">{qty(value)}</td>).concat([
+                            return STORES.map((store) => r.stores[store.key] ?? 0).map((value, index) => <td key={index} className="px-3 py-2 text-right tabular-nums">{qty(value)}</td>).concat([
                               <td key="test" className={cn('px-3 py-2 text-right tabular-nums', r.underTest && 'text-status-warning-text')}>{qty(r.underTest)}</td>,
                               <td key="hold" className={cn('px-3 py-2 text-right tabular-nums', r.onHold && 'text-status-error-text')}>{qty(r.onHold)}</td>,
                               <td key="free" className="px-3 py-2 text-right font-semibold tabular-nums">{qty(r.free)}</td>,

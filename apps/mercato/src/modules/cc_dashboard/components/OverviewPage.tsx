@@ -25,6 +25,7 @@ import { StatusBadge, type StatusBadgeVariant } from '@open-mercato/ui/primitive
 import { Spinner } from '@open-mercato/ui/primitives/spinner'
 import { apiCall } from '@open-mercato/ui/backend/utils/apiCall'
 import { ErrorMessage } from '@open-mercato/ui/backend/detail'
+import { PRODUCT_KINDS } from '../../cc_products/lib/kinds'
 
 type WorkItem = {
   orderId: string
@@ -321,7 +322,7 @@ export function OverviewPage() {
                               <span className="col-span-5 min-w-0">
                                 <span className="block truncate text-sm font-medium">{row.title}</span>
                                 <span className="block font-mono text-xs text-muted-foreground">
-                                  {row.code ?? '—'} · {row.kind === 'raw_material' ? 'RM' : 'PM'}
+                                  {row.code ?? '—'} · {PRODUCT_KINDS.find((entry) => entry.code === row.kind)?.label ?? row.kind}
                                 </span>
                               </span>
                               <span className="col-span-4">

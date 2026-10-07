@@ -1,7 +1,6 @@
 "use client"
 
 import * as React from 'react'
-import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { ArrowLeft, Boxes, FlaskConical, IndianRupee, Layers, Package, Receipt, Settings2, Sparkles, Tag } from 'lucide-react'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
@@ -18,11 +17,10 @@ import { buildOptimisticLockHeader } from '@open-mercato/ui/backend/utils/optimi
 import { useGuardedMutation } from '@open-mercato/ui/backend/injection/useGuardedMutation'
 import { flash } from '@open-mercato/ui/backend/FlashMessages'
 import { ErrorMessage, LoadingMessage } from '@open-mercato/ui/backend/detail'
-import { PRODUCT_KINDS, type ProductKind } from '../lib/kinds'
+import { PRODUCT_KINDS, SELLABLE_KINDS, type ProductKind } from '../lib/kinds'
 import { KIND_CONFIG, unitsForKind, type KindConfig } from '../lib/kindConfig'
 import { fieldsForKind, isNumericField, loadProductFieldDefs, type ProductFieldDef } from '../lib/fieldDefs'
 import { FieldsPanel, type PanelField } from './FieldsPanel'
-import { PackingItemsCard } from './PackingItemsCard'
 
 type Row = Record<string, unknown>
 type ListResponse<T> = { items?: T[] }
@@ -54,7 +52,6 @@ type Loaded = {
   listOptions: Record<string, TaxOption[]>
   profileId: string | null
   updatedAt: string | null
-  parentProductId: string | null
   sku: string | null
 }
 
@@ -171,7 +168,6 @@ async function load(config: KindConfig, productId?: string): Promise<Loaded> {
     units: unitsForKind(config, (unitCall.result?.entries ?? []).map((entry) => ({ value: entry.value, label: entry.label }))),
     profileId: profile ? text(read(profile, 'id')) : null,
     updatedAt: text(read(product, 'updated_at', 'updatedAt')) || null,
-    parentProductId: text(read(product, 'cf_parent_product_id')) || null,
     sku: text(read(product, 'sku')) || null,
   }
 }
@@ -204,7 +200,6 @@ export function ProductForm({ kind, productId }: { kind: ProductKind; productId?
   const [hidden, setHidden] = React.useState<Set<string>>(new Set())
   const [defs, setDefs] = React.useState<ProductFieldDef[]>([])
   const [listOptions, setListOptions] = React.useState<Record<string, TaxOption[]>>({})
-  const [packTypes, setPackTypes] = React.useState<string[]>([])
   const [stock, setStock] = React.useState<{ onHand: number; reserved: number; available: number } | null>(null)
 
   React.useEffect(() => {
@@ -226,18 +221,16 @@ export function ProductForm({ kind, productId }: { kind: ProductKind; productId?
       { key: 'min_stock', label: t('cc_products.form.minStockPlain', 'Minimum Stock') },
       { key: 'gst', label: t('cc_products.form.gst', 'GST') },
       { key: 'hsn', label: t('cc_products.form.hsn', 'HSN Code') },
-      ...(kind === 'finished_goods' ? [{ key: 'selling_price', label: t('cc_products.form.sellingPrice', 'Selling Price (₹)') }] : []),
+      ...(SELLABLE_KINDS.has(kind) ? [{ key: 'selling_price', label: t('cc_products.form.sellingPrice', 'Selling Price (₹)') }] : []),
       { key: 'cost_price', label: t('cc_products.form.costPrice', 'Cost Price (₹)') },
     ],
     [config, kind, kindDefs, t],
   )
 
-  const liquid = ['l', 'ml'].includes((state?.unit ?? '').toLowerCase())
   const isVisible = (key: string) => {
     if (key === 'item_code' && config.codeRequired) return true
     if (key === 'product_type' || key === 'batch_method') return false
-    if (key === 'selling_price' && kind !== 'finished_goods') return false
-    if (key === 'specific_gravity' && kind === 'raw_material' && !liquid) return false
+    if (key === 'selling_price' && !SELLABLE_KINDS.has(kind)) return false
     return !hidden.has(key)
   }
 
@@ -352,14 +345,6 @@ export function ProductForm({ kind, productId }: { kind: ProductKind; productId?
           }
           if (loaded.profileId) await updateCrud('wms/inventory-profiles', { id: loaded.profileId, ...profilePayload })
           else await createCrud('wms/inventory-profiles', { catalogProductId: id, ...profilePayload })
-          if (kind === 'finished_goods' && (packTypes.length || productId)) {
-            const packing = await apiCall('/api/cc_products/packing', {
-              method: 'POST',
-              headers: { 'content-type': 'application/json' },
-              body: JSON.stringify({ productId: id, types: packTypes }),
-            })
-            if (!packing.ok) throw new Error('[internal] packing items not saved')
-          }
         },
       })
       flash(t('cc_products.flash.saved', '{kind} saved', { kind: config.singular }), 'success')
@@ -459,18 +444,8 @@ export function ProductForm({ kind, productId }: { kind: ProductKind; productId?
             </div>
           </div>
 
-          {loaded.parentProductId ? (
-            <div className="flex flex-wrap items-center gap-2 rounded-lg border bg-muted/20 px-3 py-2 text-sm">
-              <span className="text-muted-foreground">{t('cc_products.packing.madeFor', 'Packing item of')}</span>
-              <Link href={`/backend/products/${loaded.parentProductId}`} className="font-medium text-primary hover:underline">
-                {t('cc_products.packing.openParent', 'the Finished Good')}
-              </Link>
-              {loaded.sku ? <span className="font-mono text-xs text-muted-foreground">· {loaded.sku}</span> : null}
-            </div>
-          ) : null}
-
           <div className="rounded-xl border bg-muted/30 p-1.5">
-            <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-5">
+            <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-4">
               {PRODUCT_KINDS.map((entry) => {
                 const entryConfig = KIND_CONFIG[entry.code]
                 const Icon = KIND_ICONS[entryConfig.icon]
@@ -615,9 +590,6 @@ export function ProductForm({ kind, productId }: { kind: ProductKind; productId?
                       })}
                   </CardContent>
                 </Card>
-              ) : null}
-              {kind === 'finished_goods' ? (
-                <PackingItemsCard productId={productId} productTitle={state.title} selected={packTypes} onChange={setPackTypes} />
               ) : null}
             </div>
 

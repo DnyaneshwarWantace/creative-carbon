@@ -37,9 +37,10 @@ import { customerMessages } from './customerMessages'
 import { openServerExport } from '../../cc_products/lib/csvExport'
 import { paymentTermLabel } from '../../cc_lists/lib/paymentTerms'
 import { useStageSettings } from './useStageSettings'
+import { PRODUCT_KINDS } from '../../cc_products/lib/kinds'
 
 
-const KIND_LABEL: Record<string, string> = { raw_material: 'RM', packing_material: 'PM', bulk: 'Bulk', finished_goods: 'FG' }
+const KIND_LABEL: Record<string, string> = Object.fromEntries(PRODUCT_KINDS.map((kind) => [kind.code, kind.label]))
 
 type RailBlock = { kind: 'single'; key: string } | { kind: 'arms'; lanes: Array<{ label: string; keys: string[] }> }
 

@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto'
 import type { EntityManager } from '@mikro-orm/postgresql'
 import { Vendor } from '../../cc_vendors/data/entities'
 import { currentUserName, loadProducts, type OrderContext } from '../../cc_orders/lib/server'
-import { LOCATION_CODES, ccWarehouse } from '../../cc_products/lib/stock'
+import { LOCATION_CODES, PLACE_LABEL, ccWarehouse, receivingStoreFor } from '../../cc_products/lib/stock'
 import { performerId, runCommand, type StoreContext } from '../../cc_store/lib/server'
 import { ensureStockRecords } from '../../cc_store/lib/stockSetup'
 import { GoodsReceipt, GoodsReceiptLine, PurchaseOrder, PurchaseOrderLine, type GrnStatus, type PoStatus } from '../data/entities'
@@ -10,6 +10,7 @@ import type { DirectGrnInput, GrnInput, PoInput } from '../data/validators'
 import { linkIndentsToPo, notifyApprovers } from './indents'
 import { loadCompany } from '../../cc_accounts/lib/documents'
 import { nextSeriesCode } from '../../cc_accounts/lib/numberSeries'
+import { PURCHASED_KINDS, type ProductKind } from '../../cc_products/lib/kinds'
 
 const EPSILON = 0.000001
 
@@ -80,7 +81,7 @@ async function writeLines(ctx: OrderContext, po: PurchaseOrder, lines: PoInput['
   for (const line of lines) {
     const product = products.get(line.productId)
     if (!product) throw new PurchaseError('A material on the PO was not found', 404)
-    if (product.kind !== 'raw_material' && product.kind !== 'packing_material') throw new PurchaseError(`${product.title} is not a raw or packing material`)
+    if (!PURCHASED_KINDS.has(product.kind as ProductKind)) throw new PurchaseError(`${product.title} is not a material that is bought`)
   }
   const existing = await ctx.em.find(PurchaseOrderLine, { poId: po.id })
   for (const line of existing) ctx.em.remove(line)
@@ -271,10 +272,10 @@ async function receiveLines(ctx: StoreContext, grn: GoodsReceipt, entries: Recei
   const lines: GoodsReceiptLine[] = []
   for (const entry of entries) {
     const product = products.get(entry.productId)
-    const store = product?.kind === 'raw_material' ? 'rm' : 'pm'
+    const store = receivingStoreFor(product?.kind ?? null)
     const variantId = variants.get(entry.productId)!
     const locationId = warehouse.locations.get(LOCATION_CODES[store])
-    if (!locationId) throw new PurchaseError(`The ${LOCATION_CODES[store]} location is missing`, 409)
+    if (!locationId) throw new PurchaseError(`The ${PLACE_LABEL[store]} location is missing`, 409)
     const lotNumber = await uniqueLotNumber(ctx, variantId, entry.lotNumber, grn.code)
     const lot = await runCommand<{ lotId: string }>(ctx, 'wms.lots.create', {
       catalogVariantId: variantId,
@@ -391,7 +392,7 @@ export async function createDirectGrn(ctx: StoreContext, input: DirectGrnInput):
   for (const entry of input.lines) {
     const product = products.get(entry.productId)
     if (!product) throw new PurchaseError('A material on the list was not found', 404)
-    if (product.kind !== 'raw_material' && product.kind !== 'packing_material') throw new PurchaseError(`${product.title} is not a raw or packing material`)
+    if (!PURCHASED_KINDS.has(product.kind as ProductKind)) throw new PurchaseError(`${product.title} is not a material that is bought`)
   }
   await stockTargets(ctx, [...new Set(input.lines.map((line) => line.productId))])
   const byName = await currentUserName(ctx)
@@ -414,7 +415,7 @@ export async function createDirectGrn(ctx: StoreContext, input: DirectGrnInput):
   await ctx.em.flush()
   const entries: ReceiveEntry[] = input.lines.map((entry) => ({
     productId: entry.productId,
-    unit: products.get(entry.productId)?.unit ?? (products.get(entry.productId)?.kind === 'raw_material' ? 'kg' : 'pc'),
+    unit: products.get(entry.productId)?.unit ?? 'kg',
     quantity: entry.quantity,
     lotNumber: entry.lotNumber,
     mfgDate: entry.mfgDate,

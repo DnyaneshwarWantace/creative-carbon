@@ -17,7 +17,8 @@ const KIND_CODES = PRODUCT_KINDS.map((kind) => kind.code) as [ProductKind, ...Pr
 const querySchema = z.object({
   kinds: z
     .string()
-    .transform((value) => value.split(',').filter(Boolean))
+    .optional()
+    .transform((value) => (value ? value.split(',').filter(Boolean) : [...KIND_CODES]))
     .pipe(z.array(z.enum(KIND_CODES)).min(1)),
   q: z.string().trim().max(200).optional(),
   limit: z.coerce.number().int().min(1).max(100).default(50),

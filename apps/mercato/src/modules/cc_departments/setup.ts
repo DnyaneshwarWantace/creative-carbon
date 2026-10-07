@@ -1,4 +1,5 @@
 import type { ModuleSetupConfig } from '@open-mercato/shared/modules/setup'
+import { seedCcDepartments } from './lib/seedDepartments'
 
 export const setup: ModuleSetupConfig = {
   defaultRoleFeatures: {
@@ -14,6 +15,9 @@ export const setup: ModuleSetupConfig = {
     quality_control: ['cc_departments.view', 'perspectives.use'],
     fg_store: ['cc_departments.view', 'perspectives.use'],
     accounts: ['cc_departments.view', 'perspectives.use'],
+  },
+  seedDefaults: async (ctx) => {
+    await seedCcDepartments(ctx.em, { tenantId: ctx.tenantId, organizationId: ctx.organizationId })
   },
 }
 

@@ -18,6 +18,7 @@ import { useGuardedMutation } from '@open-mercato/ui/backend/injection/useGuarde
 import { flash } from '@open-mercato/ui/backend/FlashMessages'
 import { ErrorMessage, LoadingMessage } from '@open-mercato/ui/backend/detail'
 import { qty, todayIso, type PoView } from './shared'
+import { PLACE_LABEL, receivingStoreFor } from '../../cc_products/lib/stock'
 
 type Draft = { include: boolean; quantity: string; lotNumber: string; mfgDate: string; expiryDate: string }
 
@@ -96,7 +97,7 @@ export function NewGrnPage() {
         flash(call.result?.error ?? t('cc_purchase.grn.error', 'Could not save the GRN.'), 'error')
         return
       }
-      flash(t('cc_purchase.grn.saved', '{code} saved. Material is in the store under QC test.', { code: call.result.code ?? '' }), 'success')
+      flash(t('cc_purchase.grn.saved', '{code} saved. Material is in the store, waiting to be checked.', { code: call.result.code ?? '' }), 'success')
       router.push(`/backend/purchase/grns/${call.result.id}`)
     } finally {
       setBusy(false)
@@ -155,7 +156,7 @@ export function NewGrnPage() {
           </div>
 
           <Alert status="information" style="lighter" className="rounded-lg">
-            <AlertTitle>{t('cc_purchase.grn.howTitle', 'Material goes into the store as "under QC test"')}</AlertTitle>
+            <AlertTitle>{t('cc_purchase.grn.howTitle', 'Material goes into the store as "waiting for check"')}</AlertTitle>
             <AlertDescription>{t('cc_purchase.grn.howBody', 'It is counted in the store but cannot be reserved or issued until QC approves the batch. A QC check is created for every line.')}</AlertDescription>
           </Alert>
 
@@ -208,7 +209,7 @@ export function NewGrnPage() {
                               {line.title}
                             </label>
                             <p className="font-mono text-xs text-muted-foreground">
-                              {line.code ?? '—'} · {line.kind === 'raw_material' ? 'RM store' : 'PM store'}
+                              {line.code ?? '—'} · {PLACE_LABEL[receivingStoreFor(line.kind ?? null)]}
                             </p>
                           </td>
                           <td className="px-3 py-3 text-right tabular-nums">{qty(line.open, line.unit)}</td>
