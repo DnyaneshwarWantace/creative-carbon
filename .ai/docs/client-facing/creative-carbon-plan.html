@@ -184,7 +184,7 @@
 
 <div class="wrap">
   <header class="hero">
-    <span class="eyebrow">● Detailed build plan · v9 · Stages 0–6 done and tested</span>
+    <span class="eyebrow">● Detailed build plan · v10 · Stages 0–7 done and tested</span>
     <h1>Creative Carbon on the Dermat base: every stage, page, field and link</h1>
     <p class="lede">For each stage this page lists the screens, every field with its type and rule, what the detail page shows, which stage feeds it and which stage it feeds, the stock it moves, and the small things that are easy to miss. Sources are the dev brief, the 12 register photos and the Kheda audit recording. <strong>Anything we had to guess is marked "confirm".</strong></p>
     <div class="facts">
@@ -202,7 +202,7 @@
       <a class="pchip done" href="#s4"><div class="pn">Stage 4<span>Wk 3</span></div><div class="pv">Coating · B-stage</div></a>
       <a class="pchip done" href="#s5"><div class="pn">Stage 5<span>Wk 4</span></div><div class="pv">Press</div></a>
       <a class="pchip done" href="#s6"><div class="pn">Stage 6<span>Wk 4</span></div><div class="pv">Moulding</div></a>
-      <a class="pchip" href="#s7"><div class="pn">Stage 7<span>Wk 4</span></div><div class="pv">Cutting · QC · FG</div></a>
+      <a class="pchip done" href="#s7"><div class="pn">Stage 7<span>Wk 4</span></div><div class="pv">Cutting · QC · FG</div></a>
       <a class="pchip demo" href="#s8"><div class="pn">Stage 8<span>Wk 5</span></div><div class="pv">Stock · Owner · Demo</div></a>
       <a class="pchip" href="#s9"><div class="pn">Stage 9<span>Wk 6–7</span></div><div class="pv">Order → Despatch</div></a>
       <a class="pchip" href="#s10"><div class="pn">Stage 10<span>Wk 7–8</span></div><div class="pv">CRM · Purchase</div></a>
@@ -241,7 +241,7 @@
       <a href="#s4"><span class="dot done"></span>4 Coating · B-stage</a>
       <a href="#s5"><span class="dot done"></span>5 Press</a>
       <a href="#s6"><span class="dot done"></span>6 Moulding</a>
-      <a href="#s7"><span class="dot planned"></span>7 Cutting · QC · FG</a>
+      <a href="#s7"><span class="dot done"></span>7 Cutting · QC · FG</a>
       <a href="#s8"><span class="dot planned"></span>8 Stock · Owner · Demo</a>
       <a href="#s9"><span class="dot planned"></span>9 Order → Despatch</a>
       <a href="#s10"><span class="dot planned"></span>10 CRM · Purchase</a>
@@ -815,7 +815,7 @@
 
 <!-- ============ STAGE 7 ============ -->
       <section id="s7">
-        <div class="mod-head"><h2>Stage 7 · Cutting, thickness, FG inspection, lab</h2><span class="verdict planned">PLANNED</span><span class="when">Week 4</span></div>
+        <div class="mod-head"><h2>Stage 7 · Cutting, thickness, FG inspection, lab</h2><span class="verdict done">DONE · TESTED</span><span class="when">finished 8 Oct</span></div>
         <div class="meta"><span><b>Pages</b> /backend/cutting · /backend/quality/thickness · /quality/fg-inspection · /quality/lab · /backend/fg/direct-in</span><span><b>Paper</b> IMG_7777, 7778 · audio</span></div>
 
         <details class="stagecard" open>
@@ -880,7 +880,24 @@
           <div class="box out"><div class="lbl">Feeds</div><ul><li>Finished lots in FG store, with allocation</li><li>Order stage "Stock allocation" and "QC &amp; test report" (Stage 9) read these results</li></ul></div>
           <div class="box stock"><div class="lbl">Stock</div><ul><li>Trim loss out</li><li>Pass: pressed / moulded lot → finished lot in FG store</li><li>Reject: scrap</li></ul></div>
         </div>
-      </section>
+            <h3>What the photos settled</h3>
+        <div class="itemlist">
+          <div class="item done"><span class="mark">✓</span><span class="txt"><b>Thickness book</b> (IMG_7777): each block is lot ref + grade + daylight ("F/61/9/26 · F2 F3 · D4") with 12 readings in rows 4′ 8′ 4′ 8′. "10+10" under a block is the 10x10 grade, not a tolerance.</span></div>
+          <div class="item partial"><span class="mark">?</span><span class="txt"><b>Tolerance is not written anywhere.</b> The 10 mm boards read 10.6–11.0 and the 25 mm boards 25.5–26.1, so a ±0.1 or ±0.5 rule would hold almost everything. The system keeps a − / + tolerance per thickness (remembered from the last check) and only marks readings red once it is set. Confirm the real band per thickness.</span></div>
+          <div class="item done"><span class="mark">✓</span><span class="txt"><b>FG report</b> (IMG_7778): the "Quantity Kgs" column holds pieces (1, 2, 6, 18), and the "Reason for rejection" column holds where the goods go — Allocation, Export, Stock, or a customer (Bhel, R.B, D.R). Built as pieces + a "goes to" choice, with a separate real rejection reason.</span></div>
+        </div>
+      <h3>What was built</h3>
+        <div class="itemlist">
+          <div class="item done"><span class="mark">✓</span><span class="txt"><b>Cutting &amp; trimming</b> (Plant): pick a pressed lot on the shop floor, the cut size (list), paste the sheet weights in order; trimmed kg, kg taken from the lot and trim loss % are worked out, amber outside 6–10 %. The trimmed lot (sheets, size, sheet weights) goes on; the trim loss leaves stock. Reverse while the trimmed lot is untouched.</span></div>
+          <div class="item done"><span class="mark">✓</span><span class="txt"><b>Thickness inspection</b> (QC &amp; lab): lot (or a typed ref like F/61/9/26), grade, daylight, target from the batch line, − / + tolerance, the 4 × 3 grid with red cells out of tolerance; pass, or hold — a lot on hold cannot go through FG inspection until a later check passes it.</span></div>
+          <div class="item done"><span class="mark">✓</span><span class="txt"><b>FG inspection test report</b> CCCPL/F/QC/04: rows of lot, sheet size, pieces OK, pieces rejected with a reason, and where they go (Stock, Export, or Allocation to a customer). Posting moves the passed pieces into the <b>FG store</b> as finished lots carrying the customer / export mark (kg worked out per sheet), scraps the rejected pieces, and refuses lots on hold. Reopen while the FG lots are untouched.</span></div>
+          <div class="item done"><span class="mark">✓</span><span class="txt"><b>Lab test reports</b>: date, customer (required — tests follow the customer specification), item, lot refs, test type and standard from lists (IS 2036, NEMA, IEC, BIS, customer spec), result, remarks, the report file attached to the test, and <b>Copy last time</b> for the same customer and item.</span></div>
+          <div class="item done"><span class="mark">✓</span><span class="txt"><b>Bought-in &amp; damaged</b> (Store): bought-in finished goods straight into the FG store as a lot with no parent (supplier, invoice, item, size, thickness, nos, kg); damaged material written off from any lot with a reason, listed for the owner overview.</span></div>
+          <div class="item done"><span class="mark">✓</span><span class="txt">New managed lists: cut sizes, FG rejection reasons, lab test types, test standards. Rights for Press &amp; moulding / Store (cutting, bought-in, damage), QC &amp; lab (thickness, FG, lab), Floor supervisor and Data entry.</span></div>
+          <div class="item partial"><span class="mark">→</span><span class="txt">Moulded pieces go straight to FG inspection (their trim is not a stock change, since moulded stock is counted in pieces). The order stages "Stock allocation" and "QC &amp; test report" read these lots and tests in Stage 9; damaged goods appear on the owner overview in Stage 8.</span></div>
+        </div>
+        <p class="exit"><b>Tested 8 Oct:</b> type check 0 errors · end-to-end suite Stages 0–7: <b>76 / 76 passing</b> — a 10x10 batch made through resin, coating and press; two 25 mm sheets cut to 8x4 (217.5 kg trimmed from 236 kg, 18.5 kg trim, 7.8 %), three sheets refused; thickness passes the cut lot, holds a 10 mm lot with 4 readings over, FG inspection refuses the held lot until a re-check passes it; FG posts 1 piece to BHEL and 2 for export into the FG store (108.75 + 92 kg) and scraps 1 piece with its reason; a lab test is recorded and copied; bought-in goods received into FG and 2.5 kg written off as damaged; pages open; everything reversed and cleaned up.</p>
+</section>
 
 <!-- ============ STAGE 8 ============ -->
       <section id="s8">

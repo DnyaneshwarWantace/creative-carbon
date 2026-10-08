@@ -16,6 +16,9 @@ export const features = [
   { id: 'cc_production.moulding.view', title: 'See the moulded products register and die availability', module: 'cc_production' },
   { id: 'cc_production.moulding.enter', title: 'Enter, post and reopen moulding entries', module: 'cc_production', dependsOn: ['cc_production.moulding.view'] },
   { id: 'cc_production.moulding.sign', title: 'Sign the moulding register (shift in-charge, store in-charge, authorised)', module: 'cc_production', dependsOn: ['cc_production.moulding.view'] },
+  { id: 'cc_production.quality.view', title: 'See cutting, thickness, FG inspection, lab tests, bought-in and damaged goods', module: 'cc_production' },
+  { id: 'cc_production.cutting.enter', title: 'Enter cutting / trimming, bought-in goods and damaged material', module: 'cc_production', dependsOn: ['cc_production.quality.view'] },
+  { id: 'cc_production.quality.enter', title: 'Enter thickness inspection, FG inspection and lab tests', module: 'cc_production', dependsOn: ['cc_production.quality.view'] },
   { id: 'cc_production.prices.manage', title: 'Change price lists', module: 'cc_production', dependsOn: ['cc_production.prices.view'] },
 ]
 

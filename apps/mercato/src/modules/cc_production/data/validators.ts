@@ -310,3 +310,74 @@ export const mouldingActionSchema = z.object({
 })
 
 export const mouldingDaySchema = z.object({ date: isoDate, id: z.string().uuid().optional() })
+
+export const finishingListSchema = z.object({ month: z.string().regex(/^\d{4}-\d{2}$/).optional(), id: z.string().uuid().optional() })
+
+export const cuttingInputSchema = z.object({
+  entryDate: isoDate,
+  lotId: z.string().uuid(),
+  cutSize: z.string().trim().min(1).max(40),
+  sheets: z.array(z.object({ no: z.coerce.number().int().min(0).max(10_000).default(0), weightKg: z.coerce.number().positive().max(10_000) })).min(1).max(500),
+  sourceKgUsed: nullableNumber,
+  notes: optionalText(500),
+})
+
+export const cuttingReverseSchema = z.object({ id: z.string().uuid() })
+
+export const thicknessInputSchema = z.object({
+  inspectDate: isoDate,
+  lotId: z.string().uuid().nullable().optional().transform((value) => value ?? null),
+  lotRef: optionalText(60),
+  grade: optionalText(40),
+  daylight: optionalText(20),
+  targetMm: nullableNumber,
+  minusMm: nullableNumber,
+  plusMm: nullableNumber,
+  readings: z.array(z.coerce.number().positive().max(1000)).length(12),
+  result: z.enum(['pass', 'hold']).nullable().optional().transform((value) => value ?? null),
+  inspector: optionalText(80),
+  notes: optionalText(500),
+})
+
+export const fgRowSchema = z.object({
+  sourceLotId: z.string().uuid(),
+  sheetSize: optionalText(40),
+  qtyNos: z.coerce.number().int().min(0).max(1_000_000),
+  rejectNos: z.coerce.number().int().min(0).max(1_000_000).default(0),
+  rejectReason: optionalText(120),
+  disposition: z.enum(['stock', 'export', 'allocation']),
+  customerId: z.string().uuid().nullable().optional().transform((value) => value ?? null),
+  customerName: optionalText(200),
+})
+
+export const fgReportInputSchema = z.object({ reportDate: isoDate, rows: z.array(fgRowSchema).min(1).max(60), inspector: optionalText(80), approvedBy: optionalText(80) })
+export const fgReportUpdateSchema = fgReportInputSchema.extend({ id: z.string().uuid() })
+export const fgActionSchema = z.object({ id: z.string().uuid(), action: z.enum(['post', 'reopen']) })
+
+export const labInputSchema = z.object({
+  testDate: isoDate,
+  lotRefs: optionalText(300),
+  productId: z.string().uuid().nullable().optional().transform((value) => value ?? null),
+  itemTitle: optionalText(200),
+  customerId: z.string().uuid().nullable().optional().transform((value) => value ?? null),
+  customerName: optionalText(200),
+  testType: z.string().trim().min(1).max(80),
+  standard: optionalText(80),
+  result: z.enum(['pass', 'fail', 'pending']).default('pending'),
+  notes: optionalText(2000),
+})
+export const labUpdateSchema = labInputSchema.extend({ id: z.string().uuid() })
+export const labListSchema = z.object({ month: z.string().regex(/^\d{4}-\d{2}$/).optional(), id: z.string().uuid().optional(), last: z.enum(['true']).optional(), customerName: z.string().max(200).optional(), itemTitle: z.string().max(200).optional() })
+
+export const directInSchema = z.object({
+  inDate: isoDate,
+  supplier: z.string().trim().min(1).max(200),
+  invoiceNo: optionalText(60),
+  productId: z.string().uuid(),
+  sheetSize: optionalText(40),
+  thicknessMm: nullableNumber,
+  nos: optionalInt,
+  kg: z.coerce.number().positive().max(1_000_000),
+})
+
+export const damageSchema = z.object({ entryDate: isoDate, lotId: z.string().uuid(), kg: z.coerce.number().positive().max(1_000_000), reason: z.string().trim().min(2).max(300) })

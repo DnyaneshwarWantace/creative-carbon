@@ -913,3 +913,399 @@ export class MouldingSignoff {
   @Property({ name: 'updated_at', type: Date, onCreate: () => new Date(), onUpdate: () => new Date() })
   updatedAt: Date = new Date()
 }
+
+export type CutSheet = { no: number; weightKg: number }
+
+export type FgRow = {
+  sr: number
+  sourceLotId: string
+  sourceProductId: string
+  sourceLotNumber: string | null
+  batchNo: string | null
+  itemTitle: string
+  sheetSize: string | null
+  thicknessMm: number | null
+  qtyNos: number
+  rejectNos: number
+  rejectReason: string | null
+  disposition: 'stock' | 'export' | 'allocation'
+  customerId: string | null
+  customerName: string | null
+  passKg: number | null
+  rejectKg: number | null
+  outputLotId: string | null
+  outputLotNumber: string | null
+}
+
+@Entity({ tableName: 'cc_cutting_entries' })
+@Index({ name: 'cc_cutting_entries_scope_idx', properties: ['organizationId', 'tenantId', 'entryDate'] })
+export class CuttingEntry {
+  [OptionalProps]?: 'createdAt' | 'updatedAt' | 'deletedAt' | 'history' | 'byName' | 'outputLotId' | 'outputLotNumber' | 'status' | 'warnings' | 'notes' | 'sourceLotNumber'
+
+  @PrimaryKey({ type: 'uuid', defaultRaw: 'gen_random_uuid()' })
+  id!: string
+
+  @Property({ name: 'organization_id', type: 'uuid' })
+  organizationId!: string
+
+  @Property({ name: 'tenant_id', type: 'uuid' })
+  tenantId!: string
+
+  @Property({ name: 'entry_date', type: 'text' })
+  entryDate!: string
+
+  @Property({ name: 'source_product_id', type: 'uuid' })
+  sourceProductId!: string
+
+  @Property({ name: 'source_lot_id', type: 'uuid' })
+  sourceLotId!: string
+
+  @Property({ name: 'source_lot_number', type: 'text', nullable: true })
+  sourceLotNumber?: string | null
+
+  @Property({ name: 'sheets_in', type: 'int' })
+  sheetsIn!: number
+
+  @Property({ name: 'source_kg_used', type: 'numeric', columnType: 'numeric(14,3)' })
+  sourceKgUsed!: string
+
+  @Property({ name: 'cut_size', type: 'text' })
+  cutSize!: string
+
+  @Property({ type: 'json' })
+  sheets!: CutSheet[]
+
+  @Property({ name: 'trimmed_kg', type: 'numeric', columnType: 'numeric(14,3)' })
+  trimmedKg!: string
+
+  @Property({ name: 'trim_kg', type: 'numeric', columnType: 'numeric(14,3)' })
+  trimKg!: string
+
+  @Property({ name: 'trim_pct', type: 'numeric', columnType: 'numeric(14,3)' })
+  trimPct!: string
+
+  @Property({ name: 'output_lot_id', type: 'uuid', nullable: true })
+  outputLotId?: string | null
+
+  @Property({ name: 'output_lot_number', type: 'text', nullable: true })
+  outputLotNumber?: string | null
+
+  @Property({ type: 'text', default: 'posted' })
+  status: 'posted' | 'reversed' = 'posted'
+
+  @Property({ type: 'json', nullable: true })
+  warnings?: string[] | null
+
+  @Property({ type: 'text', nullable: true })
+  notes?: string | null
+
+  @Property({ name: 'by_name', type: 'text', nullable: true })
+  byName?: string | null
+
+  @Property({ type: 'json', nullable: true })
+  history?: PlantHistoryEntry[] | null
+
+  @Property({ name: 'created_at', type: Date, onCreate: () => new Date() })
+  createdAt: Date = new Date()
+
+  @Property({ name: 'updated_at', type: Date, onCreate: () => new Date(), onUpdate: () => new Date() })
+  updatedAt: Date = new Date()
+
+  @Property({ name: 'deleted_at', type: Date, nullable: true })
+  deletedAt?: Date | null
+}
+@Entity({ tableName: 'cc_thickness_inspections' })
+@Index({ name: 'cc_thickness_inspections_scope_idx', properties: ['organizationId', 'tenantId', 'inspectDate'] })
+export class ThicknessInspection {
+  [OptionalProps]?: 'createdAt' | 'updatedAt' | 'deletedAt' | 'history' | 'byName' | 'lotId' | 'productId' | 'grade' | 'daylight' | 'minusMm' | 'plusMm' | 'outOfTolerance' | 'inspector' | 'notes'
+
+  @PrimaryKey({ type: 'uuid', defaultRaw: 'gen_random_uuid()' })
+  id!: string
+
+  @Property({ name: 'organization_id', type: 'uuid' })
+  organizationId!: string
+
+  @Property({ name: 'tenant_id', type: 'uuid' })
+  tenantId!: string
+
+  @Property({ name: 'inspect_date', type: 'text' })
+  inspectDate!: string
+
+  @Property({ name: 'lot_id', type: 'uuid', nullable: true })
+  lotId?: string | null
+
+  @Property({ name: 'product_id', type: 'uuid', nullable: true })
+  productId?: string | null
+
+  @Property({ name: 'lot_ref', type: 'text' })
+  lotRef!: string
+
+  @Property({ type: 'text', nullable: true })
+  grade?: string | null
+
+  @Property({ type: 'text', nullable: true })
+  daylight?: string | null
+
+  @Property({ name: 'target_mm', type: 'numeric', columnType: 'numeric(14,3)' })
+  targetMm!: string
+
+  @Property({ name: 'minus_mm', type: 'numeric', columnType: 'numeric(14,3)', nullable: true })
+  minusMm?: string | null
+
+  @Property({ name: 'plus_mm', type: 'numeric', columnType: 'numeric(14,3)', nullable: true })
+  plusMm?: string | null
+
+  @Property({ type: 'json' })
+  readings!: number[]
+
+  @Property({ name: 'out_of_tolerance', type: 'int', default: 0 })
+  outOfTolerance: number = 0
+
+  @Property({ type: 'text' })
+  result!: 'pass' | 'hold'
+
+  @Property({ type: 'text', nullable: true })
+  inspector?: string | null
+
+  @Property({ type: 'text', nullable: true })
+  notes?: string | null
+
+  @Property({ name: 'by_name', type: 'text', nullable: true })
+  byName?: string | null
+
+  @Property({ type: 'json', nullable: true })
+  history?: PlantHistoryEntry[] | null
+
+  @Property({ name: 'created_at', type: Date, onCreate: () => new Date() })
+  createdAt: Date = new Date()
+
+  @Property({ name: 'updated_at', type: Date, onCreate: () => new Date(), onUpdate: () => new Date() })
+  updatedAt: Date = new Date()
+
+  @Property({ name: 'deleted_at', type: Date, nullable: true })
+  deletedAt?: Date | null
+}
+@Entity({ tableName: 'cc_fg_inspections' })
+@Index({ name: 'cc_fg_inspections_scope_idx', properties: ['organizationId', 'tenantId', 'reportDate'] })
+export class FgInspection {
+  [OptionalProps]?: 'createdAt' | 'updatedAt' | 'deletedAt' | 'history' | 'byName' | 'inspector' | 'approvedBy' | 'status' | 'postedAt'
+
+  @PrimaryKey({ type: 'uuid', defaultRaw: 'gen_random_uuid()' })
+  id!: string
+
+  @Property({ name: 'organization_id', type: 'uuid' })
+  organizationId!: string
+
+  @Property({ name: 'tenant_id', type: 'uuid' })
+  tenantId!: string
+
+  @Property({ name: 'report_date', type: 'text' })
+  reportDate!: string
+
+  @Property({ type: 'json' })
+  rows!: FgRow[]
+
+  @Property({ type: 'text', nullable: true })
+  inspector?: string | null
+
+  @Property({ name: 'approved_by', type: 'text', nullable: true })
+  approvedBy?: string | null
+
+  @Property({ type: 'text', default: 'draft' })
+  status: 'draft' | 'posted' = 'draft'
+
+  @Property({ name: 'posted_at', type: Date, nullable: true })
+  postedAt?: Date | null
+
+  @Property({ name: 'by_name', type: 'text', nullable: true })
+  byName?: string | null
+
+  @Property({ type: 'json', nullable: true })
+  history?: PlantHistoryEntry[] | null
+
+  @Property({ name: 'created_at', type: Date, onCreate: () => new Date() })
+  createdAt: Date = new Date()
+
+  @Property({ name: 'updated_at', type: Date, onCreate: () => new Date(), onUpdate: () => new Date() })
+  updatedAt: Date = new Date()
+
+  @Property({ name: 'deleted_at', type: Date, nullable: true })
+  deletedAt?: Date | null
+}
+@Entity({ tableName: 'cc_lab_tests' })
+@Index({ name: 'cc_lab_tests_scope_idx', properties: ['organizationId', 'tenantId', 'testDate'] })
+export class LabTest {
+  [OptionalProps]?: 'createdAt' | 'updatedAt' | 'deletedAt' | 'history' | 'byName' | 'lotRefs' | 'productId' | 'itemTitle' | 'customerId' | 'customerName' | 'standard' | 'result' | 'notes'
+
+  @PrimaryKey({ type: 'uuid', defaultRaw: 'gen_random_uuid()' })
+  id!: string
+
+  @Property({ name: 'organization_id', type: 'uuid' })
+  organizationId!: string
+
+  @Property({ name: 'tenant_id', type: 'uuid' })
+  tenantId!: string
+
+  @Property({ name: 'test_date', type: 'text' })
+  testDate!: string
+
+  @Property({ name: 'lot_refs', type: 'text', nullable: true })
+  lotRefs?: string | null
+
+  @Property({ name: 'product_id', type: 'uuid', nullable: true })
+  productId?: string | null
+
+  @Property({ name: 'item_title', type: 'text', nullable: true })
+  itemTitle?: string | null
+
+  @Property({ name: 'customer_id', type: 'uuid', nullable: true })
+  customerId?: string | null
+
+  @Property({ name: 'customer_name', type: 'text', nullable: true })
+  customerName?: string | null
+
+  @Property({ name: 'test_type', type: 'text' })
+  testType!: string
+
+  @Property({ type: 'text', nullable: true })
+  standard?: string | null
+
+  @Property({ type: 'text', default: 'pending' })
+  result: 'pass' | 'fail' | 'pending' = 'pending'
+
+  @Property({ type: 'text', nullable: true })
+  notes?: string | null
+
+  @Property({ name: 'by_name', type: 'text', nullable: true })
+  byName?: string | null
+
+  @Property({ type: 'json', nullable: true })
+  history?: PlantHistoryEntry[] | null
+
+  @Property({ name: 'created_at', type: Date, onCreate: () => new Date() })
+  createdAt: Date = new Date()
+
+  @Property({ name: 'updated_at', type: Date, onCreate: () => new Date(), onUpdate: () => new Date() })
+  updatedAt: Date = new Date()
+
+  @Property({ name: 'deleted_at', type: Date, nullable: true })
+  deletedAt?: Date | null
+}
+@Entity({ tableName: 'cc_fg_direct_ins' })
+@Index({ name: 'cc_fg_direct_ins_scope_idx', properties: ['organizationId', 'tenantId', 'inDate'] })
+export class FgDirectIn {
+  [OptionalProps]?: 'createdAt' | 'updatedAt' | 'deletedAt' | 'history' | 'byName' | 'invoiceNo' | 'sheetSize' | 'thicknessMm' | 'nos' | 'lotId' | 'lotNumber' | 'status'
+
+  @PrimaryKey({ type: 'uuid', defaultRaw: 'gen_random_uuid()' })
+  id!: string
+
+  @Property({ name: 'organization_id', type: 'uuid' })
+  organizationId!: string
+
+  @Property({ name: 'tenant_id', type: 'uuid' })
+  tenantId!: string
+
+  @Property({ name: 'in_date', type: 'text' })
+  inDate!: string
+
+  @Property({ type: 'text' })
+  supplier!: string
+
+  @Property({ name: 'invoice_no', type: 'text', nullable: true })
+  invoiceNo?: string | null
+
+  @Property({ name: 'product_id', type: 'uuid' })
+  productId!: string
+
+  @Property({ name: 'item_title', type: 'text' })
+  itemTitle!: string
+
+  @Property({ name: 'sheet_size', type: 'text', nullable: true })
+  sheetSize?: string | null
+
+  @Property({ name: 'thickness_mm', type: 'numeric', columnType: 'numeric(14,3)', nullable: true })
+  thicknessMm?: string | null
+
+  @Property({ type: 'int', nullable: true })
+  nos?: number | null
+
+  @Property({ type: 'numeric', columnType: 'numeric(14,3)' })
+  kg!: string
+
+  @Property({ name: 'lot_id', type: 'uuid', nullable: true })
+  lotId?: string | null
+
+  @Property({ name: 'lot_number', type: 'text', nullable: true })
+  lotNumber?: string | null
+
+  @Property({ type: 'text', default: 'posted' })
+  status: 'posted' | 'reversed' = 'posted'
+
+  @Property({ name: 'by_name', type: 'text', nullable: true })
+  byName?: string | null
+
+  @Property({ type: 'json', nullable: true })
+  history?: PlantHistoryEntry[] | null
+
+  @Property({ name: 'created_at', type: Date, onCreate: () => new Date() })
+  createdAt: Date = new Date()
+
+  @Property({ name: 'updated_at', type: Date, onCreate: () => new Date(), onUpdate: () => new Date() })
+  updatedAt: Date = new Date()
+
+  @Property({ name: 'deleted_at', type: Date, nullable: true })
+  deletedAt?: Date | null
+}
+@Entity({ tableName: 'cc_damage_entries' })
+@Index({ name: 'cc_damage_entries_scope_idx', properties: ['organizationId', 'tenantId', 'entryDate'] })
+export class DamageEntry {
+  [OptionalProps]?: 'createdAt' | 'updatedAt' | 'deletedAt' | 'history' | 'byName' | 'lotNumber'
+
+  @PrimaryKey({ type: 'uuid', defaultRaw: 'gen_random_uuid()' })
+  id!: string
+
+  @Property({ name: 'organization_id', type: 'uuid' })
+  organizationId!: string
+
+  @Property({ name: 'tenant_id', type: 'uuid' })
+  tenantId!: string
+
+  @Property({ name: 'entry_date', type: 'text' })
+  entryDate!: string
+
+  @Property({ name: 'product_id', type: 'uuid' })
+  productId!: string
+
+  @Property({ name: 'item_title', type: 'text' })
+  itemTitle!: string
+
+  @Property({ name: 'lot_id', type: 'uuid' })
+  lotId!: string
+
+  @Property({ name: 'lot_number', type: 'text', nullable: true })
+  lotNumber?: string | null
+
+  @Property({ type: 'text' })
+  place!: string
+
+  @Property({ type: 'numeric', columnType: 'numeric(14,3)' })
+  kg!: string
+
+  @Property({ type: 'text' })
+  reason!: string
+
+  @Property({ name: 'by_name', type: 'text', nullable: true })
+  byName?: string | null
+
+  @Property({ type: 'json', nullable: true })
+  history?: PlantHistoryEntry[] | null
+
+  @Property({ name: 'created_at', type: Date, onCreate: () => new Date() })
+  createdAt: Date = new Date()
+
+  @Property({ name: 'updated_at', type: Date, onCreate: () => new Date(), onUpdate: () => new Date() })
+  updatedAt: Date = new Date()
+
+  @Property({ name: 'deleted_at', type: Date, nullable: true })
+  deletedAt?: Date | null
+}
