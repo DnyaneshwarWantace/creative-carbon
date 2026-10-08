@@ -12,7 +12,7 @@ import { Textarea } from '@open-mercato/ui/primitives/textarea'
 import { StatusBadge } from '@open-mercato/ui/primitives/status-badge'
 import { Alert, AlertDescription, AlertTitle } from '@open-mercato/ui/primitives/alert'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@open-mercato/ui/primitives/dialog'
-import { ErrorMessage, LoadingMessage } from '@open-mercato/ui/backend/detail'
+import { ErrorMessage } from '@open-mercato/ui/backend/detail'
 import { apiCall, withScopedApiRequestHeaders } from '@open-mercato/ui/backend/utils/apiCall'
 import { buildOptimisticLockHeader } from '@open-mercato/ui/backend/utils/optimisticLock'
 import { useGuardedMutation } from '@open-mercato/ui/backend/injection/useGuardedMutation'
@@ -20,6 +20,7 @@ import { flash } from '@open-mercato/ui/backend/FlashMessages'
 import { PLACE_LABEL, type StockPlace } from '../../../cc_products/lib/stock'
 import { useGranted } from '../../../cc_departments/components/useGranted'
 import { HISTORY_LABEL, READINGS, RESIN_STATUS, STEP_LABELS, day, kg, when, type BatchView } from './shared'
+import { PageLoading } from '../../../cc_ui/components/PageLoading'
 
 type Action = 'post' | 'fail' | 'reopen' | 'sign_chemist' | 'sign_incharge' | 'delete'
 
@@ -115,7 +116,7 @@ export function ResinBatchPage({ batchId }: { batchId: string }) {
   }
 
   if (error) return <Page><PageBody><ErrorMessage label={error} /></PageBody></Page>
-  if (!batch) return <Page><PageBody><LoadingMessage label={t('cc_production.resin.loading', 'Loading…')} /></PageBody></Page>
+  if (!batch) return <Page><PageBody><PageLoading label={t('cc_production.resin.loading', 'Loading…')} /></PageBody></Page>
 
   const status = RESIN_STATUS[batch.status]
   const delta = batch.yieldPct !== null && batch.compare.averagePct !== null ? Math.round((batch.yieldPct - batch.compare.averagePct) * 10) / 10 : null

@@ -9,12 +9,13 @@ import { Page, PageBody } from '@open-mercato/ui/backend/Page'
 import { Button } from '@open-mercato/ui/primitives/button'
 import { StatusBadge } from '@open-mercato/ui/primitives/status-badge'
 import { EmptyState } from '@open-mercato/ui/primitives/empty-state'
-import { LoadingMessage } from '@open-mercato/ui/backend/detail'
+
 import { apiCall } from '@open-mercato/ui/backend/utils/apiCall'
 import { PlantTable } from '../../cc_production/components/PlantTable'
 import { useGranted } from '../../cc_departments/components/useGranted'
 import { formatDate, formatQty } from '../../cc_orders/components/format'
 import { QUOTE_LABEL, QUOTE_VARIANT, type QuotationRow } from './types'
+import { PageLoading } from '../../cc_ui/components/PageLoading'
 
 const TABS = ['open', 'draft', 'sent', 'accepted', 'converted', 'rejected', 'all'] as const
 
@@ -66,7 +67,7 @@ export function QuotationsPage() {
             ))}
           </div>
           {!rows ? (
-            <LoadingMessage label={t('cc_crm.loading', 'Loading…')} />
+            <PageLoading label={t('cc_crm.loading', 'Loading…')} />
           ) : (
             <div className="rounded-xl border bg-card shadow-xs">
               <PlantTable

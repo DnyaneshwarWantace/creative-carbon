@@ -7,13 +7,14 @@ import { ArrowLeft } from 'lucide-react'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { cn } from '@open-mercato/shared/lib/utils'
 import { Page, PageBody } from '@open-mercato/ui/backend/Page'
-import { ErrorMessage, LoadingMessage } from '@open-mercato/ui/backend/detail'
+import { ErrorMessage } from '@open-mercato/ui/backend/detail'
 import { Button } from '@open-mercato/ui/primitives/button'
 import { SegmentedControl, SegmentedControlItem } from '@open-mercato/ui/primitives/segmented-control'
 import { apiCall } from '@open-mercato/ui/backend/utils/apiCall'
 import { ExportButton } from '../../cc_products/components/ExportButton'
 import { downloadCsv } from '../../cc_products/lib/csvExport'
 import { STORES, type StockPlace } from '../../cc_products/lib/stock'
+import { PageLoading } from '../../cc_ui/components/PageLoading'
 
 type Place = StockPlace | 'all'
 type Movement = { id: string; at: string; type: string; quantity: number; unit: string | null; from: string | null; to: string | null; productId: string | null; title: string; code: string | null; lotNumber: string | null; reason: string | null; reasonCode: string | null; by: string | null; orderNo: string | null; orderId: string | null }
@@ -131,7 +132,7 @@ export function StockLedgerPage() {
           </SegmentedControl>
 
           {error ? <ErrorMessage label={error} /> : null}
-          {!items && !error ? <LoadingMessage label={t('cc_store.ledger.loading', 'Loading movements…')} /> : null}
+          {!items && !error ? <PageLoading label={t('cc_store.ledger.loading', 'Loading movements…')} /> : null}
           {items ? (
             <div className="overflow-x-auto rounded-lg border bg-card">
               <table className="w-full text-sm">

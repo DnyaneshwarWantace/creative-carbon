@@ -7,7 +7,7 @@ import { ArrowRightLeft, ChevronDown, ChevronRight, History, Minus, Plus, Search
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { cn } from '@open-mercato/shared/lib/utils'
 import { Page, PageBody } from '@open-mercato/ui/backend/Page'
-import { ErrorMessage, LoadingMessage } from '@open-mercato/ui/backend/detail'
+import { ErrorMessage } from '@open-mercato/ui/backend/detail'
 import { Button } from '@open-mercato/ui/primitives/button'
 import { Input } from '@open-mercato/ui/primitives/input'
 import { Label } from '@open-mercato/ui/primitives/label'
@@ -24,6 +24,7 @@ import { downloadCsv } from '../../cc_products/lib/csvExport'
 import { ListSelectItems } from '../../cc_lists/components/ListSelectItems'
 import { ViewsButton } from '../../cc_products/components/ViewsPanel'
 import { STORES, type StockPlace as StorePlace } from '../../cc_products/lib/stock'
+import { PageLoading } from '../../cc_ui/components/PageLoading'
 
 type Place = StorePlace
 type View = 'all' | 'under_test' | 'expiring' | 'hold'
@@ -59,7 +60,6 @@ function expiryTone(days: number | null, warn: number): string {
   if (days <= warn) return 'font-medium text-status-warning-text'
   return ''
 }
-
 
 type StockColumn = {
   key: string
@@ -463,7 +463,7 @@ export function StockPage({ fixedPlace, title }: { fixedPlace?: Place; title?: s
           </div>
 
           {error ? <ErrorMessage label={error} /> : null}
-          {!book && !error ? <LoadingMessage label={t('cc_store.stock.loading', 'Loading stock…')} /> : null}
+          {!book && !error ? <PageLoading label={t('cc_store.stock.loading', 'Loading stock…')} /> : null}
           {book ? (
             <div className="overflow-x-auto rounded-lg border bg-card">
               <table className="w-full text-sm">

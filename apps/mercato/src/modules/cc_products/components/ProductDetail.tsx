@@ -11,11 +11,12 @@ import { Button } from '@open-mercato/ui/primitives/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@open-mercato/ui/primitives/card'
 import { StatusBadge, type StatusBadgeVariant } from '@open-mercato/ui/primitives/status-badge'
 import { apiCall } from '@open-mercato/ui/backend/utils/apiCall'
-import { ErrorMessage, LoadingMessage } from '@open-mercato/ui/backend/detail'
+import { ErrorMessage } from '@open-mercato/ui/backend/detail'
 import { KIND_CONFIG } from '../lib/kindConfig'
 import { PURCHASED_KINDS, SELLABLE_KINDS, type ProductKind } from '../lib/kinds'
 import { COMMON_FIELD_KEYS, fieldsForKind, loadProductFieldDefs, type ProductFieldDef } from '../lib/fieldDefs'
 import { PRODUCT_KINDS } from '../lib/kinds'
+import { PageLoading } from '../../cc_ui/components/PageLoading'
 
 type Row = Record<string, unknown> & { id: string }
 type StockDetail = {
@@ -179,7 +180,7 @@ export function ProductDetail({ productId }: { productId: string }) {
     return (
       <Page>
         <PageBody>
-          <LoadingMessage label={t('cc_products.detail.loading', 'Loading product…')} />
+          <PageLoading label={t('cc_products.detail.loading', 'Loading product…')} />
         </PageBody>
       </Page>
     )

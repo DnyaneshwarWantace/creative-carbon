@@ -11,7 +11,7 @@ import { Label } from '@open-mercato/ui/primitives/label'
 import { Textarea } from '@open-mercato/ui/primitives/textarea'
 import { StatusBadge } from '@open-mercato/ui/primitives/status-badge'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@open-mercato/ui/primitives/dialog'
-import { ErrorMessage, LoadingMessage } from '@open-mercato/ui/backend/detail'
+import { ErrorMessage } from '@open-mercato/ui/backend/detail'
 import { apiCall, withScopedApiRequestHeaders } from '@open-mercato/ui/backend/utils/apiCall'
 import { buildOptimisticLockHeader } from '@open-mercato/ui/backend/utils/optimisticLock'
 import { useGuardedMutation } from '@open-mercato/ui/backend/injection/useGuardedMutation'
@@ -19,6 +19,7 @@ import { flash } from '@open-mercato/ui/backend/FlashMessages'
 import { useGranted } from '../../../cc_departments/components/useGranted'
 import { HISTORY_LABEL, day, kg, when } from '../resin/shared'
 import { HEATING_FIELDS, PRESS_STATUS, weightText, type PressBatchView } from './shared'
+import { PageLoading } from '../../../cc_ui/components/PageLoading'
 
 type Action = 'post' | 'reopen' | 'cancel' | 'review'
 
@@ -86,7 +87,7 @@ export function PressBatchPage({ batchId }: { batchId: string }) {
   }
 
   if (error) return <Page><PageBody><ErrorMessage label={error} /></PageBody></Page>
-  if (!batch) return <Page><PageBody><LoadingMessage label={t('cc_production.resin.loading', 'Loading…')} /></PageBody></Page>
+  if (!batch) return <Page><PageBody><PageLoading label={t('cc_production.resin.loading', 'Loading…')} /></PageBody></Page>
 
   const status = PRESS_STATUS[batch.status]
   const heating = HEATING_FIELDS.filter((field) => batch.heating?.[field.key])

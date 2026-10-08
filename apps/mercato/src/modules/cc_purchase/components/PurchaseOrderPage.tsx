@@ -17,13 +17,14 @@ import { apiCall, withScopedApiRequestHeaders } from '@open-mercato/ui/backend/u
 import { buildOptimisticLockHeader } from '@open-mercato/ui/backend/utils/optimisticLock'
 import { useGuardedMutation } from '@open-mercato/ui/backend/injection/useGuardedMutation'
 import { flash } from '@open-mercato/ui/backend/FlashMessages'
-import { ErrorMessage, LoadingMessage } from '@open-mercato/ui/backend/detail'
+import { ErrorMessage } from '@open-mercato/ui/backend/detail'
 import { GRN_STATUS, HISTORY_LABEL, PO_STATUS, day, money, qty, when, type PoView } from './shared'
 import { printPurchaseOrder } from './printPo'
 import { WhatsAppMenu, type WhatsAppMessage } from '../../cc_products/components/WhatsAppMenu'
 import { dateText, rupeeText } from '../../cc_products/lib/whatsapp'
 import { EmailPoButton } from './EmailPoDialog'
 import { useGranted } from '../../cc_departments/components/useGranted'
+import { PageLoading } from '../../cc_ui/components/PageLoading'
 
 function steps(po: PoView): StepIndicatorStep[] {
   const order = ['draft', 'pending_approval', 'approved', 'partly_received', 'received']
@@ -155,7 +156,7 @@ export function PurchaseOrderPage({ poId }: { poId: string }) {
     return (
       <Page>
         <PageBody>
-          <LoadingMessage label={t('cc_purchase.detail.loading', 'Loading purchase order…')} />
+          <PageLoading label={t('cc_purchase.detail.loading', 'Loading purchase order…')} />
         </PageBody>
       </Page>
     )

@@ -6,7 +6,7 @@ import { Search } from 'lucide-react'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { cn } from '@open-mercato/shared/lib/utils'
 import { Page, PageBody } from '@open-mercato/ui/backend/Page'
-import { ErrorMessage, LoadingMessage } from '@open-mercato/ui/backend/detail'
+import { ErrorMessage } from '@open-mercato/ui/backend/detail'
 import { Input } from '@open-mercato/ui/primitives/input'
 import { StatusBadge } from '@open-mercato/ui/primitives/status-badge'
 import { SegmentedControl, SegmentedControlItem } from '@open-mercato/ui/primitives/segmented-control'
@@ -14,6 +14,7 @@ import { apiCall } from '@open-mercato/ui/backend/utils/apiCall'
 import { ExportButton } from '../../cc_products/components/ExportButton'
 import { downloadCsv } from '../../cc_products/lib/csvExport'
 import { formatDate, formatQty } from './format'
+import { PageLoading } from '../../cc_ui/components/PageLoading'
 
 type Row = {
   orderId: string
@@ -122,7 +123,7 @@ export function DispatchRegister() {
           </div>
 
           {error ? <ErrorMessage label={error} /> : null}
-          {!rows && !error ? <LoadingMessage label={t('cc_orders.dispatches.loading', 'Loading…')} /> : null}
+          {!rows && !error ? <PageLoading label={t('cc_orders.dispatches.loading', 'Loading…')} /> : null}
           {rows ? (
             <div className="overflow-x-auto rounded-lg border bg-card">
               <table className="w-full text-sm">

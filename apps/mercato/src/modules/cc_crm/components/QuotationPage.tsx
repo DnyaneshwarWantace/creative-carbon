@@ -10,7 +10,7 @@ import { Button } from '@open-mercato/ui/primitives/button'
 import { Input } from '@open-mercato/ui/primitives/input'
 import { Label } from '@open-mercato/ui/primitives/label'
 import { StatusBadge } from '@open-mercato/ui/primitives/status-badge'
-import { ErrorMessage, LoadingMessage } from '@open-mercato/ui/backend/detail'
+import { ErrorMessage } from '@open-mercato/ui/backend/detail'
 import { apiCall } from '@open-mercato/ui/backend/utils/apiCall'
 import { flash } from '@open-mercato/ui/backend/FlashMessages'
 import type { DocCompany } from '../../cc_orders/components/printDocs'
@@ -19,6 +19,7 @@ import { useGranted } from '../../cc_departments/components/useGranted'
 import { useSend } from '../../cc_production/components/finishing/shared'
 import { printQuotation } from './printQuotation'
 import { QUOTE_LABEL, QUOTE_VARIANT, type Quotation } from './types'
+import { PageLoading } from '../../cc_ui/components/PageLoading'
 
 export function QuotationPage({ quotationId }: { quotationId: string }) {
   const t = useT()
@@ -60,7 +61,7 @@ export function QuotationPage({ quotationId }: { quotationId: string }) {
   }
 
   if (error) return <Page><PageBody><ErrorMessage label={error} /></PageBody></Page>
-  if (!quote) return <Page><PageBody><LoadingMessage label={t('cc_crm.loading', 'Loading…')} /></PageBody></Page>
+  if (!quote) return <Page><PageBody><PageLoading label={t('cc_crm.loading', 'Loading…')} /></PageBody></Page>
 
   const symbol = quote.currency === 'INR' ? '₹' : `${quote.currency} `
   const exportTerms = quote.market === 'export'

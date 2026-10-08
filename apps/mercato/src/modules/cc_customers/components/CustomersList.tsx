@@ -104,7 +104,7 @@ export default function CustomersList() {
             canManage ? (
               <div className="flex flex-wrap gap-2">
                 <Button asChild variant="outline">
-                  <Link href="/backend/masters/import-customers">
+                  <Link href="/backend/customers/import">
                     <FileUp className="mr-2 h-4 w-4" />
                     {t('cc_customers.list.import', 'Import')}
                   </Link>

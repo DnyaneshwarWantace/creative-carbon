@@ -10,7 +10,7 @@ import { Page, PageBody } from '@open-mercato/ui/backend/Page'
 import { Button } from '@open-mercato/ui/primitives/button'
 import { Input } from '@open-mercato/ui/primitives/input'
 import { Label } from '@open-mercato/ui/primitives/label'
-import { ErrorMessage, LoadingMessage } from '@open-mercato/ui/backend/detail'
+import { ErrorMessage } from '@open-mercato/ui/backend/detail'
 import { apiCall, withScopedApiRequestHeaders } from '@open-mercato/ui/backend/utils/apiCall'
 import { buildOptimisticLockHeader } from '@open-mercato/ui/backend/utils/optimisticLock'
 import { useGuardedMutation } from '@open-mercato/ui/backend/injection/useGuardedMutation'
@@ -19,6 +19,7 @@ import { pressFigures } from '../../lib/pressFigures'
 import { kg, todayIso } from '../resin/shared'
 import { HEATING_FIELDS, parseWeight, weightText, type PressBatchView, type PressSetup } from './shared'
 import { Dropdown } from '../../../cc_lists/components/Dropdown'
+import { PageLoading } from '../../../cc_ui/components/PageLoading'
 
 type SheetDraft = { key: string; thicknessMm: string; count: string; weight: string; grade: string }
 type DaylightDraft = { key: string; no: number; sheets: SheetDraft[] }
@@ -104,7 +105,7 @@ export function PressBatchForm({ batch }: { batch: PressBatchView | null }) {
   }
 
   if (error) return <Page><PageBody><ErrorMessage label={error} /></PageBody></Page>
-  if (!setup || !draft) return <Page><PageBody><LoadingMessage label={t('cc_production.resin.loading', 'Loading…')} /></PageBody></Page>
+  if (!setup || !draft) return <Page><PageBody><PageLoading label={t('cc_production.resin.loading', 'Loading…')} /></PageBody></Page>
 
   const update = (patch: Partial<Draft>) => setDraft({ ...draft, ...patch })
   const updateSheet = (daylightKey: string, sheetKey: string, patch: Partial<SheetDraft>) =>
@@ -385,7 +386,7 @@ export function PressBatchEdit({ batchId }: { batchId: string }) {
     })
   }, [batchId, t])
   if (error) return <Page><PageBody><ErrorMessage label={error} /></PageBody></Page>
-  if (!batch) return <Page><PageBody><LoadingMessage label={t('cc_production.resin.loading', 'Loading…')} /></PageBody></Page>
+  if (!batch) return <Page><PageBody><PageLoading label={t('cc_production.resin.loading', 'Loading…')} /></PageBody></Page>
   if (batch.status !== 'draft') return <Page><PageBody><ErrorMessage label={t('cc_production.press.reopenFirst', 'This batch is posted or cancelled. Reopen it first to change it.')} /></PageBody></Page>
   return <PressBatchForm batch={batch} />
 }

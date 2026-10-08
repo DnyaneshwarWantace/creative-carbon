@@ -5,13 +5,14 @@ import { RotateCcw } from 'lucide-react'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { cn } from '@open-mercato/shared/lib/utils'
 import { Page, PageBody } from '@open-mercato/ui/backend/Page'
-import { ErrorMessage, LoadingMessage } from '@open-mercato/ui/backend/detail'
+import { ErrorMessage } from '@open-mercato/ui/backend/detail'
 import { Button } from '@open-mercato/ui/primitives/button'
 import { Input } from '@open-mercato/ui/primitives/input'
 import { apiCall, withScopedApiRequestHeaders } from '@open-mercato/ui/backend/utils/apiCall'
 import { buildOptimisticLockHeader } from '@open-mercato/ui/backend/utils/optimisticLock'
 import { useGuardedMutation } from '@open-mercato/ui/backend/injection/useGuardedMutation'
 import { flash } from '@open-mercato/ui/backend/FlashMessages'
+import { PageLoading } from '../../cc_ui/components/PageLoading'
 
 type Setting = { prefix: string; suffix: string; pad: number; startAt: number }
 type Series = Setting & { key: string; label: string; department: string; defaults: Setting; lastUsed: number; next: string; kind?: 'series' | 'template'; tokens?: string[]; sample?: Record<string, string> }
@@ -91,7 +92,7 @@ export function NumberSeriesPage() {
   }
 
   if (error) return <Page><PageBody><ErrorMessage label={error} /></PageBody></Page>
-  if (!data) return <Page><PageBody><LoadingMessage label={t('cc_accounts.series.loading', 'Loading number series…')} /></PageBody></Page>
+  if (!data) return <Page><PageBody><PageLoading label={t('cc_accounts.series.loading', 'Loading number series…')} /></PageBody></Page>
 
   return (
     <Page>

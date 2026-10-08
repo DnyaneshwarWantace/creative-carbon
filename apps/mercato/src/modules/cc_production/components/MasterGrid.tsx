@@ -5,7 +5,7 @@ import { Check, Plus, Search, Trash2, Upload } from 'lucide-react'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { cn } from '@open-mercato/shared/lib/utils'
 import { Page, PageBody } from '@open-mercato/ui/backend/Page'
-import { ErrorMessage, LoadingMessage } from '@open-mercato/ui/backend/detail'
+import { ErrorMessage } from '@open-mercato/ui/backend/detail'
 import { Button } from '@open-mercato/ui/primitives/button'
 import { Input } from '@open-mercato/ui/primitives/input'
 import { Textarea } from '@open-mercato/ui/primitives/textarea'
@@ -19,6 +19,7 @@ import { SearchPicker } from '../../cc_orders/components/SearchPicker'
 import { searchCustomers } from '../../cc_orders/components/loaders'
 import { MASTER_DEFS, type MasterColumn, type MasterDef, type MasterType } from '../lib/masterDefs'
 import { Dropdown } from '../../cc_lists/components/Dropdown'
+import { PageLoading } from '../../cc_ui/components/PageLoading'
 
 type Row = Record<string, string | number | boolean | null> & { id: string; updatedAt: string; updatedByName: string | null; customerName?: string | null }
 type Draft = Record<string, string | boolean | null>
@@ -213,7 +214,7 @@ function MasterTable({ def }: { def: MasterDef }) {
   }
 
   if (error) return <ErrorMessage label={error} />
-  if (!rows) return <LoadingMessage label={t('cc_production.masters.loading', 'Loading…')} />
+  if (!rows) return <PageLoading label={t('cc_production.masters.loading', 'Loading…')} />
 
   const term = search.trim().toLowerCase()
   const visible = term ? rows.filter((row) => Object.values(row).some((value) => String(value ?? '').toLowerCase().includes(term))) : rows

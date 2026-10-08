@@ -7,7 +7,7 @@ import { History, Info, ListChecks, Package } from 'lucide-react'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { Page, PageBody } from '@open-mercato/ui/backend/Page'
 import { apiCall } from '@open-mercato/ui/backend/utils/apiCall'
-import { ErrorMessage, LoadingMessage } from '@open-mercato/ui/backend/detail'
+import { ErrorMessage } from '@open-mercato/ui/backend/detail'
 import { stageDef } from '../lib/stages'
 import { StageWorkArea, type StageActionRequest } from './StageSheet'
 import { useStageAction } from './useStageAction'
@@ -21,6 +21,7 @@ import { StageHistoryPanel } from './stage/StageHistoryPanel'
 import { StagePageHeader } from './stage/StagePageHeader'
 import { StagePanel } from './stage/StagePanel'
 import { useOrderChanged } from './FulfilmentPanel'
+import { PageLoading } from '../../cc_ui/components/PageLoading'
 
 function useStageOrder(orderId: string) {
   const t = useT()
@@ -73,7 +74,7 @@ export function StagePage({ orderId, stageKey }: { orderId: string; stageKey: st
 
   if (!def) return <Page><PageBody><ErrorMessage label={t('cc_orders.stagePage.unknown', 'Unknown stage.')} /></PageBody></Page>
   if (error) return <Page><PageBody><ErrorMessage label={error} /></PageBody></Page>
-  if (!order || !stage) return <Page><PageBody><LoadingMessage label={t('cc_orders.loading', 'Loading order…')} /></PageBody></Page>
+  if (!order || !stage) return <Page><PageBody><PageLoading label={t('cc_orders.loading', 'Loading order…')} /></PageBody></Page>
 
   const history = order.events.filter((event) => event.stageKey === stageKey)
   const openedNext = order.stages.filter((entry) => stageDef(entry.key)?.after.includes(stageKey))

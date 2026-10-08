@@ -9,9 +9,10 @@ import { Page, PageBody } from '@open-mercato/ui/backend/Page'
 import { Input } from '@open-mercato/ui/primitives/input'
 import { StatusBadge } from '@open-mercato/ui/primitives/status-badge'
 import { Spinner } from '@open-mercato/ui/primitives/spinner'
-import { ErrorMessage, LoadingMessage } from '@open-mercato/ui/backend/detail'
+import { ErrorMessage } from '@open-mercato/ui/backend/detail'
 import { apiCall } from '@open-mercato/ui/backend/utils/apiCall'
 import { HISTORY_LABEL, day, kg, todayIso, when } from '../resin/shared'
+import { PageLoading } from '../../../cc_ui/components/PageLoading'
 
 type EntryPage = {
   id: string
@@ -52,7 +53,7 @@ export function MouldingEntryPage({ entryId }: { entryId: string }) {
     })
   }, [entryId, t])
   if (error) return <Page><PageBody><ErrorMessage label={error} /></PageBody></Page>
-  if (!entry) return <Page><PageBody><LoadingMessage label={t('cc_production.resin.loading', 'Loading…')} /></PageBody></Page>
+  if (!entry) return <Page><PageBody><PageLoading label={t('cc_production.resin.loading', 'Loading…')} /></PageBody></Page>
   const facts: Array<[string, string]> = [
     [t('cc_production.resin.date', 'Date'), `${day(entry.entryDate)} · ${entry.shift === 1 ? '1st' : '2nd'} shift`],
     [t('cc_production.moulding.machine', 'Machine No.'), String(entry.pressNumber)],

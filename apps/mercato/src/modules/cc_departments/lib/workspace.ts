@@ -3,17 +3,17 @@ export type Workspace = 'erp' | 'crm'
 export const CRM_HOME = '/backend/crm'
 export const ERP_HOME = '/backend'
 
-export const CRM_PREFIXES = ['/backend/crm', '/backend/orders', '/backend/customers', '/backend/masters/prices']
+export const CRM_PREFIXES = ['/backend/crm', '/backend/customers', '/backend/orders/new', '/backend/work/sales', '/backend/masters/prices']
 
-export function workspaceOf(pathname: string | null | undefined): Workspace {
-  const path = pathname ?? ''
-  return path === CRM_HOME || path.startsWith(`${CRM_HOME}/`) ? 'crm' : 'erp'
-}
-
-export function isCrmOnlyPath(href: string): boolean {
-  return href === CRM_HOME || href.startsWith(`${CRM_HOME}/`)
+function under(path: string, prefix: string): boolean {
+  return path === prefix || path.startsWith(`${prefix}/`)
 }
 
 export function isCrmPath(href: string): boolean {
-  return CRM_PREFIXES.some((prefix) => href === prefix || href.startsWith(`${prefix}/`))
+  const path = href.split('?')[0]
+  return CRM_PREFIXES.some((prefix) => under(path, prefix))
+}
+
+export function workspaceOf(pathname: string | null | undefined): Workspace {
+  return isCrmPath(pathname ?? '') ? 'crm' : 'erp'
 }

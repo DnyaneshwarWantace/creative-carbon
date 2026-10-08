@@ -6,7 +6,7 @@ import { Search } from 'lucide-react'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { cn } from '@open-mercato/shared/lib/utils'
 import { Page, PageBody } from '@open-mercato/ui/backend/Page'
-import { ErrorMessage, LoadingMessage } from '@open-mercato/ui/backend/detail'
+import { ErrorMessage } from '@open-mercato/ui/backend/detail'
 import { Input } from '@open-mercato/ui/primitives/input'
 import { Label } from '@open-mercato/ui/primitives/label'
 import { SegmentedControl, SegmentedControlItem } from '@open-mercato/ui/primitives/segmented-control'
@@ -15,6 +15,7 @@ import { ExportButton } from '../../cc_products/components/ExportButton'
 import { downloadCsv } from '../../cc_products/lib/csvExport'
 import { STORES } from '../../cc_products/lib/stock'
 import { PRODUCT_KINDS } from '../../cc_products/lib/kinds'
+import { PageLoading } from '../../cc_ui/components/PageLoading'
 
 type Report = 'overview' | 'ageing' | 'consumption'
 type Base = { productId: string; code: string | null; title: string; kind: string | null; unit: string | null }
@@ -155,7 +156,7 @@ export function InventoryReports() {
           </div>
 
           {error ? <ErrorMessage label={error} /> : null}
-          {!data && !error ? <LoadingMessage label={t('cc_store.reports.loading', 'Loading…')} /> : null}
+          {!data && !error ? <PageLoading label={t('cc_store.reports.loading', 'Loading…')} /> : null}
           {data ? (
             <div className="overflow-x-auto rounded-lg border bg-card">
               <table className="w-full text-sm">

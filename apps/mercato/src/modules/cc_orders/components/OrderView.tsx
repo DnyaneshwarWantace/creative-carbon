@@ -20,7 +20,7 @@ import { apiCall, withScopedApiRequestHeaders } from '@open-mercato/ui/backend/u
 import { buildOptimisticLockHeader } from '@open-mercato/ui/backend/utils/optimisticLock'
 import { useGuardedMutation } from '@open-mercato/ui/backend/injection/useGuardedMutation'
 import { flash } from '@open-mercato/ui/backend/FlashMessages'
-import { ErrorMessage, LoadingMessage } from '@open-mercato/ui/backend/detail'
+import { ErrorMessage } from '@open-mercato/ui/backend/detail'
 import { LINE_SPEC_SECTIONS } from '../lib/specs'
 import { stageList, stageDef } from '../lib/stages'
 import { ORDER_VARIANT, STAGE_VARIANT, daysUntil, formatDate, formatDateTime, formatQty } from './format'
@@ -39,7 +39,7 @@ import { paymentTermLabel } from '../../cc_lists/lib/paymentTerms'
 import { useStageSettings } from './useStageSettings'
 import { PRODUCT_KINDS } from '../../cc_products/lib/kinds'
 import { LineProgress, useOrderChanged } from './FulfilmentPanel'
-
+import { PageLoading } from '../../cc_ui/components/PageLoading'
 
 const KIND_LABEL: Record<string, string> = Object.fromEntries(PRODUCT_KINDS.map((kind) => [kind.code, kind.label]))
 
@@ -62,7 +62,6 @@ const STAGE_TONE: Record<string, string> = {
   on_hold: 'border-status-error-border bg-status-error-bg',
   waiting: 'border-dashed border-border bg-background opacity-50',
 }
-
 
 function StageCard({ order, stage, onOpen }: { order: Order; stage: Stage; onOpen: () => void }) {
   const t = useT()
@@ -251,7 +250,7 @@ export function OrderView({ orderId }: { orderId: string }) {
     return (
       <Page>
         <PageBody>
-          <LoadingMessage label={t('cc_orders.loading', 'Loading order…')} />
+          <PageLoading label={t('cc_orders.loading', 'Loading order…')} />
         </PageBody>
       </Page>
     )

@@ -7,11 +7,12 @@ import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { Page, PageBody } from '@open-mercato/ui/backend/Page'
 import { Button } from '@open-mercato/ui/primitives/button'
 import { StatusBadge } from '@open-mercato/ui/primitives/status-badge'
-import { ErrorMessage, LoadingMessage } from '@open-mercato/ui/backend/detail'
+import { ErrorMessage } from '@open-mercato/ui/backend/detail'
 import { apiCall } from '@open-mercato/ui/backend/utils/apiCall'
 import { PLACE_LABEL, type StockPlace } from '../../../cc_products/lib/stock'
 import { HISTORY_LABEL, day, kg, when } from '../resin/shared'
 import { SHEET_STATUS, paperTime, type SheetView } from './shared'
+import { PageLoading } from '../../../cc_ui/components/PageLoading'
 
 function Fact({ label, children }: { label: string; children: React.ReactNode }) {
   return (
@@ -35,7 +36,7 @@ export function CoatingSheetPage({ sheetId }: { sheetId: string }) {
   }, [sheetId, t])
 
   if (error) return <Page><PageBody><ErrorMessage label={error} /></PageBody></Page>
-  if (!sheet) return <Page><PageBody><LoadingMessage label={t('cc_production.resin.loading', 'Loading…')} /></PageBody></Page>
+  if (!sheet) return <Page><PageBody><PageLoading label={t('cc_production.resin.loading', 'Loading…')} /></PageBody></Page>
 
   const status = SHEET_STATUS[sheet.status]
   return (

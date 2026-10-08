@@ -5,7 +5,7 @@ import { Check, Minus, Save, ShieldCheck, UserPlus, Users } from 'lucide-react'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { cn } from '@open-mercato/shared/lib/utils'
 import { Page, PageBody } from '@open-mercato/ui/backend/Page'
-import { ErrorMessage, LoadingMessage } from '@open-mercato/ui/backend/detail'
+import { ErrorMessage } from '@open-mercato/ui/backend/detail'
 import { Button } from '@open-mercato/ui/primitives/button'
 import { Input } from '@open-mercato/ui/primitives/input'
 import { Label } from '@open-mercato/ui/primitives/label'
@@ -20,6 +20,7 @@ import { buildOptimisticLockHeader } from '@open-mercato/ui/backend/utils/optimi
 import { useGuardedMutation } from '@open-mercato/ui/backend/injection/useGuardedMutation'
 import { flash } from '@open-mercato/ui/backend/FlashMessages'
 import { ACCESS_AREAS, ROLE_LABELS, areaSummary, hasFeature, roleLabel, setAbility } from '../lib/access'
+import { PageLoading } from '../../cc_ui/components/PageLoading'
 
 type Role = { id: string; name: string; usersCount: number; updatedAt: string | null }
 type RoleAcl = { isSuperAdmin: boolean; features: string[]; organizations: string[] | null; updatedAt: string | null }
@@ -363,7 +364,7 @@ export function AccessPage() {
     return (
       <Page>
         <PageBody>
-          <LoadingMessage label={t('cc_departments.access.loading', 'Loading roles and people…')} />
+          <PageLoading label={t('cc_departments.access.loading', 'Loading roles and people…')} />
         </PageBody>
       </Page>
     )

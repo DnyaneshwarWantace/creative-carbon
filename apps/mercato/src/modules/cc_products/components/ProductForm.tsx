@@ -16,16 +16,16 @@ import { createCrud, deleteCrud, updateCrud } from '@open-mercato/ui/backend/uti
 import { buildOptimisticLockHeader } from '@open-mercato/ui/backend/utils/optimisticLock'
 import { useGuardedMutation } from '@open-mercato/ui/backend/injection/useGuardedMutation'
 import { flash } from '@open-mercato/ui/backend/FlashMessages'
-import { ErrorMessage, LoadingMessage } from '@open-mercato/ui/backend/detail'
+import { ErrorMessage } from '@open-mercato/ui/backend/detail'
 import { PRODUCT_KINDS, SELLABLE_KINDS, type ProductKind } from '../lib/kinds'
 import { KIND_CONFIG, unitsForKind, type KindConfig } from '../lib/kindConfig'
 import { fieldsForKind, isNumericField, loadProductFieldDefs, type ProductFieldDef } from '../lib/fieldDefs'
 import { FieldsPanel, type PanelField } from './FieldsPanel'
+import { PageLoading } from '../../cc_ui/components/PageLoading'
 
 type Row = Record<string, unknown>
 type ListResponse<T> = { items?: T[] }
 type TaxOption = { value: string; label: string }
-
 
 type FormState = {
   title: string
@@ -388,7 +388,7 @@ export function ProductForm({ kind, productId }: { kind: ProductKind; productId?
     return (
       <Page>
         <PageBody>
-          <LoadingMessage label={t('cc_products.form.loading', 'Loading…')} />
+          <PageLoading label={t('cc_products.form.loading', 'Loading…')} />
         </PageBody>
       </Page>
     )

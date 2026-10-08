@@ -7,7 +7,7 @@ import { ArrowLeft, CheckCircle2, CircleDashed, Copy, FileText, FlaskConical, Pa
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { cn } from '@open-mercato/shared/lib/utils'
 import { Page, PageBody } from '@open-mercato/ui/backend/Page'
-import { ErrorMessage, LoadingMessage } from '@open-mercato/ui/backend/detail'
+import { ErrorMessage } from '@open-mercato/ui/backend/detail'
 import { Button } from '@open-mercato/ui/primitives/button'
 import { Input } from '@open-mercato/ui/primitives/input'
 import { Label } from '@open-mercato/ui/primitives/label'
@@ -22,6 +22,7 @@ import { searchCustomers } from '../../../cc_orders/components/loaders'
 import { useListOptions } from '../../../cc_lists/components/useListOptions'
 import { todayIso } from '../resin/shared'
 import type { LabTest, LabReportFile } from './types'
+import { PageLoading } from '../../../cc_ui/components/PageLoading'
 
 export const LAB_ENTITY = 'cc_production:lab_test'
 const INCOMING_KINDS = 'chemical,reinforcement,chindi,resin'
@@ -464,7 +465,7 @@ export function LabFormPage({ testId, orderId }: { testId?: string; orderId?: st
   }
 
   if (loadError) return <Page><PageBody><ErrorMessage label={loadError} /></PageBody></Page>
-  if (!draft) return <Page><PageBody><LoadingMessage label={t('cc_production.lab.loading', 'Loading…')} /></PageBody></Page>
+  if (!draft) return <Page><PageBody><PageLoading label={t('cc_production.lab.loading', 'Loading…')} /></PageBody></Page>
 
   return (
     <Page>

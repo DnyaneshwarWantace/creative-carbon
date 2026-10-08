@@ -9,7 +9,7 @@ import type { LegacyColumnDef as ColumnDef } from '@tanstack/react-table/legacy'
 import { RowActions } from '@open-mercato/ui/backend/RowActions'
 import { Button } from '@open-mercato/ui/primitives/button'
 import { BooleanIcon } from '@open-mercato/ui/backend/ValueIcons'
-import { Plus } from 'lucide-react'
+import { FileUp, Plus } from 'lucide-react'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { apiCall, withScopedApiRequestHeaders } from '@open-mercato/ui/backend/utils/apiCall'
 import { buildOptimisticLockHeader } from '@open-mercato/ui/backend/utils/optimisticLock'
@@ -268,12 +268,20 @@ export default function CcVendorsPage() {
             setPage(1)
           }}
           actions={
-            <Button asChild>
-              <Link href="/backend/cc_vendors/create">
-                <Plus className="mr-2 h-4 w-4" />
-                {t('cc_vendors.list.actions.create', 'New vendor')}
-              </Link>
-            </Button>
+            <div className="flex flex-wrap gap-2">
+              <Button asChild variant="outline">
+                <Link href="/backend/cc_vendors/import">
+                  <FileUp className="mr-2 h-4 w-4" />
+                  {t('cc_vendors.list.actions.import', 'Import')}
+                </Link>
+              </Button>
+              <Button asChild>
+                <Link href="/backend/cc_vendors/create">
+                  <Plus className="mr-2 h-4 w-4" />
+                  {t('cc_vendors.list.actions.create', 'New vendor')}
+                </Link>
+              </Button>
+            </div>
           }
           rowActions={(row) => (
             <RowActions

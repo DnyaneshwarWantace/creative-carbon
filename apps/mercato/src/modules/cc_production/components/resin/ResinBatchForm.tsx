@@ -11,7 +11,7 @@ import { Button } from '@open-mercato/ui/primitives/button'
 import { Input } from '@open-mercato/ui/primitives/input'
 import { Label } from '@open-mercato/ui/primitives/label'
 import { Textarea } from '@open-mercato/ui/primitives/textarea'
-import { ErrorMessage, LoadingMessage } from '@open-mercato/ui/backend/detail'
+import { ErrorMessage } from '@open-mercato/ui/backend/detail'
 import { apiCall, withScopedApiRequestHeaders } from '@open-mercato/ui/backend/utils/apiCall'
 import { buildOptimisticLockHeader } from '@open-mercato/ui/backend/utils/optimisticLock'
 import { useGuardedMutation } from '@open-mercato/ui/backend/injection/useGuardedMutation'
@@ -19,6 +19,7 @@ import { flash } from '@open-mercato/ui/backend/FlashMessages'
 import { PLACE_LABEL, type StockPlace } from '../../../cc_products/lib/stock'
 import { READINGS, STEP_LABELS, day, kg, todayIso, type BatchView, type ChemicalOption, type ResinSetup } from './shared'
 import { Dropdown } from '../../../cc_lists/components/Dropdown'
+import { PageLoading } from '../../../cc_ui/components/PageLoading'
 
 type Line = { key: string; productId: string; kg: string; lotId: string }
 type ReadingDraft = { tempC: string; time: string }
@@ -161,7 +162,7 @@ export function ResinBatchForm({ batch }: { batch: BatchView | null }) {
   }
 
   if (error) return <Page><PageBody><ErrorMessage label={error} /></PageBody></Page>
-  if (!setup || !draft) return <Page><PageBody><LoadingMessage label={t('cc_production.resin.loading', 'Loading…')} /></PageBody></Page>
+  if (!setup || !draft) return <Page><PageBody><PageLoading label={t('cc_production.resin.loading', 'Loading…')} /></PageBody></Page>
 
   const chemicalsById = new Map(setup.chemicals.map((chemical) => [chemical.id, chemical]))
   const update = (patch: Partial<Draft>) => setDraft({ ...draft, ...patch })
@@ -453,7 +454,7 @@ export function ResinBatchEdit({ batchId }: { batchId: string }) {
     }
   }, [batchId, t])
   if (error) return <Page><PageBody><ErrorMessage label={error} /></PageBody></Page>
-  if (!batch) return <Page><PageBody><LoadingMessage label={t('cc_production.resin.loading', 'Loading…')} /></PageBody></Page>
+  if (!batch) return <Page><PageBody><PageLoading label={t('cc_production.resin.loading', 'Loading…')} /></PageBody></Page>
   if (batch.status !== 'draft') return <Page><PageBody><ErrorMessage label={t('cc_production.resin.reopenFirst', 'This batch is posted. Reopen it first to change it.')} /></PageBody></Page>
   return <ResinBatchForm batch={batch} />
 }

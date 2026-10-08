@@ -6,11 +6,12 @@ import { Search } from 'lucide-react'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { cn } from '@open-mercato/shared/lib/utils'
 import { Page, PageBody } from '@open-mercato/ui/backend/Page'
-import { ErrorMessage, LoadingMessage } from '@open-mercato/ui/backend/detail'
+import { ErrorMessage } from '@open-mercato/ui/backend/detail'
 import { Input } from '@open-mercato/ui/primitives/input'
 import { StatusBadge } from '@open-mercato/ui/primitives/status-badge'
 import { apiCall } from '@open-mercato/ui/backend/utils/apiCall'
 import { stageDef } from '../lib/stages'
+import { PageLoading } from '../../cc_ui/components/PageLoading'
 
 type Kind = 'client_hold' | 'advance' | 'delivery_late' | 'delivery_soon' | 'not_delivered'
 type Task = { kind: Kind; orderId: string; orderNo: string; customer: string | null; priority: string; stageKey: string | null; detail: string; days: number | null }
@@ -56,7 +57,7 @@ export function SalesQueue() {
             </div>
           </header>
           {error ? <ErrorMessage label={error} /> : null}
-          {!tasks && !error ? <LoadingMessage label={t('cc_orders.salesQueue.loading', 'Loading…')} /> : null}
+          {!tasks && !error ? <PageLoading label={t('cc_orders.salesQueue.loading', 'Loading…')} /> : null}
           {tasks && !tasks.length ? <p className="rounded-lg border bg-card p-6 text-sm text-status-success-text">{t('cc_orders.salesQueue.empty', 'Nothing is waiting on Sales right now.')}</p> : null}
           {tasks ? (
             <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">

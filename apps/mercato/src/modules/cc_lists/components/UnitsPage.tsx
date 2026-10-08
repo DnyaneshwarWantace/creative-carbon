@@ -4,7 +4,7 @@ import * as React from 'react'
 import { Plus, Trash2 } from 'lucide-react'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { Page, PageBody } from '@open-mercato/ui/backend/Page'
-import { ErrorMessage, LoadingMessage } from '@open-mercato/ui/backend/detail'
+import { ErrorMessage } from '@open-mercato/ui/backend/detail'
 import { Button } from '@open-mercato/ui/primitives/button'
 import { Input } from '@open-mercato/ui/primitives/input'
 import { StatusBadge } from '@open-mercato/ui/primitives/status-badge'
@@ -12,6 +12,7 @@ import { apiCall, withScopedApiRequestHeaders } from '@open-mercato/ui/backend/u
 import { buildOptimisticLockHeader } from '@open-mercato/ui/backend/utils/optimisticLock'
 import { useGuardedMutation } from '@open-mercato/ui/backend/injection/useGuardedMutation'
 import { flash } from '@open-mercato/ui/backend/FlashMessages'
+import { PageLoading } from '../../cc_ui/components/PageLoading'
 
 type Unit = { id: string; value: string; label: string; isDefault: boolean; products: number; updatedAt: string | null }
 type Payload = { dictionaryId: string | null; items: Unit[] }
@@ -104,7 +105,7 @@ export function UnitsPage() {
   }
 
   if (error) return <Page><PageBody><ErrorMessage label={error} /></PageBody></Page>
-  if (!data) return <Page><PageBody><LoadingMessage label={t('cc_lists.units.loading', 'Loading units…')} /></PageBody></Page>
+  if (!data) return <Page><PageBody><PageLoading label={t('cc_lists.units.loading', 'Loading units…')} /></PageBody></Page>
 
   return (
     <Page>

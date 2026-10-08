@@ -6,13 +6,14 @@ import { Download, FileSpreadsheet, History, Upload } from 'lucide-react'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { cn } from '@open-mercato/shared/lib/utils'
 import { Page, PageBody } from '@open-mercato/ui/backend/Page'
-import { ErrorMessage, LoadingMessage } from '@open-mercato/ui/backend/detail'
+import { ErrorMessage } from '@open-mercato/ui/backend/detail'
 import { Button } from '@open-mercato/ui/primitives/button'
 import { Input } from '@open-mercato/ui/primitives/input'
 import { StatusBadge } from '@open-mercato/ui/primitives/status-badge'
 import { apiCall } from '@open-mercato/ui/backend/utils/apiCall'
 import { useGuardedMutation } from '@open-mercato/ui/backend/injection/useGuardedMutation'
 import { flash } from '@open-mercato/ui/backend/FlashMessages'
+import { PageLoading } from '../../cc_ui/components/PageLoading'
 
 export type RegisterTile = {
   key: string
@@ -100,7 +101,7 @@ export function UploadCentre() {
             </Button>
           </div>
           {error ? <ErrorMessage label={error} /> : null}
-          {!items && !error ? <LoadingMessage label={t('cc_production.upload.loading', 'Loading…')} /> : null}
+          {!items && !error ? <PageLoading label={t('cc_production.upload.loading', 'Loading…')} /> : null}
           {groups.map(([department, tiles]) => (
             <section key={department} className="space-y-2">
               <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{department}</h2>
@@ -193,7 +194,7 @@ export function UploadRegisterPage({ registerKey }: { registerKey: string }) {
   }
 
   if (error) return <Page><PageBody><ErrorMessage label={error} /></PageBody></Page>
-  if (!items) return <Page><PageBody><LoadingMessage label={t('cc_production.upload.loading', 'Loading…')} /></PageBody></Page>
+  if (!items) return <Page><PageBody><PageLoading label={t('cc_production.upload.loading', 'Loading…')} /></PageBody></Page>
   if (!tile) return <Page><PageBody><ErrorMessage label={t('cc_production.upload.unknown', 'This register cannot be uploaded.')} /></PageBody></Page>
 
   return (
@@ -311,7 +312,7 @@ export function UploadHistory() {
             <h1 className="text-xl font-semibold">{t('cc_production.upload.history', 'Upload history')}</h1>
           </div>
           {!items ? (
-            <LoadingMessage label={t('cc_production.upload.loading', 'Loading…')} />
+            <PageLoading label={t('cc_production.upload.loading', 'Loading…')} />
           ) : (
             <div className="overflow-x-auto rounded-lg border bg-card">
               <table className="w-full text-sm">

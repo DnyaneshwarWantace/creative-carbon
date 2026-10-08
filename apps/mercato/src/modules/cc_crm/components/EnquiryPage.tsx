@@ -12,7 +12,7 @@ import { Input } from '@open-mercato/ui/primitives/input'
 import { Label } from '@open-mercato/ui/primitives/label'
 import { Textarea } from '@open-mercato/ui/primitives/textarea'
 import { StatusBadge } from '@open-mercato/ui/primitives/status-badge'
-import { ErrorMessage, LoadingMessage } from '@open-mercato/ui/backend/detail'
+import { ErrorMessage } from '@open-mercato/ui/backend/detail'
 import { apiCall } from '@open-mercato/ui/backend/utils/apiCall'
 import { flash } from '@open-mercato/ui/backend/FlashMessages'
 import { SearchPicker } from '../../cc_orders/components/SearchPicker'
@@ -23,6 +23,7 @@ import { useGranted } from '../../cc_departments/components/useGranted'
 import { useSend, selectClass } from '../../cc_production/components/finishing/shared'
 import { QUOTE_LABEL, QUOTE_VARIANT, STAGE_LABEL, STAGE_VARIANT, type Enquiry, type EnquiryStage } from './types'
 import { Dropdown } from '../../cc_lists/components/Dropdown'
+import { PageLoading } from '../../cc_ui/components/PageLoading'
 
 function localNow(): string {
   const now = new Date(Date.now() - new Date().getTimezoneOffset() * 60_000)
@@ -226,7 +227,7 @@ export function EnquiryEdit({ enquiryId }: { enquiryId: string }) {
     })
   }, [enquiryId, t])
   if (error) return <Page><PageBody><ErrorMessage label={error} /></PageBody></Page>
-  if (!enquiry) return <Page><PageBody><LoadingMessage label={t('cc_crm.loading', 'Loading…')} /></PageBody></Page>
+  if (!enquiry) return <Page><PageBody><PageLoading label={t('cc_crm.loading', 'Loading…')} /></PageBody></Page>
   return <EnquiryForm enquiry={enquiry} />
 }
 
@@ -266,7 +267,7 @@ export function EnquiryPage({ enquiryId }: { enquiryId: string }) {
   }
 
   if (error) return <Page><PageBody><ErrorMessage label={error} /></PageBody></Page>
-  if (!enquiry) return <Page><PageBody><LoadingMessage label={t('cc_crm.loading', 'Loading…')} /></PageBody></Page>
+  if (!enquiry) return <Page><PageBody><PageLoading label={t('cc_crm.loading', 'Loading…')} /></PageBody></Page>
 
   const quoteHref = `/backend/crm/quotations/new?enquiryId=${enquiry.id}${enquiry.customerId ? `&customerId=${enquiry.customerId}` : ''}`
   const closed = enquiry.stage === 'won' || enquiry.stage === 'lost'

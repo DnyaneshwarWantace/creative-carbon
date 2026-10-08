@@ -16,11 +16,12 @@ import { apiCall, withScopedApiRequestHeaders } from '@open-mercato/ui/backend/u
 import { buildOptimisticLockHeader } from '@open-mercato/ui/backend/utils/optimisticLock'
 import { useGuardedMutation } from '@open-mercato/ui/backend/injection/useGuardedMutation'
 import { flash } from '@open-mercato/ui/backend/FlashMessages'
-import { ErrorMessage, LoadingMessage } from '@open-mercato/ui/backend/detail'
+import { ErrorMessage } from '@open-mercato/ui/backend/detail'
 import { WhatsAppMenu } from '../../cc_products/components/WhatsAppMenu'
 import { dateText, rupeeText } from '../../cc_products/lib/whatsapp'
 import { buildPiHtml, printPi } from './piPrint'
 import { PI_STATUS, type CompanyView, type PiView } from './types'
+import { PageLoading } from '../../cc_ui/components/PageLoading'
 
 const HISTORY: Record<string, string> = { created: 'Drafted', edited: 'Edited', refreshed: 'Lines refreshed from the order', sent: 'Sent to customer', cancelled: 'Cancelled' }
 
@@ -133,7 +134,7 @@ export function ProformaPage({ id }: { id: string }) {
     return (
       <Page>
         <PageBody>
-          <LoadingMessage label={t('cc_accounts.pi.loading', 'Loading proforma invoice…')} />
+          <PageLoading label={t('cc_accounts.pi.loading', 'Loading proforma invoice…')} />
         </PageBody>
       </Page>
     )

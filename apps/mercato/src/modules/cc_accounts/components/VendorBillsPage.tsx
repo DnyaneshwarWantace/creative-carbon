@@ -6,7 +6,7 @@ import { Plus } from 'lucide-react'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { cn } from '@open-mercato/shared/lib/utils'
 import { Page, PageBody } from '@open-mercato/ui/backend/Page'
-import { ErrorMessage, LoadingMessage } from '@open-mercato/ui/backend/detail'
+import { ErrorMessage } from '@open-mercato/ui/backend/detail'
 import { Button } from '@open-mercato/ui/primitives/button'
 import { Input } from '@open-mercato/ui/primitives/input'
 import { Label } from '@open-mercato/ui/primitives/label'
@@ -23,6 +23,7 @@ import { useGranted } from '../../cc_departments/components/useGranted'
 import { ListSelectItems } from '../../cc_lists/components/ListSelectItems'
 import { ExportButton } from '../../cc_products/components/ExportButton'
 import { downloadCsv } from '../../cc_products/lib/csvExport'
+import { PageLoading } from '../../cc_ui/components/PageLoading'
 
 type Bill = {
   id: string
@@ -235,7 +236,7 @@ export function VendorBillsPage() {
           </SegmentedControl>
 
           {error ? <ErrorMessage label={error} /> : null}
-          {!bills && !error ? <LoadingMessage label={t('cc_accounts.bills.loading', 'Loading…')} /> : null}
+          {!bills && !error ? <PageLoading label={t('cc_accounts.bills.loading', 'Loading…')} /> : null}
           {bills ? (
             <div className="overflow-x-auto rounded-lg border bg-card">
               <table className="w-full text-sm">

@@ -6,7 +6,7 @@ import Link from 'next/link'
 import { ArrowLeft, Mail, MapPin, Pencil, Phone, Plus, ShoppingCart, Truck } from 'lucide-react'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { Page, PageBody } from '@open-mercato/ui/backend/Page'
-import { LoadingMessage, ErrorMessage } from '@open-mercato/ui/backend/detail'
+import { ErrorMessage } from '@open-mercato/ui/backend/detail'
 import { Button } from '@open-mercato/ui/primitives/button'
 import { Input } from '@open-mercato/ui/primitives/input'
 import { Label } from '@open-mercato/ui/primitives/label'
@@ -21,6 +21,7 @@ import { useGuardedMutation } from '@open-mercato/ui/backend/injection/useGuarde
 import { flash } from '@open-mercato/ui/backend/FlashMessages'
 import { GSTIN_PATTERN, stateFromGstin } from '../../cc_accounts/lib/gstStates'
 import { GRN_STATUS, PO_STATUS, day, money, qty, type GrnStatus, type PoStatus } from './shared'
+import { PageLoading } from '../../cc_ui/components/PageLoading'
 
 type VendorView = {
   id: string
@@ -232,7 +233,7 @@ export function VendorFile({ vendorId }: { vendorId: string }) {
     return (
       <Page>
         <PageBody>
-          <LoadingMessage label={t('cc_purchase.vendor.loading', 'Loading vendor…')} />
+          <PageLoading label={t('cc_purchase.vendor.loading', 'Loading vendor…')} />
         </PageBody>
       </Page>
     )

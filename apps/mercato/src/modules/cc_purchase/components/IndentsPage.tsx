@@ -7,7 +7,7 @@ import { Check, Plus, ShoppingCart, Trash2, X } from 'lucide-react'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { cn } from '@open-mercato/shared/lib/utils'
 import { Page, PageBody } from '@open-mercato/ui/backend/Page'
-import { ErrorMessage, LoadingMessage } from '@open-mercato/ui/backend/detail'
+import { ErrorMessage } from '@open-mercato/ui/backend/detail'
 import { Button } from '@open-mercato/ui/primitives/button'
 import { Input } from '@open-mercato/ui/primitives/input'
 import { Label } from '@open-mercato/ui/primitives/label'
@@ -21,6 +21,7 @@ import { useGuardedMutation } from '@open-mercato/ui/backend/injection/useGuarde
 import { flash } from '@open-mercato/ui/backend/FlashMessages'
 import { useGranted } from '../../cc_departments/components/useGranted'
 import { day, qty } from './shared'
+import { PageLoading } from '../../cc_ui/components/PageLoading'
 
 type IndentStatus = 'submitted' | 'approved' | 'rejected' | 'ordered' | 'cancelled'
 type Indent = {
@@ -349,7 +350,7 @@ export function IndentsPage() {
           </SegmentedControl>
 
           {error ? <ErrorMessage label={error} /> : null}
-          {!items && !error ? <LoadingMessage label={t('cc_purchase.indent.loading', 'Loading indents…')} /> : null}
+          {!items && !error ? <PageLoading label={t('cc_purchase.indent.loading', 'Loading indents…')} /> : null}
           {items && !items.length ? <p className="rounded-lg border bg-card p-6 text-sm text-muted-foreground">{t('cc_purchase.indent.empty', 'No indents here.')}</p> : null}
           {items?.length ? (
             <ul className="space-y-3">

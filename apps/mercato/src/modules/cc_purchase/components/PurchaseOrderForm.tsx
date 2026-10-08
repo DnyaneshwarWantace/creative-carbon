@@ -16,8 +16,9 @@ import { apiCall, withScopedApiRequestHeaders } from '@open-mercato/ui/backend/u
 import { buildOptimisticLockHeader } from '@open-mercato/ui/backend/utils/optimisticLock'
 import { useGuardedMutation } from '@open-mercato/ui/backend/injection/useGuardedMutation'
 import { flash } from '@open-mercato/ui/backend/FlashMessages'
-import { ErrorMessage, LoadingMessage } from '@open-mercato/ui/backend/detail'
+import { ErrorMessage } from '@open-mercato/ui/backend/detail'
 import { money, qty, todayIso, type PoView } from './shared'
+import { PageLoading } from '../../cc_ui/components/PageLoading'
 
 type VendorOption = { id: string; name: string; code: string | null; gstNumber: string | null; contactPerson: string | null; contactPhone: string | null; address: string | null; paymentTerms: string | null }
 type ProductOption = { id: string; title: string; code: string | null; kind: string; unit: string | null }
@@ -205,7 +206,7 @@ export function PurchaseOrderForm({ poId }: { poId?: string }) {
     return (
       <Page>
         <PageBody>
-          <LoadingMessage label={t('cc_purchase.form.loading', 'Loading purchase order…')} />
+          <PageLoading label={t('cc_purchase.form.loading', 'Loading purchase order…')} />
         </PageBody>
       </Page>
     )

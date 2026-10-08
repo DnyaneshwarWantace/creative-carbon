@@ -3,7 +3,7 @@ import { z } from 'zod'
 import type { OpenApiRouteDoc } from '@open-mercato/shared/lib/openapi'
 import type { BackendChromeNavGroup, BackendChromeNavItem, BackendChromePayload } from '@open-mercato/shared/modules/navigation/backendChrome'
 import { GET as coreNav } from '@open-mercato/core/modules/auth/api/admin/nav'
-import { CRM_PREFIXES, isCrmOnlyPath, isCrmPath } from '../../lib/workspace'
+import { CRM_PREFIXES, isCrmPath } from '../../lib/workspace'
 
 export const metadata = {
   GET: { requireAuth: true },
@@ -31,7 +31,7 @@ function crmGroups(groups: BackendChromeNavGroup[]): BackendChromeNavGroup[] {
 
 function erpGroups(groups: BackendChromeNavGroup[]): BackendChromeNavGroup[] {
   return groups
-    .map((group) => ({ ...group, items: group.items.filter((item) => !isCrmOnlyPath(item.href)).map((item) => ({ ...item, children: item.children?.filter((child) => !isCrmOnlyPath(child.href)) })) }))
+    .map((group) => ({ ...group, items: group.items.filter((item) => !isCrmPath(item.href)).map((item) => ({ ...item, children: item.children?.filter((child) => !isCrmPath(child.href)) })) }))
     .filter((group) => group.items.length > 0)
 }
 

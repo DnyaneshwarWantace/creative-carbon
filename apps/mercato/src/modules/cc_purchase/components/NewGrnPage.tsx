@@ -16,9 +16,10 @@ import { Alert, AlertDescription, AlertTitle } from '@open-mercato/ui/primitives
 import { apiCall } from '@open-mercato/ui/backend/utils/apiCall'
 import { useGuardedMutation } from '@open-mercato/ui/backend/injection/useGuardedMutation'
 import { flash } from '@open-mercato/ui/backend/FlashMessages'
-import { ErrorMessage, LoadingMessage } from '@open-mercato/ui/backend/detail'
+import { ErrorMessage } from '@open-mercato/ui/backend/detail'
 import { qty, todayIso, type PoView } from './shared'
 import { PLACE_LABEL, receivingStoreFor } from '../../cc_products/lib/stock'
+import { PageLoading } from '../../cc_ui/components/PageLoading'
 
 type Draft = { include: boolean; quantity: string; lotNumber: string; mfgDate: string; expiryDate: string }
 
@@ -119,7 +120,7 @@ export function NewGrnPage() {
     return (
       <Page>
         <PageBody>
-          <LoadingMessage label={t('cc_purchase.detail.loading', 'Loading purchase order…')} />
+          <PageLoading label={t('cc_purchase.detail.loading', 'Loading purchase order…')} />
         </PageBody>
       </Page>
     )

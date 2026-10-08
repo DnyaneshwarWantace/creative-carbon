@@ -4,9 +4,10 @@ import * as React from 'react'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { Page, PageBody } from '@open-mercato/ui/backend/Page'
 import { apiCall } from '@open-mercato/ui/backend/utils/apiCall'
-import { ErrorMessage, LoadingMessage } from '@open-mercato/ui/backend/detail'
+import { ErrorMessage } from '@open-mercato/ui/backend/detail'
 import { PRODUCT_KINDS, type ProductKind } from '../lib/kinds'
 import { ProductForm } from './ProductForm'
+import { PageLoading } from '../../cc_ui/components/PageLoading'
 
 function isKind(value: unknown): value is ProductKind {
   return PRODUCT_KINDS.some((entry) => entry.code === value)
@@ -46,7 +47,7 @@ export function EditProduct({ productId }: { productId: string }) {
     return (
       <Page>
         <PageBody>
-          <LoadingMessage label={t('cc_products.form.loading', 'Loading…')} />
+          <PageLoading label={t('cc_products.form.loading', 'Loading…')} />
         </PageBody>
       </Page>
     )

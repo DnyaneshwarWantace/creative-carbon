@@ -10,7 +10,7 @@ import { Page, PageBody } from '@open-mercato/ui/backend/Page'
 import { Button } from '@open-mercato/ui/primitives/button'
 import { Input } from '@open-mercato/ui/primitives/input'
 import { Spinner } from '@open-mercato/ui/primitives/spinner'
-import { ErrorMessage, LoadingMessage } from '@open-mercato/ui/backend/detail'
+import { ErrorMessage } from '@open-mercato/ui/backend/detail'
 import { apiCall } from '@open-mercato/ui/backend/utils/apiCall'
 import { flash } from '@open-mercato/ui/backend/FlashMessages'
 import { useGranted } from '../../../cc_departments/components/useGranted'
@@ -19,6 +19,7 @@ import { selectClass, useSend } from '../finishing/shared'
 import { OfflineBadge, usePlantPwa } from '../offline'
 import { PlantTable } from '../PlantTable'
 import { Dropdown } from '../../../cc_lists/components/Dropdown'
+import { PageLoading } from '../../../cc_ui/components/PageLoading'
 
 type PlanRow = { area: string; resource: string; item: string | null; plannedQty: number; unit: string; actual: number; pct: number | null }
 type Overview = {
@@ -503,7 +504,7 @@ export function StockLotPage({ lotId }: { lotId: string }) {
     })
   }, [lotId, t])
   if (error) return <Page><PageBody><ErrorMessage label={error} /></PageBody></Page>
-  if (!data) return <Page><PageBody><LoadingMessage label={t('cc_production.resin.loading', 'Loading…')} /></PageBody></Page>
+  if (!data) return <Page><PageBody><PageLoading label={t('cc_production.resin.loading', 'Loading…')} /></PageBody></Page>
   const meta = data.metadata ?? {}
   const facts = (['grade', 'thicknessMm', 'cutSize', 'sheetSize', 'batchNo', 'dieNo', 'customerName', 'disposition', 'supplier', 'invoiceNo', 'parentLot'] as const).filter((field) => meta[field] !== undefined && meta[field] !== null && meta[field] !== '')
   return (

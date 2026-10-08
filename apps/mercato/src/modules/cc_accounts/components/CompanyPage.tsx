@@ -12,8 +12,9 @@ import { apiCall, withScopedApiRequestHeaders } from '@open-mercato/ui/backend/u
 import { buildOptimisticLockHeader } from '@open-mercato/ui/backend/utils/optimisticLock'
 import { useGuardedMutation } from '@open-mercato/ui/backend/injection/useGuardedMutation'
 import { flash } from '@open-mercato/ui/backend/FlashMessages'
-import { LoadingMessage } from '@open-mercato/ui/backend/detail'
+
 import type { CompanyView } from './types'
+import { PageLoading } from '../../cc_ui/components/PageLoading'
 
 type Field = { key: keyof CompanyView; label: string; placeholder?: string; wide?: boolean; area?: number; type?: string; upper?: boolean }
 
@@ -101,7 +102,7 @@ export function CompanyPage() {
     return (
       <Page>
         <PageBody>
-          <LoadingMessage label={t('cc_accounts.company.loading', 'Loading company details…')} />
+          <PageLoading label={t('cc_accounts.company.loading', 'Loading company details…')} />
         </PageBody>
       </Page>
     )

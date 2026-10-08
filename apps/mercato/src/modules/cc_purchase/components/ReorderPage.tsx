@@ -10,12 +10,13 @@ import { Page, PageBody } from '@open-mercato/ui/backend/Page'
 import { Button } from '@open-mercato/ui/primitives/button'
 import { Input } from '@open-mercato/ui/primitives/input'
 import { EmptyState } from '@open-mercato/ui/primitives/empty-state'
-import { LoadingMessage } from '@open-mercato/ui/backend/detail'
+
 import { apiCall } from '@open-mercato/ui/backend/utils/apiCall'
 import { flash } from '@open-mercato/ui/backend/FlashMessages'
 import { PlantTable } from '../../cc_production/components/PlantTable'
 import { useGranted } from '../../cc_departments/components/useGranted'
 import { useSend } from '../../cc_production/components/finishing/shared'
+import { PageLoading } from '../../cc_ui/components/PageLoading'
 
 type Suggestion = { productId: string; title: string; code: string | null; kind: string | null; unit: string; reorderPoint: number; safetyStock: number; onHand: number; free: number; onOrder: number; onIndent: number; position: number; below: boolean; stockBelow: boolean; suggested: number }
 
@@ -87,7 +88,7 @@ export function ReorderPage() {
             </div>
           </div>
           {!items ? (
-            <LoadingMessage label={t('cc_purchase.loading', 'Loading…')} />
+            <PageLoading label={t('cc_purchase.loading', 'Loading…')} />
           ) : (
             <div className="rounded-xl border bg-card shadow-xs">
               <PlantTable

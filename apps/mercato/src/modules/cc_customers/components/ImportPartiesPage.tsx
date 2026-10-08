@@ -1,7 +1,8 @@
 "use client"
 
 import * as React from 'react'
-import { Download, Upload } from 'lucide-react'
+import Link from 'next/link'
+import { ArrowLeft, Download, Upload } from 'lucide-react'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { cn } from '@open-mercato/shared/lib/utils'
 import { Page, PageBody } from '@open-mercato/ui/backend/Page'
@@ -244,6 +245,10 @@ export function ImportPartiesPage({ kind }: { kind: Kind }) {
         <div className="flex flex-col gap-5">
           <header className="flex flex-col gap-3 border-b pb-4 lg:flex-row lg:items-end lg:justify-between">
             <div className="space-y-1">
+              <Link href={kind === 'customers' ? '/backend/customers/companies' : '/backend/cc_vendors'} className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground">
+                <ArrowLeft className="h-3.5 w-3.5" aria-hidden="true" />
+                {kind === 'customers' ? t('cc_customers.import.backCustomers', 'Customers') : t('cc_customers.import.backVendors', 'Vendors')}
+              </Link>
               <h1 className="text-2xl font-bold tracking-tight">{kind === 'customers' ? t('cc_customers.import.titleCustomers', 'Import customers') : t('cc_customers.import.titleVendors', 'Import vendors')}</h1>
               <p className="max-w-3xl text-sm text-muted-foreground">{t('cc_customers.import.lede', 'Fill the template in Excel, save it as CSV and upload it. Every row is checked before anything is saved; names that already exist are skipped.')}</p>
             </div>

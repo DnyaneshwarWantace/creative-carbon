@@ -10,12 +10,13 @@ import { Button } from '@open-mercato/ui/primitives/button'
 import { Input } from '@open-mercato/ui/primitives/input'
 import { StatusBadge } from '@open-mercato/ui/primitives/status-badge'
 import { EmptyState } from '@open-mercato/ui/primitives/empty-state'
-import { LoadingMessage } from '@open-mercato/ui/backend/detail'
+
 import { apiCall } from '@open-mercato/ui/backend/utils/apiCall'
 import { PlantTable } from '../../cc_production/components/PlantTable'
 import { useGranted } from '../../cc_departments/components/useGranted'
 import { formatDate, formatDateTime } from '../../cc_orders/components/format'
 import { STAGE_LABEL, STAGE_VARIANT, type Enquiry } from './types'
+import { PageLoading } from '../../cc_ui/components/PageLoading'
 
 type ListResult = { items: Enquiry[]; counts: Record<string, number>; overdue: number }
 
@@ -88,7 +89,7 @@ export function EnquiriesPage() {
             </div>
           </div>
           {!data ? (
-            <LoadingMessage label={t('cc_crm.loading', 'Loading…')} />
+            <PageLoading label={t('cc_crm.loading', 'Loading…')} />
           ) : (
             <div className="rounded-xl border bg-card shadow-xs">
               <PlantTable

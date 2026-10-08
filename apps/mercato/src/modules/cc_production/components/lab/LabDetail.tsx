@@ -7,7 +7,7 @@ import { ArrowLeft, CheckCircle2, CircleDashed, Download, ExternalLink, FileText
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { cn } from '@open-mercato/shared/lib/utils'
 import { Page, PageBody } from '@open-mercato/ui/backend/Page'
-import { ErrorMessage, LoadingMessage } from '@open-mercato/ui/backend/detail'
+import { ErrorMessage } from '@open-mercato/ui/backend/detail'
 import { AttachmentsSection } from '@open-mercato/ui/backend/detail/AttachmentsSection'
 import { Button } from '@open-mercato/ui/primitives/button'
 import { Notice } from '@open-mercato/ui/primitives/Notice'
@@ -19,6 +19,7 @@ import { formatDateTime } from '../../../cc_orders/components/format'
 import { day } from '../resin/shared'
 import { LAB_ENTITY, fileSize } from './LabForm'
 import type { LabReportFile, LabResult, LabTest } from './types'
+import { PageLoading } from '../../../cc_ui/components/PageLoading'
 
 const RESULT_STYLE: Record<LabResult, { label: string; tone: string; icon: typeof CheckCircle2 }> = {
   pass: { label: 'Pass', tone: 'border-status-success-border bg-status-success-bg text-status-success-text', icon: CheckCircle2 },
@@ -93,7 +94,7 @@ export function LabDetailPage({ testId }: { testId: string }) {
   }, [load])
 
   if (error) return <Page><PageBody><ErrorMessage label={error} /></PageBody></Page>
-  if (!test) return <Page><PageBody><LoadingMessage label={t('cc_production.lab.loading', 'Loading…')} /></PageBody></Page>
+  if (!test) return <Page><PageBody><PageLoading label={t('cc_production.lab.loading', 'Loading…')} /></PageBody></Page>
 
   const style = RESULT_STYLE[test.result]
   const ResultIcon = style.icon

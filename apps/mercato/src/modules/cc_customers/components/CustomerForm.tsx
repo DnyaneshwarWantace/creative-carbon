@@ -16,9 +16,10 @@ import { apiCall, withScopedApiRequestHeaders } from '@open-mercato/ui/backend/u
 import { buildOptimisticLockHeader } from '@open-mercato/ui/backend/utils/optimisticLock'
 import { useGuardedMutation } from '@open-mercato/ui/backend/injection/useGuardedMutation'
 import { flash } from '@open-mercato/ui/backend/FlashMessages'
-import { LoadingMessage } from '@open-mercato/ui/backend/detail'
+
 import { GSTIN_PATTERN, GST_STATES, stateFromGstin } from '../../cc_accounts/lib/gstStates'
 import { usePaymentTerms } from '../../cc_lists/components/usePaymentTerms'
+import { PageLoading } from '../../cc_ui/components/PageLoading'
 
 type Row = Record<string, unknown> & { id: string }
 type Contact = { key: string; id: string | null; name: string; phone: string; email: string }
@@ -226,7 +227,7 @@ export function CustomerForm({ customerId }: { customerId?: string }) {
     return (
       <Page>
         <PageBody>
-          <LoadingMessage label={t('cc_customers.form.loading', 'Loading customer…')} />
+          <PageLoading label={t('cc_customers.form.loading', 'Loading customer…')} />
         </PageBody>
       </Page>
     )

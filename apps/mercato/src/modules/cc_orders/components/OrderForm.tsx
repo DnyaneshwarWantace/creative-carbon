@@ -20,7 +20,7 @@ import { apiCall, withScopedApiRequestHeaders } from '@open-mercato/ui/backend/u
 import { buildOptimisticLockHeader } from '@open-mercato/ui/backend/utils/optimisticLock'
 import { useGuardedMutation } from '@open-mercato/ui/backend/injection/useGuardedMutation'
 import { flash } from '@open-mercato/ui/backend/FlashMessages'
-import { ErrorMessage, LoadingMessage } from '@open-mercato/ui/backend/detail'
+import { ErrorMessage } from '@open-mercato/ui/backend/detail'
 import { LINE_SPEC_SECTIONS, PARTY_SIDE } from '../lib/specs'
 import { priceOrder } from '../lib/pricing'
 import { SearchPicker, type PickerOption } from './SearchPicker'
@@ -30,6 +30,7 @@ import { useListOptions } from '../../cc_lists/components/useListOptions'
 import { usePaymentTerms } from '../../cc_lists/components/usePaymentTerms'
 import { loadAddresses, loadCustomer, loadCustomerOrders, loadProductDetails, searchCustomers, searchFinishedGoods, type CustomerAddress } from './loaders'
 import type { Customer, Order, OrderListItem, ProductInfo } from './types'
+import { PageLoading } from '../../cc_ui/components/PageLoading'
 
 type LineDraft = {
   key: string
@@ -516,7 +517,7 @@ export function OrderForm({ orderId, copyFrom, customerId, quotationId, quotatio
     return (
       <Page>
         <PageBody>
-          <LoadingMessage label={t('cc_orders.loading', 'Loading order…')} />
+          <PageLoading label={t('cc_orders.loading', 'Loading order…')} />
         </PageBody>
       </Page>
     )

@@ -11,13 +11,14 @@ import { Input } from '@open-mercato/ui/primitives/input'
 import { Label } from '@open-mercato/ui/primitives/label'
 import { Textarea } from '@open-mercato/ui/primitives/textarea'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@open-mercato/ui/primitives/dialog'
-import { ErrorMessage, LoadingMessage } from '@open-mercato/ui/backend/detail'
+import { ErrorMessage } from '@open-mercato/ui/backend/detail'
 import { apiCall } from '@open-mercato/ui/backend/utils/apiCall'
 import { useGuardedMutation } from '@open-mercato/ui/backend/injection/useGuardedMutation'
 import { flash } from '@open-mercato/ui/backend/FlashMessages'
 import { useGranted } from '../../../cc_departments/components/useGranted'
 import { day, kg, when } from '../resin/shared'
 import { BAND_STYLE, type BstageCard } from './BstageBoardPage'
+import { PageLoading } from '../../../cc_ui/components/PageLoading'
 
 type LotView = BstageCard & { movements: Array<{ id: string; at: string; kg: number; reason: string | null; reasonCode: string | null; source: string | null }> }
 
@@ -72,7 +73,7 @@ export function BstageLotPage({ lotId }: { lotId: string }) {
   }
 
   if (error) return <Page><PageBody><ErrorMessage label={error} /></PageBody></Page>
-  if (!lot) return <Page><PageBody><LoadingMessage label={t('cc_production.resin.loading', 'Loading…')} /></PageBody></Page>
+  if (!lot) return <Page><PageBody><PageLoading label={t('cc_production.resin.loading', 'Loading…')} /></PageBody></Page>
 
   const band = BAND_STYLE[lot.band]
   return (

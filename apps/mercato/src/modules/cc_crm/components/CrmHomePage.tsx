@@ -7,11 +7,12 @@ import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { cn } from '@open-mercato/shared/lib/utils'
 import { Page, PageBody } from '@open-mercato/ui/backend/Page'
 import { Button } from '@open-mercato/ui/primitives/button'
-import { LoadingMessage } from '@open-mercato/ui/backend/detail'
+
 import { apiCall } from '@open-mercato/ui/backend/utils/apiCall'
 import { useGranted } from '../../cc_departments/components/useGranted'
 import { formatDate, formatQty } from '../../cc_orders/components/format'
 import { STAGE_LABEL, type EnquiryStage } from './types'
+import { PageLoading } from '../../cc_ui/components/PageLoading'
 
 type FollowUp = { id: string; enquiryNo: string; partyName: string | null; subject: string; nextActionOn?: string | null; nextActionNote: string | null; ownerName: string | null }
 type Dashboard = {
@@ -89,7 +90,7 @@ export function CrmHomePage() {
             ) : null}
           </div>
           {!data ? (
-            <LoadingMessage label={t('cc_crm.loading', 'Loading…')} />
+            <PageLoading label={t('cc_crm.loading', 'Loading…')} />
           ) : (
             <>
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">

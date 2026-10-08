@@ -5,7 +5,7 @@ import { ArrowDown, ArrowUp, Lock, Plus, RotateCcw, Save, Search, Trash2 } from 
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { cn } from '@open-mercato/shared/lib/utils'
 import { Page, PageBody } from '@open-mercato/ui/backend/Page'
-import { ErrorMessage, LoadingMessage } from '@open-mercato/ui/backend/detail'
+import { ErrorMessage } from '@open-mercato/ui/backend/detail'
 import { Button } from '@open-mercato/ui/primitives/button'
 import { Input } from '@open-mercato/ui/primitives/input'
 import { Switch } from '@open-mercato/ui/primitives/switch'
@@ -15,6 +15,7 @@ import { buildOptimisticLockHeader } from '@open-mercato/ui/backend/utils/optimi
 import { useGuardedMutation } from '@open-mercato/ui/backend/injection/useGuardedMutation'
 import { flash } from '@open-mercato/ui/backend/FlashMessages'
 import { invalidateListOptions } from './useListOptions'
+import { PageLoading } from '../../cc_ui/components/PageLoading'
 
 type Option = { value: string; active: boolean; locked: boolean }
 type ListView = { key: string; label: string; department: string; usedIn: string; fixed: string | null; customised: boolean; options: Option[]; updatedAt: string | null; updatedByName: string | null }
@@ -151,7 +152,7 @@ export function DropdownManager() {
     return (
       <Page>
         <PageBody>
-          <LoadingMessage label={t('cc_lists.loading', 'Loading dropdown lists…')} />
+          <PageLoading label={t('cc_lists.loading', 'Loading dropdown lists…')} />
         </PageBody>
       </Page>
     )

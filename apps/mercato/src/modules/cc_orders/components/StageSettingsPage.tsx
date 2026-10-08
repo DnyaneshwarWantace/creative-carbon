@@ -5,7 +5,7 @@ import { Lock, Plus, RotateCcw, Trash2 } from 'lucide-react'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { cn } from '@open-mercato/shared/lib/utils'
 import { Page, PageBody } from '@open-mercato/ui/backend/Page'
-import { ErrorMessage, LoadingMessage } from '@open-mercato/ui/backend/detail'
+import { ErrorMessage } from '@open-mercato/ui/backend/detail'
 import { Button } from '@open-mercato/ui/primitives/button'
 import { Checkbox } from '@open-mercato/ui/primitives/checkbox'
 import { Input } from '@open-mercato/ui/primitives/input'
@@ -17,6 +17,7 @@ import { buildOptimisticLockHeader } from '@open-mercato/ui/backend/utils/optimi
 import { useGuardedMutation } from '@open-mercato/ui/backend/injection/useGuardedMutation'
 import { flash } from '@open-mercato/ui/backend/FlashMessages'
 import { reloadStageSettings } from './useStageSettings'
+import { PageLoading } from '../../cc_ui/components/PageLoading'
 
 type FieldType = 'text' | 'number' | 'date' | 'textarea' | 'select'
 type BaseStage = {
@@ -90,7 +91,7 @@ export function StageSettingsPage() {
   }, [apply, t])
 
   if (error) return <Page><PageBody><ErrorMessage label={error} /></PageBody></Page>
-  if (!data || !draft) return <Page><PageBody><LoadingMessage label={t('cc_orders.stageSettings.loading', 'Loading workflow stages…')} /></PageBody></Page>
+  if (!data || !draft) return <Page><PageBody><PageLoading label={t('cc_orders.stageSettings.loading', 'Loading workflow stages…')} /></PageBody></Page>
 
   const stage = data.stages.find((entry) => entry.key === selected)!
   const override = data.overrides.find((entry) => entry.stageKey === selected)

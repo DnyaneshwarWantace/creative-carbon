@@ -17,9 +17,10 @@ import { apiCall, withScopedApiRequestHeaders } from '@open-mercato/ui/backend/u
 import { buildOptimisticLockHeader } from '@open-mercato/ui/backend/utils/optimisticLock'
 import { useGuardedMutation } from '@open-mercato/ui/backend/injection/useGuardedMutation'
 import { flash } from '@open-mercato/ui/backend/FlashMessages'
-import { ErrorMessage, LoadingMessage } from '@open-mercato/ui/backend/detail'
+import { ErrorMessage } from '@open-mercato/ui/backend/detail'
 import { GRN_STATUS, HISTORY_LABEL, LINE_QC, day, qty, when, type GrnLineView, type GrnView } from './shared'
 import { PLACE_LABEL } from '../../cc_products/lib/stock'
+import { PageLoading } from '../../cc_ui/components/PageLoading'
 
 export function GrnPage({ grnId }: { grnId: string }) {
   const t = useT()
@@ -113,7 +114,7 @@ export function GrnPage({ grnId }: { grnId: string }) {
     return (
       <Page>
         <PageBody>
-          <LoadingMessage label={t('cc_purchase.grnDetail.loading', 'Loading GRN…')} />
+          <PageLoading label={t('cc_purchase.grnDetail.loading', 'Loading GRN…')} />
         </PageBody>
       </Page>
     )

@@ -20,10 +20,11 @@ import { apiCall, withScopedApiRequestHeaders } from '@open-mercato/ui/backend/u
 import { buildOptimisticLockHeader } from '@open-mercato/ui/backend/utils/optimisticLock'
 import { useGuardedMutation } from '@open-mercato/ui/backend/injection/useGuardedMutation'
 import { flash } from '@open-mercato/ui/backend/FlashMessages'
-import { ErrorMessage, LoadingMessage } from '@open-mercato/ui/backend/detail'
+import { ErrorMessage } from '@open-mercato/ui/backend/detail'
 import { CustomerStatement } from '../../cc_accounts/components/CustomerStatement'
 import { usePaymentTerms } from '../../cc_lists/components/usePaymentTerms'
 import { paymentTermLabel } from '../../cc_lists/lib/paymentTerms'
+import { PageLoading } from '../../cc_ui/components/PageLoading'
 
 type Row = Record<string, unknown> & { id: string }
 type Address = { id: string; name: string | null; purpose: string | null; address_line1: string | null; address_line2: string | null; city: string | null; region: string | null; postal_code: string | null; country: string | null; is_primary: boolean | null }
@@ -297,7 +298,7 @@ export function CustomerDetail({ customerId }: { customerId: string }) {
     return (
       <Page>
         <PageBody>
-          <LoadingMessage label={t('cc_customers.loading', 'Loading customer…')} />
+          <PageLoading label={t('cc_customers.loading', 'Loading customer…')} />
         </PageBody>
       </Page>
     )
