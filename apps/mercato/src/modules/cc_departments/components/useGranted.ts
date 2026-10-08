@@ -42,6 +42,9 @@ const UI_FEATURES = [
   'cc_production.plan.manage',
   'cc_production.owner.view',
   'catalog.products.manage',
+  'cc_crm.convert',
+  'cc_crm.manage',
+  'cc_crm.view',
 ]
 
 let cache: Promise<Set<string>> | null = null
