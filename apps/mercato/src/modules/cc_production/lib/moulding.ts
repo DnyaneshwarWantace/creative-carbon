@@ -44,7 +44,7 @@ async function mouldingPresses(ctx: StoreContext) {
 
 type MouldedProduct = { id: string; title: string; articleWeightKg: number | null }
 
-async function mouldedProductsByDie(ctx: StoreContext, dieNos: string[]): Promise<Map<string, MouldedProduct>> {
+export async function mouldedProductsByDie(ctx: StoreContext, dieNos: string[]): Promise<Map<string, MouldedProduct>> {
   const result = new Map<string, MouldedProduct>()
   if (!dieNos.length) return result
   const rows = await ctx.em.getConnection().execute<Array<{ id: string; title: string; die_no: string; weight: string | null }>>(
