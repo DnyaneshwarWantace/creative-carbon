@@ -184,7 +184,7 @@
 
 <div class="wrap">
   <header class="hero">
-    <span class="eyebrow">● Detailed build plan · v13 · Stages 0–9 done and tested</span>
+    <span class="eyebrow">● Detailed build plan · v14 · Stages 1–10 reopened for the detail-page and UI pass</span>
     <h1>Creative Carbon on the Dermat base: every stage, page, field and link</h1>
     <p class="lede">For each stage this page lists the screens, every field with its type and rule, what the detail page shows, which stage feeds it and which stage it feeds, the stock it moves, and the small things that are easy to miss. Sources are the dev brief, the 12 register photos and the Kheda audit recording. <strong>Anything we had to guess is marked "confirm".</strong></p>
     <div class="facts">
@@ -196,16 +196,16 @@
     </div>
     <div class="phase-grid">
       <a class="pchip done" href="#s0"><div class="pn">Stage 0<span>Wk 1</span></div><div class="pv">Fork &amp; clean</div></a>
-      <a class="pchip done" href="#s1"><div class="pn">Stage 1<span>Wk 2</span></div><div class="pv">Masters</div></a>
-      <a class="pchip done" href="#s2"><div class="pn">Stage 2<span>Wk 2</span></div><div class="pv">Bulk upload</div></a>
-      <a class="pchip done" href="#s3"><div class="pn">Stage 3<span>Wk 3</span></div><div class="pv">Resin · Chemicals</div></a>
-      <a class="pchip done" href="#s4"><div class="pn">Stage 4<span>Wk 3</span></div><div class="pv">Coating · B-stage</div></a>
-      <a class="pchip done" href="#s5"><div class="pn">Stage 5<span>Wk 4</span></div><div class="pv">Press</div></a>
-      <a class="pchip done" href="#s6"><div class="pn">Stage 6<span>Wk 4</span></div><div class="pv">Moulding</div></a>
-      <a class="pchip done" href="#s7"><div class="pn">Stage 7<span>Wk 4</span></div><div class="pv">Cutting · QC · FG</div></a>
-      <a class="pchip demo" href="#s8"><div class="pn">Stage 8<span>Wk 5</span></div><div class="pv">Stock · Owner · Demo</div></a>
-      <a class="pchip done" href="#s9"><div class="pn">Stage 9<span>Wk 6–7</span></div><div class="pv">Order → Despatch</div></a>
-      <a class="pchip" href="#s10"><div class="pn">Stage 10<span>Wk 7–8</span></div><div class="pv">CRM · Purchase</div></a>
+      <a class="pchip partial" href="#s1"><div class="pn">Stage 1<span>Wk 2</span></div><div class="pv">Masters</div></a>
+      <a class="pchip partial" href="#s2"><div class="pn">Stage 2<span>Wk 2</span></div><div class="pv">Bulk upload</div></a>
+      <a class="pchip partial" href="#s3"><div class="pn">Stage 3<span>Wk 3</span></div><div class="pv">Resin · Chemicals</div></a>
+      <a class="pchip partial" href="#s4"><div class="pn">Stage 4<span>Wk 3</span></div><div class="pv">Coating · B-stage</div></a>
+      <a class="pchip partial" href="#s5"><div class="pn">Stage 5<span>Wk 4</span></div><div class="pv">Press</div></a>
+      <a class="pchip partial" href="#s6"><div class="pn">Stage 6<span>Wk 4</span></div><div class="pv">Moulding</div></a>
+      <a class="pchip partial" href="#s7"><div class="pn">Stage 7<span>Wk 4</span></div><div class="pv">Cutting · QC · FG</div></a>
+      <a class="pchip partial" href="#s8"><div class="pn">Stage 8<span>Wk 5</span></div><div class="pv">Stock · Owner · Demo</div></a>
+      <a class="pchip partial" href="#s9"><div class="pn">Stage 9<span>Wk 6–7</span></div><div class="pv">Order → Despatch</div></a>
+      <a class="pchip partial" href="#s10"><div class="pn">Stage 10<span>Wk 7–8</span></div><div class="pv">CRM · Purchase</div></a>
       <a class="pchip" href="#s11"><div class="pn">Stage 11<span>Wk 8</span></div><div class="pv">Documents · Tally</div></a>
       <a class="pchip" href="#s12"><div class="pn">Stage 12<span>Wk 9–12</span></div><div class="pv">Go-live</div></a>
     </div>
@@ -233,18 +233,19 @@
       <a href="#roles"><span class="dot done"></span>Who sees what</a>
       <a href="#reuse"><span class="dot done"></span>Dermat: keep / drop</a>
       <a href="#findings"><span class="dot done"></span>Photo &amp; audio findings</a>
+      <a href="#detail"><span class="dot partial"></span>UI review &amp; detail pages</a>
       <p class="rail-title">Stages</p>
       <a href="#s0"><span class="dot done"></span>0 Fork &amp; clean</a>
-      <a href="#s1"><span class="dot done"></span>1 Masters</a>
-      <a href="#s2"><span class="dot done"></span>2 Bulk upload</a>
-      <a href="#s3"><span class="dot done"></span>3 Resin · Chemicals</a>
-      <a href="#s4"><span class="dot done"></span>4 Coating · B-stage</a>
-      <a href="#s5"><span class="dot done"></span>5 Press</a>
-      <a href="#s6"><span class="dot done"></span>6 Moulding</a>
-      <a href="#s7"><span class="dot done"></span>7 Cutting · QC · FG</a>
-      <a href="#s8"><span class="dot done"></span>8 Stock · Owner · Demo</a>
-      <a href="#s9"><span class="dot done"></span>9 Order → Despatch</a>
-      <a href="#s10"><span class="dot done"></span>10 CRM · Purchase</a>
+      <a href="#s1"><span class="dot partial"></span>1 Masters</a>
+      <a href="#s2"><span class="dot partial"></span>2 Bulk upload</a>
+      <a href="#s3"><span class="dot partial"></span>3 Resin · Chemicals</a>
+      <a href="#s4"><span class="dot partial"></span>4 Coating · B-stage</a>
+      <a href="#s5"><span class="dot partial"></span>5 Press</a>
+      <a href="#s6"><span class="dot partial"></span>6 Moulding</a>
+      <a href="#s7"><span class="dot partial"></span>7 Cutting · QC · FG</a>
+      <a href="#s8"><span class="dot partial"></span>8 Stock · Owner · Demo</a>
+      <a href="#s9"><span class="dot partial"></span>9 Order → Despatch</a>
+      <a href="#s10"><span class="dot partial"></span>10 CRM · Purchase</a>
       <a href="#s11"><span class="dot planned"></span>11 Documents · Tally</a>
       <a href="#s12"><span class="dot planned"></span>12 Go-live</a>
       <p class="rail-title">Loose ends</p>
@@ -337,6 +338,91 @@
             </div>
           </div>
         </div>
+      </section>
+
+
+<!-- ============ DETAIL PAGES (v14) ============ -->
+      <section id="detail">
+        <div class="mod-head"><h2>Detail pages: one layout, every record linked</h2><span class="verdict partial">IN PROGRESS · v14</span></div>
+        <p class="mod-dek">Stages 1–10 work: the registers post, stock moves and the tests pass. What they lack is finish. The screens were built one stage at a time, so each detail page looks different and the links between records stop at the lot. This pass reopens every stage. Nothing is rebuilt from scratch. Each stage keeps its working entry screens and gets the fixes below. Every register entry, lot, party, machine, die and document gets a detail page with the same layout, and every number on any page opens the page it names. Staff should be able to start at a despatch and click back to the chemical GRN, or start at a GRN and click forward to the customer, without using search. A stage goes back to Done only when every item in its "Detail pages" list is built.</p>
+
+        <h3>What is wrong with the screens today (review of 8 Oct)</h3>
+        <div class="itemlist">
+          <div class="item missing"><span class="mark">!</span><span class="txt"><b>No shared page layout</b> The same small pieces (Card, Fact, Tile, Section, Panel, Empty) are written again in 12 files, 15 copies, each a little different. Page widths use 8 different sizes (max-w-3xl to 7xl), so pages jump in width as you click through.<span class="sub">Fix: One detail layout and one set of panels in <code>cc_ui</code>; two page widths only (register grids full width, detail pages 7xl).</span></span></div>
+          <div class="item missing"><span class="mark">!</span><span class="txt"><b>Detail pages are one long column</b> Resin, press, coating, lot and lab pages stack everything top to bottom. "Came from", "Went to", warnings and sign-offs are mixed in with the form instead of sitting in the side column the plan drew. No page has the chain strip.<span class="sub">Fix: Two columns on a computer, side panels after the main ones on a phone, chain strip on every production record.</span></span></div>
+          <div class="item missing"><span class="mark">!</span><span class="txt"><b>The chain breaks at the lot</b> The lot page shows raw field names as labels ("thicknessMm", "batchNo", "parentLot"), the word "left" is hard-coded in English, movements are plain text with no link to the batch, GRN or order that moved them, and there is no parent / child tree. The item page lists lots but they do not open the lot page, and its movements do not open their documents.<span class="sub">Fix: Lot page rebuilt on the shared layout: proper labels, tree back to the GRN and forward to the despatch, every movement linked.</span></span></div>
+          <div class="item missing"><span class="mark">!</span><span class="txt"><b>Register pages with no links at all</b> Cutting, thickness inspection, FG inspection and chemical issues show rows with zero links: a lot number, press batch or order on those screens cannot be clicked.<span class="sub">Fix: Every number on those registers opens its page; each row opens its own new detail page.</span></span></div>
+          <div class="item missing"><span class="mark">!</span><span class="txt"><b>Missing detail pages</b> Die, machine, upload, chemical issue, cutting, thickness, FG inspection, bought-in, damage, indent, payment, vendor bill and Tally push have a list row only.<span class="sub">Fix: One detail page each (table below).</span></span></div>
+          <div class="item missing"><span class="mark">!</span><span class="txt"><b>Registers do not look like the book yet</b> The brief asks for zebra rows, right-aligned numbers, sticky headers and sticky totals. No table has zebra rows; only 15 of 44 tables have a sticky header.<span class="sub">Fix: One register table style used everywhere: zebra rows, sticky header, sticky totals row, right-aligned three-decimal kg.</span></span></div>
+          <div class="item missing"><span class="mark">!</span><span class="txt"><b>Tables break on a phone</b> Seven screens put wide tables straight on the page with no sideways scroll (resin batch, press batch, lab report, die availability, owner pages, enquiry, order fulfilment), so the right-hand columns are cut off on the owner's phone.<span class="sub">Fix: Every table sits in a scroll box; on a phone the key columns stay visible.</span></span></div>
+          <div class="item missing"><span class="mark">!</span><span class="txt"><b>Pieces where it should be kg</b> Customer page shows "Pieces ordered" and "pcs" for laminate orders; quotation lines and some FG rows print "pcs" for sheets. The brief: weight everywhere, pieces only on moulded parts.<span class="sub">Fix: kg for laminate, B-stage and RM; pieces only on moulded parts, with kg next to them.</span></span></div>
+          <div class="item missing"><span class="mark">!</span><span class="txt"><b>Small polish</b> Some labels bypass translation ("kg / pcs", "left"); arbitrary Tailwind sizes in 5 files (quotation, lab, search picker, PO, GRN); Print only on some detail pages, not all.<span class="sub">Fix: Fixed in the files each step touches.</span></span></div>
+        </div>
+
+        <h3>The layout (shared component in <code>cc_ui</code>)</h3>
+        <div class="itemlist">
+          <div class="item done"><span class="mark">1</span><span class="txt"><b>Back link</b> to the register or list it came from.</span></div>
+          <div class="item done"><span class="mark">2</span><span class="txt"><b>Header</b>: form code and type (e.g. CCCPL/F/QC/03 · PFC), the record number in large mono, status badge, "posted by · when", and actions on the right (Print, Edit, Post, Reopen…). Actions hide on print.</span></div>
+          <div class="item done"><span class="mark">3</span><span class="txt"><b>Chain strip</b> on production records: Resin → Coating → Press / Moulding → Cutting → Thickness → FG → Order, this record highlighted, linked steps clickable.</span></div>
+          <div class="item done"><span class="mark">4</span><span class="txt"><b>Facts strip</b>: the four to six numbers people ask about (date, machine, total kg, yield, pieces).</span></div>
+          <div class="item done"><span class="mark">5</span><span class="txt"><b>Two columns</b> on a computer (main two thirds, side one third), one column on a phone with the side panels after the main ones. <b>Main</b>: the form as entered, read-only, same columns and order as the paper; lines; output lots. <b>Side</b>: <b>Came from</b>, <b>Went to</b>, <b>Linked documents</b>, <b>Warnings</b>, <b>Sign-offs</b>.</span></div>
+          <div class="item done"><span class="mark">6</span><span class="txt"><b>History</b> last, full width: who did what and when, with the reason for reopen, cancel or fail.</span></div>
+        </div>
+        <div class="grid2" style="margin-top:12px">
+          <div class="box"><div class="lbl">Rules</div><ul><li>Every record number, lot number, party, die and machine is a link.</li><li>An empty panel says why ("Not posted yet", "No coating run has used it yet").</li><li>kg with three decimals; pieces only on moulded parts.</li><li>Prices and costs only with the owner / sales right.</li><li>Print gives the register form, not the screen.</li></ul></div>
+          <div class="box"><div class="lbl">Built in this order</div><ul><li><b>D1</b> shared layout + Stage 1 (item, die, machine, customer, vendor)</li><li><b>D2</b> Stages 2–3 (upload, resin, chemical issue)</li><li><b>D3</b> Stages 4–6 moved to the shared layout</li><li><b>D4</b> Stage 7 missing pages (cutting, thickness, FG, bought-in, damage)</li><li><b>D5</b> Stages 8–10 (lot tree, order, CRM, purchase)</li><li><b>D6</b> accounts pages, then Stage 11 documents on the same layout</li></ul></div>
+        </div>
+
+        <h3>Every record, where its page is, and what it links to</h3>
+        <div class="tablewrap">
+          <table class="wide">
+            <thead><tr><th>Record</th><th>Page</th><th>Came from</th><th>Went to</th><th>Now</th></tr></thead>
+            <tbody>
+              <tr class="grp"><td colspan="5">Stage 1 Masters</td></tr>
+              <tr><td class="k">Item</td><td class="t">/backend/products/&lt;id&gt;</td><td>GRN lines (bought), resin batch / coating run / press batch / moulding entry (made), opening stock</td><td>Lots by store with a link to each lot page, the register that used each lot, orders, POs</td><td><span class="verdict partial">Upgrade</span></td></tr>
+              <tr><td class="k">Mould / die</td><td class="t">/backend/masters/moulds/&lt;id&gt;</td><td>Mould master row, the customer who owns the die</td><td>Moulding entries on this die (date, shift, machine, pieces, kg), running total against each open order, orders that name the die</td><td><span class="verdict planned">Missing</span></td></tr>
+              <tr><td class="k">Machine (reactor, dryer, press)</td><td class="t">/backend/masters/plant/&lt;kind&gt;/&lt;id&gt;</td><td>Plant master row</td><td>Resin batches on the reactor, coating day sheets on the dryer, press batches or moulding entries on the press</td><td><span class="verdict planned">Missing</span></td></tr>
+              <tr><td class="k">Customer</td><td class="t">/backend/customers/companies/&lt;id&gt;</td><td>Enquiries, quotations</td><td>Orders, proformas, tax invoices, payments and dues, dies owned, lab reports</td><td><span class="verdict partial">Upgrade</span></td></tr>
+              <tr><td class="k">Vendor</td><td class="t">/backend/cc_vendors/&lt;id&gt;</td><td>Vendor master</td><td>POs, GRNs with lots received, held lines, vendor bills, items supplied</td><td><span class="verdict partial">Upgrade</span></td></tr>
+              <tr class="grp"><td colspan="5">Stage 2 Upload</td></tr>
+              <tr><td class="k">Upload</td><td class="t">/backend/upload/history/&lt;id&gt;</td><td>The Excel file (name, hash, register date, who)</td><td>Every record the upload created or updated, rows that failed and why</td><td><span class="verdict planned">Missing</span></td></tr>
+              <tr class="grp"><td colspan="5">Stage 3 Resin</td></tr>
+              <tr><td class="k">Resin batch</td><td class="t">/backend/resin/batches/&lt;id&gt;</td><td>Chemical lots and their GRNs</td><td>Resin lot in the tank, coating runs that used it</td><td><span class="verdict partial">Upgrade</span></td></tr>
+              <tr><td class="k">Chemical issue</td><td class="t">/backend/resin/issues/&lt;id&gt;</td><td>Chemical lots taken (oldest first) and their GRNs</td><td>Coating day sheet of that dryer and date, or "other" with the note</td><td><span class="verdict planned">Missing</span></td></tr>
+              <tr class="grp"><td colspan="5">Stage 4 Coating</td></tr>
+              <tr><td class="k">Coating day sheet</td><td class="t">/backend/coating/&lt;id&gt;</td><td>Resin lots, raw cloth / paper lots, chemical issues</td><td>B-stage lots made, press batches and moulding entries that used them, B-stage sold or scrapped</td><td><span class="verdict partial">Upgrade</span></td></tr>
+              <tr><td class="k">B-stage lot</td><td class="t">/backend/bstage/lots/&lt;id&gt;</td><td>Coating day sheet, cloth row, resin lot</td><td>Press batches, moulding entries, sales, scrap</td><td><span class="verdict partial">Upgrade</span></td></tr>
+              <tr class="grp"><td colspan="5">Stage 5 Press</td></tr>
+              <tr><td class="k">Press batch</td><td class="t">/backend/press/batches/&lt;id&gt;</td><td>B-stage lots used (oldest first, age at use)</td><td>Pressed lots, cutting entries, thickness, FG lots, orders</td><td><span class="verdict partial">Upgrade</span></td></tr>
+              <tr class="grp"><td colspan="5">Stage 6 Moulding</td></tr>
+              <tr><td class="k">Moulding entry</td><td class="t">/backend/moulding/entries/&lt;id&gt;</td><td>Chindi, cloth and B-stage lots, the die, the press</td><td>Moulded lot, cutting, FG, the order for that die</td><td><span class="verdict partial">Upgrade</span></td></tr>
+              <tr class="grp"><td colspan="5">Stage 7 Cutting · QC · FG</td></tr>
+              <tr><td class="k">Cutting entry</td><td class="t">/backend/cutting/&lt;id&gt;</td><td>Pressed or moulded lot</td><td>Trimmed lot, thickness inspection, FG inspection</td><td><span class="verdict planned">Missing</span></td></tr>
+              <tr><td class="k">Thickness inspection</td><td class="t">/backend/quality/thickness/&lt;id&gt;</td><td>Trimmed lot, press batch line (target thickness)</td><td>FG inspection</td><td><span class="verdict planned">Missing</span></td></tr>
+              <tr><td class="k">FG inspection</td><td class="t">/backend/quality/fg-inspection/&lt;id&gt;</td><td>Trimmed lot, thickness inspection, lab reports</td><td>FG lot, order allocation</td><td><span class="verdict planned">Missing</span></td></tr>
+              <tr><td class="k">Lab test report</td><td class="t">/backend/quality/lab/&lt;id&gt;</td><td>Product, lot, customer</td><td>Order QC stage, test certificate</td><td><span class="verdict partial">Upgrade</span></td></tr>
+              <tr><td class="k">Bought-in goods entry</td><td class="t">/backend/fg/direct-in/&lt;id&gt;</td><td>Vendor, GRN (if any)</td><td>FG lot, orders</td><td><span class="verdict planned">Missing</span></td></tr>
+              <tr><td class="k">Damage entry</td><td class="t">/backend/stock/damage/&lt;id&gt;</td><td>Lot</td><td>Stock ledger write-off</td><td><span class="verdict planned">Missing</span></td></tr>
+              <tr class="grp"><td colspan="5">Stage 8 Stock</td></tr>
+              <tr><td class="k">Lot</td><td class="t">/backend/stock/lots/&lt;id&gt;</td><td>Parent lots as a tree back to GRN</td><td>Child lots, order allocations, despatch</td><td><span class="verdict partial">Upgrade</span></td></tr>
+              <tr class="grp"><td colspan="5">Stage 9 Order</td></tr>
+              <tr><td class="k">Order</td><td class="t">/backend/orders/&lt;id&gt;</td><td>Quotation, enquiry, customer</td><td>Allocated lots, packing, invoice, despatch, payments</td><td><span class="verdict partial">Upgrade</span></td></tr>
+              <tr class="grp"><td colspan="5">Stage 10 CRM · Purchase</td></tr>
+              <tr><td class="k">Enquiry</td><td class="t">/backend/crm/enquiries/&lt;id&gt;</td><td>Source, customer</td><td>Quotations, order</td><td><span class="verdict partial">Upgrade</span></td></tr>
+              <tr><td class="k">Quotation</td><td class="t">/backend/crm/quotations/&lt;id&gt;</td><td>Enquiry, price list</td><td>Order</td><td><span class="verdict partial">Upgrade</span></td></tr>
+              <tr><td class="k">Indent</td><td class="t">/backend/purchase/indents/&lt;id&gt;</td><td>Reorder suggestion or a person</td><td>PO</td><td><span class="verdict planned">Missing</span></td></tr>
+              <tr><td class="k">Purchase order</td><td class="t">/backend/purchase/orders/&lt;id&gt;</td><td>Indents</td><td>GRNs, vendor bills</td><td><span class="verdict partial">Upgrade</span></td></tr>
+              <tr><td class="k">GRN</td><td class="t">/backend/purchase/grns/&lt;id&gt;</td><td>PO, vendor, vehicle</td><td>Lots received and what used them</td><td><span class="verdict partial">Upgrade</span></td></tr>
+              <tr class="grp"><td colspan="5">Stage 11 Accounts · documents</td></tr>
+              <tr><td class="k">Proforma</td><td class="t">/backend/accounts/proformas/&lt;id&gt;</td><td>Order</td><td>Advance payment</td><td><span class="verdict partial">Upgrade</span></td></tr>
+              <tr><td class="k">Tax / export invoice</td><td class="t">/backend/accounts/invoices/&lt;id&gt;</td><td>Order, packing</td><td>Payments, Tally push</td><td><span class="verdict partial">Upgrade</span></td></tr>
+              <tr><td class="k">Payment</td><td class="t">/backend/accounts/payments/&lt;id&gt;</td><td>Customer, invoice</td><td>Dues</td><td><span class="verdict planned">Missing</span></td></tr>
+              <tr><td class="k">Vendor bill</td><td class="t">/backend/accounts/vendor-bills/&lt;id&gt;</td><td>GRN, PO</td><td>Tally push</td><td><span class="verdict planned">Missing</span></td></tr>
+              <tr><td class="k">Tally push</td><td class="t">/backend/accounts/tally/&lt;id&gt;</td><td>Invoice or bill</td><td>—</td><td><span class="verdict planned">Missing</span></td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="exit"><b>Done when:</b> every row above says Built, a click-through from a despatch back to the chemical GRN and forward again works without search, and each page reads well on a phone.</p>
       </section>
 
 <!-- ============ STOCK MOVES ============ -->
@@ -491,7 +577,7 @@
 
 <!-- ============ STAGE 1 ============ -->
       <section id="s1">
-        <div class="mod-head"><h2>Stage 1 · Masters</h2><span class="verdict done">DONE · TESTED</span><span class="when">finished 7 Oct</span></div>
+        <div class="mod-head"><h2>Stage 1 · Masters</h2><span class="verdict done">DONE · TESTED</span><span class="when">finished 7 Oct</span><span class="verdict partial">REOPENED · DETAIL &amp; UI PASS</span></div>
         <p class="mod-dek">Everything later stages pick from. Seeded from the photos and the brief's vocabulary.</p>
         <div class="meta"><span><b>Pages</b> /backend/items · /items/new/&lt;type&gt; · /items/&lt;id&gt; · /masters/equipment · /masters/moulds · /masters/tolerance · /masters/grades · /customers · /vendors · /masters/stores · /masters/access</span></div>
 
@@ -546,11 +632,19 @@
           <div class="item partial"><span class="mark">!</span><span class="txt">Decisions taken: grades kept as editable dropdown lists (resin and laminate separate) until the grades list arrives; export customers are GST type "Overseas" and the port is picked per order at despatch; press numbering seeded as 1–20 small (moulding) and 21–24 big (laminate) — the laminate forms say "Press 1 / Press 2", so <b>confirm the numbering</b>.</span></div>
         </div>
         <p class="exit"><b>Tested 7 Oct:</b> type check 0 errors · end-to-end suite Stages 0 + 1: <b>21 / 21 passing</b> — item types and seeded items, a new moulded part keeps its die no. and unit, five stores live and old ones rejected, plant masters seeded from the registers, add / edit-lock / stale-edit rejected / remove, required fields checked, mould import check → import → re-import update with problem rows reported, price rates, 11 departments, new lists, all master pages open, and an order can pick a laminate item (this test caught and fixed a broken item search in the order form).</p>
+              <h3 id="s1-detail">Detail pages (v14) <span class="tag new">NEW</span></h3>
+        <div class="itemlist">
+          <div class="item partial"><span class="mark">↻</span><span class="txt"><b>Item</b> <span class="src">/backend/products/&lt;id&gt;</span> Lot numbers open the lot page; each stock movement links to the document that moved it (GRN, batch, run, order); "Made by" and "Used by" panels per item type; laminates counted in kg, not pieces; reorder level and open POs side by side.<span class="sub">Came from: GRN lines (bought), resin batch / coating run / press batch / moulding entry (made), opening stock · Went to: Lots by store with a link to each lot page, the register that used each lot, orders, POs</span></span></div>
+          <div class="item planned"><span class="mark">○</span><span class="txt"><b>Mould / die</b> <span class="src">/backend/masters/moulds/&lt;id&gt;</span> New page. Header: Die No., type, size, finish, thickness, customer and customer mould No., store, heat-up time. Facts: pieces made this month, last used, open order qty. Opened from the die availability view, the moulding register and the order line.<span class="sub">Came from: Mould master row, the customer who owns the die · Went to: Moulding entries on this die (date, shift, machine, pieces, kg), running total against each open order, orders that name the die</span></span></div>
+          <div class="item planned"><span class="mark">○</span><span class="txt"><b>Machine (reactor, dryer, press)</b> <span class="src">/backend/masters/plant/&lt;kind&gt;/&lt;id&gt;</span> New page. Last 30 days of work on that machine with output kg, working / not working, capacity warning history.<span class="sub">Came from: Plant master row · Went to: Resin batches on the reactor, coating day sheets on the dryer, press batches or moulding entries on the press</span></span></div>
+          <div class="item partial"><span class="mark">↻</span><span class="txt"><b>Customer</b> <span class="src">/backend/customers/companies/&lt;id&gt;</span> Add CRM (enquiries, quotations), money (invoices, payments, dues), dies owned and lab reports to the existing order view; quantities in kg for laminates.<span class="sub">Came from: Enquiries, quotations · Went to: Orders, proformas, tax invoices, payments and dues, dies owned, lab reports</span></span></div>
+          <div class="item partial"><span class="mark">↻</span><span class="txt"><b>Vendor</b> <span class="src">/backend/cc_vendors/&lt;id&gt;</span> Add GRN lots (with pass / hold) and vendor bills to the vendor file; every row links.<span class="sub">Came from: Vendor master · Went to: POs, GRNs with lots received, held lines, vendor bills, items supplied</span></span></div>
+        </div>
       </section>
 
 <!-- ============ STAGE 2 ============ -->
       <section id="s2">
-        <div class="mod-head"><h2>Stage 2 · Upload centre</h2><span class="verdict done">DONE · TESTED</span><span class="when">Week 2, then one tile per register</span></div>
+        <div class="mod-head"><h2>Stage 2 · Upload centre</h2><span class="verdict done">DONE · TESTED</span><span class="when">Week 2, then one tile per register</span><span class="verdict partial">REOPENED · DETAIL &amp; UI PASS</span></div>
         <p class="mod-dek">The data-entry person's home screen. A framework built once; each register adds its tile as it is built.</p>
         <div class="meta"><span><b>Page</b> /backend/upload · /upload/&lt;register&gt; · /upload/history</span></div>
         <div class="grid2">
@@ -570,11 +664,15 @@
           <div class="item partial"><span class="mark">→</span><span class="txt">Tiles live now: Moulds &amp; dies, Loading tolerance, Price lists. Each plant register adds its own tile as it is built in Stages 3–7 (resin batch, dryer report, press batch, moulding, cutting, thickness, FG inspection).</span></div>
         </div>
         <p class="exit"><b>Tested 7 Oct:</b> type check 0 errors · end-to-end suite Stages 0 + 1 + 2: <b>27 / 27 passing</b> — register list, template columns / dropdowns / how-to sheet, an Excel file with a title row, ditto and NIL checked then posted with problem rows reported (missing Die No., unknown customer), re-posting the same file updates instead of duplicating, rows-to-fix file with a Reason column, CSV and pasted rows, wrong file type and missing columns refused, upload pages open.</p>
+              <h3 id="s2-detail">Detail pages (v14) <span class="tag new">NEW</span></h3>
+        <div class="itemlist">
+          <div class="item planned"><span class="mark">○</span><span class="txt"><b>Upload</b> <span class="src">/backend/upload/history/&lt;id&gt;</span> New page. Rows created / updated / failed as tabs, each created row links to its record.<span class="sub">Came from: The Excel file (name, hash, register date, who) · Went to: Every record the upload created or updated, rows that failed and why</span></span></div>
+        </div>
       </section>
 
 <!-- ============ STAGE 3 ============ -->
       <section id="s3">
-        <div class="mod-head"><h2>Stage 3 · Resin plant and the chemical register</h2><span class="verdict done">DONE · TESTED</span><span class="when">finished 7 Oct</span></div>
+        <div class="mod-head"><h2>Stage 3 · Resin plant and the chemical register</h2><span class="verdict done">DONE · TESTED</span><span class="when">finished 7 Oct</span><span class="verdict partial">REOPENED · DETAIL &amp; UI PASS</span></div>
         <p class="mod-dek">Phenol formaldehyde resin batch report <code>CCCPL/F/QC/03</code>, one per batch, usually entered the next day.</p>
         <div class="meta"><span><b>Pages</b> /backend/resin/batches · /new · /&lt;id&gt; · /backend/resin/chemical-register?item=&amp;month= · /backend/resin/issues</span><span><b>Users</b> resin chemist, in-charge, data entry</span><span><b>Paper</b> IMG_7758, 7759, 7760</span></div>
 
@@ -639,11 +737,16 @@
           <div class="item partial"><span class="mark">→</span><span class="txt">Matching the September Phenol and Methanol photos needs the September GRNs, opening balances and batches entered; that check is done when their books are loaded (Stage 12 opening data). The register arithmetic itself is tested.</span></div>
         </div>
         <p class="exit"><b>Tested 7 Oct:</b> type check 0 errors · end-to-end suite Stages 0 + 1 + 2 + 3: <b>39 / 39 passing</b> — form setup (vessels, grades, chemicals A–G, next Batch No.), opening stock into Warehouse A, draft does not move stock, duplicate Batch No. and stale edit refused, post moves exact kg out and resin into the tank, Phenol register Use / Water / Resin change by the batch figures, short stock refused with nothing moved, sign-offs, reopen reverses and re-post works, failed batch scraps chemicals, chemical issue to Dryer 1 shows as Use and cancel restores it, resin upload (paper date, ditto, NIL, unknown vessel reported, post from file), pages open, test data cleaned up.</p>
+              <h3 id="s3-detail">Detail pages (v14) <span class="tag new">NEW</span></h3>
+        <div class="itemlist">
+          <div class="item partial"><span class="mark">↻</span><span class="txt"><b>Resin batch</b> <span class="src">/backend/resin/batches/&lt;id&gt;</span> Move to the shared layout (two columns, chain strip, warnings panel).<span class="sub">Came from: Chemical lots and their GRNs · Went to: Resin lot in the tank, coating runs that used it</span></span></div>
+          <div class="item planned"><span class="mark">○</span><span class="txt"><b>Chemical issue</b> <span class="src">/backend/resin/issues/&lt;id&gt;</span> New page. Cancel puts the kg back in the same lots; history shows it.<span class="sub">Came from: Chemical lots taken (oldest first) and their GRNs · Went to: Coating day sheet of that dryer and date, or "other" with the note</span></span></div>
+        </div>
       </section>
 
 <!-- ============ STAGE 4 ============ -->
       <section id="s4">
-        <div class="mod-head"><h2>Stage 4 · Coating (impregnation) and the B-stage board</h2><span class="verdict done">DONE · TESTED</span><span class="when">finished 8 Oct</span></div>
+        <div class="mod-head"><h2>Stage 4 · Coating (impregnation) and the B-stage board</h2><span class="verdict done">DONE · TESTED</span><span class="when">finished 8 Oct</span><span class="verdict partial">REOPENED · DETAIL &amp; UI PASS</span></div>
         <p class="mod-dek">"Quality Control Report, Dryer No. N": one sheet per dryer per day, two dryers to a printed page.</p>
         <div class="meta"><span><b>Pages</b> /backend/coating?date=&amp;dryer= (tabs Dryer 1, 2, 3, Mixer) · /coating/&lt;id&gt; · /backend/bstage (board) · /lots/&lt;lot&gt;</span><span><b>Users</b> coating operator, floor supervisor</span><span><b>Paper</b> IMG_7783</span></div>
 
@@ -710,11 +813,16 @@
           <div class="item partial"><span class="mark">→</span><span class="txt">"Use in a press batch" and "sell" act on these lots from Stage 5 and Stage 9. The day-5 alert to the production head and owner goes with the notifications in Stage 8; the board colours show it today.</span></div>
         </div>
         <p class="exit"><b>Tested 8 Oct:</b> type check 0 errors · end-to-end suite Stages 0–4: <b>48 / 48 passing</b> — the 3 July Dryer 2 sheet typed in gives 861 kg raw, 786 nos and 1570.66 kg output; one sheet per dryer per day; posting moves 498 kg of 10x10, the resin worked out and 16 kg DBP, makes lots B-030726-D2-1…4; the resin batch lists the four dryer rows; the July lots sit in the blocked column with 325 nos on lot 1; today's lot is fresh, RC 52 % warns, partial scrap blocks reopen; the Dryer 3 sheet comes in through both upload tiles (unknown cloth reported) and posts with 933 kg, 875 nos; pages open; reopen restores cloth, resin and DBP; test data cleaned up.</p>
-</section>
+        <h3 id="s4-detail">Detail pages (v14) <span class="tag new">NEW</span></h3>
+        <div class="itemlist">
+          <div class="item partial"><span class="mark">↻</span><span class="txt"><b>Coating day sheet</b> <span class="src">/backend/coating/&lt;id&gt;</span> Shared layout; slot log and cloth rows unchanged.<span class="sub">Came from: Resin lots, raw cloth / paper lots, chemical issues · Went to: B-stage lots made, press batches and moulding entries that used them, B-stage sold or scrapped</span></span></div>
+          <div class="item partial"><span class="mark">↻</span><span class="txt"><b>B-stage lot</b> <span class="src">/backend/bstage/lots/&lt;id&gt;</span> Shared layout; age counter in the header.<span class="sub">Came from: Coating day sheet, cloth row, resin lot · Went to: Press batches, moulding entries, sales, scrap</span></span></div>
+        </div>
+      </section>
 
 <!-- ============ STAGE 5 ============ -->
       <section id="s5">
-        <div class="mod-head"><h2>Stage 5 · Laminate pressing</h2><span class="verdict done">DONE · TESTED</span><span class="when">finished 8 Oct</span></div>
+        <div class="mod-head"><h2>Stage 5 · Laminate pressing</h2><span class="verdict done">DONE · TESTED</span><span class="when">finished 8 Oct</span><span class="verdict partial">REOPENED · DETAIL &amp; UI PASS</span></div>
         <p class="mod-dek">Three papers describe one press load: the press loading register (per press, per daylight), the daily production batch report <code>CCCPL/F/PRP/02</code> (per batch summary) and the optional press heating slip. In the system they are one record seen three ways.</p>
         <div class="meta"><span><b>Pages</b> /backend/press/batches · /new · /&lt;id&gt; · /backend/press/daily-report?date= · /backend/press/loading?press=&amp;date=</span><span><b>Users</b> press in-charge, supervisor</span><span><b>Paper</b> IMG_7785, 7787, 7788</span></div>
         <h3>Press batch: fields</h3>
@@ -763,11 +871,15 @@
           <div class="item partial"><span class="mark">→</span><span class="txt">The owner's switch to hide the heating slip completely, and the "produced today" tile, come with the settings and owner dashboard in Stage 8. Cutting and thickness inspection pick these pressed lots in Stage 7.</span></div>
         </div>
         <p class="exit"><b>Tested 8 Oct:</b> type check 0 errors · end-to-end suite Stages 0–5: <b>58 / 58 passing</b> — F/01 to F/04 of 2 Oct type in and show 814.600, 1008.800, 996.300 and 776.700 kg with 4/18, 8/18, 2/24 and 1/18; F/03 from the photo warns on daylights 7–9 (10 mm above 46.300); posting F/03 takes 932.3 kg of 10x10 and 64 kg of F2 paper B-stage oldest first and makes four pressed lots (64 · 277.8 · 418.7 · 235.8 kg); a non-oldest lot is refused without a reason and accepted with one; a cancelled draft keeps its number and the next batch is F/05; reopen returns the B-stage; the loading register uploads with its book number and posts; pages open; test data cleaned up (test batches are left cancelled in a far-future month, since numbers are never deleted).</p>
-</section>
+        <h3 id="s5-detail">Detail pages (v14) <span class="tag new">NEW</span></h3>
+        <div class="itemlist">
+          <div class="item partial"><span class="mark">↻</span><span class="txt"><b>Press batch</b> <span class="src">/backend/press/batches/&lt;id&gt;</span> Shared layout with the chain strip and tolerance warnings panel.<span class="sub">Came from: B-stage lots used (oldest first, age at use) · Went to: Pressed lots, cutting entries, thickness, FG lots, orders</span></span></div>
+        </div>
+      </section>
 
 <!-- ============ STAGE 6 ============ -->
       <section id="s6">
-        <div class="mod-head"><h2>Stage 6 · Moulded products</h2><span class="verdict done">DONE · TESTED</span><span class="when">finished 8 Oct</span></div>
+        <div class="mod-head"><h2>Stage 6 · Moulded products</h2><span class="verdict done">DONE · TESTED</span><span class="when">finished 8 Oct</span><span class="verdict partial">REOPENED · DETAIL &amp; UI PASS</span></div>
         <p class="mod-dek">Moulded products daily production register: machines 1–20 across the top, a 1st-shift and a 2nd-shift block down the page. The hardest grid in the build, so it is prototyped first.</p>
         <div class="meta"><span><b>Pages</b> /backend/moulding?date= (the grid) · /moulding/entries/&lt;id&gt; · /backend/moulding/dies (availability by shift)</span><span><b>Users</b> shift in-charge, store in-charge, operators</span><span><b>Paper</b> IMG_7786 · job card to come</span></div>
         <div class="tablewrap">
@@ -811,11 +923,15 @@
           <div class="item partial"><span class="mark">→</span><span class="txt">Order Qty. is typed for now; linking it to the open order line for that die (and showing "97 of 100 made" on the order) comes with orders in Stage 9. Trim and FG inspection of moulded lots is Stage 7.</span></div>
         </div>
         <p class="exit"><b>Tested 8 Oct:</b> type check 0 errors · end-to-end suite Stages 0–6: <b>68 / 68 passing</b> — machines 1–20, operators and dies from the masters; the 13 June 1st shift typed in gives 97 of 100 on die 1142, 15, 4, 85, 20, 14 on the others, Grand Total 124 and Weight Total 275.950 kg; die 1142 on a second machine in the same shift refused, unknown die refused, the same die in the 2nd shift allowed and reaching 100 of 100; posting takes 2 kg chindi and 1.5 kg cloth and makes lot M-…-S1-P12 with 17 pieces under "Moulded 1142"; die availability shows 1142 on machine 12 in both shifts; three sign-offs; reopen returns the chindi; a 2nd-shift upload posts two machines; pages open; test data cleaned up.</p>
-</section>
+        <h3 id="s6-detail">Detail pages (v14) <span class="tag new">NEW</span></h3>
+        <div class="itemlist">
+          <div class="item partial"><span class="mark">↻</span><span class="txt"><b>Moulding entry</b> <span class="src">/backend/moulding/entries/&lt;id&gt;</span> Shared layout; links to the new die and machine pages.<span class="sub">Came from: Chindi, cloth and B-stage lots, the die, the press · Went to: Moulded lot, cutting, FG, the order for that die</span></span></div>
+        </div>
+      </section>
 
 <!-- ============ STAGE 7 ============ -->
       <section id="s7">
-        <div class="mod-head"><h2>Stage 7 · Cutting, thickness, FG inspection, lab</h2><span class="verdict done">DONE · TESTED</span><span class="when">finished 8 Oct</span></div>
+        <div class="mod-head"><h2>Stage 7 · Cutting, thickness, FG inspection, lab</h2><span class="verdict done">DONE · TESTED</span><span class="when">finished 8 Oct</span><span class="verdict partial">REOPENED · DETAIL &amp; UI PASS</span></div>
         <div class="meta"><span><b>Pages</b> /backend/cutting · /backend/quality/thickness · /quality/fg-inspection · /quality/lab · /backend/fg/direct-in</span><span><b>Paper</b> IMG_7777, 7778 · audio</span></div>
 
         <details class="stagecard" open>
@@ -897,11 +1013,20 @@
           <div class="item partial"><span class="mark">→</span><span class="txt">Moulded pieces go straight to FG inspection (their trim is not a stock change, since moulded stock is counted in pieces). The order stages "Stock allocation" and "QC &amp; test report" read these lots and tests in Stage 9; damaged goods appear on the owner overview in Stage 8.</span></div>
         </div>
         <p class="exit"><b>Tested 8 Oct:</b> type check 0 errors · end-to-end suite Stages 0–7: <b>76 / 76 passing</b> — a 10x10 batch made through resin, coating and press; two 25 mm sheets cut to 8x4 (217.5 kg trimmed from 236 kg, 18.5 kg trim, 7.8 %), three sheets refused; thickness passes the cut lot, holds a 10 mm lot with 4 readings over, FG inspection refuses the held lot until a re-check passes it; FG posts 1 piece to BHEL and 2 for export into the FG store (108.75 + 92 kg) and scraps 1 piece with its reason; a lab test is recorded and copied; bought-in goods received into FG and 2.5 kg written off as damaged; pages open; everything reversed and cleaned up.</p>
-</section>
+        <h3 id="s7-detail">Detail pages (v14) <span class="tag new">NEW</span></h3>
+        <div class="itemlist">
+          <div class="item planned"><span class="mark">○</span><span class="txt"><b>Cutting entry</b> <span class="src">/backend/cutting/&lt;id&gt;</span> New page. Trim kg and % against the 5–8 % band, reverse with history.<span class="sub">Came from: Pressed or moulded lot · Went to: Trimmed lot, thickness inspection, FG inspection</span></span></div>
+          <div class="item planned"><span class="mark">○</span><span class="txt"><b>Thickness inspection</b> <span class="src">/backend/quality/thickness/&lt;id&gt;</span> New page. The 12-point grid as entered, out-of-tolerance points marked.<span class="sub">Came from: Trimmed lot, press batch line (target thickness) · Went to: FG inspection</span></span></div>
+          <div class="item planned"><span class="mark">○</span><span class="txt"><b>FG inspection</b> <span class="src">/backend/quality/fg-inspection/&lt;id&gt;</span> New page. Disposition, test values, allocated to.<span class="sub">Came from: Trimmed lot, thickness inspection, lab reports · Went to: FG lot, order allocation</span></span></div>
+          <div class="item partial"><span class="mark">↻</span><span class="txt"><b>Lab test report</b> <span class="src">/backend/quality/lab/&lt;id&gt;</span> Shared layout; preview and download stay.<span class="sub">Came from: Product, lot, customer · Went to: Order QC stage, test certificate</span></span></div>
+          <div class="item planned"><span class="mark">○</span><span class="txt"><b>Bought-in goods entry</b> <span class="src">/backend/fg/direct-in/&lt;id&gt;</span> New page.<span class="sub">Came from: Vendor, GRN (if any) · Went to: FG lot, orders</span></span></div>
+          <div class="item planned"><span class="mark">○</span><span class="txt"><b>Damage entry</b> <span class="src">/backend/stock/damage/&lt;id&gt;</span> New page.<span class="sub">Came from: Lot · Went to: Stock ledger write-off</span></span></div>
+        </div>
+      </section>
 
 <!-- ============ STAGE 8 ============ -->
       <section id="s8">
-        <div class="mod-head"><h2>Stage 8 · Stock, owner overview, offline, demo</h2><span class="verdict done">DONE · TESTED</span><span class="when">finished 8 Oct · demo loaded</span></div>
+        <div class="mod-head"><h2>Stage 8 · Stock, owner overview, offline, demo</h2><span class="verdict done">DONE · TESTED</span><span class="when">finished 8 Oct · demo loaded</span><span class="verdict partial">REOPENED · DETAIL &amp; UI PASS</span></div>
         <div class="grid2">
           <div class="box"><h4>Stock</h4><p>One grid for every type, weight first: item, type, store, kg, nos, lots, oldest lot age, reorder flag. Filters by type and store, search as you type. Click a row → lots → lot page. Reinforcement stock list (the dated diary page) becomes a stocktake screen that posts the difference.</p></div>
           <div class="box"><h4>Owner overview (three questions only)</h4><ul><li><b>Produced today:</b> press batches and kg by thickness, moulded pieces, resin kg and yield %</li><li><b>On plan:</b> today's plan (written the day before) against actual, and the order shortfall list</li><li><b>Breakdowns:</b> failed batches, idle presses, damaged material, B-stage at risk</li></ul></div>
@@ -928,11 +1053,15 @@
           <div class="item done"><span class="mark">✓</span><span class="txt">Company details are filled by the demo loader (Creative Carbon Composites Pvt. Ltd., Kanera, Kheda) so the number series can be saved; GSTIN, bank and terms are still to be entered.</span></div>
         </div>
         <p class="exit"><b>Tested 8 Oct:</b> 8 new checks, suite 92 / 92 with the demo loaded — plant series and lot formats listed with their next code, a B-stage format without {SN} refused, a changed resin and press series used for the next numbers and put back, every new list present, an unknown grade refused until it is added to the list (case ignored), a saved view with 25 rows kept per user, pages open.</p>
-</section>
+        <h3 id="s8-detail">Detail pages (v14) <span class="tag new">NEW</span></h3>
+        <div class="itemlist">
+          <div class="item partial"><span class="mark">↻</span><span class="txt"><b>Lot</b> <span class="src">/backend/stock/lots/&lt;id&gt;</span> Shared layout; full tree both ways, every movement links to its document.<span class="sub">Came from: Parent lots as a tree back to GRN · Went to: Child lots, order allocations, despatch</span></span></div>
+        </div>
+      </section>
 
 <!-- ============ STAGE 9 ============ -->
       <section id="s9">
-        <div class="mod-head"><h2>Stage 9 · One-page order, booking to despatch</h2><span class="verdict done">DONE · TESTED</span><span class="when">finished 8 Oct</span></div>
+        <div class="mod-head"><h2>Stage 9 · One-page order, booking to despatch</h2><span class="verdict done">DONE · TESTED</span><span class="when">finished 8 Oct</span><span class="verdict partial">REOPENED · DETAIL &amp; UI PASS</span></div>
         <p class="mod-dek">Dermat's order engine as it is: the order page with the stage strip, one stage page per department, department work queues (Coming, Pending, In progress, On hold, Completed), steps, required fields, document uploads, holds with follow-up dates, 24-hour reopen, history of every field change, stage settings the owner can edit. Only the stages are new.</p>
         <div class="flow" aria-label="Order stages">
           <span>1 Order booked</span><i>→</i><span>2 Advance / LC</span><i>→</i><span>3 Stock allocation</span><i>→</i><span>4 QC &amp; test report</span><i>→</i><span>5 Packing &amp; weighment</span><i>→</i><span>6 Invoice &amp; documents</span><i>→</i><span>7 Despatch</span>
@@ -1032,15 +1161,27 @@
           <div class="item partial"><span class="mark">→</span><span class="txt">Quotation → order hand-over and the small / big size rate suggestion from the price list come with Stage 10; documents generated from the order and the Tally push are Stage 11.</span></div>
         </div>
         <p class="exit"><b>Tested 8 Oct:</b> type check 0 errors · end-to-end suite Stages 0–9: <b>102 / 102 passing</b> — an export FOB Mundra USD order for 450 kg of 12 mm Fabric 10x10, advance skipped for a credit customer, two matching FG lots offered oldest first and held (300 + 150 kg; 200 kg refused as more than the line needs; nothing allocatable once the stage is done), a held lot blocks QC until it passes, nine sheets weighed to 445.500 kg net, invoice, despatch takes 300 + 145.5 kg out by lot with the order No. on the ledger and keeps 4.5 kg held, reopening puts it back, cancelling frees it all, a moulded line for die 1142 shows up in the moulding register with its quantity.</p>
-</section>
+        <h3 id="s9-detail">Detail pages (v14) <span class="tag new">NEW</span></h3>
+        <div class="itemlist">
+          <div class="item partial"><span class="mark">↻</span><span class="txt"><b>Order</b> <span class="src">/backend/orders/&lt;id&gt;</span> Add the quotation and enquiry links and lot links on every line.<span class="sub">Came from: Quotation, enquiry, customer · Went to: Allocated lots, packing, invoice, despatch, payments</span></span></div>
+        </div>
+      </section>
 
 <!-- ============ STAGE 10 ============ -->
       <section id="s10">
-        <div class="mod-head"><h2>Stage 10 · Enquiries, quotations, purchase</h2><span class="verdict done">DONE</span><span class="when">Weeks 7–8</span></div>
+        <div class="mod-head"><h2>Stage 10 · Enquiries, quotations, purchase</h2><span class="verdict done">DONE</span><span class="when">Weeks 7–8</span><span class="verdict partial">REOPENED · DETAIL &amp; UI PASS</span></div>
         <div class="grid3">
           <div class="box"><h4>Enquiry</h4><p>Sales → Enquiries. Number CCCPL/ENQ/&lt;FY&gt;/NNNN. Source (IndiaMART, WhatsApp, email, phone, walk-in, referral; editable in Dropdown Options), received at, existing customer or new party, person, phone, email, place, what they asked for, owner, stage (new, quoted, negotiating, won, lost), next follow-up and note, lost reason (from a list), notes and history. Overdue follow-ups show on the list and on the owner overview. A WhatsApp Business feed is still to come.</p></div>
           <div class="box"><h4>Quotation</h4><p>Sales → Quotations. Number CCCPL/QT/&lt;FY&gt;/NNNN. Same form and lines as an order (grade, weave, size, thickness, packing, test standard), currency, incoterm, port, valid until. Rate per kg is suggested from the price list (small / big size) for the grade and thickness. Print / PDF. Draft → sent → accepted / rejected; "Convert to order" books the order with everything carried across and marks the enquiry won. <b>Still to match</b> their sample quotation layout.</p></div>
           <div class="box"><h4>Purchase</h4><p>Purchase → Reorder suggestions: stock + open POs + open indents against each item’s reorder level (set on the item as Minimum stock), suggested back up to reorder level + safety stock; one click raises a "low stock" indent. Below-level items also show on the owner overview. GRN has a vehicle / container no. (searchable). PO by weight and GRN pass / hold were already in place.</p></div>
+        </div>
+              <h3 id="s10-detail">Detail pages (v14) <span class="tag new">NEW</span></h3>
+        <div class="itemlist">
+          <div class="item partial"><span class="mark">↻</span><span class="txt"><b>Enquiry</b> <span class="src">/backend/crm/enquiries/&lt;id&gt;</span> Shared layout.<span class="sub">Came from: Source, customer · Went to: Quotations, order</span></span></div>
+          <div class="item partial"><span class="mark">↻</span><span class="txt"><b>Quotation</b> <span class="src">/backend/crm/quotations/&lt;id&gt;</span> Shared layout.<span class="sub">Came from: Enquiry, price list · Went to: Order</span></span></div>
+          <div class="item planned"><span class="mark">○</span><span class="txt"><b>Indent</b> <span class="src">/backend/purchase/indents/&lt;id&gt;</span> New page.<span class="sub">Came from: Reorder suggestion or a person · Went to: PO</span></span></div>
+          <div class="item partial"><span class="mark">↻</span><span class="txt"><b>Purchase order</b> <span class="src">/backend/purchase/orders/&lt;id&gt;</span> Shared layout.<span class="sub">Came from: Indents · Went to: GRNs, vendor bills</span></span></div>
+          <div class="item partial"><span class="mark">↻</span><span class="txt"><b>GRN</b> <span class="src">/backend/purchase/grns/&lt;id&gt;</span> Shared layout; each lot links to the register that used it.<span class="sub">Came from: PO, vendor, vehicle · Went to: Lots received and what used them</span></span></div>
         </div>
       </section>
 
@@ -1050,6 +1191,14 @@
         <div class="grid2">
           <div class="box"><h4>Documents</h4><p>Tax invoice, export invoice, packing list (with sheet weights), proforma, delivery challan, job-work challan, B-stage sale invoice, test certificate cover. Dermat's print layouts with Creative Carbon's name, GSTIN and bank. Made step by step on the order, generated once at the end (as discussed on the day).</p></div>
           <div class="box"><h4>Tally</h4><p>One way: sales invoices, purchase bills, job work. Every push logged with what was sent and what came back; failures retry and are listed. Ledger mapping set with their accountant at the Ahmedabad office visit.</p></div>
+        </div>
+              <h3 id="s11-detail">Detail pages (v14) <span class="tag new">NEW</span></h3>
+        <div class="itemlist">
+          <div class="item partial"><span class="mark">↻</span><span class="txt"><b>Proforma</b> <span class="src">/backend/accounts/proformas/&lt;id&gt;</span> Shared layout.<span class="sub">Came from: Order · Went to: Advance payment</span></span></div>
+          <div class="item partial"><span class="mark">↻</span><span class="txt"><b>Tax / export invoice</b> <span class="src">/backend/accounts/invoices/&lt;id&gt;</span> Shared layout.<span class="sub">Came from: Order, packing · Went to: Payments, Tally push</span></span></div>
+          <div class="item planned"><span class="mark">○</span><span class="txt"><b>Payment</b> <span class="src">/backend/accounts/payments/&lt;id&gt;</span> New page.<span class="sub">Came from: Customer, invoice · Went to: Dues</span></span></div>
+          <div class="item planned"><span class="mark">○</span><span class="txt"><b>Vendor bill</b> <span class="src">/backend/accounts/vendor-bills/&lt;id&gt;</span> New page.<span class="sub">Came from: GRN, PO · Went to: Tally push</span></span></div>
+          <div class="item planned"><span class="mark">○</span><span class="txt"><b>Tally push</b> <span class="src">/backend/accounts/tally/&lt;id&gt;</span> New page with what was sent and what came back.<span class="sub">Came from: Invoice or bill · Went to: —</span></span></div>
         </div>
       </section>
 
@@ -1148,6 +1297,6 @@
     <h2>The short version</h2>
     <p>Dermat's order page, stock, purchase and accounts carry over as they are. Stage 0 removes the cosmetics parts. Stages 1 to 8 add the plant registers in the order material flows (chemicals, resin, coating, B-stage, press and moulding, cutting and QC), each linked to the next by lot numbers, ready for the mid-November demo. Stages 9 to 12 turn the order page into laminate sales with per-sheet weighment, add enquiries and Tally, and go live.</p>
     <div class="callout good"><strong>Done:</strong> Dermat saved on its own branch, this copy cut off from Dermat's GitHub, all 12 photos and the short audit recording checked against the brief.</div>
-    <div class="callout"><strong>Next:</strong> Stage 1 (masters and the eight item types), then test Stages 0 + 1 together. From the full Kheda recording, Stage 1 also adds: customer mould number on the mould master, number of layers per pressed sheet, specific gravity on the resin tests, tube diameter and length on order lines, 4×4 ft sheet size, British Standard, and payment terms TT / LC / documents against payment. To confirm with the client: job cards per order, and the "taxable / non-taxable" split mentioned on the day.</div>
+    <div class="callout"><strong>Next (v14):</strong> the detail-page and UI pass in the order D1 → D6 (see "UI review &amp; detail pages"). D1 is the shared layout in <code>cc_ui</code> plus the Stage 1 pages: item, die, machine, customer, vendor. Each later step moves a stage onto the shared layout, adds its missing pages and fixes the problems listed there, and the stage goes back to Done. Stage 11 documents are then built on the same layout.</div>
   </div>
 </div>
