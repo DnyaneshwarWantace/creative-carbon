@@ -13,6 +13,7 @@ The plan, stage by stage, is `.ai/docs/client-facing/creative-carbon-plan.html` 
 - Every register gets an Excel template and upload (the client will hire a data-entry person for the first months).
 - Reuse core **data and APIs** (catalog products, `wms` stock, customers, dictionaries) instead of inventing new tables. Build the **screens** yourself in a `cc_*` module.
 - Every dropdown list lives in Masters → Dropdown Options (`cc_lists/lib/lists.ts`) so the client edits it without a developer.
+- Build every record detail page on `cc_ui/components/RecordPage.tsx` (the plant-ledger look: header band, facts strip, main / side columns, register grids, history). Get record URLs from `cc_ui/lib/links.ts#recordHref` and turn stock-movement metadata into a document link with `movementDocument`. Every record number, lot, party, die and machine on a page is a link. Do not hand-roll Card / Fact / Tile pieces again.
 
 ## Never
 
@@ -34,8 +35,10 @@ The plan, stage by stage, is `.ai/docs/client-facing/creative-carbon-plan.html` 
 | `cc_customers`, `cc_vendors` | Party pages on core customers, vendor master. |
 | `cc_departments` | Department logins and the access screen (`/backend/masters/access`, areas in `lib/access.ts`). |
 | `cc_dashboard` | Overview, my pending work, turnaround, morning email. |
+| `cc_crm` | Enquiries and quotations (convert to order). |
+| `cc_ui` | Shared page pieces: `RecordPage` detail layout, `PageLoading`, record links. |
 | `cc_lists` | Dropdown options and units. |
-| `cc_production` | Not built yet: the plant registers (resin, coating / B-stage, press, moulding, cutting, thickness, FG inspection, lab), the lot tree and the upload centre (plan Stages 2–8). |
+| `cc_production` | Plant registers (resin, chemical issues, coating / B-stage, press, moulding, cutting, thickness, FG inspection, lab, bought-in, damage), plant masters (reactors, dryers, presses, moulds & dies, tolerance, price lists) with die and machine detail pages, stock / lot pages, owner overview and plan, the upload centre. |
 
 ## Data decisions (do not re-decide)
 

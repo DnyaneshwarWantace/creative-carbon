@@ -315,7 +315,7 @@ export function batchRow(batch: ResinBatch) {
   }
 }
 
-async function lotSources(ctx: StoreContext, lotIds: string[]): Promise<Map<string, { grnCode: string | null; grnId: string | null }>> {
+export async function lotSources(ctx: StoreContext, lotIds: string[]): Promise<Map<string, { grnCode: string | null; grnId: string | null }>> {
   const result = new Map<string, { grnCode: string | null; grnId: string | null }>()
   if (!lotIds.length) return result
   const rows = await ctx.em.getConnection().execute<Array<{ id: string; metadata: Record<string, unknown> | null }>>(

@@ -4,9 +4,8 @@ import * as React from 'react'
 import { useGranted } from '../../cc_departments/components/useGranted'
 import { ViewOnlyNote } from '../../cc_departments/components/ViewOnlyNote'
 import Link from 'next/link'
-import { ArrowLeft, Ban, CheckCircle2, History, Printer, RefreshCcw, Save } from 'lucide-react'
+import { Ban, CheckCircle2, History, Printer, RefreshCcw, Save } from 'lucide-react'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
-import { Page, PageBody } from '@open-mercato/ui/backend/Page'
 import { Button } from '@open-mercato/ui/primitives/button'
 import { Input } from '@open-mercato/ui/primitives/input'
 import { Label } from '@open-mercato/ui/primitives/label'
@@ -16,12 +15,12 @@ import { apiCall, withScopedApiRequestHeaders } from '@open-mercato/ui/backend/u
 import { buildOptimisticLockHeader } from '@open-mercato/ui/backend/utils/optimisticLock'
 import { useGuardedMutation } from '@open-mercato/ui/backend/injection/useGuardedMutation'
 import { flash } from '@open-mercato/ui/backend/FlashMessages'
-import { ErrorMessage } from '@open-mercato/ui/backend/detail'
 import { WhatsAppMenu } from '../../cc_products/components/WhatsAppMenu'
 import { dateText, rupeeText } from '../../cc_products/lib/whatsapp'
 import { buildPiHtml, printPi } from './piPrint'
 import { PI_STATUS, type CompanyView, type PiView } from './types'
-import { PageLoading } from '../../cc_ui/components/PageLoading'
+import { RecordPage, RecordState, formatDay, type Fact } from '../../cc_ui/components/RecordPage'
+import { recordHref } from '../../cc_ui/lib/links'
 
 const HISTORY: Record<string, string> = { created: 'Drafted', edited: 'Edited', refreshed: 'Lines refreshed from the order', sent: 'Sent to customer', cancelled: 'Cancelled' }
 
@@ -116,29 +115,7 @@ export function ProformaPage({ id }: { id: string }) {
       t('cc_accounts.pi.saved', 'Proforma saved'),
     )
 
-  if (loadError) {
-    return (
-      <Page>
-        <PageBody>
-          <div className="mx-auto max-w-xl space-y-4 py-16 text-center">
-            <ErrorMessage label={loadError} />
-            <Button asChild variant="outline">
-              <Link href="/backend/accounts/proformas">{t('cc_accounts.pi.back', 'All proforma invoices')}</Link>
-            </Button>
-          </div>
-        </PageBody>
-      </Page>
-    )
-  }
-  if (!pi || !company) {
-    return (
-      <Page>
-        <PageBody>
-          <PageLoading label={t('cc_accounts.pi.loading', 'Loading proforma invoice…')} />
-        </PageBody>
-      </Page>
-    )
-  }
+  if (loadError || !pi || !company) return <RecordState error={loadError} loadingLabel={t('cc_accounts.pi.loading', 'Loading proforma…')} />
 
   const editable = pi.status !== 'cancelled' && canRecord
   const status = PI_STATUS[pi.status]
@@ -146,7 +123,7 @@ export function ProformaPage({ id }: { id: string }) {
     `Dear ${pi.customerName},`,
     '',
     `Please find our proforma invoice ${pi.code} dated ${dateText(pi.piDate)} for order ${pi.orderNo}.`,
-    ...pi.lines.map((line, index) => `${index + 1}. ${line.brandName ? `${line.brandName} ` : ''}${line.title}: ${line.quantity} pcs × ${line.rate == null ? '—' : rupeeText(line.rate)}`),
+    ...pi.lines.map((line, index) => `${index + 1}. ${line.brandName ? `${line.brandName} ` : ''}${line.title}: ${line.quantity}${line.unit ? ` ${line.unit}` : ''} × ${line.rate == null ? '—' : rupeeText(line.rate)}`),
     '',
     `Total with GST: ${rupeeText(pi.totals.total)}`,
     pi.advancePercent ? `Advance ${pi.advancePercent}% to confirm the order: ${rupeeText(pi.advanceAmount ?? 0)}` : null,
@@ -160,51 +137,59 @@ export function ProformaPage({ id }: { id: string }) {
     .filter((line): line is string => line !== null)
     .join('\n')
 
+  const facts: Fact[] = [
+    { label: t('cc_accounts.pi.date', 'PI date'), value: formatDay(pi.piDate) },
+    { label: t('cc_accounts.pi.validUntil', 'Valid until'), value: formatDay(pi.validUntil) },
+    { label: t('cc_accounts.pi.lines', 'Lines'), value: String(pi.lines.length) },
+    { label: t('cc_accounts.pi.taxable', 'Taxable'), value: rupeeText(pi.totals.taxable) },
+    { label: t('cc_accounts.pi.total', 'Total'), value: rupeeText(pi.totals.total) },
+    { label: t('cc_accounts.pi.advance', 'Advance asked'), value: pi.advancePercent ? `${pi.advancePercent}%` : '—', hint: pi.advancePercent ? rupeeText(pi.advanceAmount ?? 0) : undefined },
+  ]
+
   return (
-    <Page>
-      <PageBody>
-        <div className="mx-auto flex max-w-7xl flex-col gap-5 pb-16">
-          <header className="flex flex-col gap-4 border-b pb-4 xl:flex-row xl:items-start xl:justify-between">
-            <div className="min-w-0 space-y-1">
-              <Link href="/backend/accounts/proformas" className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground">
-                <ArrowLeft className="h-3 w-3" aria-hidden="true" />
-                {t('cc_accounts.pi.back', 'All proforma invoices')}
-              </Link>
-              <div className="flex flex-wrap items-center gap-2">
-                <h1 className="font-mono text-xl font-bold">{pi.code}</h1>
-                <StatusBadge variant={status.variant} dot>
-                  {t(`cc_accounts.pi.status.${pi.status}`, status.label)}
-                </StatusBadge>
-              </div>
-              <p className="text-sm text-muted-foreground">
-                <span className="font-medium text-foreground">{pi.customerName}</span> ·{' '}
-                <Link href={`/backend/orders/${pi.orderId}`} className="font-mono text-primary hover:underline">
-                  {pi.orderNo}
-                </Link>{' '}
-                · {rupeeText(pi.totals.total)}
-                {pi.advancePercent ? ` · ${t('cc_accounts.pi.advanceShort', 'advance {pct}% = {amount}', { pct: pi.advancePercent, amount: rupeeText(pi.advanceAmount ?? 0) })}` : ''}
-              </p>
-            </div>
-            <div className="flex shrink-0 flex-wrap items-center gap-2 xl:justify-end">
-              <WhatsAppMenu phone={phone} recipient={pi.customerName} messages={[{ key: 'pi', label: t('cc_accounts.pi.waLabel', 'Send the proforma details'), hint: `${pi.code} · ${rupeeText(pi.totals.total)}`, text: message }]} size="default" />
-              <Button type="button" variant="outline" onClick={() => (printPi(pi, company) ? null : flash(t('cc_accounts.pi.popup', 'Allow pop-ups to print'), 'error'))}>
-                <Printer className="mr-1.5 h-4 w-4" aria-hidden="true" />
-                {t('cc_accounts.pi.print', 'Print / PDF')}
-              </Button>
-              {canRecord && pi.status === 'draft' ? (
-                <Button type="button" onClick={() => send('/api/cc_accounts/proformas/action', { id, action: 'send' }, t('cc_accounts.pi.sentFlash', 'Marked as sent; the order Advance stage has the PI no.'))} disabled={busy}>
-                  <CheckCircle2 className="mr-1.5 h-4 w-4" aria-hidden="true" />
-                  {t('cc_accounts.pi.markSent', 'Mark as sent')}
-                </Button>
-              ) : null}
-              {canRecord && pi.status !== 'cancelled' ? (
-                <Button type="button" variant="destructive-ghost" onClick={() => setCancelOpen(true)} disabled={busy}>
-                  <Ban className="mr-1.5 h-4 w-4" aria-hidden="true" />
-                  {t('cc_accounts.pi.cancel', 'Cancel')}
-                </Button>
-              ) : null}
-            </div>
-          </header>
+    <RecordPage
+      back={{ href: '/backend/accounts/proformas', label: t('cc_accounts.pi.back', 'All proforma invoices') }}
+      overline={[t('cc_accounts.pi.overline', 'Proforma invoice'), pi.customerName].join(' · ')}
+      title={pi.code}
+      badges={
+        <StatusBadge variant={status.variant} dot>
+          {t(`cc_accounts.pi.status.${pi.status}`, status.label)}
+        </StatusBadge>
+      }
+      meta={
+        <>
+          <Link href={recordHref.customer(pi.customerId)} className="underline-offset-2 hover:underline">
+            {pi.customerName}
+          </Link>
+          {' · '}
+          <Link href={recordHref.order(pi.orderId)} className="font-mono underline-offset-2 hover:underline">
+            {pi.orderNo}
+          </Link>
+        </>
+      }
+      actions={
+        <>
+          <WhatsAppMenu phone={phone} recipient={pi.customerName} messages={[{ key: 'pi', label: t('cc_accounts.pi.waLabel', 'Send the proforma details'), hint: `${pi.code} · ${rupeeText(pi.totals.total)}`, text: message }]} />
+          <Button type="button" variant="outline" size="sm" onClick={() => (printPi(pi, company) ? null : flash(t('cc_accounts.pi.popup', 'Allow pop-ups to print'), 'error'))}>
+            <Printer className="mr-1.5 h-4 w-4" aria-hidden="true" />
+            {t('cc_accounts.pi.print', 'Print / PDF')}
+          </Button>
+          {canRecord && pi.status === 'draft' ? (
+            <Button type="button" size="sm" onClick={() => send('/api/cc_accounts/proformas/action', { id, action: 'send' }, t('cc_accounts.pi.sentFlash', 'Marked as sent; the order Advance stage has the PI no.'))} disabled={busy}>
+              <CheckCircle2 className="mr-1.5 h-4 w-4" aria-hidden="true" />
+              {t('cc_accounts.pi.markSent', 'Mark as sent')}
+            </Button>
+          ) : null}
+          {canRecord && pi.status !== 'cancelled' ? (
+            <Button type="button" variant="destructive-ghost" size="sm" onClick={() => setCancelOpen(true)} disabled={busy}>
+              <Ban className="mr-1.5 h-4 w-4" aria-hidden="true" />
+              {t('cc_accounts.pi.cancel', 'Cancel')}
+            </Button>
+          ) : null}
+        </>
+      }
+      facts={facts}
+    >
           {!canRecord ? <ViewOnlyNote>{t('cc_accounts.viewOnly', 'View only: making, issuing and cancelling documents is done by Accounts.')}</ViewOnlyNote> : null}
 
           {pi.status === 'cancelled' ? (
@@ -301,9 +286,7 @@ export function ProformaPage({ id }: { id: string }) {
               </section>
             </div>
           </div>
-        </div>
-      </PageBody>
-    </Page>
+    </RecordPage>
   )
 }
 

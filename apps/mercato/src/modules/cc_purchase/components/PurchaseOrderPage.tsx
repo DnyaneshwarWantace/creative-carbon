@@ -2,10 +2,9 @@
 
 import * as React from 'react'
 import Link from 'next/link'
-import { ArrowLeft, Building2, CheckCircle2, CircleSlash, PackageOpen, Pencil, Printer, Send } from 'lucide-react'
+import { Boxes, Building2, CheckCircle2, CircleSlash, FileStack, PackageOpen, Pencil, Printer, Send } from 'lucide-react'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { cn } from '@open-mercato/shared/lib/utils'
-import { Page, PageBody } from '@open-mercato/ui/backend/Page'
 import { Button } from '@open-mercato/ui/primitives/button'
 import { Label } from '@open-mercato/ui/primitives/label'
 import { Textarea } from '@open-mercato/ui/primitives/textarea'
@@ -17,14 +16,14 @@ import { apiCall, withScopedApiRequestHeaders } from '@open-mercato/ui/backend/u
 import { buildOptimisticLockHeader } from '@open-mercato/ui/backend/utils/optimisticLock'
 import { useGuardedMutation } from '@open-mercato/ui/backend/injection/useGuardedMutation'
 import { flash } from '@open-mercato/ui/backend/FlashMessages'
-import { ErrorMessage } from '@open-mercato/ui/backend/detail'
 import { GRN_STATUS, HISTORY_LABEL, PO_STATUS, day, money, qty, when, type PoView } from './shared'
 import { printPurchaseOrder } from './printPo'
 import { WhatsAppMenu, type WhatsAppMessage } from '../../cc_products/components/WhatsAppMenu'
 import { dateText, rupeeText } from '../../cc_products/lib/whatsapp'
 import { EmailPoButton } from './EmailPoDialog'
 import { useGranted } from '../../cc_departments/components/useGranted'
-import { PageLoading } from '../../cc_ui/components/PageLoading'
+import { FieldList, HistoryPanel, LinkRows, Panel, RecordColumns, RecordPage, RecordState, type Fact } from '../../cc_ui/components/RecordPage'
+import { recordHref } from '../../cc_ui/lib/links'
 
 function steps(po: PoView): StepIndicatorStep[] {
   const order = ['draft', 'pending_approval', 'approved', 'partly_received', 'received']
@@ -143,24 +142,7 @@ export function PurchaseOrderPage({ poId }: { poId: string }) {
     }
   }
 
-  if (error) {
-    return (
-      <Page>
-        <PageBody>
-          <ErrorMessage label={error} />
-        </PageBody>
-      </Page>
-    )
-  }
-  if (!po) {
-    return (
-      <Page>
-        <PageBody>
-          <PageLoading label={t('cc_purchase.detail.loading', 'Loading purchase order…')} />
-        </PageBody>
-      </Page>
-    )
-  }
+  if (error || !po) return <RecordState error={error} loadingLabel={t('cc_purchase.detail.loading', 'Loading purchase order…')} />
 
   const editable = po.status === 'draft' || po.status === 'pending_approval'
   const receivable = po.status === 'approved' || po.status === 'partly_received'
@@ -176,122 +158,133 @@ export function PurchaseOrderPage({ poId }: { poId: string }) {
           ? { status: 'information' as const, title: t('cc_purchase.banner.draft', 'Draft'), body: t('cc_purchase.banner.draftBody', 'Send it for approval when the rates are final.') }
           : null
 
+  const late = po.expectedDate && receivable && po.expectedDate < new Date().toISOString().slice(0, 10)
+  const facts: Fact[] = [
+    { label: t('cc_purchase.detail.poDate', 'PO date'), value: day(po.poDate) },
+    { label: t('cc_purchase.detail.expected', 'Expected'), value: day(po.expectedDate), tone: late ? 'bad' : undefined, hint: late ? t('cc_purchase.detail.lateShort', 'late') : undefined },
+    { label: t('cc_purchase.detail.lines', 'Materials'), value: String(po.lines.length) },
+    { label: t('cc_purchase.detail.receivedPct', 'Received'), value: ordered ? `${Math.min(100, Math.round((received / ordered) * 100))}%` : '—', tone: ordered && received >= ordered ? 'good' : undefined },
+    { label: t('cc_purchase.detail.grnCount', 'GRNs'), value: String(po.grns.length) },
+    { label: t('cc_purchase.form.total', 'Total'), value: money(po.total) },
+  ]
+
   return (
-    <Page>
-      <PageBody>
-        <div className="mx-auto flex max-w-6xl flex-col gap-6 pb-16">
-          <div className="space-y-4">
-            <Link href="/backend/purchase/orders" className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground">
-              <ArrowLeft className="h-3 w-3" aria-hidden="true" />
-              {t('cc_purchase.list.title', 'Purchase orders')}
+    <>
+      <RecordPage
+        back={{ href: '/backend/purchase/orders', label: t('cc_purchase.list.title', 'Purchase orders') }}
+        overline={t('cc_purchase.detail.overline', 'Purchase order')}
+        title={po.code}
+        badges={
+          <StatusBadge variant={PO_STATUS[po.status].variant} dot>
+            {PO_STATUS[po.status].label}
+          </StatusBadge>
+        }
+        meta={
+          <>
+            <Link className="underline-offset-2 hover:underline" href={recordHref.vendor(po.vendorId)}>
+              {po.vendorName}
             </Link>
-            <div className="flex flex-wrap items-start justify-between gap-4">
-              <div className="space-y-1">
-                <div className="flex flex-wrap items-center gap-2">
-                  <h1 className="font-mono text-2xl font-bold tracking-tight">{po.code}</h1>
-                  <StatusBadge variant={PO_STATUS[po.status].variant} dot>
-                    {PO_STATUS[po.status].label}
-                  </StatusBadge>
-                </div>
-                <p className="text-sm text-muted-foreground">
-                  {po.vendorName} · {day(po.poDate)}
-                  {po.expectedDate ? ` · ${t('cc_purchase.detail.due', 'due {date}', { date: day(po.expectedDate) })}` : ''}
-                </p>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                <WhatsAppMenu phone={po.vendorPhone} recipient={po.vendorContact ? `${po.vendorContact} (${po.vendorName})` : po.vendorName} messages={vendorMessages(po)} />
-                {(po.status === 'approved' || po.status === 'partly_received') && granted.has('cc_purchase.manage') ? <EmailPoButton po={po} onSent={() => void load()} /> : null}
-                <Button type="button" variant="ghost" onClick={() => printPurchaseOrder(po)}>
-                  <Printer className="mr-1.5 h-4 w-4" aria-hidden="true" />
-                  {t('cc_purchase.detail.print', 'Print PO')}
-                </Button>
-                {nothingReceived && po.status !== 'cancelled' ? (
-                  <Button type="button" variant="ghost" onClick={() => setDialog('cancel')} disabled={busy}>
-                    <CircleSlash className="mr-1.5 h-4 w-4" aria-hidden="true" />
-                    {t('cc_purchase.detail.cancel', 'Cancel')}
-                  </Button>
-                ) : null}
-                {editable ? (
-                  <Link href={`/backend/purchase/orders/${po.id}/edit`}>
-                    <Button type="button" variant="outline">
-                      <Pencil className="mr-1.5 h-4 w-4" aria-hidden="true" />
-                      {t('cc_purchase.detail.edit', 'Edit')}
-                    </Button>
-                  </Link>
-                ) : null}
-                {po.status === 'draft' ? (
-                  <Button type="button" onClick={() => act('/api/cc_purchase/orders/submit', {}, t('cc_purchase.detail.submitted', 'Sent for approval.'))} disabled={busy}>
-                    <Send className="mr-1.5 h-4 w-4" aria-hidden="true" />
-                    {t('cc_purchase.detail.submit', 'Send for approval')}
-                  </Button>
-                ) : null}
-                {po.status === 'pending_approval' ? (
-                  <Button type="button" onClick={() => setDialog('approve')} disabled={busy}>
-                    <CheckCircle2 className="mr-1.5 h-4 w-4" aria-hidden="true" />
-                    {t('cc_purchase.detail.approve', 'Approve')}
-                  </Button>
-                ) : null}
-                {receivable ? (
-                  <Link href={`/backend/purchase/grns/new?poId=${po.id}`}>
-                    <Button type="button">
-                      <PackageOpen className="mr-1.5 h-4 w-4" aria-hidden="true" />
-                      {t('cc_purchase.detail.receive', 'Receive goods')}
-                    </Button>
-                  </Link>
-                ) : null}
-              </div>
-            </div>
-          </div>
-
-          <section className="rounded-xl border border-border bg-card p-5 shadow-sm">
-            <StepIndicator steps={steps(po)} className="overflow-x-auto" />
-          </section>
-
-          {banner ? (
-            <Alert status={banner.status} style="lighter" className="rounded-lg">
+            {po.expectedDate ? ` · ${t('cc_purchase.detail.due', 'due {date}', { date: day(po.expectedDate) })}` : ''}
+          </>
+        }
+        actions={
+          <>
+            <WhatsAppMenu phone={po.vendorPhone} recipient={po.vendorContact ? `${po.vendorContact} (${po.vendorName})` : po.vendorName} messages={vendorMessages(po)} />
+            {(po.status === 'approved' || po.status === 'partly_received') && granted.has('cc_purchase.manage') ? <EmailPoButton po={po} onSent={() => void load()} /> : null}
+            <Button type="button" variant="outline" size="sm" onClick={() => printPurchaseOrder(po)}>
+              <Printer className="mr-1.5 h-4 w-4" aria-hidden="true" />
+              {t('cc_purchase.detail.print', 'Print PO')}
+            </Button>
+            {nothingReceived && po.status !== 'cancelled' ? (
+              <Button type="button" variant="outline" size="sm" onClick={() => setDialog('cancel')} disabled={busy}>
+                <CircleSlash className="mr-1.5 h-4 w-4" aria-hidden="true" />
+                {t('cc_purchase.detail.cancel', 'Cancel')}
+              </Button>
+            ) : null}
+            {editable ? (
+              <Button asChild variant="outline" size="sm">
+                <Link href={`/backend/purchase/orders/${po.id}/edit`}>
+                  <Pencil className="mr-1.5 h-4 w-4" aria-hidden="true" />
+                  {t('cc_purchase.detail.edit', 'Edit')}
+                </Link>
+              </Button>
+            ) : null}
+            {po.status === 'draft' ? (
+              <Button type="button" size="sm" onClick={() => act('/api/cc_purchase/orders/submit', {}, t('cc_purchase.detail.submitted', 'Sent for approval.'))} disabled={busy}>
+                <Send className="mr-1.5 h-4 w-4" aria-hidden="true" />
+                {t('cc_purchase.detail.submit', 'Send for approval')}
+              </Button>
+            ) : null}
+            {po.status === 'pending_approval' ? (
+              <Button type="button" size="sm" onClick={() => setDialog('approve')} disabled={busy}>
+                <CheckCircle2 className="mr-1.5 h-4 w-4" aria-hidden="true" />
+                {t('cc_purchase.detail.approve', 'Approve')}
+              </Button>
+            ) : null}
+            {receivable ? (
+              <Button asChild size="sm">
+                <Link href={`/backend/purchase/grns/new?poId=${po.id}`}>
+                  <PackageOpen className="mr-1.5 h-4 w-4" aria-hidden="true" />
+                  {t('cc_purchase.detail.receive', 'Receive goods')}
+                </Link>
+              </Button>
+            ) : null}
+          </>
+        }
+        alert={
+          banner ? (
+            <Alert status={banner.status} style="lighter" className="rounded-md">
               <AlertTitle>{banner.title}</AlertTitle>
               <AlertDescription>{banner.body}</AlertDescription>
             </Alert>
-          ) : null}
-
-          <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-            <div className="flex flex-col gap-6 lg:col-span-2">
-              <section className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
-                <div className="flex items-center justify-between gap-3 border-b border-border px-5 py-4">
-                  <h2 className="text-sm font-semibold">{t('cc_purchase.detail.materials', 'Materials')}</h2>
-                  <span className="text-xs text-muted-foreground tabular-nums">
-                    {t('cc_purchase.detail.receivedOf', '{received} of {ordered} received', { received: qty(received), ordered: qty(ordered) })}
-                  </span>
-                </div>
+          ) : null
+        }
+        chain={
+          <section className="rounded-md border border-border bg-card p-3 shadow-sm print:hidden">
+            <StepIndicator steps={steps(po)} className="overflow-x-auto" />
+          </section>
+        }
+        facts={facts}
+      >
+        <RecordColumns
+          main={
+            <>
+              <Panel
+                title={t('cc_purchase.detail.materials', 'Materials')}
+                icon={Boxes}
+                count={po.lines.length}
+                flush
+                action={<span className="font-mono tabular-nums text-muted-foreground">{t('cc_purchase.detail.receivedOf', '{received} of {ordered} received', { received: qty(received), ordered: qty(ordered) })}</span>}
+              >
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
-                    <thead className="bg-muted/40 text-left text-overline font-semibold uppercase tracking-widest text-muted-foreground">
+                    <thead className="bg-muted text-left font-mono text-overline font-semibold uppercase tracking-widest text-muted-foreground">
                       <tr>
-                        <th className="px-5 py-2.5">{t('cc_purchase.form.material', 'Material')}</th>
-                        <th className="px-3 py-2.5 text-right">{t('cc_purchase.form.qty', 'Quantity')}</th>
-                        <th className="px-3 py-2.5 text-right">{t('cc_purchase.form.rate', 'Rate (₹)')}</th>
-                        <th className="px-3 py-2.5 text-right">GST</th>
-                        <th className="px-3 py-2.5 text-right">{t('cc_purchase.form.amount', 'Amount')}</th>
-                        <th className="w-40 px-5 py-2.5">{t('cc_purchase.detail.receivedCol', 'Received')}</th>
+                        <th className="border-b-2 border-foreground/70 px-3 py-2">{t('cc_purchase.form.material', 'Material')}</th>
+                        <th className="border-b-2 border-foreground/70 px-3 py-2 text-right">{t('cc_purchase.form.qty', 'Quantity')}</th>
+                        <th className="border-b-2 border-foreground/70 px-3 py-2 text-right">{t('cc_purchase.form.rate', 'Rate (₹)')}</th>
+                        <th className="border-b-2 border-foreground/70 px-3 py-2 text-right">GST</th>
+                        <th className="border-b-2 border-foreground/70 px-3 py-2 text-right">{t('cc_purchase.form.amount', 'Amount')}</th>
+                        <th className="w-40 border-b-2 border-foreground/70 px-3 py-2">{t('cc_purchase.detail.receivedCol', 'Received')}</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-border">
                       {po.lines.map((line) => {
                         const percent = line.quantity > 0 ? Math.min(100, Math.round((line.received / line.quantity) * 100)) : 0
                         return (
-                          <tr key={line.id}>
-                            <td className="px-5 py-3">
-                              <Link href={`/backend/products/${line.productId}`} className="font-medium hover:underline">
+                          <tr key={line.id} className="even:bg-muted/30">
+                            <td className="px-3 py-2.5">
+                              <Link href={recordHref.product(line.productId)} className="font-medium hover:underline">
                                 {line.title}
                               </Link>
                               <p className="font-mono text-xs text-muted-foreground">{line.code ?? '—'}</p>
                             </td>
-                            <td className="px-3 py-3 text-right tabular-nums">{qty(line.quantity, line.unit)}</td>
-                            <td className="px-3 py-3 text-right tabular-nums">{money(line.rate)}</td>
-                            <td className="px-3 py-3 text-right tabular-nums text-muted-foreground">{line.gstPercent}%</td>
-                            <td className="px-3 py-3 text-right tabular-nums">{money(line.amount)}</td>
-                            <td className="px-5 py-3">
-                              <div className="flex justify-between text-xs tabular-nums">
+                            <td className="px-3 py-2.5 text-right font-mono tabular-nums">{qty(line.quantity, line.unit)}</td>
+                            <td className="px-3 py-2.5 text-right font-mono tabular-nums">{money(line.rate)}</td>
+                            <td className="px-3 py-2.5 text-right font-mono tabular-nums text-muted-foreground">{line.gstPercent}%</td>
+                            <td className="px-3 py-2.5 text-right font-mono tabular-nums">{money(line.amount)}</td>
+                            <td className="px-3 py-2.5">
+                              <div className="flex justify-between font-mono text-xs tabular-nums">
                                 <span>{qty(line.received)}</span>
                                 {line.open > 0 ? <span className="text-status-warning-text">{qty(line.open)} {t('cc_purchase.detail.toCome', 'to come')}</span> : <span className="text-status-success-text">{t('cc_purchase.detail.done', 'done')}</span>}
                               </div>
@@ -303,111 +296,74 @@ export function PurchaseOrderPage({ poId }: { poId: string }) {
                         )
                       })}
                     </tbody>
+                    <tfoot className="border-t-4 border-double border-foreground/70 bg-muted font-mono text-sm">
+                      <tr>
+                        <td className="px-3 py-1.5 text-muted-foreground" colSpan={4}>
+                          {t('cc_purchase.form.subtotal', 'Before GST')}
+                        </td>
+                        <td className="px-3 py-1.5 text-right tabular-nums">{money(po.subtotal)}</td>
+                        <td />
+                      </tr>
+                      <tr>
+                        <td className="px-3 py-1.5 text-muted-foreground" colSpan={4}>
+                          GST
+                        </td>
+                        <td className="px-3 py-1.5 text-right tabular-nums">{money(po.gst)}</td>
+                        <td />
+                      </tr>
+                      <tr className="font-semibold">
+                        <td className="px-3 py-1.5" colSpan={4}>
+                          Σ {t('cc_purchase.form.total', 'Total')}
+                        </td>
+                        <td className="px-3 py-1.5 text-right tabular-nums">{money(po.total)}</td>
+                        <td />
+                      </tr>
+                    </tfoot>
                   </table>
                 </div>
-                <dl className="ml-auto w-full max-w-xs space-y-1.5 border-t border-border px-5 py-4 text-sm">
-                  <div className="flex justify-between">
-                    <dt className="text-muted-foreground">{t('cc_purchase.form.subtotal', 'Before GST')}</dt>
-                    <dd className="tabular-nums">{money(po.subtotal)}</dd>
-                  </div>
-                  <div className="flex justify-between">
-                    <dt className="text-muted-foreground">GST</dt>
-                    <dd className="tabular-nums">{money(po.gst)}</dd>
-                  </div>
-                  <div className="flex justify-between border-t border-border pt-1.5 text-base font-semibold">
-                    <dt>{t('cc_purchase.form.total', 'Total')}</dt>
-                    <dd className="tabular-nums">{money(po.total)}</dd>
-                  </div>
-                </dl>
-              </section>
+              </Panel>
 
-              <section className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
-                <div className="border-b border-border px-5 py-4">
-                  <h2 className="text-sm font-semibold">{t('cc_purchase.detail.grns', 'Goods received (GRN)')}</h2>
-                </div>
-                {po.grns.length ? (
-                  <ul className="divide-y divide-border">
-                    {po.grns.map((grn) => (
-                      <li key={grn.id}>
-                        <Link href={`/backend/purchase/grns/${grn.id}`} className="flex items-center justify-between gap-3 px-5 py-3 hover:bg-muted/40">
-                          <span>
-                            <span className="block font-mono text-sm font-semibold">{grn.code}</span>
-                            <span className="block text-xs text-muted-foreground">
-                              {day(grn.grnDate)}
-                              {grn.invoiceNo ? ` · invoice ${grn.invoiceNo}` : ''}
-                            </span>
-                          </span>
-                          <StatusBadge variant={GRN_STATUS[grn.status].variant}>{GRN_STATUS[grn.status].label}</StatusBadge>
-                        </Link>
-                      </li>
-                    ))}
-                  </ul>
-                ) : (
-                  <p className="px-5 py-6 text-sm text-muted-foreground">{t('cc_purchase.detail.noGrn', 'Nothing received yet.')}</p>
-                )}
-              </section>
-            </div>
-
-            <aside className="flex flex-col gap-6">
-              <section className="rounded-xl border border-border bg-card p-5 shadow-sm">
-                <div className="flex items-start gap-3">
-                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground">
-                    <Building2 className="h-4 w-4" aria-hidden="true" />
-                  </span>
-                  <div className="min-w-0">
-                    <Link className="font-semibold hover:underline" href={`/backend/cc_vendors/${po.vendorId}`}>
-                      {po.vendorName}
-                    </Link>
-                    <p className="font-mono text-xs text-muted-foreground">GSTIN {po.vendorGstin ?? '—'}</p>
-                  </div>
-                </div>
-                <dl className="mt-4 grid grid-cols-[auto,1fr] gap-x-4 gap-y-2 text-sm">
-                  <dt className="text-muted-foreground">{t('cc_purchase.detail.raisedBy', 'Raised by')}</dt>
-                  <dd className="text-right">{po.createdByName ?? '—'}</dd>
-                  <dt className="text-muted-foreground">{t('cc_purchase.detail.approvedBy', 'Approved by')}</dt>
-                  <dd className="text-right">{po.approvedByName ? `${po.approvedByName} · ${when(po.approvedAt)}` : '—'}</dd>
-                  <dt className="text-muted-foreground">{t('cc_purchase.form.terms', 'Payment terms')}</dt>
-                  <dd className="text-right">{po.terms ?? '—'}</dd>
-                </dl>
-                {po.orderRefs.length ? (
-                  <div className="mt-4 border-t border-border pt-3">
-                    <p className="text-xs text-muted-foreground">{t('cc_purchase.form.forOrders', 'For customer orders')}</p>
-                    <div className="mt-1.5 flex flex-wrap gap-1.5">
-                      {po.orderRefs.map((ref) => (
-                        <Link key={ref.orderId} href={`/backend/orders/${ref.orderId}`} className="rounded-md border border-border bg-muted/40 px-2 py-0.5 font-mono text-xs hover:bg-muted">
-                          {ref.orderNo}
-                        </Link>
-                      ))}
-                    </div>
-                  </div>
-                ) : null}
-                {po.notes ? <p className="mt-4 rounded-md bg-muted/50 p-3 text-sm">{po.notes}</p> : null}
-              </section>
-
-              <section className="rounded-xl border border-border bg-card p-5 shadow-sm">
-                <h2 className="text-sm font-semibold">{t('cc_purchase.detail.history', 'History')}</h2>
-                <ol className="relative mt-4 space-y-4 border-l border-border pl-5">
-                  {po.history
-                    .slice()
-                    .reverse()
-                    .map((entry, index) => (
-                      <li key={`${entry.at}-${index}`} className="relative">
-                        <span
-                          className={cn('absolute -left-6 top-1 h-2.5 w-2.5 rounded-full ring-4 ring-card', entry.action === 'cancelled' || entry.action === 'returned' ? 'bg-status-error-icon' : entry.action === 'approved' ? 'bg-status-success-icon' : 'bg-accent-indigo')}
-                          aria-hidden="true"
-                        />
-                        <p className="text-sm font-medium">{HISTORY_LABEL[entry.action] ?? entry.action}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {entry.by ?? '—'} · {when(entry.at)}
-                        </p>
-                        {entry.note ? <p className="mt-0.5 text-xs">{entry.note}</p> : null}
-                      </li>
-                    ))}
-                </ol>
-              </section>
-            </aside>
-          </div>
-        </div>
+              <Panel title={t('cc_purchase.detail.grns', 'Goods received (GRN)')} icon={FileStack} count={po.grns.length} flush>
+                <LinkRows
+                  empty={t('cc_purchase.detail.noGrn', 'Nothing received yet.')}
+                  rows={po.grns.map((grn) => ({
+                    key: grn.id,
+                    href: recordHref.grn(grn.id),
+                    primary: <span className="font-mono">{grn.code}</span>,
+                    secondary: [day(grn.grnDate), grn.invoiceNo ? t('cc_purchase.detail.invoiceNo', 'invoice {no}', { no: grn.invoiceNo }) : null].filter(Boolean).join(' · '),
+                    badge: <StatusBadge variant={GRN_STATUS[grn.status].variant}>{GRN_STATUS[grn.status].label}</StatusBadge>,
+                  }))}
+                />
+              </Panel>
+            </>
+          }
+          side={
+            <>
+              <Panel title={t('cc_purchase.detail.vendor', 'Vendor')} icon={Building2}>
+                <Link className="font-semibold hover:underline" href={recordHref.vendor(po.vendorId)}>
+                  {po.vendorName}
+                </Link>
+                <p className="mb-2 font-mono text-xs text-muted-foreground">GSTIN {po.vendorGstin ?? '—'}</p>
+                <FieldList
+                  columns={1}
+                  fields={[
+                    [t('cc_purchase.detail.raisedBy', 'Raised by'), po.createdByName],
+                    [t('cc_purchase.detail.approvedBy', 'Approved by'), po.approvedByName ? `${po.approvedByName} · ${when(po.approvedAt)}` : null],
+                    [t('cc_purchase.form.terms', 'Payment terms'), po.terms],
+                  ]}
+                />
+                {po.notes ? <p className="mt-3 rounded-md bg-muted/50 p-3 text-sm">{po.notes}</p> : null}
+              </Panel>
+              {po.orderRefs.length ? (
+                <Panel title={t('cc_purchase.form.forOrders', 'For customer orders')} icon={FileStack} count={po.orderRefs.length} flush>
+                  <LinkRows empty={null} rows={po.orderRefs.map((ref) => ({ key: ref.orderId, href: recordHref.order(ref.orderId), primary: <span className="font-mono">{ref.orderNo}</span> }))} />
+                </Panel>
+              ) : null}
+            </>
+          }
+        />
+        <HistoryPanel entries={po.history.slice().reverse().map((entry, index) => ({ key: `${entry.at}-${index}`, label: HISTORY_LABEL[entry.action] ?? entry.action, note: entry.note, by: entry.by, at: entry.at }))} />
+      </RecordPage>
 
         <Dialog open={dialog !== null} onOpenChange={(value) => (!value ? setDialog(null) : undefined)}>
           <DialogContent
@@ -455,8 +411,7 @@ export function PurchaseOrderPage({ poId }: { poId: string }) {
             </DialogFooter>
           </DialogContent>
         </Dialog>
-      </PageBody>
-    </Page>
+    </>
   )
 }
 

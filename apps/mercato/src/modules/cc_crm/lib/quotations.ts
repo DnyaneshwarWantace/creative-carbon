@@ -168,9 +168,10 @@ async function convertQuotation(ctx: OrderContext, row: CcQuotation, action: Quo
   return { quotation: row, order: { id: order.id, orderNo: order.orderNo } }
 }
 
-export async function listQuotations(ctx: OrderContext, query: { status: string; enquiryId?: string }) {
+export async function listQuotations(ctx: OrderContext, query: { status: string; enquiryId?: string; orderId?: string }) {
   const where: Record<string, unknown> = { ...scope(ctx), deletedAt: null }
   if (query.enquiryId) where.enquiryId = query.enquiryId
+  if (query.orderId) where.orderId = query.orderId
   if (query.status === 'open') where.status = { $in: ['draft', 'sent', 'accepted'] }
   else if (query.status !== 'all') where.status = query.status
   const rows = await ctx.em.find(CcQuotation, where, { orderBy: { createdAt: 'desc' }, limit: 500 })

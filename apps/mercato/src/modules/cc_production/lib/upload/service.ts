@@ -5,6 +5,7 @@ import type { StoreContext } from '../../../cc_store/lib/server'
 import { listViews } from '../../../cc_lists/lib/service'
 import type { ParsedUpload } from './parse'
 import type { UploadRegister, UploadRowError } from './types'
+import { uploadRegister } from './registers'
 
 export type UploadReport = {
   register: string
@@ -109,6 +110,29 @@ export async function uploadHistory(ctx: OrderContext, registerKey?: string) {
     byName: row.byName ?? null,
     at: row.createdAt.toISOString(),
   }))
+}
+
+export async function uploadDetail(ctx: OrderContext, id: string) {
+  const row = await ctx.em.findOne(UploadBatch, { id, tenantId: ctx.tenantId, organizationId: ctx.organizationId })
+  if (!row) return null
+  const register = uploadRegister(row.registerKey)
+  return {
+    id: row.id,
+    register: row.registerKey,
+    registerLabel: register?.label ?? row.registerKey,
+    department: register?.department ?? null,
+    paperRef: register?.paperRef ?? null,
+    fileName: row.fileName,
+    fileHash: row.fileHash,
+    registerDate: row.registerDate ?? null,
+    total: row.totalRows,
+    created: row.createdRows,
+    updated: row.updatedRows,
+    failed: row.failedRows,
+    errors: row.errors ?? [],
+    byName: row.byName ?? null,
+    at: row.createdAt.toISOString(),
+  }
 }
 
 export async function listValues(ctx: OrderContext, register: UploadRegister): Promise<Record<string, string[]>> {

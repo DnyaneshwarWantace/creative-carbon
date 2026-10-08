@@ -1,6 +1,7 @@
 import { Vendor } from '../../cc_vendors/data/entities'
 import { loadProducts, type OrderContext } from '../../cc_orders/lib/server'
 import { GoodsReceipt, GoodsReceiptLine, PurchaseOrder, PurchaseOrderLine, type PoStatus } from '../data/entities'
+import { VendorBill } from '../../cc_accounts/data/entities'
 import { PurchaseError, num, round } from './service'
 
 const OPEN_STATUSES: PoStatus[] = ['draft', 'pending_approval', 'approved', 'partly_received']
@@ -9,7 +10,7 @@ function todayIso(): string {
   return new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' })
 }
 
-export async function vendorSummary(ctx: OrderContext, vendorId: string) {
+export async function vendorSummary(ctx: OrderContext, vendorId: string, options: { includeBills?: boolean } = {}) {
   const scope = { tenantId: ctx.tenantId, organizationId: ctx.organizationId }
   const vendor = await ctx.em.findOne(Vendor, { id: vendorId, ...scope, deletedAt: null })
   if (!vendor) throw new PurchaseError('Vendor not found', 404)
@@ -21,7 +22,10 @@ export async function vendorSummary(ctx: OrderContext, vendorId: string) {
     pos.length ? ctx.em.find(PurchaseOrderLine, { poId: { $in: pos.map((po) => po.id) } }) : Promise.resolve([] as PurchaseOrderLine[]),
     grns.length ? ctx.em.find(GoodsReceiptLine, { grnId: { $in: grns.map((grn) => grn.id) } }) : Promise.resolve([] as GoodsReceiptLine[]),
   ])
-  const products = await loadProducts(ctx, [...new Set(poLines.map((line) => line.productId))])
+  const [products, bills] = await Promise.all([
+    loadProducts(ctx, [...new Set([...poLines.map((line) => line.productId), ...grnLines.map((line) => line.productId)])]),
+    options.includeBills ? ctx.em.find(VendorBill, { vendorId, ...scope, deletedAt: null }, { orderBy: { billDate: 'desc' }, limit: 100 }) : Promise.resolve(null),
+  ])
   const today = todayIso()
 
   const poRows = pos.map((po) => {
@@ -122,6 +126,39 @@ export async function vendorSummary(ctx: OrderContext, vendorId: string) {
     },
     pos: poRows,
     grns: grnRows,
+    lots: grnLines
+      .map((line) => {
+        const grn = grns.find((entry) => entry.id === line.grnId)
+        return {
+          id: line.id,
+          lotId: line.lotId ?? null,
+          lotNumber: line.lotNumber,
+          productId: line.productId,
+          title: products.get(line.productId)?.title ?? '',
+          quantity: num(line.quantity),
+          unit: line.unit,
+          store: line.store,
+          qcStatus: line.qcStatus,
+          grnId: line.grnId,
+          grnCode: grn?.code ?? '',
+          grnDate: grn?.grnDate ?? '',
+        }
+      })
+      .sort((a, b) => (a.grnDate < b.grnDate ? 1 : a.grnDate > b.grnDate ? -1 : 0))
+      .slice(0, 100),
+    bills:
+      bills?.map((bill) => ({
+        id: bill.id,
+        code: bill.code,
+        billNo: bill.billNo,
+        billDate: bill.billDate,
+        dueDate: bill.dueDate ?? null,
+        total: num(bill.total),
+        paid: num(bill.paid),
+        status: bill.status,
+        poCode: bill.poCode ?? null,
+        grnCodes: bill.grnCodes ?? [],
+      })) ?? null,
     materials: [...materials.values()].sort((a, b) => (a.lastPoDate < b.lastPoDate ? 1 : -1)),
   }
 }

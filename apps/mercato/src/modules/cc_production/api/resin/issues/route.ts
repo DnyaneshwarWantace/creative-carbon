@@ -4,7 +4,7 @@ import type { OpenApiRouteDoc } from '@open-mercato/shared/lib/openapi'
 import { currentUserName } from '../../../../cc_orders/lib/server'
 import { resolveStoreContext } from '../../../../cc_store/lib/server'
 import { chemicalIssueInputSchema, chemicalIssueListSchema } from '../../../data/validators'
-import { createIssue, listIssues } from '../../../lib/chemicals'
+import { createIssue, issueDetail, listIssues } from '../../../lib/chemicals'
 import { plantErrorResponse, runPlantGuarded } from '../../../lib/server'
 
 export const metadata = {
@@ -17,6 +17,13 @@ async function GET(req: Request) {
   if ('error' in ctx) return NextResponse.json({ error: ctx.error }, { status: ctx.status })
   const parsed = chemicalIssueListSchema.safeParse(Object.fromEntries(new URL(req.url).searchParams))
   if (!parsed.success) return NextResponse.json({ error: 'Invalid query' }, { status: 400 })
+  if (parsed.data.id) {
+    try {
+      return NextResponse.json(await issueDetail(ctx, parsed.data.id))
+    } catch (error) {
+      return plantErrorResponse(error)
+    }
+  }
   return NextResponse.json({ items: await listIssues(ctx, parsed.data) })
 }
 
@@ -39,7 +46,7 @@ export const openApi: OpenApiRouteDoc = {
   tag: 'Creative Carbon Resin',
   summary: 'Chemical issues outside resin batches (methanol, DBP, oleic acid to coating, other use)',
   methods: {
-    GET: { summary: 'List chemical issues (?month=YYYY-MM&productId=)', tags: ['Creative Carbon Resin'], query: chemicalIssueListSchema, responses: [{ status: 200, description: 'Issues', schema: z.object({ items: z.array(z.object({}).passthrough()) }) }] },
+    GET: { summary: 'List chemical issues (?month=YYYY-MM&productId=) or one with its lots, GRNs and coating day sheet (?id=)', tags: ['Creative Carbon Resin'], query: chemicalIssueListSchema, responses: [{ status: 200, description: 'Issues', schema: z.object({ items: z.array(z.object({}).passthrough()) }) }] },
     POST: { summary: 'Issue a chemical (stock out, oldest lot first)', tags: ['Creative Carbon Resin'], requestBody: { schema: chemicalIssueInputSchema }, responses: [{ status: 201, description: 'Issue', schema: z.object({}).passthrough() }], errors: [{ status: 409, description: 'Not enough stock' }] },
   },
 }

@@ -10,6 +10,7 @@ import { flash } from '@open-mercato/ui/backend/FlashMessages'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { useOrganizationScopeDetail } from '@open-mercato/shared/lib/frontend/useOrganizationScope'
 import { VENDOR_CATEGORIES } from '../../../data/validators'
+import { VENDOR_CATEGORY_LABEL } from '../../../lib/categories'
 
 export default function CreateVendorPage() {
   const t = useT()
@@ -46,7 +47,7 @@ export default function CreateVendorPage() {
             id: 'category',
             type: 'select',
             label: t('cc_vendors.form.field.category', 'Category'),
-            options: VENDOR_CATEGORIES.map((category) => ({ label: category, value: category })),
+            options: VENDOR_CATEGORIES.map((category) => ({ label: t(`cc_vendors.category.${category}`, VENDOR_CATEGORY_LABEL[category]), value: category })),
           },
           {
             id: 'paymentTerms',

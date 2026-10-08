@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from 'react'
+import Link from 'next/link'
 import { ClipboardCheck, Copy, FlaskConical, PackagePlus, Plus, RotateCcw, Send, Trash2, TriangleAlert } from 'lucide-react'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { Page, PageBody } from '@open-mercato/ui/backend/Page'
@@ -19,6 +20,7 @@ import { day, kg, thisMonth, todayIso } from '../resin/shared'
 import { lotLabel, selectClass, useSend, useSetup, type FloorLot } from './shared'
 import { PlantTable } from '../PlantTable'
 import { Dropdown } from '../../../cc_lists/components/Dropdown'
+import { recordHref } from '../../../cc_ui/lib/links'
 
 type Disposition = 'stock' | 'export' | 'allocation'
 type FgRowView = { sr: number; sourceLotId: string; sourceLotNumber: string | null; batchNo: string | null; itemTitle: string; sheetSize: string | null; thicknessMm: number | null; qtyNos: number; rejectNos: number; rejectReason: string | null; disposition: Disposition; customerId: string | null; customerName: string | null; passKg: number | null; outputLotNumber: string | null }
@@ -256,7 +258,9 @@ export function FgInspectionPage() {
             reports.map((report) => (
               <section key={report.id} className="rounded-xl border border-border bg-card shadow-sm">
                 <header className="flex flex-wrap items-center gap-3 border-b border-border px-5 py-2.5">
-                  <span className="font-semibold">{day(report.reportDate)}</span>
+                  <Link className="font-semibold underline-offset-2 hover:underline" href={recordHref.fgInspection(report.id)}>
+                    {day(report.reportDate)}
+                  </Link>
                   <StatusBadge variant={report.status === 'posted' ? 'success' : 'warning'} dot>
                     {report.status === 'posted' ? 'Posted' : 'Not posted'}
                   </StatusBadge>
@@ -449,6 +453,7 @@ export function DirectInPage() {
               tableId="cc_production.direct_in"
               rows={lists.directIns}
               rowKey={(row) => row.id}
+              rowHref={(row) => recordHref.directIn(row.id)}
               empty={<p className="px-5 py-6 text-sm text-muted-foreground">—</p>}
               columns={[
                 { key: 'date', label: t('cc_production.resin.date', 'Date'), alwaysVisible: true, render: (row) => day(row.inDate) },
@@ -469,6 +474,7 @@ export function DirectInPage() {
               tableId="cc_production.damage"
               rows={lists.damages}
               rowKey={(row) => row.id}
+              rowHref={(row) => recordHref.damage(row.id)}
               empty={<p className="px-5 py-6 text-sm text-muted-foreground">—</p>}
               columns={[
                 { key: 'date', label: t('cc_production.resin.date', 'Date'), alwaysVisible: true, render: (row) => day(row.entryDate) },

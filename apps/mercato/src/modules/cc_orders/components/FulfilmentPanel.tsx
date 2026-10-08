@@ -150,7 +150,9 @@ export function FulfilmentPanel({ orderId, stageKey, stageStatus, editable }: { 
                   {line.allocations.map((allocation) => (
                     <li key={allocation.id} className="flex items-center justify-between gap-2">
                       <span className="font-mono">
-                        {allocation.lotNumber}
+                        <Link className="underline-offset-2 hover:underline" href={`/backend/stock/lots/${allocation.lotId}`}>
+                          {allocation.lotNumber}
+                        </Link>
                         {allocation.lotStatus !== 'available' ? <span className="ml-1 text-status-error-text">({allocation.lotStatus})</span> : null}
                       </span>
                       <span className="flex items-center gap-2 tabular-nums">
@@ -173,6 +175,7 @@ export function FulfilmentPanel({ orderId, stageKey, stageStatus, editable }: { 
                   ) : !candidates.length ? (
                     <p className="text-xs text-muted-foreground">{t('cc_orders.fulfilment.noStock', 'No finished stock of this item. The short quantity shows on the production plan.')}</p>
                   ) : (
+                    <div className="overflow-x-auto">
                     <table className="w-full text-xs">
                       <thead>
                         <tr className="text-left text-muted-foreground">
@@ -187,7 +190,9 @@ export function FulfilmentPanel({ orderId, stageKey, stageStatus, editable }: { 
                         {candidates.map((candidate) => (
                           <tr key={candidate.lotId} className={cn(!candidate.matches && 'text-muted-foreground')}>
                             <td className="py-1">
-                              <span className="font-mono">{candidate.lotNumber}</span>
+                              <Link className="font-mono underline-offset-2 hover:underline" href={`/backend/stock/lots/${candidate.lotId}`}>
+                                {candidate.lotNumber}
+                              </Link>
                               {candidate.forCustomer ? <span className="ml-1 rounded bg-status-success-bg px-1 text-status-success-text">{t('cc_orders.fulfilment.forThem', 'for this customer')}</span> : candidate.markedFor ? <span className="ml-1 text-muted-foreground">({candidate.markedFor})</span> : null}
                               {candidate.expiresOn ? <span className="ml-1">{t('cc_orders.fulfilment.useBy', 'use by {d}', { d: candidate.expiresOn })}</span> : null}
                               {candidate.status !== 'available' ? <span className="ml-1 text-status-error-text">{candidate.status}</span> : null}
@@ -218,6 +223,7 @@ export function FulfilmentPanel({ orderId, stageKey, stageStatus, editable }: { 
                         ))}
                       </tbody>
                     </table>
+                    </div>
                   )
                 ) : (
                   <Button type="button" size="sm" variant="outline" onClick={() => void findStock(line)}>

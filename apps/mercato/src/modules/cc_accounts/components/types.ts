@@ -6,6 +6,7 @@ export type PiLine = {
   packSize: string | null
   hsn: string | null
   quantity: number
+  unit?: string | null
   rate: number | null
   discountPercent: number
   gstPercent: number

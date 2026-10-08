@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { z } from 'zod'
 import type { OpenApiRouteDoc } from '@open-mercato/shared/lib/openapi'
-import { resolveOrderContext } from '../../../../cc_orders/lib/server'
+import { hasFeatures, resolveOrderContext } from '../../../../cc_orders/lib/server'
 import { purchaseErrorResponse } from '../../../lib/server'
 import { vendorSummary } from '../../../lib/vendorSummary'
 
@@ -17,7 +17,7 @@ async function GET(req: Request) {
   const parsed = querySchema.safeParse(Object.fromEntries(new URL(req.url).searchParams))
   if (!parsed.success) return NextResponse.json({ error: 'Pass a vendor id' }, { status: 400 })
   try {
-    return NextResponse.json(await vendorSummary(ctx, parsed.data.id))
+    return NextResponse.json(await vendorSummary(ctx, parsed.data.id, { includeBills: await hasFeatures(ctx, ['cc_accounts.view']) }))
   } catch (error) {
     return purchaseErrorResponse(error)
   }
@@ -28,7 +28,7 @@ export const openApi: OpenApiRouteDoc = {
   summary: 'Vendor file',
   methods: {
     GET: {
-      summary: 'Vendor profile with purchase orders, goods receipts, materials supplied and delivery / QC performance',
+      summary: 'Vendor profile with purchase orders, goods receipts, lots received, vendor bills (with the accounts right), materials supplied and delivery / QC performance',
       tags: ['Creative Carbon Purchase'],
       query: querySchema,
       responses: [{ status: 200, description: 'Vendor file', schema: z.object({ vendor: z.object({ id: z.string() }).passthrough() }).passthrough() }],

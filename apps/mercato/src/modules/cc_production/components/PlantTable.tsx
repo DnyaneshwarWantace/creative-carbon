@@ -17,7 +17,10 @@ export type PlantColumn<T> = {
   alwaysVisible?: boolean
   hidden?: boolean
   render: (row: T) => React.ReactNode
+  total?: React.ReactNode
 }
+
+const INTERACTIVE = 'a, button, input, select, textarea, label, [role="button"], [role="checkbox"]'
 
 const PAGE_SIZES = [25, 50, 100, 0] as const
 
@@ -111,15 +114,15 @@ export function PlantTable<T>({
         </label>
         <ViewsButton tableId={tableId} columns={columns.map((column) => ({ key: column.key, label: column.label, group: column.group ?? 'Columns', alwaysVisible: column.alwaysVisible }))} visible={visible} onChange={changeColumns} builtIn={builtIn} />
       </div>
-      <section className="overflow-x-auto rounded-xl border border-border bg-card shadow-sm">
+      <section className="max-h-screen overflow-auto rounded-md border border-foreground/70 bg-card shadow-sm">
         {!rows.length ? (
           empty
         ) : (
           <table className={cn('w-full text-sm', minWidth)}>
-            <thead>
-              <tr className="border-b border-border bg-muted/50 text-left text-xs uppercase tracking-wide text-muted-foreground">
+            <thead className="sticky top-0 z-10">
+              <tr className="bg-muted text-left font-mono text-overline uppercase tracking-widest text-muted-foreground">
                 {shown.map((column) => (
-                  <th key={column.key} className={cn('px-4 py-2 font-semibold', column.align === 'right' && 'text-right')}>
+                  <th key={column.key} className={cn('whitespace-nowrap border-b-2 border-foreground/70 px-3 py-2 font-semibold', column.align === 'right' && 'text-right')}>
                     {column.label}
                   </th>
                 ))}
@@ -132,14 +135,15 @@ export function PlantTable<T>({
                 return (
                   <React.Fragment key={id}>
                     <tr
-                      className={cn(clickable && 'cursor-pointer hover:bg-muted/40')}
-                      onClick={() => {
+                      className={cn('even:bg-muted/30', clickable && 'cursor-pointer hover:bg-muted/60')}
+                      onClick={(event) => {
+                        if ((event.target as HTMLElement).closest(INTERACTIVE)) return
                         if (renderExpanded) setExpanded(expanded === id ? null : id)
                         else if (rowHref) router.push(rowHref(row))
                       }}
                     >
                       {shown.map((column) => (
-                        <td key={column.key} className={cn('px-4 py-2', column.align === 'right' && 'text-right tabular-nums')}>
+                        <td key={column.key} className={cn('px-3 py-2', column.align === 'right' && 'text-right font-mono tabular-nums')}>
                           {column.render(row)}
                         </td>
                       ))}
@@ -155,6 +159,17 @@ export function PlantTable<T>({
                 )
               })}
             </tbody>
+            {shown.some((column) => column.total !== undefined) ? (
+              <tfoot className="sticky bottom-0 border-t-4 border-double border-foreground/70 bg-muted font-mono font-semibold">
+                <tr>
+                  {shown.map((column, index) => (
+                    <td key={column.key} className={cn('whitespace-nowrap px-3 py-2', column.align === 'right' && 'text-right tabular-nums')}>
+                      {column.total ?? (index === 0 ? 'Σ' : null)}
+                    </td>
+                  ))}
+                </tr>
+              </tfoot>
+            ) : null}
           </table>
         )}
       </section>

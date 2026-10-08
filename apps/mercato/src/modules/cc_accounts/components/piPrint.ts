@@ -25,7 +25,7 @@ export function buildPiHtml(pi: PiView, company: CompanyView, forPrint = true): 
         <td class="n">${index + 1}</td>
         <td><strong>${esc(line.brandName ? `${line.brandName} ` : '')}${esc(line.title)}</strong>${line.code ? `<div class="code">${esc(line.code)}${line.packSize ? ` · ${esc(line.packSize)}` : ''}</div>` : ''}</td>
         <td class="mono">${esc(line.hsn ?? '—')}</td>
-        <td class="r">${new Intl.NumberFormat('en-IN').format(line.quantity)}</td>
+        <td class="r">${new Intl.NumberFormat('en-IN', { maximumFractionDigits: 3 }).format(line.quantity)}${line.unit ? ` ${esc(line.unit)}` : ''}</td>
         <td class="r">${line.rate == null ? '—' : money(line.rate)}</td>
         <td class="r">${line.discountPercent ? `${line.discountPercent}%` : '—'}</td>
         <td class="r">${money(line.taxable)}</td>
@@ -71,7 +71,7 @@ export function buildPiHtml(pi: PiView, company: CompanyView, forPrint = true): 
     <div class="box"><h3>Bank details for payment</h3><div class="muted" style="color:#1c1917">${multiline(pi.bankDetails) || '—'}</div></div>
   </div>
   <table>
-    <thead><tr><th>#</th><th>Product</th><th>HSN</th><th class="r">Qty (pcs)</th><th class="r">Rate ₹</th><th class="r">Disc.</th><th class="r">Taxable ₹</th><th class="r">GST</th><th class="r">Amount ₹</th></tr></thead>
+    <thead><tr><th>#</th><th>Product</th><th>HSN</th><th class="r">Qty</th><th class="r">Rate ₹</th><th class="r">Disc.</th><th class="r">Taxable ₹</th><th class="r">GST</th><th class="r">Amount ₹</th></tr></thead>
     <tbody>${rows}</tbody>
   </table>
   <div class="sum">

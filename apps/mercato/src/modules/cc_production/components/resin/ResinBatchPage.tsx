@@ -3,16 +3,14 @@
 import * as React from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { ArrowLeft, Pencil, Printer, RotateCcw, Send, Signature, Trash2, TriangleAlert } from 'lucide-react'
+import { Beaker, FlaskConical, Pencil, Printer, RotateCcw, Send, Signature, Trash2, TrendingUp, TriangleAlert, Waypoints } from 'lucide-react'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
-import { Page, PageBody } from '@open-mercato/ui/backend/Page'
 import { Button } from '@open-mercato/ui/primitives/button'
 import { Label } from '@open-mercato/ui/primitives/label'
 import { Textarea } from '@open-mercato/ui/primitives/textarea'
 import { StatusBadge } from '@open-mercato/ui/primitives/status-badge'
 import { Alert, AlertDescription, AlertTitle } from '@open-mercato/ui/primitives/alert'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@open-mercato/ui/primitives/dialog'
-import { ErrorMessage } from '@open-mercato/ui/backend/detail'
 import { apiCall, withScopedApiRequestHeaders } from '@open-mercato/ui/backend/utils/apiCall'
 import { buildOptimisticLockHeader } from '@open-mercato/ui/backend/utils/optimisticLock'
 import { useGuardedMutation } from '@open-mercato/ui/backend/injection/useGuardedMutation'
@@ -20,30 +18,11 @@ import { flash } from '@open-mercato/ui/backend/FlashMessages'
 import { PLACE_LABEL, type StockPlace } from '../../../cc_products/lib/stock'
 import { useGranted } from '../../../cc_departments/components/useGranted'
 import { HISTORY_LABEL, READINGS, RESIN_STATUS, STEP_LABELS, day, kg, when, type BatchView } from './shared'
-import { PageLoading } from '../../../cc_ui/components/PageLoading'
+import { HistoryPanel, Panel, PanelEmpty, RecordColumns, RecordPage, RecordState, RegisterGrid, type Fact } from '../../../cc_ui/components/RecordPage'
+import { PlantChain } from '../../../cc_ui/components/PlantChain'
+import { recordHref } from '../../../cc_ui/lib/links'
 
 type Action = 'post' | 'fail' | 'reopen' | 'sign_chemist' | 'sign_incharge' | 'delete'
-
-function Fact({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div>
-      <p className="text-xs uppercase tracking-wide text-muted-foreground">{label}</p>
-      <p className="mt-0.5 text-sm font-semibold">{children}</p>
-    </div>
-  )
-}
-
-function Card({ title, children, aside }: { title: string; children: React.ReactNode; aside?: React.ReactNode }) {
-  return (
-    <section className="rounded-xl border border-border bg-card shadow-sm">
-      <header className="flex items-center justify-between gap-3 border-b border-border px-5 py-3">
-        <h2 className="text-sm font-semibold uppercase tracking-wide">{title}</h2>
-        {aside}
-      </header>
-      <div className="p-5">{children}</div>
-    </section>
-  )
-}
 
 export function ResinBatchPage({ batchId }: { batchId: string }) {
   const t = useT()
@@ -115,263 +94,262 @@ export function ResinBatchPage({ batchId }: { batchId: string }) {
     }
   }
 
-  if (error) return <Page><PageBody><ErrorMessage label={error} /></PageBody></Page>
-  if (!batch) return <Page><PageBody><PageLoading label={t('cc_production.resin.loading', 'Loading…')} /></PageBody></Page>
+  if (error || !batch) return <RecordState error={error} loadingLabel={t('cc_production.resin.loading', 'Loading…')} />
 
   const status = RESIN_STATUS[batch.status]
   const delta = batch.yieldPct !== null && batch.compare.averagePct !== null ? Math.round((batch.yieldPct - batch.compare.averagePct) * 10) / 10 : null
+  const facts: Fact[] = [
+    { label: t('cc_production.resin.date', 'Date'), value: day(batch.batchDate) },
+    {
+      label: t('cc_production.resin.vessel', 'Vessel'),
+      value: (
+        <Link className="underline-offset-2 hover:underline" href={recordHref.machine('reactor', batch.reactorId)}>
+          {batch.reactorCode}
+        </Link>
+      ),
+    },
+    { label: t('cc_production.resin.totalInput', 'Total input'), value: `${kg(batch.totalInputKg)} kg` },
+    { label: t('cc_production.resin.yield', 'Resin yield (kg)'), value: `${kg(batch.yieldKg)} kg` },
+    {
+      label: t('cc_production.resin.yieldPct', 'Yield'),
+      value: batch.yieldPct === null ? '—' : `${batch.yieldPct}%`,
+      hint: delta !== null ? t('cc_production.resin.vsAverage', '{delta} pts vs average', { delta: delta >= 0 ? `+${delta}` : String(delta) }) : undefined,
+      tone: delta === null ? undefined : delta < -2 ? 'bad' : delta < 0 ? 'warn' : 'good',
+    },
+    { label: t('cc_production.resin.water', 'Water removed (kg)'), value: kg(batch.waterRemovedKg) },
+  ]
+  const signoffs: Array<[Action, string, string | null, string | null]> = [
+    ['sign_chemist', t('cc_production.resin.chemist', 'Chemist'), batch.chemistSign, batch.chemistSignedAt],
+    ['sign_incharge', t('cc_production.resin.incharge', 'In-charge'), batch.inchargeSign, batch.inchargeSignedAt],
+  ]
 
   return (
-    <Page>
-      <PageBody>
-        <div className="mx-auto flex max-w-5xl flex-col gap-5 pb-12">
-          <div>
-            <Link href="/backend/resin/batches" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
-              <ArrowLeft className="h-4 w-4" aria-hidden="true" />
-              {t('cc_production.resin.title', 'Resin batches')}
-            </Link>
-          </div>
-
-          <header className="flex flex-wrap items-start justify-between gap-4">
-            <div className="space-y-1">
-              <p className="text-overline font-semibold uppercase tracking-widest text-muted-foreground">CCCPL/F/QC/03 · {batch.grade}</p>
-              <h1 className="font-mono text-2xl font-bold tracking-tight">{batch.batchNo}</h1>
-              <div className="flex flex-wrap items-center gap-2">
-                <StatusBadge variant={status.variant} dot>
-                  {status.label}
-                </StatusBadge>
-                {batch.postedAt ? <span className="text-xs text-muted-foreground">{t('cc_production.resin.postedBy', 'by {name} · {at}', { name: batch.postedByName ?? '—', at: when(batch.postedAt) })}</span> : null}
-              </div>
-            </div>
-            <div className="flex flex-wrap gap-2 print:hidden">
-              <Button type="button" variant="outline" onClick={() => window.print()}>
-                <Printer className="mr-1.5 h-4 w-4" aria-hidden="true" />
-                {t('cc_production.resin.print', 'Print')}
-              </Button>
-              {canEnter && batch.status === 'draft' ? (
-                <>
-                  <Button asChild variant="outline">
-                    <Link href={`/backend/resin/batches/${batch.id}/edit`}>
-                      <Pencil className="mr-1.5 h-4 w-4" aria-hidden="true" />
-                      {t('cc_production.resin.edit', 'Edit')}
-                    </Link>
-                  </Button>
-                  <Button type="button" variant="outline" disabled={busy} onClick={() => void act('delete')}>
-                    <Trash2 className="mr-1.5 h-4 w-4" aria-hidden="true" />
-                    {t('cc_production.resin.delete', 'Delete draft')}
-                  </Button>
-                  <Button type="button" variant="outline" disabled={busy} onClick={() => setFailing(true)}>
-                    <TriangleAlert className="mr-1.5 h-4 w-4" aria-hidden="true" />
-                    {t('cc_production.resin.fail', 'Batch failed')}
-                  </Button>
-                  <Button type="button" disabled={busy} onClick={() => void act('post')}>
-                    <Send className="mr-1.5 h-4 w-4" aria-hidden="true" />
-                    {t('cc_production.resin.post', 'Post')}
-                  </Button>
-                </>
-              ) : null}
-              {canEnter && batch.canReopen ? (
-                <Button type="button" variant="outline" disabled={busy} onClick={() => void act('reopen')}>
-                  <RotateCcw className="mr-1.5 h-4 w-4" aria-hidden="true" />
-                  {t('cc_production.resin.reopen', 'Reopen')}
+    <>
+      <RecordPage
+        back={{ href: '/backend/resin/batches', label: t('cc_production.resin.title', 'Resin batches') }}
+        overline={`CCCPL/F/QC/03 · ${batch.grade}`}
+        title={batch.batchNo}
+        badges={
+          <StatusBadge variant={status.variant} dot>
+            {status.label}
+          </StatusBadge>
+        }
+        meta={batch.postedAt ? t('cc_production.resin.postedBy', 'by {name} · {at}', { name: batch.postedByName ?? '—', at: when(batch.postedAt) }) : undefined}
+        actions={
+          <>
+            <Button type="button" variant="outline" size="sm" onClick={() => window.print()}>
+              <Printer className="mr-1.5 h-4 w-4" aria-hidden="true" />
+              {t('cc_production.resin.print', 'Print')}
+            </Button>
+            {canEnter && batch.status === 'draft' ? (
+              <>
+                <Button asChild variant="outline" size="sm">
+                  <Link href={`/backend/resin/batches/${batch.id}/edit`}>
+                    <Pencil className="mr-1.5 h-4 w-4" aria-hidden="true" />
+                    {t('cc_production.resin.edit', 'Edit')}
+                  </Link>
                 </Button>
-              ) : null}
-            </div>
-          </header>
-
-          {batch.status === 'failed' ? (
+                <Button type="button" variant="outline" size="sm" disabled={busy} onClick={() => void act('delete')}>
+                  <Trash2 className="mr-1.5 h-4 w-4" aria-hidden="true" />
+                  {t('cc_production.resin.delete', 'Delete draft')}
+                </Button>
+                <Button type="button" variant="outline" size="sm" disabled={busy} onClick={() => setFailing(true)}>
+                  <TriangleAlert className="mr-1.5 h-4 w-4" aria-hidden="true" />
+                  {t('cc_production.resin.fail', 'Batch failed')}
+                </Button>
+                <Button type="button" size="sm" disabled={busy} onClick={() => void act('post')}>
+                  <Send className="mr-1.5 h-4 w-4" aria-hidden="true" />
+                  {t('cc_production.resin.post', 'Post')}
+                </Button>
+              </>
+            ) : null}
+            {canEnter && batch.canReopen ? (
+              <Button type="button" variant="outline" size="sm" disabled={busy} onClick={() => void act('reopen')}>
+                <RotateCcw className="mr-1.5 h-4 w-4" aria-hidden="true" />
+                {t('cc_production.resin.reopen', 'Reopen')}
+              </Button>
+            ) : null}
+          </>
+        }
+        alert={
+          batch.status === 'failed' ? (
             <Alert variant="destructive">
               <AlertTitle>{t('cc_production.resin.failedTitle', 'Failed batch')}</AlertTitle>
               <AlertDescription>{batch.failReason}</AlertDescription>
             </Alert>
-          ) : null}
+          ) : null
+        }
+        chain={<PlantChain current="resin" hrefs={{ coating: batch.wentTo[0] ? recordHref.coatingSheet(batch.wentTo[0].id) : null }} />}
+        facts={facts}
+      >
+        <RecordColumns
+          main={
+            <>
+              <Panel title={t('cc_production.resin.cameFrom', 'Materials · came from')} icon={Beaker} count={batch.materials.length} flush>
+                <RegisterGrid
+                  rows={batch.materials}
+                  rowKey={(line) => line.productId}
+                  rowHref={(line) => recordHref.product(line.productId)}
+                  empty={t('cc_production.resin.noMaterials', 'No materials on this batch.')}
+                  columns={[
+                    { key: 'material', label: t('cc_production.resin.material', 'Material'), render: (line) => line.title },
+                    {
+                      key: 'lots',
+                      label: t('cc_production.resin.lots', 'Lots used'),
+                      render: (line) =>
+                        line.lots.length ? (
+                          <span className="flex flex-col gap-0.5 text-xs">
+                            {line.lots.map((lot) => (
+                              <span key={lot.lotId}>
+                                <Link className="font-mono underline-offset-2 hover:underline" href={recordHref.lot(lot.lotId)}>
+                                  {lot.lotNumber ?? '—'}
+                                </Link>
+                                {' · '}
+                                {kg(lot.kg)} kg · {PLACE_LABEL[lot.place as StockPlace] ?? lot.place}
+                                {lot.grnId ? (
+                                  <>
+                                    {' · '}
+                                    <Link className="font-mono underline-offset-2 hover:underline" href={recordHref.grn(lot.grnId)}>
+                                      {lot.grnCode}
+                                    </Link>
+                                  </>
+                                ) : null}
+                              </span>
+                            ))}
+                          </span>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">{batch.status === 'draft' ? t('cc_production.resin.pickedOnPost', 'Picked when posted (oldest lot first)') : '—'}</span>
+                        ),
+                    },
+                    { key: 'kg', label: 'kg', align: 'right', render: (line) => kg(line.kg), total: kg(batch.totalInputKg) },
+                  ]}
+                />
+              </Panel>
 
-          <section className="grid grid-cols-2 gap-4 rounded-xl border border-border bg-card p-5 shadow-sm md:grid-cols-6">
-            <Fact label={t('cc_production.resin.date', 'Date')}>{day(batch.batchDate)}</Fact>
-            <Fact label={t('cc_production.resin.vessel', 'Vessel')}>{batch.reactorCode}</Fact>
-            <Fact label={t('cc_production.resin.totalInput', 'Total input')}>{kg(batch.totalInputKg)} kg</Fact>
-            <Fact label={t('cc_production.resin.yield', 'Resin yield (kg)')}>{kg(batch.yieldKg)} kg</Fact>
-            <Fact label={t('cc_production.resin.yieldPct', 'Yield')}>{batch.yieldPct === null ? '—' : `${batch.yieldPct}%`}</Fact>
-            <Fact label={t('cc_production.resin.water', 'Water removed (kg)')}>{kg(batch.waterRemovedKg)}</Fact>
-          </section>
-
-          <section className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            {(
-              [
-                ['sign_chemist', t('cc_production.resin.chemist', 'Chemist'), batch.chemistSign, batch.chemistSignedAt],
-                ['sign_incharge', t('cc_production.resin.incharge', 'In-charge'), batch.inchargeSign, batch.inchargeSignedAt],
-              ] as Array<[Action, string, string | null, string | null]>
-            ).map(([action, label, name, at]) => (
-              <div key={action} className="flex items-center justify-between gap-3 rounded-lg border border-border bg-card px-4 py-3">
-                <div>
-                  <p className="text-xs uppercase tracking-wide text-muted-foreground">{label}</p>
-                  <p className="text-sm font-medium">{name ? `${name} · ${when(at)}` : t('cc_production.resin.notSigned', 'Not signed')}</p>
-                </div>
-                {canSign && !name ? (
-                  <Button type="button" size="sm" variant="outline" disabled={busy} onClick={() => void act(action)}>
-                    <Signature className="mr-1.5 h-4 w-4" aria-hidden="true" />
-                    {t('cc_production.resin.sign', 'Sign')}
-                  </Button>
-                ) : null}
-              </div>
-            ))}
-          </section>
-
-          <Card title={t('cc_production.resin.cameFrom', 'Materials · came from')}>
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-border text-left text-xs uppercase tracking-wide text-muted-foreground">
-                  <th className="py-2 pr-3">{t('cc_production.resin.material', 'Material')}</th>
-                  <th className="py-2 pr-3 text-right">kg</th>
-                  <th className="py-2">{t('cc_production.resin.lots', 'Lots used')}</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
-                {batch.materials.map((line) => (
-                  <tr key={line.productId}>
-                    <td className="py-2 pr-3 font-medium">{line.title}</td>
-                    <td className="py-2 pr-3 text-right tabular-nums">{kg(line.kg)}</td>
-                    <td className="py-2 text-xs text-muted-foreground">
-                      {line.lots.length
-                        ? line.lots.map((lot) => (
-                            <span key={lot.lotId} className="mr-3 inline-block">
-                              {lot.lotNumber ?? '—'} · {kg(lot.kg)} kg · {PLACE_LABEL[lot.place as StockPlace] ?? lot.place}
-                              {lot.grnId ? (
-                                <>
-                                  {' · '}
-                                  <Link className="underline" href={`/backend/purchase/grns/${lot.grnId}`}>
-                                    {lot.grnCode}
-                                  </Link>
-                                </>
-                              ) : null}
-                            </span>
-                          ))
-                        : batch.status === 'draft'
-                          ? t('cc_production.resin.pickedOnPost', 'Picked when posted (oldest lot first)')
-                          : '—'}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </Card>
-
-          <Card title={t('cc_production.resin.process', 'Process')}>
-            <dl className="grid grid-cols-1 gap-x-8 gap-y-2 text-sm md:grid-cols-2">
-              {STEP_LABELS.map((step) => (
-                <div key={step.key} className="flex justify-between gap-3">
-                  <dt className="text-muted-foreground">
-                    {step.no}. {step.label}
-                  </dt>
-                  <dd>
-                    {batch.process.steps[step.key]?.done ? '✓' : '—'}
-                    {batch.process.steps[step.key]?.ph !== null && batch.process.steps[step.key]?.ph !== undefined ? ` · pH ${batch.process.steps[step.key].ph}` : ''}
-                  </dd>
-                </div>
-              ))}
-              {READINGS.map((reading) => (
-                <div key={reading.key} className="flex justify-between gap-3">
-                  <dt className="text-muted-foreground">
-                    {reading.no}. {reading.label}
-                  </dt>
-                  <dd className="tabular-nums">
-                    {batch.process[reading.key].tempC ?? '—'} °C {batch.process[reading.key].time ? `at ${batch.process[reading.key].time}` : ''}
-                  </dd>
-                </div>
-              ))}
-              <div className="flex justify-between gap-3">
-                <dt className="text-muted-foreground">11. {t('cc_production.resin.gelChecked', 'Gel time checked on hot plate')}</dt>
-                <dd>{batch.process.gelChecked ? '✓' : '—'}</dd>
-              </div>
-              <div className="flex justify-between gap-3">
-                <dt className="text-muted-foreground">12. {t('cc_production.resin.vacuum', 'Water removal under vacuum starts at')}</dt>
-                <dd>{batch.process.vacuumStart ?? '—'}</dd>
-              </div>
-              <div className="flex justify-between gap-3">
-                <dt className="text-muted-foreground">13. {t('cc_production.resin.coolingShort', 'Cooling time to 35–45 °C')}</dt>
-                <dd>{batch.process.coolingDuration ?? '—'}</dd>
-              </div>
-              <div className="flex justify-between gap-3">
-                <dt className="text-muted-foreground">14. {t('cc_production.resin.tests', 'Tests')}</dt>
-                <dd className="tabular-nums">
-                  pH {batch.tests.ph ?? '—'} · {t('cc_production.resin.gel', 'gel')} {batch.tests.gelTimeSec ?? '—'} s · {t('cc_production.resin.visc', 'visc.')} {batch.tests.viscositySec ?? '—'} s · {t('cc_production.resin.solidShort', 'solids')} {batch.tests.solidPct ?? '—'}%
-                </dd>
-              </div>
-            </dl>
-            {batch.notes ? <p className="mt-4 text-sm text-muted-foreground">{batch.notes}</p> : null}
-          </Card>
-
-          <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-            <Card title={t('cc_production.resin.wentTo', 'Went to')}>
-              {batch.resin ? (
-                <p className="text-sm">
-                  {t('cc_production.resin.inTank', '{title} lot {lot} in the resin tank: {left} kg left of {made} kg.', {
-                    title: batch.resin.title ?? 'Resin',
-                    lot: batch.resin.lotNumber ?? '—',
-                    left: kg(batch.resin.leftKg),
-                    made: kg(batch.yieldKg),
-                  })}
-                </p>
-              ) : (
-                <p className="text-sm text-muted-foreground">{batch.status === 'failed' ? t('cc_production.resin.noResin', 'No resin came out of this batch.') : t('cc_production.resin.notPostedYet', 'Not posted yet.')}</p>
-              )}
-              {batch.wentTo.length ? (
-                <ul className="mt-3 space-y-1 text-sm">
-                  {batch.wentTo.map((entry) => (
-                    <li key={`${entry.id}-${entry.label}`}>
-                      <Link className="underline-offset-2 hover:underline" href={`/backend/coating/${entry.id}`}>
-                        {entry.label}
-                      </Link>{' '}
-                      · {kg(entry.kg)} kg
+              <Panel title={t('cc_production.resin.process', 'Process')} icon={FlaskConical}>
+                <dl className="grid grid-cols-1 gap-x-8 text-sm md:grid-cols-2">
+                  {STEP_LABELS.map((step) => (
+                    <div key={step.key} className="flex justify-between gap-3 border-b border-dashed border-border py-1.5">
+                      <dt className="text-muted-foreground">
+                        {step.no}. {step.label}
+                      </dt>
+                      <dd className="font-mono">
+                        {batch.process.steps[step.key]?.done ? '✓' : '—'}
+                        {batch.process.steps[step.key]?.ph !== null && batch.process.steps[step.key]?.ph !== undefined ? ` · pH ${batch.process.steps[step.key].ph}` : ''}
+                      </dd>
+                    </div>
+                  ))}
+                  {READINGS.map((reading) => (
+                    <div key={reading.key} className="flex justify-between gap-3 border-b border-dashed border-border py-1.5">
+                      <dt className="text-muted-foreground">
+                        {reading.no}. {reading.label}
+                      </dt>
+                      <dd className="font-mono tabular-nums">
+                        {batch.process[reading.key].tempC ?? '—'} °C {batch.process[reading.key].time ? `at ${batch.process[reading.key].time}` : ''}
+                      </dd>
+                    </div>
+                  ))}
+                  <div className="flex justify-between gap-3 border-b border-dashed border-border py-1.5">
+                    <dt className="text-muted-foreground">11. {t('cc_production.resin.gelChecked', 'Gel time checked on hot plate')}</dt>
+                    <dd className="font-mono">{batch.process.gelChecked ? '✓' : '—'}</dd>
+                  </div>
+                  <div className="flex justify-between gap-3 border-b border-dashed border-border py-1.5">
+                    <dt className="text-muted-foreground">12. {t('cc_production.resin.vacuum', 'Water removal under vacuum starts at')}</dt>
+                    <dd className="font-mono">{batch.process.vacuumStart ?? '—'}</dd>
+                  </div>
+                  <div className="flex justify-between gap-3 border-b border-dashed border-border py-1.5">
+                    <dt className="text-muted-foreground">13. {t('cc_production.resin.coolingShort', 'Cooling time to 35–45 °C')}</dt>
+                    <dd className="font-mono">{batch.process.coolingDuration ?? '—'}</dd>
+                  </div>
+                  <div className="flex justify-between gap-3 border-b border-dashed border-border py-1.5 md:col-span-2">
+                    <dt className="text-muted-foreground">14. {t('cc_production.resin.tests', 'Tests')}</dt>
+                    <dd className="font-mono tabular-nums">
+                      pH {batch.tests.ph ?? '—'} · {t('cc_production.resin.gel', 'gel')} {batch.tests.gelTimeSec ?? '—'} s · {t('cc_production.resin.visc', 'visc.')} {batch.tests.viscositySec ?? '—'} s · {t('cc_production.resin.solidShort', 'solids')} {batch.tests.solidPct ?? '—'}%
+                    </dd>
+                  </div>
+                </dl>
+                {batch.notes ? <p className="mt-3 text-sm text-muted-foreground">{batch.notes}</p> : null}
+              </Panel>
+            </>
+          }
+          side={
+            <>
+              <Panel title={t('cc_production.resin.signoffs', 'Sign-offs')} icon={Signature} flush>
+                <ul className="divide-y divide-border">
+                  {signoffs.map(([action, label, name, at]) => (
+                    <li key={action} className="flex items-center justify-between gap-3 px-3 py-2">
+                      <span>
+                        <span className="block font-mono text-overline uppercase tracking-widest text-muted-foreground">{label}</span>
+                        <span className="text-sm font-medium">{name ? `${name} · ${when(at)}` : t('cc_production.resin.notSigned', 'Not signed')}</span>
+                      </span>
+                      {canSign && !name ? (
+                        <Button type="button" size="sm" variant="outline" disabled={busy} onClick={() => void act(action)}>
+                          <Signature className="mr-1.5 h-4 w-4" aria-hidden="true" />
+                          {t('cc_production.resin.sign', 'Sign')}
+                        </Button>
+                      ) : null}
                     </li>
                   ))}
                 </ul>
-              ) : batch.resin ? (
-                <p className="mt-2 text-xs text-muted-foreground">{t('cc_production.resin.noCoating', 'No coating run has used it yet.')}</p>
-              ) : null}
-            </Card>
+              </Panel>
 
-            <Card title={t('cc_production.resin.compare', 'Yield against the last 10 {grade} batches', { grade: batch.grade })}>
-              {batch.compare.batches.length ? (
-                <>
-                  <p className="text-sm">
-                    {t('cc_production.resin.average', 'Average {avg}%', { avg: batch.compare.averagePct ?? '—' })}
-                    {delta !== null ? <span className="ml-2 font-semibold">{delta >= 0 ? `+${delta}` : delta} pts</span> : null}
+              <Panel title={t('cc_production.resin.wentTo', 'Went to')} icon={Waypoints} flush>
+                {batch.resin ? (
+                  <p className="border-b border-border px-3 py-2 text-sm">
+                    <Link className="font-mono underline-offset-2 hover:underline" href={recordHref.lot(batch.resin.lotId)}>
+                      {batch.resin.lotNumber ?? '—'}
+                    </Link>{' '}
+                    {t('cc_production.resin.inTankShort', 'in the resin tank: {left} kg left of {made} kg', { left: kg(batch.resin.leftKg), made: kg(batch.yieldKg) })}
                   </p>
-                  <ul className="mt-2 space-y-1 text-xs text-muted-foreground">
-                    {batch.compare.batches.map((entry) => (
-                      <li key={entry.id} className="flex justify-between">
-                        <Link className="font-mono underline-offset-2 hover:underline" href={`/backend/resin/batches/${entry.id}`}>
-                          {entry.batchNo}
+                ) : (
+                  <PanelEmpty>{batch.status === 'failed' ? t('cc_production.resin.noResin', 'No resin came out of this batch.') : t('cc_production.resin.notPostedYet', 'Not posted yet.')}</PanelEmpty>
+                )}
+                {batch.wentTo.length ? (
+                  <ul className="divide-y divide-border text-sm">
+                    {batch.wentTo.map((entry) => (
+                      <li key={`${entry.id}-${entry.label}`} className="even:bg-muted/30">
+                        <Link className="flex justify-between gap-3 px-3 py-2 hover:bg-muted/60" href={recordHref.coatingSheet(entry.id)}>
+                          <span>{entry.label}</span>
+                          <span className="font-mono tabular-nums">{kg(entry.kg)} kg</span>
                         </Link>
-                        <span className="tabular-nums">{entry.yieldPct === null ? '—' : `${entry.yieldPct}%`}</span>
                       </li>
                     ))}
                   </ul>
-                </>
-              ) : (
-                <p className="text-sm text-muted-foreground">{t('cc_production.resin.noCompare', 'No earlier posted batches of this grade.')}</p>
-              )}
-            </Card>
-          </div>
+                ) : batch.resin ? (
+                  <PanelEmpty>{t('cc_production.resin.noCoating', 'No coating run has used it yet.')}</PanelEmpty>
+                ) : null}
+              </Panel>
 
-          <Card title={t('cc_production.resin.history', 'History')}>
-            <ul className="space-y-1.5 text-sm">
-              {[...batch.history].reverse().map((entry, index) => (
-                <li key={`${entry.at}-${index}`} className="flex flex-wrap justify-between gap-2">
-                  <span>
-                    <span className="font-medium">{HISTORY_LABEL[entry.action] ?? entry.action}</span>
-                    {entry.note ? <span className="text-muted-foreground"> · {entry.note}</span> : null}
-                  </span>
-                  <span className="text-xs text-muted-foreground">
-                    {entry.by ?? '—'} · {when(entry.at)}
-                  </span>
-                </li>
-              ))}
-            </ul>
-            {batch.reopenUntil && batch.canReopen ? <p className="mt-3 text-xs text-muted-foreground">{t('cc_production.resin.reopenUntil', 'Can be reopened until {at}.', { at: when(batch.reopenUntil) })}</p> : null}
-          </Card>
-        </div>
+              <Panel title={t('cc_production.resin.compare', 'Yield against the last 10 {grade} batches', { grade: batch.grade })} icon={TrendingUp} flush>
+                {batch.compare.batches.length ? (
+                  <>
+                    <p className="border-b border-border px-3 py-2 text-sm">
+                      {t('cc_production.resin.average', 'Average {avg}%', { avg: batch.compare.averagePct ?? '—' })}
+                      {delta !== null ? <span className="ml-2 font-mono font-semibold">{delta >= 0 ? `+${delta}` : delta} pts</span> : null}
+                    </p>
+                    <ul className="divide-y divide-border text-xs">
+                      {batch.compare.batches.map((entry) => (
+                        <li key={entry.id} className="even:bg-muted/30">
+                          <Link className="flex justify-between px-3 py-1.5 hover:bg-muted/60" href={recordHref.resinBatch(entry.id)}>
+                            <span className="font-mono">{entry.batchNo}</span>
+                            <span className="font-mono tabular-nums">{entry.yieldPct === null ? '—' : `${entry.yieldPct}%`}</span>
+                          </Link>
+                        </li>
+                      ))}
+                    </ul>
+                  </>
+                ) : (
+                  <PanelEmpty>{t('cc_production.resin.noCompare', 'No earlier posted batches of this grade.')}</PanelEmpty>
+                )}
+              </Panel>
+            </>
+          }
+        />
+        <HistoryPanel
+          entries={[...batch.history].reverse().map((entry, index) => ({ key: `${entry.at}-${index}`, label: HISTORY_LABEL[entry.action] ?? entry.action, note: entry.note, by: entry.by, at: entry.at }))}
+          footer={batch.reopenUntil && batch.canReopen ? t('cc_production.resin.reopenUntil', 'Can be reopened until {at}.', { at: when(batch.reopenUntil) }) : undefined}
+        />
+      </RecordPage>
 
         <Dialog open={failing} onOpenChange={(open) => !open && setFailing(false)}>
           <DialogContent
@@ -404,8 +382,7 @@ export function ResinBatchPage({ batchId }: { batchId: string }) {
             </DialogFooter>
           </DialogContent>
         </Dialog>
-      </PageBody>
-    </Page>
+    </>
   )
 }
 

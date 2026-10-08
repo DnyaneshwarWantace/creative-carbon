@@ -5,9 +5,8 @@ import { useGranted } from '../../cc_departments/components/useGranted'
 import { ViewOnlyNote } from '../../cc_departments/components/ViewOnlyNote'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { ArrowLeft, Ban, CheckCircle2, FileMinus, History, Printer, Save } from 'lucide-react'
+import { Ban, CheckCircle2, FileMinus, History, Printer, Save } from 'lucide-react'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
-import { Page, PageBody } from '@open-mercato/ui/backend/Page'
 import { Button } from '@open-mercato/ui/primitives/button'
 import { Input } from '@open-mercato/ui/primitives/input'
 import { Label } from '@open-mercato/ui/primitives/label'
@@ -17,12 +16,12 @@ import { apiCall, withScopedApiRequestHeaders } from '@open-mercato/ui/backend/u
 import { buildOptimisticLockHeader } from '@open-mercato/ui/backend/utils/optimisticLock'
 import { useGuardedMutation } from '@open-mercato/ui/backend/injection/useGuardedMutation'
 import { flash } from '@open-mercato/ui/backend/FlashMessages'
-import { ErrorMessage } from '@open-mercato/ui/backend/detail'
 import { WhatsAppMenu } from '../../cc_products/components/WhatsAppMenu'
 import { dateText, rupeeText } from '../../cc_products/lib/whatsapp'
 import { buildInvoiceHtml, printInvoice } from './invoicePrint'
 import { INVOICE_STATUS, type CompanyView, type InvoiceView } from './types'
-import { PageLoading } from '../../cc_ui/components/PageLoading'
+import { RecordPage, RecordState, formatDay, type Fact } from '../../cc_ui/components/RecordPage'
+import { recordHref } from '../../cc_ui/lib/links'
 
 const HISTORY: Record<string, string> = { created: 'Drafted', edited: 'Edited', quantities: 'Quantities changed', issued: 'Issued', credited: 'Credit note made', cancelled: 'Cancelled' }
 
@@ -111,29 +110,7 @@ export function InvoicePage({ id }: { id: string }) {
     }
   }
 
-  if (loadError) {
-    return (
-      <Page>
-        <PageBody>
-          <div className="mx-auto max-w-xl space-y-4 py-16 text-center">
-            <ErrorMessage label={loadError} />
-            <Button asChild variant="outline">
-              <Link href="/backend/accounts/invoices">{t('cc_accounts.inv.back', 'All invoices')}</Link>
-            </Button>
-          </div>
-        </PageBody>
-      </Page>
-    )
-  }
-  if (!doc || !company) {
-    return (
-      <Page>
-        <PageBody>
-          <PageLoading label={t('cc_accounts.inv.loading', 'Loading invoice…')} />
-        </PageBody>
-      </Page>
-    )
-  }
+  if (loadError || !doc || !company) return <RecordState error={loadError} loadingLabel={t('cc_accounts.inv.loading', 'Loading invoice…')} />
 
   const draft = doc.status === 'draft'
   const credit = doc.kind === 'credit_note'
@@ -159,7 +136,7 @@ export function InvoicePage({ id }: { id: string }) {
     `Dear ${doc.customerName},`,
     '',
     `${credit ? 'Credit note' : 'Tax invoice'} ${doc.code} dated ${dateText(doc.invoiceDate)} for order ${doc.orderNo}${credit && doc.againstCode ? ` (against ${doc.againstCode})` : ''}.`,
-    ...doc.lines.map((line, index) => `${index + 1}. ${line.brandName ? `${line.brandName} ` : ''}${line.title}: ${line.quantity} pcs`),
+    ...doc.lines.map((line, index) => `${index + 1}. ${line.brandName ? `${line.brandName} ` : ''}${line.title}: ${line.quantity}${line.unit ? ` ${line.unit}` : ''}`),
     '',
     `${credit ? 'Credit amount' : 'Amount payable'}: ${rupeeText(doc.totals.payable)}`,
     !credit && doc.dueDate ? `Due by ${dateText(doc.dueDate)}` : null,
@@ -185,65 +162,73 @@ export function InvoicePage({ id }: { id: string }) {
     </div>
   )
 
+  const facts: Fact[] = [
+    { label: t('cc_accounts.inv.date', 'Invoice date'), value: formatDay(doc.invoiceDate) },
+    { label: t('cc_accounts.inv.due', 'Due date'), value: credit ? '—' : formatDay(doc.dueDate), tone: !credit && doc.status === 'issued' && doc.dueDate && doc.dueDate < new Date().toISOString().slice(0, 10) ? 'warn' : undefined },
+    { label: t('cc_accounts.inv.lines', 'Lines'), value: String(doc.lines.length) },
+    { label: t('cc_accounts.inv.taxable', 'Taxable'), value: rupeeText(doc.totals.taxable) },
+    { label: doc.interState ? 'IGST' : 'CGST + SGST', value: rupeeText(doc.totals.gst) },
+    { label: credit ? t('cc_accounts.inv.creditAmount', 'Credit amount') : t('cc_accounts.inv.payable', 'Payable'), value: rupeeText(doc.totals.payable) },
+  ]
+
   return (
-    <Page>
-      <PageBody>
-        <div className="mx-auto flex max-w-7xl flex-col gap-5 pb-16">
-          <header className="flex flex-col gap-4 border-b pb-4 xl:flex-row xl:items-start xl:justify-between">
-            <div className="min-w-0 space-y-1">
-              <Link href="/backend/accounts/invoices" className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground">
-                <ArrowLeft className="h-3 w-3" aria-hidden="true" />
-                {t('cc_accounts.inv.back', 'All invoices')}
-              </Link>
-              <div className="flex flex-wrap items-center gap-2">
-                <h1 className="font-mono text-xl font-bold">{doc.code}</h1>
-                <StatusBadge variant={status.variant} dot>
-                  {status.label}
-                </StatusBadge>
-                <StatusBadge variant={credit ? 'info' : 'neutral'}>{credit ? t('cc_accounts.inv.creditNote', 'Credit note') : t('cc_accounts.inv.taxInvoice', 'Tax invoice')}</StatusBadge>
-              </div>
-              <p className="text-sm text-muted-foreground">
-                <span className="font-medium text-foreground">{doc.customerName}</span> ·{' '}
-                <Link href={`/backend/orders/${doc.orderId}`} className="font-mono text-primary hover:underline">
-                  {doc.orderNo}
-                </Link>{' '}
-                · {rupeeText(doc.totals.payable)} · {doc.interState ? 'IGST' : 'CGST + SGST'}
-                {credit && doc.againstId ? (
-                  <>
-                    {' · '}
-                    <Link href={`/backend/accounts/invoices/${doc.againstId}`} className="font-mono text-primary hover:underline">
-                      {doc.againstCode}
-                    </Link>
-                  </>
-                ) : null}
-              </p>
-            </div>
-            <div className="flex shrink-0 flex-wrap items-center gap-2 xl:justify-end">
-              <WhatsAppMenu phone={phone} recipient={doc.customerName} messages={[{ key: 'inv', label: credit ? t('cc_accounts.inv.waCredit', 'Send the credit note details') : t('cc_accounts.inv.wa', 'Send the invoice details'), hint: `${doc.code} · ${rupeeText(doc.totals.payable)}`, text: message }]} size="default" />
-              <Button type="button" variant="outline" onClick={() => (printInvoice(doc, company) ? null : flash(t('cc_accounts.inv.popup', 'Allow pop-ups to print'), 'error'))}>
-                <Printer className="mr-1.5 h-4 w-4" aria-hidden="true" />
-                {t('cc_accounts.inv.print', 'Print / PDF')}
-              </Button>
-              {draft && canRecord ? (
-                <Button type="button" onClick={() => send('/api/cc_accounts/invoices/action', { id, action: 'issue' }, t('cc_accounts.inv.issued', 'Invoice issued; the order Billing stage has the invoice no.'))} disabled={busy}>
-                  <CheckCircle2 className="mr-1.5 h-4 w-4" aria-hidden="true" />
-                  {t('cc_accounts.inv.issue', 'Issue invoice')}
-                </Button>
-              ) : null}
-              {canRecord && !credit && doc.status === 'issued' ? (
-                <Button type="button" variant="outline" onClick={() => setMode('credit')} disabled={busy}>
-                  <FileMinus className="mr-1.5 h-4 w-4" aria-hidden="true" />
-                  {t('cc_accounts.inv.credit', 'Credit note')}
-                </Button>
-              ) : null}
-              {canRecord && doc.status !== 'cancelled' ? (
-                <Button type="button" variant="destructive-ghost" onClick={() => setMode('cancel')} disabled={busy}>
-                  <Ban className="mr-1.5 h-4 w-4" aria-hidden="true" />
-                  {t('cc_accounts.inv.cancel', 'Cancel')}
-                </Button>
-              ) : null}
-            </div>
-          </header>
+    <RecordPage
+      back={{ href: '/backend/accounts/invoices', label: t('cc_accounts.inv.back', 'All invoices') }}
+      overline={[credit ? t('cc_accounts.inv.creditNote', 'Credit note') : t('cc_accounts.inv.taxInvoice', 'Tax invoice'), doc.customerName].join(' · ')}
+      title={doc.code}
+      badges={
+        <>
+          <StatusBadge variant={status.variant} dot>
+            {status.label}
+          </StatusBadge>
+          {credit && doc.againstId ? (
+            <Link href={recordHref.invoice(doc.againstId)} className="font-mono text-xs underline-offset-2 hover:underline">
+              {t('cc_accounts.inv.against', 'against {code}', { code: doc.againstCode ?? '' })}
+            </Link>
+          ) : null}
+        </>
+      }
+      meta={
+        <>
+          <Link href={recordHref.customer(doc.customerId)} className="underline-offset-2 hover:underline">
+            {doc.customerName}
+          </Link>
+          {' · '}
+          <Link href={recordHref.order(doc.orderId)} className="font-mono underline-offset-2 hover:underline">
+            {doc.orderNo}
+          </Link>
+          {doc.customerGstin ? ` · GSTIN ${doc.customerGstin}` : ''}
+        </>
+      }
+      actions={
+        <>
+          <WhatsAppMenu phone={phone} recipient={doc.customerName} messages={[{ key: 'inv', label: credit ? t('cc_accounts.inv.waCredit', 'Send the credit note details') : t('cc_accounts.inv.wa', 'Send the invoice details'), hint: `${doc.code} · ${rupeeText(doc.totals.payable)}`, text: message }]} />
+          <Button type="button" variant="outline" size="sm" onClick={() => (printInvoice(doc, company) ? null : flash(t('cc_accounts.inv.popup', 'Allow pop-ups to print'), 'error'))}>
+            <Printer className="mr-1.5 h-4 w-4" aria-hidden="true" />
+            {t('cc_accounts.inv.print', 'Print / PDF')}
+          </Button>
+          {draft && canRecord ? (
+            <Button type="button" size="sm" onClick={() => send('/api/cc_accounts/invoices/action', { id, action: 'issue' }, t('cc_accounts.inv.issued', 'Invoice issued; the order Billing stage has the invoice no.'))} disabled={busy}>
+              <CheckCircle2 className="mr-1.5 h-4 w-4" aria-hidden="true" />
+              {t('cc_accounts.inv.issue', 'Issue invoice')}
+            </Button>
+          ) : null}
+          {canRecord && !credit && doc.status === 'issued' ? (
+            <Button type="button" variant="outline" size="sm" onClick={() => setMode('credit')} disabled={busy}>
+              <FileMinus className="mr-1.5 h-4 w-4" aria-hidden="true" />
+              {t('cc_accounts.inv.credit', 'Credit note')}
+            </Button>
+          ) : null}
+          {canRecord && doc.status !== 'cancelled' ? (
+            <Button type="button" variant="destructive-ghost" size="sm" onClick={() => setMode('cancel')} disabled={busy}>
+              <Ban className="mr-1.5 h-4 w-4" aria-hidden="true" />
+              {t('cc_accounts.inv.cancel', 'Cancel')}
+            </Button>
+          ) : null}
+        </>
+      }
+      facts={facts}
+    >
           {!canRecord ? <ViewOnlyNote>{t('cc_accounts.viewOnly', 'View only: making, issuing and cancelling documents is done by Accounts.')}</ViewOnlyNote> : null}
 
           {doc.status === 'cancelled' ? <p className="rounded-lg border bg-muted/40 p-3 text-sm text-muted-foreground">{t('cc_accounts.inv.cancelledNote', 'Cancelled: {reason}', { reason: doc.cancelReason ?? '—' })}</p> : null}
@@ -251,7 +236,7 @@ export function InvoicePage({ id }: { id: string }) {
             <div className={mode === 'cancel' ? 'space-y-3 rounded-lg border border-status-error-border bg-status-error-bg p-3' : 'space-y-3 rounded-lg border p-3'}>
               {mode === 'credit' ? (
                 <div className="space-y-2">
-                  <p className="text-sm font-medium">{t('cc_accounts.inv.creditWhat', 'Pieces to credit (returned, damaged or over-billed)')}</p>
+                  <p className="text-sm font-medium">{t('cc_accounts.inv.creditWhatQty', 'Quantity to credit (returned, damaged or over-billed)')}</p>
                   {doc.lines.map((line) => (
                     <div key={line.orderLineId} className="flex items-center justify-between gap-3 text-sm">
                       <span className="min-w-0 truncate">
@@ -320,7 +305,7 @@ export function InvoicePage({ id }: { id: string }) {
                 </div>
                 {draft && !credit ? (
                   <div className="space-y-2">
-                    <Label className="text-xs text-muted-foreground">{t('cc_accounts.inv.qty', 'Pieces on this invoice (partial billing)')}</Label>
+                    <Label className="text-xs text-muted-foreground">{t('cc_accounts.inv.qtyOnInvoice', 'Quantity on this invoice (partial billing)')}</Label>
                     {doc.lines.map((line) => (
                       <div key={line.orderLineId} className="flex items-center justify-between gap-3 text-sm">
                         <span className="min-w-0 truncate">{line.brandName ?? line.title}</span>
@@ -373,9 +358,7 @@ export function InvoicePage({ id }: { id: string }) {
               </section>
             </div>
           </div>
-        </div>
-      </PageBody>
-    </Page>
+    </RecordPage>
   )
 }
 
