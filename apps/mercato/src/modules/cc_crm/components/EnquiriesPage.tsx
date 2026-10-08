@@ -29,6 +29,12 @@ export function EnquiriesPage() {
   const [data, setData] = React.useState<ListResult | null>(null)
 
   React.useEffect(() => {
+    const requested = new URLSearchParams(window.location.search).get('stage')
+    const match = TABS.find((key) => key === requested)
+    if (match) setTab(match)
+  }, [])
+
+  React.useEffect(() => {
     let cancelled = false
     const timer = window.setTimeout(() => {
       const params = new URLSearchParams({ stage: tab })
