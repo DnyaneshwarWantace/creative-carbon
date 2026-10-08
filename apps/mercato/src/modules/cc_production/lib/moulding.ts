@@ -11,6 +11,7 @@ import { bstageBoard } from './bstage'
 import { clothProducts } from './coating'
 import { gradeMatches } from './press'
 import { PlantError } from './server'
+import { lotCode } from '../../cc_accounts/lib/numberSeries'
 import { consumeLots, freeLots, kg3, lotOnHand, movementTime, pickLots, plantStock, produceLot, returnLots } from './plantStock'
 
 const SOURCE = 'cc_production.moulding'
@@ -26,9 +27,8 @@ function entry(action: string, by: string | null, note: string | null = null): P
 
 const num = (value: string | null | undefined) => (value === null || value === undefined || value === '' ? null : Number(value))
 
-export function mouldedLotNumber(date: string, shift: number, pressNumber: number): string {
-  const [year, month, day] = date.split('-')
-  return `M-${day}${month}${year.slice(2)}-S${shift}-P${String(pressNumber).padStart(2, '0')}`
+export async function mouldedLotNumber(ctx: StoreContext, date: string, shift: number, pressNumber: number, dieNo: string): Promise<string> {
+  return lotCode(ctx, 'LOT_MO', date, { SHIFT: String(shift), MACHINE: String(pressNumber).padStart(2, '0'), DIE: dieNo })
 }
 
 async function chindiProducts(ctx: StoreContext) {
@@ -222,7 +222,7 @@ async function postEntry(ctx: StoreContext, item: MouldingEntry, byName: string 
     if (item.productionNos > 0) {
       const productId = await ensureMouldedProduct(ctx, item)
       const stock = await plantStock(ctx, [productId])
-      const lotNumber = mouldedLotNumber(item.entryDate, item.shift, item.pressNumber)
+      const lotNumber = await mouldedLotNumber(ctx, item.entryDate, item.shift, item.pressNumber, item.dieNo)
       const kg = kg3(item.productionNos * (num(item.articleWeightKg) ?? 0))
       const lotId = await produceLot(ctx, stock, {
         productId,

@@ -19,6 +19,7 @@ import { flash } from '@open-mercato/ui/backend/FlashMessages'
 import { useGranted } from '../../../cc_departments/components/useGranted'
 import { day, kg, thisMonth, todayIso, type ResinSetup } from './shared'
 import { OfflineBadge, isOffline, queueSave } from '../offline'
+import { PlantTable } from '../PlantTable'
 
 type Issue = { id: string; issueDate: string; productTitle: string; kg: number; usedFor: 'coating' | 'other'; dryerCode: string | null; note: string | null; lots: Array<{ lotNumber: string | null; kg: number }>; status: 'posted' | 'cancelled'; byName: string | null; updatedAt: string }
 type Dryer = { id: string; code: string }
@@ -196,40 +197,40 @@ export function ChemicalIssuesPage() {
             <Input type="month" className="w-44" value={month} onChange={(event) => setMonth(event.target.value)} aria-label={t('cc_production.register.month', 'Month')} />
           </div>
 
-          <section className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
-            {!items ? (
-              <div className="flex justify-center py-16">
-                <Spinner />
-              </div>
-            ) : !items.length ? (
-              <EmptyState className="py-14" variant="subtle" icon={<Beaker className="h-5 w-5" aria-hidden="true" />} title={t('cc_production.issues.empty', 'No chemical issues this month')} />
-            ) : (
-              <ul className="divide-y divide-border">
-                {items.map((issue) => (
-                  <li key={issue.id} className="grid grid-cols-1 items-center gap-3 px-5 py-3 md:grid-cols-12">
-                    <p className="text-sm md:col-span-2">{day(issue.issueDate)}</p>
-                    <p className="text-sm font-medium md:col-span-3">{issue.productTitle}</p>
-                    <p className="text-sm tabular-nums md:col-span-2">{kg(issue.kg)} kg</p>
-                    <p className="text-xs text-muted-foreground md:col-span-3">
-                      {issue.usedFor === 'coating' ? `${t('cc_production.issues.coating', 'Coating dryer')} ${issue.dryerCode ?? ''}` : t('cc_production.issues.other', 'Other')}
-                      {issue.note ? ` · ${issue.note}` : ''}
-                      {issue.lots.length ? ` · ${issue.lots.map((lot) => lot.lotNumber ?? '—').join(', ')}` : ''}
-                    </p>
-                    <div className="flex items-center justify-end gap-2 md:col-span-2">
-                      {issue.status === 'cancelled' ? (
-                        <StatusBadge variant="neutral">{t('cc_production.issues.cancelledBadge', 'Cancelled')}</StatusBadge>
-                      ) : canIssue ? (
-                        <Button type="button" size="sm" variant="ghost" onClick={() => setCancelling(issue)}>
-                          <Undo2 className="mr-1 h-4 w-4" aria-hidden="true" />
-                          {t('cc_production.issues.cancel', 'Cancel')}
-                        </Button>
-                      ) : null}
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </section>
+          {!items ? (
+            <div className="flex justify-center py-16">
+              <Spinner />
+            </div>
+          ) : (
+            <PlantTable
+              tableId="cc_production.chemical_issues"
+              rows={items}
+              rowKey={(row) => row.id}
+              empty={<EmptyState className="py-14" variant="subtle" icon={<Beaker className="h-5 w-5" aria-hidden="true" />} title={t('cc_production.issues.empty', 'No chemical issues this month')} />}
+              columns={[
+                { key: 'date', label: t('cc_production.resin.date', 'Date'), alwaysVisible: true, render: (issue) => day(issue.issueDate) },
+                { key: 'chemical', label: t('cc_production.register.item', 'Chemical'), render: (issue) => <span className="font-medium">{issue.productTitle}</span> },
+                { key: 'kg', label: 'kg', align: 'right', render: (issue) => kg(issue.kg) },
+                { key: 'usedFor', label: t('cc_production.issues.usedFor', 'Used for'), render: (issue) => (issue.usedFor === 'coating' ? `${t('cc_production.issues.coating', 'Coating dryer')} ${issue.dryerCode ?? ''}` : t('cc_production.issues.other', 'Other')) },
+                { key: 'lots', label: t('cc_production.resin.lots', 'Lots used'), render: (issue) => <span className="font-mono text-xs">{issue.lots.map((lot) => lot.lotNumber ?? '—').join(', ')}</span> },
+                { key: 'note', label: t('cc_production.issues.note', 'Note'), render: (issue) => issue.note ?? '' },
+                { key: 'by', label: t('cc_production.issues.by', 'By'), hidden: true, render: (issue) => issue.byName ?? '' },
+                {
+                  key: 'status',
+                  label: t('cc_production.resin.status', 'Status'),
+                  render: (issue) =>
+                    issue.status === 'cancelled' ? (
+                      <StatusBadge variant="neutral">{t('cc_production.issues.cancelledBadge', 'Cancelled')}</StatusBadge>
+                    ) : canIssue ? (
+                      <Button type="button" size="sm" variant="ghost" onClick={() => setCancelling(issue)}>
+                        <Undo2 className="mr-1 h-4 w-4" aria-hidden="true" />
+                        {t('cc_production.issues.cancel', 'Cancel')}
+                      </Button>
+                    ) : null,
+                },
+              ]}
+            />
+          )}
         </div>
 
         <Dialog open={Boolean(cancelling)} onOpenChange={(open) => !open && setCancelling(null)}>

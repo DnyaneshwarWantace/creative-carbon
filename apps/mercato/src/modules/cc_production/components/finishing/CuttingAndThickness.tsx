@@ -16,6 +16,7 @@ import { useGranted } from '../../../cc_departments/components/useGranted'
 import { day, kg, thisMonth, todayIso } from '../resin/shared'
 import { lotLabel, selectClass, useSend, useSetup } from './shared'
 import { OfflineBadge, isOffline, queueSave } from '../offline'
+import { PlantTable } from '../PlantTable'
 
 type Cutting = { id: string; entryDate: string; sourceLotNumber: string | null; sheetsIn: number; sourceKgUsed: number; cutSize: string; trimmedKg: number; trimKg: number; trimPct: number; outputLotNumber: string | null; status: string; warnings: string[]; updatedAt: string }
 
@@ -145,50 +146,32 @@ export function CuttingPage() {
               </div>
             </section>
           ) : null}
-          <section className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
-            {!items.length ? (
-              <EmptyState className="py-12" variant="subtle" icon={<Scissors className="h-5 w-5" aria-hidden="true" />} title={t('cc_production.cutting.empty', 'No cutting this month')} />
-            ) : (
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-border bg-muted/50 text-left text-xs uppercase tracking-wide text-muted-foreground">
-                    <th className="px-4 py-2">{t('cc_production.resin.date', 'Date')}</th>
-                    <th className="px-4 py-2">{t('cc_production.cutting.lotShort', 'Lot')}</th>
-                    <th className="px-4 py-2">{t('cc_production.cutting.size', 'Cut size')}</th>
-                    <th className="px-4 py-2 text-right">{t('cc_production.cutting.sheets', 'Sheets')}</th>
-                    <th className="px-4 py-2 text-right">{t('cc_production.cutting.trimmed', 'Trimmed')}</th>
-                    <th className="px-4 py-2 text-right">{t('cc_production.cutting.loss', 'Trim loss')}</th>
-                    <th className="px-4 py-2" />
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border">
-                  {items.map((cut) => (
-                    <tr key={cut.id} className={cut.status === 'reversed' ? 'text-muted-foreground line-through' : undefined}>
-                      <td className="px-4 py-2">{day(cut.entryDate)}</td>
-                      <td className="px-4 py-2 font-mono text-xs">
-                        {cut.sourceLotNumber}
-                        <span className="block text-muted-foreground">→ {cut.outputLotNumber}</span>
-                      </td>
-                      <td className="px-4 py-2">{cut.cutSize}</td>
-                      <td className="px-4 py-2 text-right tabular-nums">{cut.sheetsIn}</td>
-                      <td className="px-4 py-2 text-right tabular-nums">{kg(cut.trimmedKg)} kg</td>
-                      <td className={cn('px-4 py-2 text-right tabular-nums', cut.warnings.length && 'text-status-warning-text')}>
-                        {kg(cut.trimKg)} kg · {cut.trimPct}%
-                      </td>
-                      <td className="px-4 py-2 text-right">
-                        {cut.status === 'posted' && granted.has('cc_production.cutting.enter') ? (
-                          <Button type="button" variant="ghost" size="sm" onClick={() => void reverse(cut)}>
-                            <RotateCcw className="mr-1 h-3.5 w-3.5" aria-hidden="true" />
-                            {t('cc_production.cutting.reverse', 'Reverse')}
-                          </Button>
-                        ) : null}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
-          </section>
+          <PlantTable
+            tableId="cc_production.cutting"
+            rows={items}
+            rowKey={(cut) => cut.id}
+            empty={<EmptyState className="py-12" variant="subtle" icon={<Scissors className="h-5 w-5" aria-hidden="true" />} title={t('cc_production.cutting.empty', 'No cutting this month')} />}
+            columns={[
+              { key: 'date', label: t('cc_production.resin.date', 'Date'), alwaysVisible: true, render: (cut) => <span className={cut.status === 'reversed' ? 'text-muted-foreground line-through' : undefined}>{day(cut.entryDate)}</span> },
+              { key: 'lot', label: t('cc_production.cutting.lotShort', 'Lot'), render: (cut) => <span className="font-mono text-xs">{cut.sourceLotNumber}<span className="block text-muted-foreground">→ {cut.outputLotNumber}</span></span> },
+              { key: 'size', label: t('cc_production.cutting.size', 'Cut size'), render: (cut) => cut.cutSize },
+              { key: 'sheets', label: t('cc_production.cutting.sheets', 'Sheets'), align: 'right', render: (cut) => cut.sheetsIn },
+              { key: 'used', label: t('cc_production.cutting.used', 'From the lot'), align: 'right', hidden: true, render: (cut) => `${kg(cut.sourceKgUsed)} kg` },
+              { key: 'trimmed', label: t('cc_production.cutting.trimmed', 'Trimmed'), align: 'right', render: (cut) => `${kg(cut.trimmedKg)} kg` },
+              { key: 'loss', label: t('cc_production.cutting.loss', 'Trim loss'), align: 'right', render: (cut) => <span className={cut.warnings.length ? 'text-status-warning-text' : undefined}>{kg(cut.trimKg)} kg · {cut.trimPct}%</span> },
+              {
+                key: 'actions',
+                label: '',
+                render: (cut) =>
+                  cut.status === 'posted' && granted.has('cc_production.cutting.enter') ? (
+                    <Button type="button" variant="ghost" size="sm" onClick={() => void reverse(cut)}>
+                      <RotateCcw className="mr-1 h-3.5 w-3.5" aria-hidden="true" />
+                      {t('cc_production.cutting.reverse', 'Reverse')}
+                    </Button>
+                  ) : null,
+              },
+            ]}
+          />
         </div>
       </PageBody>
     </Page>
@@ -328,34 +311,22 @@ export function ThicknessPage() {
               </div>
             </section>
           ) : null}
-          <section className="grid grid-cols-1 gap-3 md:grid-cols-2">
-            {items.map((item) => (
-              <article key={item.id} className="rounded-xl border border-border bg-card p-4 shadow-sm">
-                <div className="flex items-start justify-between gap-2">
-                  <div>
-                    <p className="font-mono text-sm font-semibold">{item.lotRef}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {day(item.inspectDate)} · {[item.grade, item.daylight].filter(Boolean).join(' · ')} · {item.targetMm} mm
-                      {item.plusMm !== null || item.minusMm !== null ? ` (−${item.minusMm ?? 0} / +${item.plusMm ?? 0})` : ''}
-                    </p>
-                  </div>
-                  <StatusBadge variant={item.result === 'pass' ? 'success' : 'error'} dot>
-                    {item.result === 'pass' ? 'Pass' : `Hold · ${item.outOfTolerance} out`}
-                  </StatusBadge>
-                </div>
-                <div className="mt-2 inline-grid grid-cols-4 gap-x-3 gap-y-0.5 font-mono text-xs tabular-nums">
-                  {ROW_LABELS.map((label, row) => (
-                    <React.Fragment key={row}>
-                      <span className="text-muted-foreground">{label}</span>
-                      {item.readings.slice(row * 3, row * 3 + 3).map((reading, column) => (
-                        <span key={column}>{reading}</span>
-                      ))}
-                    </React.Fragment>
-                  ))}
-                </div>
-              </article>
-            ))}
-          </section>
+          <PlantTable
+            tableId="cc_production.thickness"
+            rows={items}
+            rowKey={(item) => item.id}
+            columns={[
+              { key: 'date', label: t('cc_production.resin.date', 'Date'), alwaysVisible: true, render: (item) => day(item.inspectDate) },
+              { key: 'lot', label: t('cc_production.thickness.ref', 'Lot ref'), render: (item) => <span className="font-mono text-xs">{item.lotRef}</span> },
+              { key: 'grade', label: t('cc_production.press.grade', 'Grade'), render: (item) => item.grade ?? '' },
+              { key: 'daylight', label: t('cc_production.press.daylight', 'Daylight'), render: (item) => item.daylight ?? '' },
+              { key: 'target', label: t('cc_production.thickness.target', 'Target mm'), align: 'right', render: (item) => item.targetMm },
+              { key: 'tolerance', label: t('cc_production.thickness.tolerance', 'Tolerance'), render: (item) => (item.plusMm !== null || item.minusMm !== null ? `−${item.minusMm ?? 0} / +${item.plusMm ?? 0}` : '—') },
+              { key: 'readings', label: t('cc_production.thickness.readings', '12 readings'), render: (item) => <span className="font-mono text-xs">{item.readings.join(' ')}</span> },
+              { key: 'inspector', label: t('cc_production.fg.inspector', 'Q.C. inspector'), hidden: true, render: (item) => item.inspector ?? '' },
+              { key: 'result', label: t('cc_production.lab.result', 'Result'), render: (item) => <StatusBadge variant={item.result === 'pass' ? 'success' : 'error'} dot>{item.result === 'pass' ? 'Pass' : `Hold · ${item.outOfTolerance} out`}</StatusBadge> },
+            ]}
+          />
         </div>
       </PageBody>
     </Page>

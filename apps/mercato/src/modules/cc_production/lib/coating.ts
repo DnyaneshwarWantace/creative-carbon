@@ -6,6 +6,8 @@ import { CoatingSheet, Dryer, ResinBatch, type CoatingRow, type CoatingSlot, typ
 import { COATING_SLOTS, type CoatingSheetInput } from '../data/validators'
 import { cancelIssue, createIssue, findIssue } from './chemicals'
 import { PlantError } from './server'
+import { lotCode } from '../../cc_accounts/lib/numberSeries'
+import { activeOptions } from '../../cc_lists/lib/service'
 import { consumeLots, freeLots, kg3, lotOnHand, movementTime, pickLots, plantStock, produceLot, returnLots, type FreeLot, type PickedLot } from './plantStock'
 import { CHEMICAL_PLACES, chemicalProducts } from './resin'
 import { sheetFigures } from './coatingFigures'
@@ -38,9 +40,8 @@ function dryerTag(code: string): string {
   return digits ? `D${digits}` : code.slice(0, 1).toUpperCase()
 }
 
-export function bstageLotNumber(sheetDate: string, dryerCode: string, sn: number): string {
-  const [year, month, day] = sheetDate.split('-')
-  return `B-${day}${month}${year.slice(2)}-${dryerTag(dryerCode)}-${sn}`
+export async function bstageLotNumber(ctx: StoreContext, sheetDate: string, dryerCode: string, sn: number): Promise<string> {
+  return lotCode(ctx, 'LOT_BS', sheetDate, { DRYER: dryerTag(dryerCode), SN: String(sn) })
 }
 
 export function defaultSlots(): CoatingSlot[] {
@@ -89,6 +90,7 @@ export async function coatingSetup(ctx: StoreContext) {
     cloths: cloths.map((cloth) => ({ ...cloth, free: kg3((lots.get(cloth.id) ?? []).reduce((sum, lot) => sum + lot.free, 0)) })),
     resinLots: (await tankResinLots(ctx)).map((lot) => ({ lotId: lot.lotId, lotNumber: lot.lotNumber, productId: lot.productId, title: lot.title, grade: lot.grade, free: lot.free, batchId: lot.batchId })),
     slots: [...COATING_SLOTS],
+    scrapReasons: await activeOptions(ctx, 'bstage_scrap_reasons'),
     bands: { rc: DEFAULT_RC, vc: DEFAULT_VC },
   }
 }
@@ -281,7 +283,7 @@ export async function postSheet(ctx: StoreContext, sheet: CoatingSheet, byName: 
       }
       const product = await bstageProductFor(ctx, row.clothTitle, resin.grade ?? 'PF')
       const bstageStock = await plantStock(ctx, [product.id])
-      const lotNumber = bstageLotNumber(sheet.sheetDate, sheet.dryerCode, row.sn)
+      const lotNumber = await bstageLotNumber(ctx, sheet.sheetDate, sheet.dryerCode, row.sn)
       const resinBatchNo = batchNoByLot.get(resin.lotId) ?? resin.lotNumber
       const lotId = await produceLot(ctx, bstageStock, {
         productId: product.id,

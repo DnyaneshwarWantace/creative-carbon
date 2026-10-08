@@ -174,13 +174,13 @@ export const vendorBillListSchema = z.object({
 export type VendorBillInput = z.infer<typeof vendorBillInputSchema>
 export type VendorBillAction = z.infer<typeof vendorBillActionSchema>
 
-const seriesText = z.string().max(40).regex(/^[A-Za-z0-9/\-_.{}]*$/, 'Use letters, digits, / - _ . and {FY} {YYYY} {YY} {MM} only')
+const seriesText = z.string().max(60).regex(/^[A-Za-z0-9/\-_. {}]*$/, 'Use letters, digits, spaces, / - _ . and the {…} codes only')
 
 export const numberSeriesInputSchema = z.object({
   items: z
     .array(
       z.object({
-        key: z.enum(['SO', 'PI', 'INV', 'CN', 'VB', 'IND', 'PO', 'GR', 'QC', 'QR', 'MR', 'PL', 'RD']),
+        key: z.enum(['SO', 'PI', 'INV', 'CN', 'VB', 'IND', 'PO', 'GR', 'SKU', 'RB', 'PB', 'LOT_BS', 'LOT_PR', 'LOT_MO', 'LOT_CUT', 'LOT_FG', 'LOT_BI']),
         prefix: seriesText.min(1, 'Prefix cannot be empty'),
         suffix: seriesText.optional().nullable(),
         pad: z.coerce.number().int().min(1).max(8),
@@ -188,7 +188,7 @@ export const numberSeriesInputSchema = z.object({
       }),
     )
     .min(1)
-    .max(20),
+    .max(40),
 })
 
 export const tallyQuerySchema = z.object({

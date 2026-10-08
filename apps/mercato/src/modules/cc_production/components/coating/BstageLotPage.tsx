@@ -31,6 +31,11 @@ export function BstageLotPage({ lotId }: { lotId: string }) {
   const [scrapKg, setScrapKg] = React.useState('')
   const [reason, setReason] = React.useState('')
   const [busy, setBusy] = React.useState(false)
+  const [scrapReasons, setScrapReasons] = React.useState<string[]>([])
+
+  React.useEffect(() => {
+    void apiCall<{ scrapReasons?: string[] }>('/api/cc_production/coating/setup').then((call) => setScrapReasons(call.result?.scrapReasons ?? []))
+  }, [])
 
   const load = React.useCallback(async () => {
     const call = await apiCall<LotView>(`/api/cc_production/bstage?lotId=${encodeURIComponent(lotId)}`)
@@ -164,6 +169,13 @@ export function BstageLotPage({ lotId }: { lotId: string }) {
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="scrap-reason">{t('cc_production.issues.why', 'Why')}</Label>
+                <div className="flex flex-wrap gap-1.5">
+                  {scrapReasons.map((option) => (
+                    <Button key={option} type="button" size="sm" variant={reason === option ? 'default' : 'outline'} onClick={() => setReason(option)}>
+                      {option}
+                    </Button>
+                  ))}
+                </div>
                 <Textarea id="scrap-reason" rows={2} value={reason} onChange={(event) => setReason(event.target.value)} />
               </div>
             </div>

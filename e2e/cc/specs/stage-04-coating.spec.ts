@@ -74,6 +74,7 @@ test.describe.serial('Stage 4 · coating (dryer sheets) and the B-stage board', 
   let dryer: (code: string) => { id: string; code: string }
   let cloth: (title: string) => { id: string; title: string }
   let resinBatch: { id: string; batchNo: string; updatedAt: string }
+  let resinLotId = ''
   let dryer2: Sheet
 
   test('the dryer sheet knows the dryers, the mixer oven and the cloths', async ({ request }) => {
@@ -100,6 +101,7 @@ test.describe.serial('Stage 4 · coating (dryer sheets) and the B-stage board', 
     const posted = await request.post('/api/cc_production/resin/batches/action', { data: { id: draft.id, action: 'post' }, headers: { [LOCK]: draft.updatedAt } })
     expect(posted.ok(), await posted.text()).toBeTruthy()
     resinBatch = (await posted.json()) as typeof resinBatch
+    resinLotId = (await coatingSetup(request)).resinLots.find((lot) => lot.lotNumber === resinBatch.batchNo)!.lotId
   })
 
   test('the 3 July Dryer 2 sheet (photo figures, test year) types in and gives the ringed totals: 861 kg raw, 786 nos, 1570 kg output', async ({ request }) => {
@@ -108,10 +110,10 @@ test.describe.serial('Stage 4 · coating (dryer sheets) and the B-stage board', 
       sheetDate: PAPER_DATE,
       dryerId: dryer('Dryer 2').id,
       rows: [
-        { sn: 1, clothProductId: cloth('10x10').id, gsm: 300, kushan: 1070, treatedWeight: 1960, rawKg: 347, balanceRawKg: 0, coatedNos: 325, rcPct: 45, vcPct: 3.3 },
-        { sn: 2, clothProductId: cloth('10x10').id, gsm: 300, kushan: 980, treatedWeight: 1790, rawKg: 151, balanceRawKg: 0, coatedNos: 160, rcPct: 45, vcPct: 3.1 },
-        { sn: 3, clothProductId: cloth('6x6').id, gsm: 400, kushan: 1240, treatedWeight: 2260, rawKg: 298, balanceRawKg: 0, coatedNos: 235, rcPct: 45, vcPct: 3.4 },
-        { sn: 4, clothProductId: cloth('G 6x6').id, gsm: 280, kushan: 980, treatedWeight: 1760, rawKg: 65, balanceRawKg: 0, coatedNos: 66, rcPct: 44, vcPct: 3.2 },
+        { sn: 1, clothProductId: cloth('10x10').id, gsm: 300, kushan: 1070, treatedWeight: 1960, rawKg: 347, balanceRawKg: 0, coatedNos: 325, rcPct: 45, vcPct: 3.3, resinLotId },
+        { sn: 2, clothProductId: cloth('10x10').id, gsm: 300, kushan: 980, treatedWeight: 1790, rawKg: 151, balanceRawKg: 0, coatedNos: 160, rcPct: 45, vcPct: 3.1, resinLotId },
+        { sn: 3, clothProductId: cloth('6x6').id, gsm: 400, kushan: 1240, treatedWeight: 2260, rawKg: 298, balanceRawKg: 0, coatedNos: 235, rcPct: 45, vcPct: 3.4, resinLotId },
+        { sn: 4, clothProductId: cloth('G 6x6').id, gsm: 280, kushan: 980, treatedWeight: 1760, rawKg: 65, balanceRawKg: 0, coatedNos: 66, rcPct: 44, vcPct: 3.2, resinLotId },
       ],
       slots: [
         { time: '8.00', outputKg: 637 },

@@ -1,5 +1,5 @@
 import { Reactor, ResinBatch } from '../../data/entities'
-import { RESIN_GRADES, resinBatchInputSchema } from '../../data/validators'
+import { resinBatchInputSchema } from '../../data/validators'
 import { createBatch, chemicalProducts, failBatch, nextBatchNo, postBatch, STANDARD_MATERIALS, updateBatch } from '../resin'
 import { PlantError } from '../server'
 import type { UploadColumn, UploadRegister, UploadRowError } from './types'
@@ -17,7 +17,7 @@ const COLUMNS: UploadColumn[] = [
   { key: 'date', label: 'Date', kind: 'date', required: true, aliases: ['Dt', 'Dt.'] },
   { key: 'vessel', label: 'Vessel', kind: 'text', required: true, aliases: ['Reactor', 'Vessel No'], example: 'CCCPL-VES-2' },
   { key: 'batchNo', label: 'Batch No.', kind: 'text', aliases: ['Batch', 'Batch No'], example: 'Blank = next number' },
-  { key: 'grade', label: 'Grade', kind: 'select', required: true, options: [...RESIN_GRADES] },
+  { key: 'grade', label: 'Grade', kind: 'select', required: true, listKey: 'resin_grades' },
   ...STANDARD_MATERIALS.map((name) => ({ key: materialKey(name), label: `${name} (kg)`, kind: 'number' as const, aliases: [name] })),
   ...READING_COLUMNS.flatMap((reading) => [
     { key: `${reading.key}_temp`, label: `${reading.label} °C`, kind: 'number' as const },
@@ -96,7 +96,7 @@ export const resinBatchRegister: UploadRegister = {
         })
         if (!parsed.success) {
           const field = parsed.error.issues[0]?.path.join('.') ?? ''
-          throw new PlantError(field.startsWith('grade') ? 'Grade must be PFC, PFA, PFAC or E-GLASS' : field.startsWith('batchDate') ? 'Date is not a date' : `Check ${field}`)
+          throw new PlantError(field.startsWith('grade') ? 'Grade is missing' : field.startsWith('batchDate') ? 'Date is not a date' : `Check ${field}`)
         }
         const input = parsed.data
         const wantsPost = (values.post ?? '').toLowerCase().startsWith('y')
@@ -106,9 +106,9 @@ export const resinBatchRegister: UploadRegister = {
 
         let batchNo = input.batchNo
         if (!batchNo) {
-          const base = nextNumbers.get(input.batchDate) ?? Number((await nextBatchNo(ctx, input.batchDate)).split('/').pop())
-          batchNo = `CCCPL/${input.batchDate.slice(8, 10)}${input.batchDate.slice(5, 7)}${input.batchDate.slice(2, 4)}/${String(base).padStart(2, '0')}`
-          nextNumbers.set(input.batchDate, base + 1)
+          const offset = nextNumbers.get(input.batchDate) ?? 0
+          batchNo = await nextBatchNo(ctx, input.batchDate, offset)
+          nextNumbers.set(input.batchDate, offset + 1)
         }
         if (usedNumbers.has(batchNo)) throw new PlantError(`Batch No. ${batchNo} appears twice in this file`)
         usedNumbers.add(batchNo)

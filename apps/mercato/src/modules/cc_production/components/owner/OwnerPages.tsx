@@ -17,6 +17,7 @@ import { useGranted } from '../../../cc_departments/components/useGranted'
 import { day, kg, todayIso, when } from '../resin/shared'
 import { selectClass, useSend } from '../finishing/shared'
 import { OfflineBadge, usePlantPwa } from '../offline'
+import { PlantTable } from '../PlantTable'
 
 type PlanRow = { area: string; resource: string; item: string | null; plannedQty: number; unit: string; actual: number; pct: number | null }
 type Overview = {
@@ -328,6 +329,31 @@ const KINDS: Array<{ value: string; label: string }> = [
   { value: 'bought_in', label: 'Bought-in' },
 ]
 
+function StockLots({ row }: { row: StockRow }) {
+  const [lots, setLots] = React.useState<LotRow[] | null>(null)
+  React.useEffect(() => {
+    void apiCall<{ items: LotRow[] }>(`/api/cc_production/finishing/lots?kinds=${row.kind}`, undefined, { fallback: { items: [] } }).then((call) => setLots((call.result?.items ?? []).filter((lot) => lot.productId === row.productId && lot.place === row.place)))
+  }, [row.kind, row.productId, row.place])
+  if (!lots) return <Spinner />
+  return (
+    <ul className="space-y-1 text-xs">
+      {lots.map((lot) => (
+        <li key={lot.lotId} className="flex justify-between gap-3">
+          <Link className="font-mono underline-offset-2 hover:underline" href={`/backend/stock/lots/${lot.lotId}`} onClick={(event) => event.stopPropagation()}>
+            {lot.lotNumber}
+          </Link>
+          <span className="tabular-nums text-muted-foreground">
+            {kg(lot.onHand)} {lot.unit === 'nos' ? 'pcs' : 'kg'}
+            {lot.nosLeft !== null && lot.unit !== 'nos' ? ` · ${lot.nosLeft} nos` : ''}
+            {lot.madeOn ? ` · ${day(lot.madeOn)}` : ''}
+            {lot.status !== 'available' ? ` · ${lot.status}` : ''}
+          </span>
+        </li>
+      ))}
+    </ul>
+  )
+}
+
 export function StockGridPage() {
   const t = useT()
   const granted = useGranted()
@@ -335,8 +361,6 @@ export function StockGridPage() {
   const [place, setPlace] = React.useState('')
   const [search, setSearch] = React.useState('')
   const [grid, setGrid] = React.useState<StockGrid | null>(null)
-  const [open, setOpen] = React.useState<string | null>(null)
-  const [lots, setLots] = React.useState<LotRow[]>([])
 
   React.useEffect(() => {
     let cancelled = false
@@ -353,17 +377,6 @@ export function StockGridPage() {
       window.clearTimeout(handle)
     }
   }, [kind, place, search])
-
-  const toggle = async (row: StockRow) => {
-    const rowKey = `${row.productId}|${row.place}`
-    if (open === rowKey) {
-      setOpen(null)
-      return
-    }
-    setOpen(rowKey)
-    const call = await apiCall<{ items: LotRow[] }>(`/api/cc_production/finishing/lots?kinds=${row.kind}`, undefined, { fallback: { items: [] } })
-    setLots((call.result?.items ?? []).filter((lot) => lot.productId === row.productId && lot.place === row.place))
-  }
 
   return (
     <Page>
@@ -410,72 +423,29 @@ export function StockGridPage() {
               </span>
             ) : null}
           </div>
-          <section className="overflow-x-auto rounded-xl border border-border bg-card shadow-sm">
-            {!grid ? (
-              <div className="flex justify-center py-16">
-                <Spinner />
-              </div>
-            ) : (
-              <table className="w-full min-w-200 text-sm">
-                <thead>
-                  <tr className="border-b border-border bg-muted/50 text-left text-xs uppercase tracking-wide text-muted-foreground">
-                    <th className="px-4 py-2">{t('cc_production.stock.item', 'Item')}</th>
-                    <th className="px-4 py-2">{t('cc_production.stock.type', 'Type')}</th>
-                    <th className="px-4 py-2">{t('cc_production.stock.store', 'Store')}</th>
-                    <th className="px-4 py-2 text-right">{t('cc_production.stock.qty', 'kg / pcs')}</th>
-                    <th className="px-4 py-2 text-right">{t('cc_production.stock.nos', 'Nos')}</th>
-                    <th className="px-4 py-2 text-right">{t('cc_production.stock.lots', 'Lots')}</th>
-                    <th className="px-4 py-2 text-right">{t('cc_production.stock.oldest', 'Oldest')}</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border">
-                  {grid.items.map((row) => {
-                    const rowKey = `${row.productId}|${row.place}`
-                    return (
-                      <React.Fragment key={rowKey}>
-                        <tr className="cursor-pointer hover:bg-muted/40" onClick={() => void toggle(row)}>
-                          <td className="px-4 py-2 font-medium">
-                            {row.title}
-                            {row.reorder ? <span className="ml-2 rounded bg-status-warning-bg px-1.5 py-0.5 text-xs text-status-warning-text">{t('cc_production.stock.reorder', 'reorder')}</span> : null}
-                          </td>
-                          <td className="px-4 py-2 text-xs text-muted-foreground">{KINDS.find((option) => option.value === row.kind)?.label ?? row.kind}</td>
-                          <td className="px-4 py-2 text-xs">{row.placeLabel}</td>
-                          <td className="px-4 py-2 text-right tabular-nums">
-                            {kg(row.qty)} {row.unit === 'nos' ? 'pcs' : 'kg'}
-                            {row.onHold ? <span className="block text-xs text-status-warning-text">{kg(row.onHold)} on hold</span> : null}
-                          </td>
-                          <td className="px-4 py-2 text-right tabular-nums">{row.nos ?? ''}</td>
-                          <td className="px-4 py-2 text-right tabular-nums">{row.lots}</td>
-                          <td className="px-4 py-2 text-right tabular-nums">{row.oldestDays === null ? '—' : `${row.oldestDays} d`}</td>
-                        </tr>
-                        {open === rowKey ? (
-                          <tr>
-                            <td colSpan={7} className="bg-muted/30 px-6 py-2">
-                              <ul className="space-y-1 text-xs">
-                                {lots.map((lot) => (
-                                  <li key={lot.lotId} className="flex justify-between gap-3">
-                                    <Link className="font-mono underline-offset-2 hover:underline" href={`/backend/stock/lots/${lot.lotId}`}>
-                                      {lot.lotNumber}
-                                    </Link>
-                                    <span className="tabular-nums text-muted-foreground">
-                                      {kg(lot.onHand)} {lot.unit === 'nos' ? 'pcs' : 'kg'}
-                                      {lot.nosLeft !== null && lot.unit !== 'nos' ? ` · ${lot.nosLeft} nos` : ''}
-                                      {lot.madeOn ? ` · ${day(lot.madeOn)}` : ''}
-                                      {lot.status !== 'available' ? ` · ${lot.status}` : ''}
-                                    </span>
-                                  </li>
-                                ))}
-                              </ul>
-                            </td>
-                          </tr>
-                        ) : null}
-                      </React.Fragment>
-                    )
-                  })}
-                </tbody>
-              </table>
-            )}
-          </section>
+          {!grid ? (
+            <div className="flex justify-center py-16">
+              <Spinner />
+            </div>
+          ) : (
+            <PlantTable
+              tableId="cc_production.stock_grid"
+              rows={grid.items}
+              rowKey={(row) => `${row.productId}|${row.place}`}
+              renderExpanded={(row) => <StockLots row={row} />}
+              columns={[
+                { key: 'item', label: t('cc_production.stock.item', 'Item'), alwaysVisible: true, render: (row) => <span className="font-medium">{row.title}{row.reorder ? <span className="ml-2 rounded bg-status-warning-bg px-1.5 py-0.5 text-xs text-status-warning-text">{t('cc_production.stock.reorder', 'reorder')}</span> : null}</span> },
+                { key: 'type', label: t('cc_production.stock.type', 'Type'), render: (row) => <span className="text-xs text-muted-foreground">{KINDS.find((option) => option.value === row.kind)?.label ?? row.kind}</span> },
+                { key: 'store', label: t('cc_production.stock.store', 'Store'), render: (row) => <span className="text-xs">{row.placeLabel}</span> },
+                { key: 'qty', label: t('cc_production.stock.qty', 'kg / pcs'), align: 'right', render: (row) => <span>{kg(row.qty)} {row.unit === 'nos' ? 'pcs' : 'kg'}{row.onHold ? <span className="block text-xs text-status-warning-text">{kg(row.onHold)} on hold</span> : null}</span> },
+                { key: 'free', label: t('cc_production.stock.free', 'Free'), align: 'right', hidden: true, render: (row) => kg(row.free) },
+                { key: 'nos', label: t('cc_production.stock.nos', 'Nos'), align: 'right', render: (row) => row.nos ?? '' },
+                { key: 'lots', label: t('cc_production.stock.lots', 'Lots'), align: 'right', render: (row) => row.lots },
+                { key: 'oldest', label: t('cc_production.stock.oldest', 'Oldest'), align: 'right', render: (row) => (row.oldestDays === null ? '—' : `${row.oldestDays} d`) },
+                { key: 'reorderPoint', label: t('cc_production.stock.reorderPoint', 'Reorder at'), align: 'right', hidden: true, render: (row) => row.reorderPoint ?? '' },
+              ]}
+            />
+          )}
         </div>
       </PageBody>
     </Page>

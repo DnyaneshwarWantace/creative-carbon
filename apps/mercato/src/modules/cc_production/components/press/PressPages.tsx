@@ -15,6 +15,7 @@ import { apiCall } from '@open-mercato/ui/backend/utils/apiCall'
 import { useGranted } from '../../../cc_departments/components/useGranted'
 import { day, kg, thisMonth, todayIso } from '../resin/shared'
 import { PRESS_STATUS, weightText, type PressBatchRow, type PressBatchView, type PressSetup } from './shared'
+import { PlantTable } from '../PlantTable'
 
 function shortDate(iso: string): string {
   const [year, month, dayOfMonth] = iso.split('-')
@@ -93,39 +94,31 @@ export function PressBatchesPage() {
             </div>
           ) : null}
 
-          <section className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
-            {!items ? (
-              <div className="flex justify-center py-16">
-                <Spinner />
-              </div>
-            ) : !items.length ? (
-              <EmptyState className="py-14" variant="subtle" icon={<ClipboardList className="h-5 w-5" aria-hidden="true" />} title={t('cc_production.press.empty', 'No press batches this month')} />
-            ) : (
-              <ul className="divide-y divide-border">
-                {items.map((row) => (
-                  <li key={row.id}>
-                    <Link href={`/backend/press/batches/${row.id}`} className="group grid grid-cols-1 items-center gap-3 px-5 py-4 transition-colors hover:bg-muted/40 md:grid-cols-12">
-                      <div className="md:col-span-3">
-                        <p className="font-mono text-sm font-semibold">{row.batchNo}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {day(row.batchDate)} · {t('cc_production.press.pressShort', 'Press {no}', { no: row.pressNumber })}
-                        </p>
-                      </div>
-                      <p className="text-xs text-muted-foreground md:col-span-5">{row.sizeLines.map((line, index) => `${line.grade} ${row.paperLines[index]}`).join(' · ')}</p>
-                      <p className="text-sm font-semibold tabular-nums md:col-span-2">{kg(row.totalKg)} kg</p>
-                      <div className="flex items-center justify-between gap-2 md:col-span-2 md:justify-end">
-                        {row.warnings ? <span className="text-xs text-status-warning-text">{row.warnings} ⚠</span> : null}
-                        <StatusBadge variant={PRESS_STATUS[row.status].variant} dot>
-                          {PRESS_STATUS[row.status].label}
-                        </StatusBadge>
-                        <ChevronRight className="h-4 w-4 text-muted-foreground transition-transform group-hover:translate-x-0.5" aria-hidden="true" />
-                      </div>
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </section>
+          {!items ? (
+            <div className="flex justify-center py-16">
+              <Spinner />
+            </div>
+          ) : (
+            <PlantTable
+              tableId="cc_production.press_batches"
+              rows={items}
+              rowKey={(row) => row.id}
+              rowHref={(row) => `/backend/press/batches/${row.id}`}
+              empty={<EmptyState className="py-14" variant="subtle" icon={<ClipboardList className="h-5 w-5" aria-hidden="true" />} title={t('cc_production.press.empty', 'No press batches this month')} />}
+              columns={[
+                { key: 'batchNo', label: t('cc_production.press.batchNo', 'Batch No.'), alwaysVisible: true, render: (row) => <span className="font-mono font-semibold">{row.batchNo}</span> },
+                { key: 'date', label: t('cc_production.resin.date', 'Date'), render: (row) => day(row.batchDate) },
+                { key: 'press', label: t('cc_production.press.press', 'Press No.'), render: (row) => row.pressNumber },
+                { key: 'item', label: t('cc_production.press.item', 'Item description'), render: (row) => <span className="text-xs">{row.sizeLines.map((line, index) => `${line.grade} ${row.paperLines[index]}`).join(' · ')}</span> },
+                { key: 'sheets', label: t('cc_production.press.sheets', 'Sheets'), align: 'right', render: (row) => row.totalSheets },
+                { key: 'kg', label: t('cc_production.press.total', 'Total kg'), align: 'right', render: (row) => kg(row.totalKg) },
+                { key: 'warnings', label: t('cc_production.press.warnings', 'Out of range'), align: 'right', render: (row) => (row.warnings ? <span className="text-status-warning-text">{row.warnings}</span> : '') },
+                { key: 'checkedBy', label: t('cc_production.press.checkedBy', 'Checked by'), hidden: true, render: (row) => row.checkedBy ?? '' },
+                { key: 'reviewedBy', label: t('cc_production.press.reviewedShort', 'Reviewed'), hidden: true, render: (row) => row.reviewedBy ?? '' },
+                { key: 'status', label: t('cc_production.resin.status', 'Status'), render: (row) => <StatusBadge variant={PRESS_STATUS[row.status].variant} dot>{PRESS_STATUS[row.status].label}</StatusBadge> },
+              ]}
+            />
+          )}
         </div>
       </PageBody>
     </Page>

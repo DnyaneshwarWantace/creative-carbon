@@ -14,7 +14,7 @@ import { useGuardedMutation } from '@open-mercato/ui/backend/injection/useGuarde
 import { flash } from '@open-mercato/ui/backend/FlashMessages'
 
 type Setting = { prefix: string; suffix: string; pad: number; startAt: number }
-type Series = Setting & { key: string; label: string; department: string; defaults: Setting; lastUsed: number; next: string }
+type Series = Setting & { key: string; label: string; department: string; defaults: Setting; lastUsed: number; next: string; kind?: 'series' | 'template'; tokens?: string[]; sample?: Record<string, string> }
 type Payload = { items: Series[]; updatedAt: string | null; hasCompany: boolean }
 
 function financialYear(date: Date): string {
@@ -28,6 +28,11 @@ function render(template: string, date: Date): string {
     .replace(/\{YYYY\}/g, String(date.getFullYear()))
     .replace(/\{YY\}/g, String(date.getFullYear()).slice(-2))
     .replace(/\{MM\}/g, String(date.getMonth() + 1).padStart(2, '0'))
+    .replace(/\{DD\}/g, String(date.getDate()).padStart(2, '0'))
+}
+
+function templatePreview(format: string, sample: Record<string, string>): string {
+  return render(format, new Date()).replace(/\{([A-Z]+)\}/g, (match, token: string) => sample[token] ?? match)
 }
 
 function preview(row: Setting, lastUsed: number, samePrefix: boolean): string {
@@ -96,7 +101,7 @@ export function NumberSeriesPage() {
             <div className="space-y-1">
               <h1 className="text-2xl font-bold tracking-tight">{t('cc_accounts.series.title', 'Number series')}</h1>
               <p className="max-w-3xl text-sm text-muted-foreground">
-                {t('cc_accounts.series.lede', 'How each document is numbered. {FY} becomes the financial year (2627), {YYYY} the year, {YY} two digits, {MM} the month. A new prefix starts again from "Next number from".')}
+                {t('cc_accounts.series.lede', 'How each document, batch and lot is numbered. {FY} becomes the financial year (2627), {YYYY} the year, {YY} two digits, {MM} the month, {DD} the day. A new prefix starts again from "Next number from". Lot formats use their own codes (shown under each); the codes that keep two lots apart cannot be removed.')}
               </p>
             </div>
             <Button type="button" onClick={() => void save()} disabled={saving || !changed.length || !data.hasCompany}>
@@ -129,11 +134,20 @@ export function NumberSeriesPage() {
                         <div className="font-medium">{item.label}</div>
                         <div className="text-xs text-muted-foreground">{item.department} · {t('cc_accounts.series.lastUsed', 'last used {n}', { n: item.lastUsed || '—' })}</div>
                       </td>
-                      <td className="px-3 py-2"><Input aria-label={`${item.label} prefix`} className="w-44 font-mono" value={row.prefix} onChange={(event) => update(item.key, { prefix: event.target.value })} /></td>
-                      <td className="px-3 py-2"><Input aria-label={`${item.label} digits`} type="number" min={1} max={8} className="w-20" value={row.pad} onChange={(event) => update(item.key, { pad: Number(event.target.value) || 1 })} /></td>
-                      <td className="px-3 py-2"><Input aria-label={`${item.label} next number from`} type="number" min={1} className="w-28" value={row.startAt} onChange={(event) => update(item.key, { startAt: Number(event.target.value) || 1 })} /></td>
-                      <td className="px-3 py-2"><Input aria-label={`${item.label} suffix`} className="w-24 font-mono" value={row.suffix} onChange={(event) => update(item.key, { suffix: event.target.value })} /></td>
-                      <td className="px-3 py-2 font-mono text-sm tabular-nums">{preview(row, item.lastUsed, samePrefix)}</td>
+                      {item.kind === 'template' ? (
+                        <td className="px-3 py-2" colSpan={4}>
+                          <Input aria-label={`${item.label} format`} className="w-full max-w-md font-mono" value={row.prefix} onChange={(event) => update(item.key, { prefix: event.target.value })} />
+                          <p className="mt-1 text-xs text-muted-foreground">{t('cc_accounts.series.codes', 'Codes: {codes}', { codes: ['{DD}', '{MM}', '{YY}', '{YYYY}', ...(item.tokens ?? [])].join(' ') })}</p>
+                        </td>
+                      ) : (
+                        <>
+                          <td className="px-3 py-2"><Input aria-label={`${item.label} prefix`} className="w-44 font-mono" value={row.prefix} onChange={(event) => update(item.key, { prefix: event.target.value })} /></td>
+                          <td className="px-3 py-2"><Input aria-label={`${item.label} digits`} type="number" min={1} max={8} className="w-20" value={row.pad} onChange={(event) => update(item.key, { pad: Number(event.target.value) || 1 })} /></td>
+                          <td className="px-3 py-2"><Input aria-label={`${item.label} next number from`} type="number" min={1} className="w-28" value={row.startAt} onChange={(event) => update(item.key, { startAt: Number(event.target.value) || 1 })} /></td>
+                          <td className="px-3 py-2"><Input aria-label={`${item.label} suffix`} className="w-24 font-mono" value={row.suffix} onChange={(event) => update(item.key, { suffix: event.target.value })} /></td>
+                        </>
+                      )}
+                      <td className="px-3 py-2 font-mono text-sm tabular-nums">{item.kind === 'template' ? templatePreview(row.prefix, item.sample ?? {}) : preview(row, item.lastUsed, samePrefix)}</td>
                       <td className="px-3 py-2 text-right">
                         {!isDefault ? (
                           <Button type="button" variant="ghost" size="sm" onClick={() => update(item.key, { ...item.defaults })} aria-label={t('cc_accounts.series.reset', 'Back to default')}>

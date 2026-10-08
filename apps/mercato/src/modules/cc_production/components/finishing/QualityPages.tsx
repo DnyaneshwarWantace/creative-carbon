@@ -18,6 +18,7 @@ import { searchCustomers } from '../../../cc_orders/components/loaders'
 import { useGranted } from '../../../cc_departments/components/useGranted'
 import { day, kg, thisMonth, todayIso } from '../resin/shared'
 import { lotLabel, selectClass, useSend, useSetup, type FloorLot } from './shared'
+import { PlantTable } from '../PlantTable'
 
 type Disposition = 'stock' | 'export' | 'allocation'
 type FgRowView = { sr: number; sourceLotId: string; sourceLotNumber: string | null; batchNo: string | null; itemTitle: string; sheetSize: string | null; thicknessMm: number | null; qtyNos: number; rejectNos: number; rejectReason: string | null; disposition: Disposition; customerId: string | null; customerName: string | null; passKg: number | null; outputLotNumber: string | null }
@@ -464,31 +465,22 @@ export function LabPage() {
               ) : null}
             </section>
           ) : null}
-          <section className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
-            {!items.length ? (
-              <EmptyState className="py-12" variant="subtle" icon={<FlaskConical className="h-5 w-5" aria-hidden="true" />} title={t('cc_production.lab.empty', 'No lab tests this month')} />
-            ) : (
-              <ul className="divide-y divide-border">
-                {items.map((item) => (
-                  <li key={item.id}>
-                    <button type="button" className="grid w-full grid-cols-1 gap-2 px-5 py-3 text-left hover:bg-muted/40 md:grid-cols-12" onClick={() => open(item)}>
-                      <span className="text-sm md:col-span-2">{day(item.testDate)}</span>
-                      <span className="text-sm font-medium md:col-span-3">{item.customerName}</span>
-                      <span className="text-sm md:col-span-3">{item.itemTitle ?? '—'}</span>
-                      <span className="text-xs text-muted-foreground md:col-span-3">
-                        {item.testType}
-                        {item.standard ? ` · ${item.standard}` : ''}
-                        {item.lotRefs ? ` · ${item.lotRefs}` : ''}
-                      </span>
-                      <span className="md:col-span-1">
-                        <StatusBadge variant={item.result === 'pass' ? 'success' : item.result === 'fail' ? 'error' : 'warning'}>{item.result}</StatusBadge>
-                      </span>
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </section>
+          <PlantTable
+            tableId="cc_production.lab_tests"
+            rows={items}
+            rowKey={(item) => item.id}
+            empty={<EmptyState className="py-12" variant="subtle" icon={<FlaskConical className="h-5 w-5" aria-hidden="true" />} title={t('cc_production.lab.empty', 'No lab tests this month')} />}
+            columns={[
+              { key: 'date', label: t('cc_production.resin.date', 'Date'), alwaysVisible: true, render: (item) => <button type="button" className="underline-offset-2 hover:underline" onClick={() => open(item)}>{day(item.testDate)}</button> },
+              { key: 'customer', label: t('cc_production.moulding.customer', 'Customer'), render: (item) => <span className="font-medium">{item.customerName}</span> },
+              { key: 'item', label: t('cc_production.lab.item', 'Item'), render: (item) => item.itemTitle ?? '—' },
+              { key: 'lots', label: t('cc_production.lab.lots', 'Lot(s)'), render: (item) => <span className="font-mono text-xs">{item.lotRefs ?? ''}</span> },
+              { key: 'type', label: t('cc_production.lab.type', 'Test type'), render: (item) => item.testType },
+              { key: 'standard', label: t('cc_production.lab.standard', 'Standard'), render: (item) => item.standard ?? '' },
+              { key: 'notes', label: t('cc_production.resin.notes', 'Remarks'), hidden: true, render: (item) => item.notes ?? '' },
+              { key: 'result', label: t('cc_production.lab.result', 'Result'), render: (item) => <StatusBadge variant={item.result === 'pass' ? 'success' : item.result === 'fail' ? 'error' : 'warning'}>{item.result}</StatusBadge> },
+            ]}
+          />
         </div>
       </PageBody>
     </Page>
@@ -510,6 +502,7 @@ export function DirectInPage() {
   const [lots, setLots] = React.useState<FloorLot[]>([])
   const [form, setForm] = React.useState({ inDate: todayIso(), supplier: '', invoiceNo: '', productId: '', sheetSize: '', thicknessMm: '', nos: '', kg: '' })
   const [damage, setDamage] = React.useState({ entryDate: todayIso(), lotId: '', kg: '', reason: '' })
+  const { setup: finishingSetup } = useSetup()
   const [busy, setBusy] = React.useState(false)
 
   const load = React.useCallback(async () => {
@@ -610,7 +603,12 @@ export function DirectInPage() {
                     </option>
                   ))}
                 </select>
-                <Input className="col-span-2" placeholder={t('cc_production.damage.reason', 'What happened')} value={damage.reason} onChange={(event) => setDamage({ ...damage, reason: event.target.value })} />
+                <Input className="col-span-2" list="damage-reasons" placeholder={t('cc_production.damage.reason', 'What happened')} value={damage.reason} onChange={(event) => setDamage({ ...damage, reason: event.target.value })} />
+                <datalist id="damage-reasons">
+                  {(finishingSetup?.damageReasons ?? []).map((option) => (
+                    <option key={option} value={option} />
+                  ))}
+                </datalist>
                 <div className="col-span-2 flex justify-end">
                   <Button type="button" variant="destructive" disabled={busy || !damage.lotId || !damage.reason.trim()} onClick={() => void writeOff()}>
                     {t('cc_production.damage.writeOff', 'Write off')}
@@ -619,46 +617,43 @@ export function DirectInPage() {
               </section>
             </div>
           ) : null}
-          <section className="rounded-xl border border-border bg-card p-5 shadow-sm">
-            <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide">{t('cc_production.direct.list', 'Bought-in this month')}</h2>
-            {lists.directIns.length ? (
-              <ul className="space-y-1 text-sm">
-                {lists.directIns.map((row) => (
-                  <li key={row.id} className="flex flex-wrap justify-between gap-2">
-                    <span>
-                      {day(row.inDate)} · {row.supplier}
-                      {row.invoiceNo ? ` · ${row.invoiceNo}` : ''} · {row.itemTitle}
-                    </span>
-                    <span className="font-mono text-xs text-muted-foreground">
-                      {row.nos ? `${row.nos} nos · ` : ''}
-                      {kg(row.kg)} kg · {row.lotNumber}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p className="text-sm text-muted-foreground">—</p>
-            )}
-          </section>
-          <section className="rounded-xl border border-border bg-card p-5 shadow-sm">
-            <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide">{t('cc_production.damage.list', 'Damaged this month')}</h2>
-            {lists.damages.length ? (
-              <ul className="space-y-1 text-sm">
-                {lists.damages.map((row) => (
-                  <li key={row.id} className="flex flex-wrap justify-between gap-2">
-                    <span>
-                      {day(row.entryDate)} · {row.itemTitle} · {row.reason}
-                    </span>
-                    <span className="font-mono text-xs text-muted-foreground">
-                      {kg(row.kg)} · {row.lotNumber}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p className="text-sm text-muted-foreground">—</p>
-            )}
-          </section>
+          <div className="space-y-2">
+            <h2 className="text-sm font-semibold uppercase tracking-wide">{t('cc_production.direct.list', 'Bought-in this month')}</h2>
+            <PlantTable
+              tableId="cc_production.direct_in"
+              rows={lists.directIns}
+              rowKey={(row) => row.id}
+              empty={<p className="px-5 py-6 text-sm text-muted-foreground">—</p>}
+              columns={[
+                { key: 'date', label: t('cc_production.resin.date', 'Date'), alwaysVisible: true, render: (row) => day(row.inDate) },
+                { key: 'supplier', label: t('cc_production.direct.supplier', 'Supplier'), render: (row) => row.supplier },
+                { key: 'invoice', label: t('cc_production.direct.invoice', 'Invoice no.'), render: (row) => row.invoiceNo ?? '' },
+                { key: 'item', label: t('cc_production.direct.item', 'Item'), render: (row) => row.itemTitle },
+                { key: 'size', label: t('cc_production.fg.size', 'Sheet size'), hidden: true, render: (row) => row.sheetSize ?? '' },
+                { key: 'thickness', label: t('cc_production.thickness.target', 'Thickness mm'), hidden: true, align: 'right', render: (row) => row.thicknessMm ?? '' },
+                { key: 'nos', label: 'Nos', align: 'right', render: (row) => row.nos ?? '' },
+                { key: 'kg', label: 'kg', align: 'right', render: (row) => kg(row.kg) },
+                { key: 'lot', label: t('cc_production.cutting.lotShort', 'Lot'), render: (row) => <span className="font-mono text-xs">{row.lotNumber}</span> },
+              ]}
+            />
+          </div>
+          <div className="space-y-2">
+            <h2 className="text-sm font-semibold uppercase tracking-wide">{t('cc_production.damage.list', 'Damaged this month')}</h2>
+            <PlantTable
+              tableId="cc_production.damage"
+              rows={lists.damages}
+              rowKey={(row) => row.id}
+              empty={<p className="px-5 py-6 text-sm text-muted-foreground">—</p>}
+              columns={[
+                { key: 'date', label: t('cc_production.resin.date', 'Date'), alwaysVisible: true, render: (row) => day(row.entryDate) },
+                { key: 'item', label: t('cc_production.direct.item', 'Item'), render: (row) => row.itemTitle },
+                { key: 'lot', label: t('cc_production.cutting.lotShort', 'Lot'), render: (row) => <span className="font-mono text-xs">{row.lotNumber}</span> },
+                { key: 'qty', label: 'kg / pcs', align: 'right', render: (row) => kg(row.kg) },
+                { key: 'reason', label: t('cc_production.damage.reason', 'What happened'), render: (row) => row.reason },
+                { key: 'by', label: t('cc_production.issues.by', 'By'), hidden: true, render: (row) => row.byName ?? '' },
+              ]}
+            />
+          </div>
         </div>
       </PageBody>
     </Page>

@@ -29,7 +29,7 @@ export type FloorLot = {
   madeOn: string | null
 }
 
-export type FinishingSetup = { floorLots: FloorLot[]; cutSizes: string[]; rejectionReasons: string[]; testTypes: string[]; standards: string[]; trimBand: { laminate: { min: number; max: number }; moulded: { min: number; max: number } } }
+export type FinishingSetup = { floorLots: FloorLot[]; cutSizes: string[]; rejectionReasons: string[]; testTypes: string[]; standards: string[]; damageReasons: string[]; trimBand: { laminate: { min: number; max: number }; moulded: { min: number; max: number } } }
 
 export function lotLabel(lot: FloorLot): string {
   const pieces = lot.nosLeft !== null ? ` · ${lot.nosLeft} ${lot.unit === 'nos' ? 'pcs' : 'sheets'}` : ''

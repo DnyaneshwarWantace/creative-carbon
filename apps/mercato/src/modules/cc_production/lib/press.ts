@@ -7,13 +7,14 @@ import { LoadingTolerance, Press, PressBatch, type PlantHistoryEntry, type Press
 import type { PressBatchInput } from '../data/validators'
 import { bstageBoard } from './bstage'
 import { PlantError } from './server'
+import { activeOptions } from '../../cc_lists/lib/service'
+import { formatSeriesCode, loadSeries, lotCode, seriesDate } from '../../cc_accounts/lib/numberSeries'
 import { pressFigures } from './pressFigures'
 import { consumeLots, kg3, lotOnHand, movementTime, pickLots, plantStock, produceLot, returnLots, type FreeLot } from './plantStock'
 
 export { pressFigures, type SizeLine } from './pressFigures'
 
 const SOURCE = 'cc_production.press'
-export const PRESS_GRADES = ['F2F3', '10x10', '6x6', 'G 10x10', 'G 6x6']
 
 function scope(ctx: StoreContext) {
   return { tenantId: ctx.tenantId, organizationId: ctx.organizationId }
@@ -33,9 +34,9 @@ export function gradeMatches(grade: string, clothTitle: string | null): boolean 
   return false
 }
 
-export function pressBatchNo(isoDate: string, seq: number): string {
-  const [year, month] = isoDate.split('-')
-  return `F/${String(seq).padStart(2, '0')}/${month}/${year}`
+export async function pressBatchNo(ctx: StoreContext, isoDate: string, seq: number): Promise<string> {
+  const setting = (await loadSeries(ctx)).PB
+  return formatSeriesCode(setting, seq, seriesDate(isoDate))
 }
 
 async function nextSeq(ctx: StoreContext, month: string): Promise<number> {
@@ -59,9 +60,9 @@ async function availableLots(ctx: StoreContext) {
 
 export async function pressSetup(ctx: StoreContext, isoDate: string | null) {
   const lots = await availableLots(ctx)
-  const grades = [...new Set([...PRESS_GRADES, ...lots.map((lot) => lot.clothTitle).filter((title): title is string => Boolean(title))])]
+  const grades = [...new Set([...(await activeOptions(ctx, 'press_grades')), ...lots.map((lot) => lot.clothTitle).filter((title): title is string => Boolean(title))])]
   return {
-    nextBatchNo: isoDate ? pressBatchNo(isoDate, await nextSeq(ctx, isoDate.slice(0, 7))) : null,
+    nextBatchNo: isoDate ? await pressBatchNo(ctx, isoDate, await nextSeq(ctx, isoDate.slice(0, 7))) : null,
     presses: (await laminatePresses(ctx)).map((press) => ({ id: press.id, number: press.number, pressType: press.pressType, daylights: press.daylights ?? null, isWorking: press.isWorking })),
     tolerances: await tolerances(ctx),
     grades,
@@ -122,7 +123,7 @@ export async function createPressBatch(ctx: StoreContext, input: PressBatchInput
     if (taken) throw new PlantError(`${taken.batchNo} already exists`, 409)
     seq = wanted
   }
-  const batch = ctx.em.create(PressBatch, { ...scope(ctx), batchNo: pressBatchNo(input.batchDate, seq), batchMonth: month, seq, batchDate: input.batchDate, pressId: input.pressId, pressNumber: 0, daylights: [], updatedByName: byName, history: [entry('created', byName)] })
+  const batch = ctx.em.create(PressBatch, { ...scope(ctx), batchNo: await pressBatchNo(ctx, input.batchDate, seq), batchMonth: month, seq, batchDate: input.batchDate, pressId: input.pressId, pressNumber: 0, daylights: [], updatedByName: byName, history: [entry('created', byName)] })
   await applyInput(ctx, batch, input)
   ctx.em.persist(batch)
   await ctx.em.flush()
@@ -217,7 +218,7 @@ export async function postPressBatch(ctx: StoreContext, batch: PressBatch, byNam
     for (const line of figures.sizeLines) {
       const product = await laminateProductFor(ctx, line.grade)
       const stock = await plantStock(ctx, [product.id])
-      const lotNumber = `${batch.batchNo} ${line.thicknessMm}mm ${line.grade}`
+      const lotNumber = await lotCode(ctx, 'LOT_PR', batch.batchDate, { BATCH: batch.batchNo, THICK: String(line.thicknessMm), GRADE: line.grade })
       const previous = (batch.outputs ?? []).find((output) => output.lotNumber === lotNumber && output.productId === product.id)
       const lotId = await produceLot(ctx, stock, {
         productId: product.id,

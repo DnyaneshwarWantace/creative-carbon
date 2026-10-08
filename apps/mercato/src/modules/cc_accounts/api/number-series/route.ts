@@ -6,7 +6,7 @@ import { resolveOrderContext, type OrderContext } from '../../../cc_orders/lib/s
 import { CompanyProfile } from '../../data/entities'
 import { numberSeriesInputSchema } from '../../data/validators'
 import { loadCompany } from '../../lib/documents'
-import { SERIES_DEFS, formatSeriesCode, lastSeriesNumber, mergeSeries, type SeriesKey } from '../../lib/numberSeries'
+import { SERIES_DEFS, formatSeriesCode, lastSeriesNumber, mergeSeries, renderTemplate, type SeriesKey } from '../../lib/numberSeries'
 import { accountsErrorResponse, runGuarded } from '../../lib/server'
 
 export const metadata = {
@@ -28,8 +28,12 @@ async function view(ctx: OrderContext) {
       department: def.department,
       defaults: { prefix: def.prefix, suffix: def.suffix, pad: def.pad, startAt: def.startAt },
       ...setting,
+      kind: def.kind ?? 'series',
+      tokens: def.tokens ?? [],
+      required: def.required ?? [],
+      sample: def.sample ?? {},
       lastUsed: last,
-      next: formatSeriesCode(setting, Math.max(last + 1, setting.startAt), today),
+      next: def.kind === 'template' ? renderTemplate(setting.prefix, today, def.sample ?? {}) : formatSeriesCode(setting, Math.max(last + 1, setting.startAt), today),
     })
   }
   return { items, updatedAt: profile?.updatedAt?.toISOString() ?? null, hasCompany: Boolean(profile) }
@@ -55,8 +59,12 @@ async function PUT(req: Request) {
       for (const entry of parsed.data.items) {
         merged[entry.key as SeriesKey] = { prefix: entry.prefix, suffix: entry.suffix ?? '', pad: entry.pad, startAt: entry.startAt }
       }
+      for (const def of SERIES_DEFS.filter((entry) => entry.kind === 'template')) {
+        const missing = (def.required ?? []).filter((token) => !merged[def.key].prefix.includes(token))
+        if (missing.length) return NextResponse.json({ error: `${def.label} must keep ${missing.join(' and ')} so two lots never get the same number` }, { status: 400 })
+      }
       const prefixes = new Map<string, string>()
-      for (const def of SERIES_DEFS) {
+      for (const def of SERIES_DEFS.filter((entry) => entry.kind !== 'template')) {
         const identity = `${def.table}|${merged[def.key].prefix}|${merged[def.key].suffix}`
         const clash = prefixes.get(identity)
         if (clash) return NextResponse.json({ error: `${def.label} and ${clash} would get the same numbers. Give them different prefixes.` }, { status: 400 })

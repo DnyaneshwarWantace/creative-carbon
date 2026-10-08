@@ -1,8 +1,10 @@
 import type { StoreContext } from '../../cc_store/lib/server'
 import { loadProducts } from '../../cc_orders/lib/server'
 import { CoatingSheet, Reactor, ResinBatch, type PlantHistoryEntry, type ResinMaterialLine } from '../data/entities'
-import { RESIN_GRADES, type ResinBatchInput } from '../data/validators'
+import type { ResinBatchInput } from '../data/validators'
 import { PlantError } from './server'
+import { activeOptions } from '../../cc_lists/lib/service'
+import { seriesCodeAt, seriesDate } from '../../cc_accounts/lib/numberSeries'
 import { consumeLots, freeLots, kg3, lotOnHand, movementTime, pickLots, plantStock, produceLot, returnLots, type PickedLot } from './plantStock'
 
 export const CHEMICAL_PLACES = ['wh_a', 'wh_b', 'floor'] as const
@@ -27,19 +29,9 @@ function historyEntry(action: string, by: string | null, note: string | null = n
   return { action, by, at: new Date().toISOString(), note }
 }
 
-function ddmmyy(isoDate: string): string {
-  const [year, month, day] = isoDate.split('-')
-  return `${day}${month}${year.slice(2)}`
-}
 
-export async function nextBatchNo(ctx: StoreContext, isoDate: string): Promise<string> {
-  const prefix = `CCCPL/${ddmmyy(isoDate)}/`
-  const rows = await ctx.em.getConnection().execute<Array<{ batch_no: string }>>(
-    'select batch_no from cc_resin_batches where organization_id = ? and tenant_id = ? and deleted_at is null and batch_no like ?',
-    [ctx.organizationId, ctx.tenantId, `${prefix}%`],
-  )
-  const highest = rows.reduce((max, row) => Math.max(max, Number(row.batch_no.slice(prefix.length)) || 0), 0)
-  return `${prefix}${String(highest + 1).padStart(2, '0')}`
+export async function nextBatchNo(ctx: StoreContext, isoDate: string, offset = 0): Promise<string> {
+  return seriesCodeAt(ctx, 'RB', seriesDate(isoDate), offset)
 }
 
 type ChemicalRow = { id: string; title: string; unit: string | null }
@@ -73,7 +65,8 @@ export async function resinSetup(ctx: StoreContext, isoDate: string | null) {
   return {
     nextBatchNo: isoDate ? await nextBatchNo(ctx, isoDate) : null,
     reactors: reactors.map((reactor) => ({ id: reactor.id, code: reactor.code, capacityKg: num(reactor.capacityKg) })),
-    grades: [...RESIN_GRADES],
+    grades: await activeOptions(ctx, 'resin_grades'),
+    failReasons: await activeOptions(ctx, 'resin_fail_reasons'),
     chemicals: chemicals
       .map((chemical) => {
         const own = lots.get(chemical.id) ?? []
@@ -111,6 +104,10 @@ async function materialLines(ctx: StoreContext, input: ResinBatchInput['material
 async function applyInput(ctx: StoreContext, batch: ResinBatch, input: ResinBatchInput) {
   const reactor = await ctx.em.findOne(Reactor, { id: input.reactorId, ...scope(ctx), deletedAt: null })
   if (!reactor) throw new PlantError('Pick the vessel (reactor) from the list')
+  const grades = await activeOptions(ctx, 'resin_grades')
+  const grade = grades.find((entry) => entry.toUpperCase() === input.grade.toUpperCase())
+  if (!grade) throw new PlantError(`Grade ${input.grade} is not in the resin grades list (Masters → Dropdowns)`)
+  input = { ...input, grade }
   batch.batchDate = input.batchDate
   batch.reactorId = reactor.id
   batch.reactorCode = reactor.code

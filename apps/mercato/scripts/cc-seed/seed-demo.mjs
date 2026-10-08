@@ -23,6 +23,14 @@ async function call(path, method = 'GET', body, updatedAt) {
 const step = (label) => console.log(`\n▸ ${label}`)
 const today = new Date(Date.now() + 5.5 * 3600_000).toISOString().slice(0, 10)
 
+step('Company details (needed for number series)')
+const company = await call('/api/cc_accounts/company')
+if (company?.id) console.log('  already there')
+else {
+  await call('/api/cc_accounts/company', 'PUT', { name: 'Creative Carbon Composites Pvt. Ltd.', legalName: 'Creative Carbon Composites Private Limited', address: 'Kanera, Kheda, Gujarat', signatory: 'Authorised signatory' })
+  console.log('  saved (fill GSTIN, bank and terms in Masters → Company details)')
+}
+
 step('Opening stock (lots DEMO-…)')
 const resinSetup = await call('/api/cc_production/resin/setup')
 const coatingSetup = await call('/api/cc_production/coating/setup')

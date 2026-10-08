@@ -56,6 +56,11 @@ export function ResinBatchPage({ batchId }: { batchId: string }) {
   const [busy, setBusy] = React.useState(false)
   const [failing, setFailing] = React.useState(false)
   const [reason, setReason] = React.useState('')
+  const [failReasons, setFailReasons] = React.useState<string[]>([])
+
+  React.useEffect(() => {
+    void apiCall<{ failReasons?: string[] }>('/api/cc_production/resin/setup').then((call) => setFailReasons(call.result?.failReasons ?? []))
+  }, [])
 
   const load = React.useCallback(async () => {
     const call = await apiCall<BatchView>(`/api/cc_production/resin/batches?id=${encodeURIComponent(batchId)}`)
@@ -379,6 +384,13 @@ export function ResinBatchPage({ batchId }: { batchId: string }) {
             </DialogHeader>
             <div className="space-y-1.5">
               <Label htmlFor="resin-fail-reason">{t('cc_production.resin.failReason', 'What happened')}</Label>
+              <div className="flex flex-wrap gap-1.5">
+                {failReasons.map((option) => (
+                  <Button key={option} type="button" size="sm" variant={reason === option ? 'default' : 'outline'} onClick={() => setReason(option)}>
+                    {option}
+                  </Button>
+                ))}
+              </div>
               <Textarea id="resin-fail-reason" rows={3} value={reason} onChange={(event) => setReason(event.target.value)} placeholder={t('cc_production.resin.failPlaceholder', 'e.g. Reactor jammed')} />
             </div>
             <DialogFooter>

@@ -103,7 +103,7 @@ export const resinBatchInputSchema = z.object({
   batchDate: isoDate,
   batchNo: z.string().trim().min(3).max(40).optional(),
   reactorId: z.string().uuid(),
-  grade: z.enum(RESIN_GRADES),
+  grade: z.string().trim().min(1).max(40),
   materials: z
     .array(z.object({ productId: z.string().uuid(), kg: kgValue, lotId: z.string().uuid().nullable().optional() }))
     .max(30)
@@ -128,7 +128,7 @@ export const resinActionSchema = z.object({
 export const resinListSchema = z.object({
   id: z.string().uuid().optional(),
   status: z.enum(['draft', 'posted', 'failed', 'all']).default('all'),
-  grade: z.enum(RESIN_GRADES).optional(),
+  grade: z.string().trim().max(40).optional(),
   month: z.string().regex(/^\d{4}-\d{2}$/).optional(),
   search: z.string().trim().max(100).optional(),
   page: z.coerce.number().int().min(1).default(1),

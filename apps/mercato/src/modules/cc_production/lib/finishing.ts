@@ -5,6 +5,7 @@ import { PLACE_LABEL, type StockPlace } from '../../cc_products/lib/stock'
 import { activeOptions } from '../../cc_lists/lib/service'
 import { CuttingEntry, DamageEntry, FgDirectIn, FgInspection, ThicknessInspection, type CutSheet, type FgRow, type PlantHistoryEntry } from '../data/entities'
 import { PlantError } from './server'
+import { lotCode } from '../../cc_accounts/lib/numberSeries'
 import { consumeLots, kg3, lotOnHand, movementTime, plantStock, produceLot } from './plantStock'
 
 const SOURCE = 'cc_production.finishing'
@@ -107,12 +108,13 @@ export async function findLot(ctx: StoreContext, lotId: string): Promise<LotInfo
 }
 
 export async function finishingSetup(ctx: StoreContext) {
-  const [lots, cutSizes, rejectionReasons, testTypes, standards] = await Promise.all([
+  const [lots, cutSizes, rejectionReasons, testTypes, standards, damageReasons] = await Promise.all([
     lotRows(ctx, { kinds: FINISHED_KINDS, places: ['floor'] }),
     activeOptions(ctx, 'cut_sizes'),
     activeOptions(ctx, 'fg_rejection_reasons'),
     activeOptions(ctx, 'lab_test_types'),
     activeOptions(ctx, 'lab_standards'),
+    activeOptions(ctx, 'damage_reasons'),
   ])
   return {
     floorLots: lots.map(({ metadata, locationId, ...rest }) => {
@@ -124,6 +126,7 @@ export async function finishingSetup(ctx: StoreContext) {
     rejectionReasons,
     testTypes,
     standards,
+    damageReasons,
     trimBand: TRIM_BAND,
   }
 }
@@ -173,7 +176,7 @@ export async function createCutting(ctx: StoreContext, input: { entryDate: strin
   const performedAt = movementTime(input.entryDate)
   const metadata = { source: SOURCE, cuttingId: cut.id }
   const count = await ctx.em.count(CuttingEntry, { ...scope(ctx), sourceLotId: lot.lotId })
-  const lotNumber = `${lot.lotNumber} C${count}`
+  const lotNumber = await lotCode(ctx, 'LOT_CUT', input.entryDate, { PARENT: lot.lotNumber, N: String(count) })
   try {
     await consumeLots(ctx, stock, lot.productId, [{ lotId: lot.lotId, lotNumber: lot.lotNumber, place: 'floor', kg: used }], { reason: `Cut to ${input.cutSize}: ${sheetsIn} sheets, trim loss ${trimKg} kg`, reasonCode: 'cut_consume', performedAt, metadata })
     cut.outputLotId = await produceLot(ctx, stock, {
@@ -381,7 +384,6 @@ export async function postFgReport(ctx: StoreContext, report: FgInspection, byNa
   const performedAt = movementTime(report.reportDate)
   const metadata = { source: SOURCE, fgReportId: report.id }
   const undo: Array<() => Promise<void>> = []
-  const [year, month, day] = report.reportDate.split('-')
   const rows: FgRow[] = []
   try {
     for (const row of report.rows) {
@@ -403,7 +405,7 @@ export async function postFgReport(ctx: StoreContext, report: FgInspection, byNa
       let outputLotId: string | null = null
       let outputLotNumber: string | null = null
       if (row.qtyNos > 0) {
-        outputLotNumber = `FG-${day}${month}${year.slice(2)}-${String(row.sr).padStart(2, '0')} ${lot.lotNumber}`.slice(0, 118)
+        outputLotNumber = await lotCode(ctx, 'LOT_FG', report.reportDate, { SR: String(row.sr).padStart(2, '0'), PARENT: lot.lotNumber })
         outputLotId = await produceLot(ctx, stock, {
           productId: lot.productId,
           place: 'fg',
@@ -503,8 +505,7 @@ export async function createDirectIn(ctx: StoreContext, input: { inDate: string;
   ctx.em.persist(record)
   await ctx.em.flush()
   const stock = await plantStock(ctx, [product.id])
-  const [year, month, day] = input.inDate.split('-')
-  const lotNumber = `BI-${day}${month}${year.slice(2)}-${(input.invoiceNo ?? record.id.slice(0, 6)).replace(/\s+/g, '')}-${record.id.slice(0, 4).toUpperCase()}`
+  const lotNumber = await lotCode(ctx, 'LOT_BI', input.inDate, { INVOICE: (input.invoiceNo ?? record.id.slice(0, 6)).replace(/\s+/g, ''), ID: record.id.slice(0, 4).toUpperCase() })
   try {
     record.lotId = await produceLot(ctx, stock, {
       productId: product.id,

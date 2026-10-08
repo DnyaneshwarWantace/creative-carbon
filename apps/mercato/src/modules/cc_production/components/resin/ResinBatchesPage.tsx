@@ -14,6 +14,7 @@ import { Spinner } from '@open-mercato/ui/primitives/spinner'
 import { apiCall } from '@open-mercato/ui/backend/utils/apiCall'
 import { useGranted } from '../../../cc_departments/components/useGranted'
 import { RESIN_STATUS, day, kg, type BatchRow, type ResinStatus } from './shared'
+import { PlantTable } from '../PlantTable'
 
 type View = ResinStatus | 'all'
 
@@ -26,6 +27,11 @@ export function ResinBatchesPage() {
   const [search, setSearch] = React.useState('')
   const [items, setItems] = React.useState<BatchRow[] | null>(null)
   const [counts, setCounts] = React.useState<Record<string, number>>({})
+  const [grades, setGrades] = React.useState<string[]>([])
+
+  React.useEffect(() => {
+    void apiCall<{ grades: string[] }>('/api/cc_production/resin/setup').then((call) => setGrades(call.result?.grades ?? []))
+  }, [])
 
   React.useEffect(() => {
     let cancelled = false
@@ -108,7 +114,7 @@ export function ResinBatchesPage() {
           <div className="flex flex-wrap items-center justify-end gap-2">
             <select className="h-9 rounded-md border border-input bg-background px-2 text-sm" value={grade} onChange={(event) => setGrade(event.target.value)} aria-label={t('cc_production.resin.grade', 'Grade')}>
               <option value="">{t('cc_production.resin.allGrades', 'All grades')}</option>
-              {['PFC', 'PFA', 'PFAC', 'E-GLASS'].map((value) => (
+              {grades.map((value) => (
                 <option key={value} value={value}>
                   {value}
                 </option>
@@ -121,42 +127,31 @@ export function ResinBatchesPage() {
             </div>
           </div>
 
-          <section className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
-            {!items ? (
-              <div className="flex justify-center py-16">
-                <Spinner />
-              </div>
-            ) : !items.length ? (
-              <EmptyState className="py-14" variant="subtle" icon={<FlaskConical className="h-5 w-5" aria-hidden="true" />} title={t('cc_production.resin.empty', 'No resin batches here')} description={t('cc_production.resin.emptyHint', 'Enter the batch report from the resin plant.')} />
-            ) : (
-              <ul className="divide-y divide-border">
-                {items.map((row) => (
-                  <li key={row.id}>
-                    <Link href={`/backend/resin/batches/${row.id}`} className="group grid grid-cols-1 items-center gap-3 px-5 py-4 transition-colors hover:bg-muted/40 md:grid-cols-12">
-                      <div className="md:col-span-4">
-                        <p className="font-mono text-sm font-semibold">{row.batchNo}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {day(row.batchDate)} · {row.reactorCode}
-                        </p>
-                      </div>
-                      <p className="text-sm font-medium md:col-span-2">{row.grade}</p>
-                      <p className="text-sm tabular-nums md:col-span-3">
-                        {kg(row.totalInputKg)} kg → {kg(row.yieldKg)} kg
-                        {row.yieldPct !== null ? <span className="ml-1 text-muted-foreground">({row.yieldPct}%)</span> : null}
-                      </p>
-                      <div className="flex items-center justify-between gap-2 md:col-span-3 md:justify-end">
-                        {row.status !== 'draft' && !(row.chemistSigned && row.inchargeSigned) ? <span className="text-xs text-muted-foreground">{t('cc_production.resin.unsigned', 'Sign-off pending')}</span> : null}
-                        <StatusBadge variant={RESIN_STATUS[row.status].variant} dot>
-                          {RESIN_STATUS[row.status].label}
-                        </StatusBadge>
-                        <ChevronRight className="h-4 w-4 text-muted-foreground transition-transform group-hover:translate-x-0.5" aria-hidden="true" />
-                      </div>
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </section>
+          {!items ? (
+            <div className="flex justify-center py-16">
+              <Spinner />
+            </div>
+          ) : (
+            <PlantTable
+              tableId="cc_production.resin_batches"
+              rows={items}
+              rowKey={(row) => row.id}
+              rowHref={(row) => `/backend/resin/batches/${row.id}`}
+              empty={<EmptyState className="py-14" variant="subtle" icon={<FlaskConical className="h-5 w-5" aria-hidden="true" />} title={t('cc_production.resin.empty', 'No resin batches here')} description={t('cc_production.resin.emptyHint', 'Enter the batch report from the resin plant.')} />}
+              columns={[
+                { key: 'batchNo', label: t('cc_production.resin.batchNo', 'Batch No.'), alwaysVisible: true, render: (row) => <span className="font-mono font-semibold">{row.batchNo}</span> },
+                { key: 'date', label: t('cc_production.resin.date', 'Date'), render: (row) => day(row.batchDate) },
+                { key: 'vessel', label: t('cc_production.resin.vessel', 'Vessel'), render: (row) => row.reactorCode },
+                { key: 'grade', label: t('cc_production.resin.grade', 'Grade'), render: (row) => row.grade },
+                { key: 'input', label: t('cc_production.resin.totalInput', 'Total input'), align: 'right', render: (row) => `${kg(row.totalInputKg)} kg` },
+                { key: 'yield', label: t('cc_production.resin.yield', 'Resin yield (kg)'), align: 'right', render: (row) => kg(row.yieldKg) },
+                { key: 'yieldPct', label: t('cc_production.resin.yieldPct', 'Yield'), align: 'right', render: (row) => (row.yieldPct === null ? '—' : `${row.yieldPct}%`) },
+                { key: 'signed', label: t('cc_production.resin.signoff', 'Sign-off'), render: (row) => (row.chemistSigned && row.inchargeSigned ? '✓ both' : row.chemistSigned || row.inchargeSigned ? 'one of two' : '—') },
+                { key: 'failReason', label: t('cc_production.resin.failReason', 'What happened'), hidden: true, render: (row) => row.failReason ?? '' },
+                { key: 'status', label: t('cc_production.resin.status', 'Status'), render: (row) => <StatusBadge variant={RESIN_STATUS[row.status].variant} dot>{RESIN_STATUS[row.status].label}</StatusBadge> },
+              ]}
+            />
+          )}
         </div>
       </PageBody>
     </Page>
