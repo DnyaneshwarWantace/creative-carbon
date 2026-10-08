@@ -22,6 +22,7 @@ import { useListOptions } from '../../cc_lists/components/useListOptions'
 import { useGranted } from '../../cc_departments/components/useGranted'
 import { useSend, selectClass } from '../../cc_production/components/finishing/shared'
 import { QUOTE_LABEL, QUOTE_VARIANT, STAGE_LABEL, STAGE_VARIANT, type Enquiry, type EnquiryStage } from './types'
+import { Dropdown } from '../../cc_lists/components/Dropdown'
 
 function localNow(): string {
   const now = new Date(Date.now() - new Date().getTimezoneOffset() * 60_000)
@@ -141,14 +142,14 @@ export function EnquiryForm({ enquiry }: { enquiry: Enquiry | null }) {
           </div>
           <section className="grid grid-cols-1 gap-4 rounded-xl border bg-card p-5 shadow-xs md:grid-cols-6">
             <Field label={t('cc_crm.enquiries.source', 'Source')} required className="md:col-span-2">
-              <select className={selectClass} value={draft.source} onChange={(event) => patch({ source: event.target.value })}>
+              <Dropdown value={draft.source} onChange={(event) => patch({ source: event.target.value })}>
                 <option value="">—</option>
                 {sources.map((option) => (
                   <option key={option} value={option}>
                     {option}
                   </option>
                 ))}
-              </select>
+              </Dropdown>
             </Field>
             <Field label={t('cc_crm.enquiries.received', 'Received')} required className="md:col-span-2">
               <Input type="datetime-local" value={draft.receivedAt} onChange={(event) => patch({ receivedAt: event.target.value })} />
@@ -446,14 +447,14 @@ export function EnquiryPage({ enquiryId }: { enquiryId: string }) {
                       <p className="text-sm text-muted-foreground">{t('cc_crm.enquiries.lostBecause', 'Lost: {reason}', { reason: enquiry.lostReason ?? '—' })}</p>
                     ) : (
                       <div className="flex gap-2">
-                        <select className={selectClass} value={lostReason} onChange={(event) => setLostReason(event.target.value)} aria-label={t('cc_crm.enquiries.lostReason', 'Lost reason')}>
+                        <Dropdown value={lostReason} onChange={(event) => setLostReason(event.target.value)} aria-label={t('cc_crm.enquiries.lostReason', 'Lost reason')}>
                           <option value="">{t('cc_crm.enquiries.lostPick', 'Lost because…')}</option>
                           {lostReasons.map((option) => (
                             <option key={option} value={option}>
                               {option}
                             </option>
                           ))}
-                        </select>
+                        </Dropdown>
                         <Button type="button" size="sm" variant="outline" disabled={busy || !lostReason} onClick={() => act({ action: 'stage', stage: 'lost', lostReason }, t('cc_crm.flash.lost', 'Marked lost'))}>
                           {t('cc_crm.actions.lost', 'Mark lost')}
                         </Button>

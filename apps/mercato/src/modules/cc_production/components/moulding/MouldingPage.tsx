@@ -18,6 +18,7 @@ import { flash } from '@open-mercato/ui/backend/FlashMessages'
 import { useGranted } from '../../../cc_departments/components/useGranted'
 import { kg, todayIso } from '../resin/shared'
 import { OfflineBadge, isOffline, queueSave } from '../offline'
+import { Dropdown } from '../../../cc_lists/components/Dropdown'
 
 type Setup = { presses: Array<{ id: string; number: number; isWorking: boolean }>; operators: string[]; chindi: Array<{ id: string; title: string }>; cloths: Array<{ id: string; title: string }> }
 type EntryView = {
@@ -250,26 +251,26 @@ export function MouldingPage() {
     const cell = cellFor(pressId)
     if (row.kind === 'select-operator') {
       return (
-        <select className={cellClass} disabled={locked} value={cell.operatorName} onChange={(event) => update(pressId, 'operatorName', event.target.value)} aria-label={row.label}>
+        <Dropdown className={cellClass} disabled={locked} value={cell.operatorName} onChange={(event) => update(pressId, 'operatorName', event.target.value)} aria-label={row.label}>
           <option value="" />
           {(setup?.operators ?? []).map((operator) => (
             <option key={operator} value={operator}>
               {operator}
             </option>
           ))}
-        </select>
+        </Dropdown>
       )
     }
     if (row.kind === 'select-cloth') {
       return (
-        <select className={cellClass} disabled={locked} value={cell.clothProductId} onChange={(event) => update(pressId, 'clothProductId', event.target.value)} aria-label={row.label}>
+        <Dropdown className={cellClass} disabled={locked} value={cell.clothProductId} onChange={(event) => update(pressId, 'clothProductId', event.target.value)} aria-label={row.label}>
           <option value="" />
           {(setup?.cloths ?? []).map((cloth) => (
             <option key={cloth.id} value={cloth.id}>
               {cloth.title}
             </option>
           ))}
-        </select>
+        </Dropdown>
       )
     }
     return (

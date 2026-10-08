@@ -19,6 +19,7 @@ import { useGranted } from '../../../cc_departments/components/useGranted'
 import { day, kg, thisMonth, todayIso } from '../resin/shared'
 import { lotLabel, selectClass, useSend, useSetup, type FloorLot } from './shared'
 import { PlantTable } from '../PlantTable'
+import { Dropdown } from '../../../cc_lists/components/Dropdown'
 
 type Disposition = 'stock' | 'export' | 'allocation'
 type FgRowView = { sr: number; sourceLotId: string; sourceLotNumber: string | null; batchNo: string | null; itemTitle: string; sheetSize: string | null; thicknessMm: number | null; qtyNos: number; rejectNos: number; rejectReason: string | null; disposition: Disposition; customerId: string | null; customerName: string | null; passKg: number | null; outputLotNumber: string | null }
@@ -152,14 +153,14 @@ export function FgInspectionPage() {
                         <tr key={row.key} className="align-top">
                           <td className="px-2 py-1.5 font-mono text-xs text-muted-foreground">{index + 1}</td>
                           <td className="px-2 py-1.5">
-                            <select className={selectClass} value={row.sourceLotId} onChange={(event) => update(row.key, { sourceLotId: event.target.value, sheetSize: lotById.get(event.target.value)?.cutSize ?? row.sheetSize })} aria-label="Lot">
+                            <Dropdown value={row.sourceLotId} onChange={(event) => update(row.key, { sourceLotId: event.target.value, sheetSize: lotById.get(event.target.value)?.cutSize ?? row.sheetSize })} aria-label="Lot">
                               <option value="" />
                               {lots.map((entry) => (
                                 <option key={entry.lotId} value={entry.lotId} disabled={entry.status !== 'available'}>
                                   {lotLabel(entry)}
                                 </option>
                               ))}
-                            </select>
+                            </Dropdown>
                             {lot ? (
                               <p className="mt-0.5 text-xs text-muted-foreground">
                                 {lot.batchNo ?? ''} {lot.thicknessMm ? `· ${lot.thicknessMm} mm` : ''}
@@ -176,23 +177,23 @@ export function FgInspectionPage() {
                             <Input className="text-right" inputMode="numeric" value={row.rejectNos} onChange={(event) => update(row.key, { rejectNos: event.target.value })} aria-label="Rejected" />
                           </td>
                           <td className="px-2 py-1.5">
-                            <select className={selectClass} value={row.rejectReason} onChange={(event) => update(row.key, { rejectReason: event.target.value })} aria-label="Reason">
+                            <Dropdown value={row.rejectReason} onChange={(event) => update(row.key, { rejectReason: event.target.value })} aria-label="Reason">
                               <option value="" />
                               {(setup?.rejectionReasons ?? []).map((reason) => (
                                 <option key={reason} value={reason}>
                                   {reason}
                                 </option>
                               ))}
-                            </select>
+                            </Dropdown>
                           </td>
                           <td className="space-y-1 px-2 py-1.5">
-                            <select className={selectClass} value={row.disposition} onChange={(event) => update(row.key, { disposition: event.target.value as Disposition })} aria-label="Goes to">
+                            <Dropdown value={row.disposition} onChange={(event) => update(row.key, { disposition: event.target.value as Disposition })} aria-label="Goes to">
                               {DISPOSITIONS.map((option) => (
                                 <option key={option.value} value={option.value}>
                                   {option.label}
                                 </option>
                               ))}
-                            </select>
+                            </Dropdown>
                             {row.disposition === 'allocation' ? (
                               <SearchPicker
                                 value={row.customerId ? { id: row.customerId, primary: row.customerName, value: null } : null}
@@ -411,33 +412,33 @@ export function LabPage() {
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="lab-type">{t('cc_production.lab.type', 'Test type')}</Label>
-                <select id="lab-type" className={selectClass} value={draft.testType} onChange={(event) => setDraft({ ...draft, testType: event.target.value })}>
+                <Dropdown id="lab-type" value={draft.testType} onChange={(event) => setDraft({ ...draft, testType: event.target.value })}>
                   <option value="" />
                   {(setup?.testTypes ?? []).map((type) => (
                     <option key={type} value={type}>
                       {type}
                     </option>
                   ))}
-                </select>
+                </Dropdown>
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="lab-standard">{t('cc_production.lab.standard', 'Standard')}</Label>
-                <select id="lab-standard" className={selectClass} value={draft.standard} onChange={(event) => setDraft({ ...draft, standard: event.target.value })}>
+                <Dropdown id="lab-standard" value={draft.standard} onChange={(event) => setDraft({ ...draft, standard: event.target.value })}>
                   <option value="" />
                   {(setup?.standards ?? []).map((standard) => (
                     <option key={standard} value={standard}>
                       {standard}
                     </option>
                   ))}
-                </select>
+                </Dropdown>
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="lab-result">{t('cc_production.lab.result', 'Result')}</Label>
-                <select id="lab-result" className={selectClass} value={draft.result} onChange={(event) => setDraft({ ...draft, result: event.target.value as LabDraft['result'] })}>
+                <Dropdown id="lab-result" value={draft.result} onChange={(event) => setDraft({ ...draft, result: event.target.value as LabDraft['result'] })}>
                   <option value="pending">Pending</option>
                   <option value="pass">Pass</option>
                   <option value="fail">Fail</option>
-                </select>
+                </Dropdown>
               </div>
               <div className="space-y-1.5 md:col-span-2">
                 <Label htmlFor="lab-notes">{t('cc_production.resin.notes', 'Remarks')}</Label>
@@ -572,14 +573,14 @@ export function DirectInPage() {
                 <Input type="date" value={form.inDate} onChange={(event) => setForm({ ...form, inDate: event.target.value })} aria-label="Date" />
                 <Input placeholder={t('cc_production.direct.supplier', 'Supplier')} value={form.supplier} onChange={(event) => setForm({ ...form, supplier: event.target.value })} />
                 <Input placeholder={t('cc_production.direct.invoice', 'Invoice no.')} value={form.invoiceNo} onChange={(event) => setForm({ ...form, invoiceNo: event.target.value })} />
-                <select className={selectClass} value={form.productId} onChange={(event) => setForm({ ...form, productId: event.target.value })} aria-label="Item">
+                <Dropdown value={form.productId} onChange={(event) => setForm({ ...form, productId: event.target.value })} aria-label="Item">
                   <option value="">{t('cc_production.direct.item', 'Item')}</option>
                   {products.map((product) => (
                     <option key={product.id} value={product.id}>
                       {product.title}
                     </option>
                   ))}
-                </select>
+                </Dropdown>
                 <Input placeholder={t('cc_production.fg.size', 'Sheet size')} value={form.sheetSize} onChange={(event) => setForm({ ...form, sheetSize: event.target.value })} />
                 <Input placeholder={t('cc_production.thickness.target', 'Thickness mm')} inputMode="decimal" value={form.thicknessMm} onChange={(event) => setForm({ ...form, thicknessMm: event.target.value })} />
                 <Input placeholder="Nos" inputMode="numeric" value={form.nos} onChange={(event) => setForm({ ...form, nos: event.target.value })} />
@@ -595,14 +596,14 @@ export function DirectInPage() {
                 <h2 className="col-span-2 text-sm font-semibold uppercase tracking-wide">{t('cc_production.damage.title', 'Damaged material')}</h2>
                 <Input type="date" value={damage.entryDate} onChange={(event) => setDamage({ ...damage, entryDate: event.target.value })} aria-label="Date" />
                 <Input placeholder={damageLot ? `${damageLot.unit} (${damageLot.free} free)` : 'kg'} inputMode="decimal" value={damage.kg} onChange={(event) => setDamage({ ...damage, kg: event.target.value })} />
-                <select className={`${selectClass} col-span-2`} value={damage.lotId} onChange={(event) => setDamage({ ...damage, lotId: event.target.value })} aria-label="Lot">
+                <Dropdown className={`${selectClass} col-span-2`} value={damage.lotId} onChange={(event) => setDamage({ ...damage, lotId: event.target.value })} aria-label="Lot">
                   <option value="">{t('cc_production.damage.lot', 'Lot')}</option>
                   {lots.map((lot) => (
                     <option key={`${lot.lotId}-${lot.place}`} value={lot.lotId}>
                       {lotLabel(lot)} · {lot.placeLabel}
                     </option>
                   ))}
-                </select>
+                </Dropdown>
                 <Input className="col-span-2" list="damage-reasons" placeholder={t('cc_production.damage.reason', 'What happened')} value={damage.reason} onChange={(event) => setDamage({ ...damage, reason: event.target.value })} />
                 <datalist id="damage-reasons">
                   {(finishingSetup?.damageReasons ?? []).map((option) => (

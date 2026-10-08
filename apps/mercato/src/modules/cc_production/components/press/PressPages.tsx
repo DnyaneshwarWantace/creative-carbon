@@ -16,6 +16,7 @@ import { useGranted } from '../../../cc_departments/components/useGranted'
 import { day, kg, thisMonth, todayIso } from '../resin/shared'
 import { PRESS_STATUS, weightText, type PressBatchRow, type PressBatchView, type PressSetup } from './shared'
 import { PlantTable } from '../PlantTable'
+import { Dropdown } from '../../../cc_lists/components/Dropdown'
 
 function shortDate(iso: string): string {
   const [year, month, dayOfMonth] = iso.split('-')
@@ -274,13 +275,13 @@ export function LoadingRegisterPage() {
               </h1>
             </div>
             <div className="flex gap-2 print:hidden">
-              <select className="h-9 rounded-md border border-input bg-background px-2 text-sm" value={pressId} onChange={(event) => setPressId(event.target.value)} aria-label={t('cc_production.press.press', 'Press No.')}>
+              <Dropdown className="h-9 rounded-md border border-input bg-background px-2 text-sm" value={pressId} onChange={(event) => setPressId(event.target.value)} aria-label={t('cc_production.press.press', 'Press No.')}>
                 {(setup?.presses ?? []).map((entry) => (
                   <option key={entry.id} value={entry.id}>
                     {t('cc_production.press.pressShort', 'Press {no}', { no: entry.number })}
                   </option>
                 ))}
-              </select>
+              </Dropdown>
               <Input type="date" className="w-44" value={date} onChange={(event) => setDate(event.target.value)} aria-label={t('cc_production.resin.date', 'Date')} />
               <Button type="button" variant="outline" onClick={() => window.print()}>
                 <Printer className="mr-1.5 h-4 w-4" aria-hidden="true" />

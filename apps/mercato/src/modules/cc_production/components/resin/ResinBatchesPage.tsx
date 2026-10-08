@@ -15,6 +15,7 @@ import { apiCall } from '@open-mercato/ui/backend/utils/apiCall'
 import { useGranted } from '../../../cc_departments/components/useGranted'
 import { RESIN_STATUS, day, kg, type BatchRow, type ResinStatus } from './shared'
 import { PlantTable } from '../PlantTable'
+import { Dropdown } from '../../../cc_lists/components/Dropdown'
 
 type View = ResinStatus | 'all'
 
@@ -112,14 +113,14 @@ export function ResinBatchesPage() {
           </div>
 
           <div className="flex flex-wrap items-center justify-end gap-2">
-            <select className="h-9 rounded-md border border-input bg-background px-2 text-sm" value={grade} onChange={(event) => setGrade(event.target.value)} aria-label={t('cc_production.resin.grade', 'Grade')}>
+            <Dropdown className="h-9 rounded-md border border-input bg-background px-2 text-sm" value={grade} onChange={(event) => setGrade(event.target.value)} aria-label={t('cc_production.resin.grade', 'Grade')}>
               <option value="">{t('cc_production.resin.allGrades', 'All grades')}</option>
               {grades.map((value) => (
                 <option key={value} value={value}>
                   {value}
                 </option>
               ))}
-            </select>
+            </Dropdown>
             <Input type="month" className="w-44" value={month} onChange={(event) => setMonth(event.target.value)} aria-label={t('cc_production.resin.month', 'Month')} />
             <div className="relative w-full sm:w-72">
               <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />

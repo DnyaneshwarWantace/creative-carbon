@@ -17,6 +17,7 @@ import { day, kg, thisMonth, todayIso } from '../resin/shared'
 import { lotLabel, selectClass, useSend, useSetup } from './shared'
 import { OfflineBadge, isOffline, queueSave } from '../offline'
 import { PlantTable } from '../PlantTable'
+import { Dropdown } from '../../../cc_lists/components/Dropdown'
 
 type Cutting = { id: string; entryDate: string; sourceLotNumber: string | null; sheetsIn: number; sourceKgUsed: number; cutSize: string; trimmedKg: number; trimKg: number; trimPct: number; outputLotNumber: string | null; status: string; warnings: string[]; updatedAt: string }
 
@@ -101,14 +102,14 @@ export function CuttingPage() {
               </div>
               <div className="space-y-1.5 md:col-span-2">
                 <Label htmlFor="cut-lot">{t('cc_production.cutting.lot', 'Pressed lot (batch + thickness)')}</Label>
-                <select id="cut-lot" className={selectClass} value={form.lotId} onChange={(event) => setForm({ ...form, lotId: event.target.value })}>
+                <Dropdown id="cut-lot" value={form.lotId} onChange={(event) => setForm({ ...form, lotId: event.target.value })}>
                   <option value="" />
                   {lots.map((entry) => (
                     <option key={entry.lotId} value={entry.lotId}>
                       {lotLabel(entry)}
                     </option>
                   ))}
-                </select>
+                </Dropdown>
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="cut-size">{t('cc_production.cutting.size', 'Cut size')}</Label>
@@ -251,14 +252,14 @@ export function ThicknessPage() {
               </div>
               <div className="space-y-1.5 md:col-span-3">
                 <Label htmlFor="th-lot">{t('cc_production.thickness.lot', 'Lot')}</Label>
-                <select id="th-lot" className={selectClass} value={form.lotId} onChange={(event) => pickLot(event.target.value)}>
+                <Dropdown id="th-lot" value={form.lotId} onChange={(event) => pickLot(event.target.value)}>
                   <option value="">{t('cc_production.thickness.noLot', 'No lot in the system (type the ref)')}</option>
                   {lots.map((entry) => (
                     <option key={entry.lotId} value={entry.lotId}>
                       {lotLabel(entry)}
                     </option>
                   ))}
-                </select>
+                </Dropdown>
               </div>
               <div className="space-y-1.5 md:col-span-2">
                 <Label htmlFor="th-ref">{t('cc_production.thickness.ref', 'Lot ref')}</Label>

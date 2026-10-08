@@ -44,6 +44,8 @@ test.describe.serial('Codes, dropdown masters and views on the plant pages', () 
   })
 
   test('a changed resin batch series and press series are used for new numbers, then put back', async ({ request }) => {
+    const before = ((await (await request.get(`/api/cc_production/resin/setup?date=${DATE}`)).json()) as { nextBatchNo: string }).nextBatchNo
+    expect(before).toMatch(new RegExp(`^CCCPL/0905${String(YEAR).slice(2)}/\\d{2}$`))
     const saved = await saveSeries(request, await series(request), { RB: { prefix: 'RB/{DD}{MM}{YY}-', pad: 3 }, PB: { prefix: 'PB-', suffix: '-{MM}{YY}', pad: 3 } })
     expect(saved.ok(), await saved.text()).toBeTruthy()
     const resin = (await (await request.get(`/api/cc_production/resin/setup?date=${DATE}`)).json()) as { nextBatchNo: string }
@@ -53,7 +55,7 @@ test.describe.serial('Codes, dropdown masters and views on the plant pages', () 
     const current = await series(request)
     const reset = await saveSeries(request, current, Object.fromEntries(current.items.map((item) => [item.key, { ...item.defaults }])))
     expect(reset.ok(), await reset.text()).toBeTruthy()
-    expect(((await (await request.get(`/api/cc_production/resin/setup?date=${DATE}`)).json()) as { nextBatchNo: string }).nextBatchNo).toBe(`CCCPL/0905${String(YEAR).slice(2)}/01`)
+    expect(((await (await request.get(`/api/cc_production/resin/setup?date=${DATE}`)).json()) as { nextBatchNo: string }).nextBatchNo).toBe(before)
   })
 
   test('resin grades and the reason lists come from the dropdown master', async ({ request }) => {

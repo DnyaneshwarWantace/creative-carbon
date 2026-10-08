@@ -18,6 +18,7 @@ import { day, kg, todayIso, when } from '../resin/shared'
 import { selectClass, useSend } from '../finishing/shared'
 import { OfflineBadge, usePlantPwa } from '../offline'
 import { PlantTable } from '../PlantTable'
+import { Dropdown } from '../../../cc_lists/components/Dropdown'
 
 type PlanRow = { area: string; resource: string; item: string | null; plannedQty: number; unit: string; actual: number; pct: number | null }
 type Overview = {
@@ -314,20 +315,20 @@ export function PlanPage() {
           <section className="space-y-2 rounded-xl border border-border bg-card p-4 shadow-sm">
             {lines.map((line) => (
               <div key={line.key} className="grid grid-cols-12 gap-2">
-                <select className={cn(selectClass, 'col-span-3')} value={line.area} onChange={(event) => update(line.key, { area: event.target.value as PlanLineDraft['area'], unit: UNIT_FOR[event.target.value as PlanLineDraft['area']] })} aria-label="Area">
+                <Dropdown className={cn(selectClass, 'col-span-3')} value={line.area} onChange={(event) => update(line.key, { area: event.target.value as PlanLineDraft['area'], unit: UNIT_FOR[event.target.value as PlanLineDraft['area']] })} aria-label="Area">
                   <option value="resin">Resin</option>
                   <option value="coating">Coating</option>
                   <option value="press">Press</option>
                   <option value="moulding">Moulding</option>
-                </select>
+                </Dropdown>
                 <Input className="col-span-2" placeholder={line.area === 'coating' ? 'Dryer 2' : line.area === 'resin' ? '' : 'No.'} value={line.resource} onChange={(event) => update(line.key, { resource: event.target.value })} aria-label="Press / machine / dryer" />
                 <Input className="col-span-3" placeholder={line.area === 'moulding' ? 'Die No.' : 'Grade / item'} value={line.item} onChange={(event) => update(line.key, { item: event.target.value })} aria-label="Item" />
                 <Input className="col-span-2 text-right" inputMode="decimal" value={line.plannedQty} onChange={(event) => update(line.key, { plannedQty: event.target.value })} aria-label="Planned" />
-                <select className={cn(selectClass, 'col-span-1 px-1')} value={line.unit} onChange={(event) => update(line.key, { unit: event.target.value as PlanLineDraft['unit'] })} aria-label="Unit">
+                <Dropdown className={cn(selectClass, 'col-span-1 px-1')} value={line.unit} onChange={(event) => update(line.key, { unit: event.target.value as PlanLineDraft['unit'] })} aria-label="Unit">
                   <option value="kg">kg</option>
                   <option value="nos">nos</option>
                   <option value="sheets">sheets</option>
-                </select>
+                </Dropdown>
                 <Button type="button" variant="ghost" size="icon" className="col-span-1" onClick={() => setLines(lines.filter((entry) => entry.key !== line.key))} aria-label={t('cc_production.resin.removeLine', 'Remove row')}>
                   <Trash2 className="h-4 w-4" aria-hidden="true" />
                 </Button>
@@ -435,21 +436,21 @@ export function StockGridPage() {
             ) : null}
           </header>
           <div className="flex flex-wrap items-center gap-2">
-            <select className={cn(selectClass, 'w-48')} value={kind} onChange={(event) => setKind(event.target.value)} aria-label="Type">
+            <Dropdown className={cn(selectClass, 'w-48')} value={kind} onChange={(event) => setKind(event.target.value)} aria-label="Type">
               {KINDS.map((option) => (
                 <option key={option.value} value={option.value}>
                   {option.label}
                 </option>
               ))}
-            </select>
-            <select className={cn(selectClass, 'w-44')} value={place} onChange={(event) => setPlace(event.target.value)} aria-label="Store">
+            </Dropdown>
+            <Dropdown className={cn(selectClass, 'w-44')} value={place} onChange={(event) => setPlace(event.target.value)} aria-label="Store">
               <option value="">{t('cc_production.stock.allStores', 'All stores')}</option>
               {(grid?.places ?? []).map((entry) => (
                 <option key={entry.key} value={entry.key}>
                   {entry.label}
                 </option>
               ))}
-            </select>
+            </Dropdown>
             <div className="relative w-full sm:w-72">
               <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
               <Input className="pl-9" value={search} onChange={(event) => setSearch(event.target.value)} placeholder={t('cc_production.stock.search', 'Item or lot')} />
@@ -605,7 +606,7 @@ export function StocktakePage() {
             <p className="text-sm text-muted-foreground">{t('cc_production.stocktake.lede', 'The dated reinforcement stock list as a count: enter what is actually there for the lots you counted; only the differences are posted, with the date.')}</p>
           </header>
           <div className="flex flex-wrap gap-2">
-            <select className={cn(selectClass, 'w-44')} value={place} onChange={(event) => setPlace(event.target.value)} aria-label="Store">
+            <Dropdown className={cn(selectClass, 'w-44')} value={place} onChange={(event) => setPlace(event.target.value)} aria-label="Store">
               {[
                 ['wh_a', 'Warehouse A'],
                 ['wh_b', 'Warehouse B'],
@@ -617,14 +618,14 @@ export function StocktakePage() {
                   {label}
                 </option>
               ))}
-            </select>
-            <select className={cn(selectClass, 'w-48')} value={kind} onChange={(event) => setKind(event.target.value)} aria-label="Type">
+            </Dropdown>
+            <Dropdown className={cn(selectClass, 'w-48')} value={kind} onChange={(event) => setKind(event.target.value)} aria-label="Type">
               {KINDS.map((option) => (
                 <option key={option.value} value={option.value}>
                   {option.label}
                 </option>
               ))}
-            </select>
+            </Dropdown>
             <Input type="date" className="w-40" value={countDate} onChange={(event) => setCountDate(event.target.value)} aria-label={t('cc_production.resin.date', 'Date')} />
           </div>
           <section className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">

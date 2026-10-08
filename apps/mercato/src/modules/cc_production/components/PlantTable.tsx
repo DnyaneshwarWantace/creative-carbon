@@ -7,6 +7,7 @@ import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { cn } from '@open-mercato/shared/lib/utils'
 import { Button } from '@open-mercato/ui/primitives/button'
 import { ViewsButton, type BuiltInView } from '../../cc_products/components/ViewsPanel'
+import { Dropdown } from '../../cc_lists/components/Dropdown'
 
 export type PlantColumn<T> = {
   key: string
@@ -100,13 +101,13 @@ export function PlantTable<T>({
         {toolbar}
         <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
           {t('cc_production.table.rows', 'Rows')}
-          <select className="h-8 rounded-md border border-input bg-background px-1.5 text-xs" value={pageSize} onChange={(event) => changePageSize(Number(event.target.value))} aria-label={t('cc_production.table.rows', 'Rows')}>
+          <Dropdown className="h-8 rounded-md border border-input bg-background px-1.5 text-xs" value={pageSize} onChange={(event) => changePageSize(Number(event.target.value))} aria-label={t('cc_production.table.rows', 'Rows')}>
             {PAGE_SIZES.map((size) => (
               <option key={size} value={size}>
                 {size || t('cc_production.table.all', 'All')}
               </option>
             ))}
-          </select>
+          </Dropdown>
         </label>
         <ViewsButton tableId={tableId} columns={columns.map((column) => ({ key: column.key, label: column.label, group: column.group ?? 'Columns', alwaysVisible: column.alwaysVisible }))} visible={visible} onChange={changeColumns} builtIn={builtIn} />
       </div>

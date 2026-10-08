@@ -18,6 +18,7 @@ import { parseCsv } from '../../cc_products/lib/csv'
 import { SearchPicker } from '../../cc_orders/components/SearchPicker'
 import { searchCustomers } from '../../cc_orders/components/loaders'
 import { MASTER_DEFS, type MasterColumn, type MasterDef, type MasterType } from '../lib/masterDefs'
+import { Dropdown } from '../../cc_lists/components/Dropdown'
 
 type Row = Record<string, string | number | boolean | null> & { id: string; updatedAt: string; updatedByName: string | null; customerName?: string | null }
 type Draft = Record<string, string | boolean | null>
@@ -62,7 +63,7 @@ function Cell({ column, value, customerName, editable, onChange }: { column: Mas
   }
   if (column.kind === 'select') {
     return (
-      <select
+      <Dropdown
         className="h-8 w-full rounded-md border border-input bg-background px-2 text-sm disabled:opacity-60"
         value={String(value ?? '')}
         disabled={!editable}
@@ -75,7 +76,7 @@ function Cell({ column, value, customerName, editable, onChange }: { column: Mas
             {option.label}
           </option>
         ))}
-      </select>
+      </Dropdown>
     )
   }
   if (column.kind === 'customer') {

@@ -22,6 +22,7 @@ import { sheetFigures } from '../../lib/coatingFigures'
 import { kg, todayIso } from '../resin/shared'
 import { SHEET_STATUS, paperTime, type CoatingSetup, type SheetListItem, type SheetView } from './shared'
 import { OfflineBadge, isOffline, queueSave } from '../offline'
+import { Dropdown } from '../../../cc_lists/components/Dropdown'
 
 const ROWS = 10
 
@@ -338,14 +339,14 @@ export function CoatingDayPage() {
                           <tr key={sn}>
                             <td className="px-2 py-1 font-mono text-xs text-muted-foreground">{sn}</td>
                             <td className="px-1 py-1">
-                              <select className="h-8 w-full rounded border border-input bg-background px-1 text-sm disabled:border-transparent disabled:bg-transparent" disabled={locked} value={row.clothProductId} onChange={(event) => updateRow(index, { clothProductId: event.target.value })} aria-label={`${sn} cloth`}>
+                              <Dropdown className="h-8 w-full rounded border border-input bg-background px-1 text-sm disabled:border-transparent disabled:bg-transparent" disabled={locked} value={row.clothProductId} onChange={(event) => updateRow(index, { clothProductId: event.target.value })} aria-label={`${sn} cloth`}>
                                 <option value="" />
                                 {setup.cloths.map((cloth) => (
                                   <option key={cloth.id} value={cloth.id}>
                                     {cloth.title}
                                   </option>
                                 ))}
-                              </select>
+                              </Dropdown>
                             </td>
                             {(['gsm', 'kushan', 'treatedWeight', 'rawKg', 'balanceRawKg', 'coatedNos'] as Array<keyof RowDraft>).map((key) => (
                               <td key={key} className="px-1 py-1">
@@ -353,7 +354,7 @@ export function CoatingDayPage() {
                               </td>
                             ))}
                             <td className="px-1 py-1">
-                              <select className="h-8 w-full rounded border border-input bg-background px-1 text-xs disabled:border-transparent disabled:bg-transparent" disabled={locked} value={row.resinLotId} onChange={(event) => updateRow(index, { resinLotId: event.target.value })} aria-label={`${sn} resin`}>
+                              <Dropdown className="h-8 w-full rounded border border-input bg-background px-1 text-xs disabled:border-transparent disabled:bg-transparent" disabled={locked} value={row.resinLotId} onChange={(event) => updateRow(index, { resinLotId: event.target.value })} aria-label={`${sn} resin`}>
                                 <option value="">{used(row) ? t('cc_production.coating.oldestResin', 'P.F. · oldest in tank') : ''}</option>
                                 {setup.resinLots.map((lot) => (
                                   <option key={lot.lotId} value={lot.lotId}>
@@ -361,7 +362,7 @@ export function CoatingDayPage() {
                                   </option>
                                 ))}
                                 {posted?.resinLotId && !setup.resinLots.some((lot) => lot.lotId === posted.resinLotId) ? <option value={posted.resinLotId}>{posted.resinBatchNo}</option> : null}
-                              </select>
+                              </Dropdown>
                               {posted?.resinBatchNo && sheet?.status === 'posted' ? <p className="px-1 text-xs text-muted-foreground">{posted.resinBatchNo}</p> : null}
                             </td>
                             <td className="px-1 py-1">

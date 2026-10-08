@@ -13,6 +13,7 @@ import { Spinner } from '@open-mercato/ui/primitives/spinner'
 import { ErrorMessage } from '@open-mercato/ui/backend/detail'
 import { apiCall } from '@open-mercato/ui/backend/utils/apiCall'
 import { kg, thisMonth, type ResinSetup } from './shared'
+import { Dropdown } from '../../../cc_lists/components/Dropdown'
 
 type RegisterRow = { day: string; ob: number; received: number; total: number; use: number; balance: number; refs: string[]; water?: number; resin?: number }
 type Register = { productId: string; title: string; unit: string; month: string; opening: number; closing: number; phenolColumns: boolean; rows: RegisterRow[]; totals: { received: number; use: number; water?: number; resin?: number } }
@@ -84,13 +85,13 @@ export function ChemicalRegisterPage() {
               </p>
             </div>
             <div className="flex flex-wrap items-center gap-2 print:hidden">
-              <select className="h-9 rounded-md border border-input bg-background px-2 text-sm" value={item} onChange={(event) => setItem(event.target.value)} aria-label={t('cc_production.register.item', 'Chemical')}>
+              <Dropdown className="h-9 rounded-md border border-input bg-background px-2 text-sm" value={item} onChange={(event) => setItem(event.target.value)} aria-label={t('cc_production.register.item', 'Chemical')}>
                 {chemicals.map((chemical) => (
                   <option key={chemical.id} value={chemical.id}>
                     {chemical.title}
                   </option>
                 ))}
-              </select>
+              </Dropdown>
               <Input type="month" className="w-44" value={month} onChange={(event) => setMonth(event.target.value)} aria-label={t('cc_production.register.month', 'Month')} />
               <Button type="button" variant="outline" onClick={() => window.print()}>
                 <Printer className="mr-1.5 h-4 w-4" aria-hidden="true" />

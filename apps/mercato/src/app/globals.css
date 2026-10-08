@@ -790,68 +790,41 @@ body[data-ai-chat-open="true"] .om-demo-feedback-floating {
   border-left-color: var(--foreground);
 }
 
-/* Creative Carbon Composites theme: phenolic-resin copper on carbon charcoal.
+/* Creative Carbon Composites theme: carbon blue on neutral greys.
    Kept last so it overrides the framework defaults above. Change these tokens only. */
 :root {
-  --cc-copper: oklch(0.56 0.15 48);
-  --cc-copper-strong: oklch(0.49 0.14 46);
-  --cc-copper-soft: oklch(0.95 0.035 62);
-  --cc-carbon: oklch(0.24 0.012 255);
-  --primary: var(--cc-copper);
+  --cc-blue: oklch(0.46 0.1 248);
+  --cc-blue-strong: oklch(0.39 0.09 250);
+  --cc-blue-soft: oklch(0.955 0.018 245);
+  --primary: var(--cc-blue);
   --primary-foreground: oklch(0.99 0 0);
-  --primary-hover: var(--cc-copper-strong);
-  --accent-indigo: var(--cc-copper);
+  --primary-hover: var(--cc-blue-strong);
+  --accent-indigo: var(--cc-blue);
   --accent-indigo-foreground: oklch(0.99 0 0);
-  --ring: oklch(0.72 0.11 58);
-  --foreground: var(--cc-carbon);
-  --card-foreground: var(--cc-carbon);
-  --popover-foreground: var(--cc-carbon);
-  --secondary: oklch(0.965 0.008 70);
-  --secondary-foreground: var(--cc-carbon);
-  --accent: var(--cc-copper-soft);
-  --accent-foreground: var(--cc-copper-strong);
-  --muted: oklch(0.965 0.006 70);
-  --border: oklch(0.91 0.008 70);
-  --input: oklch(0.89 0.01 70);
-  --sidebar: oklch(0.975 0.008 70);
-  --sidebar-primary: var(--cc-copper);
+  --ring: oklch(0.7 0.08 245);
+  --sidebar-primary: var(--cc-blue);
   --sidebar-primary-foreground: oklch(0.99 0 0);
-  --sidebar-accent: var(--cc-copper-soft);
-  --sidebar-accent-foreground: var(--cc-copper-strong);
-  --sidebar-ring: oklch(0.72 0.11 58);
+  --sidebar-ring: oklch(0.7 0.08 245);
 }
 
 .dark {
-  --cc-copper: oklch(0.7 0.14 55);
-  --cc-copper-strong: oklch(0.76 0.13 60);
-  --cc-copper-soft: oklch(0.3 0.05 50);
-  --cc-carbon: oklch(0.96 0.005 70);
-  --primary: var(--cc-copper);
+  --cc-blue: oklch(0.7 0.1 245);
+  --cc-blue-strong: oklch(0.77 0.09 243);
+  --cc-blue-soft: oklch(0.3 0.05 248);
+  --primary: var(--cc-blue);
   --primary-foreground: oklch(0.18 0.01 255);
-  --primary-hover: var(--cc-copper-strong);
-  --accent-indigo: var(--cc-copper);
+  --primary-hover: var(--cc-blue-strong);
+  --accent-indigo: var(--cc-blue);
   --accent-indigo-foreground: oklch(0.18 0.01 255);
-  --ring: oklch(0.62 0.11 55);
-  --accent: var(--cc-copper-soft);
-  --accent-foreground: oklch(0.9 0.06 65);
-  --sidebar: oklch(0.19 0.01 255);
-  --sidebar-primary: var(--cc-copper);
-  --sidebar-accent: var(--cc-copper-soft);
-}
-
-aside:has([data-sidebar-scroll]) {
-  background-color: var(--sidebar);
+  --ring: oklch(0.6 0.08 245);
+  --sidebar-primary: var(--cc-blue);
 }
 
 aside a[data-menu-item-id].bg-muted {
-  background-color: var(--cc-copper-soft);
-  color: var(--cc-copper-strong);
+  background-color: var(--cc-blue-soft);
+  color: var(--cc-blue-strong);
 }
 
 aside a[data-menu-item-id] > span.bg-foreground {
-  background-color: var(--cc-copper);
-}
-
-.dark aside a[data-menu-item-id].bg-muted {
-  color: var(--accent-foreground);
+  background-color: var(--cc-blue);
 }

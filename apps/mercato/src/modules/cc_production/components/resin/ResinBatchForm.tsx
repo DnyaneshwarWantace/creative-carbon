@@ -18,6 +18,7 @@ import { useGuardedMutation } from '@open-mercato/ui/backend/injection/useGuarde
 import { flash } from '@open-mercato/ui/backend/FlashMessages'
 import { PLACE_LABEL, type StockPlace } from '../../../cc_products/lib/stock'
 import { READINGS, STEP_LABELS, day, kg, todayIso, type BatchView, type ChemicalOption, type ResinSetup } from './shared'
+import { Dropdown } from '../../../cc_lists/components/Dropdown'
 
 type Line = { key: string; productId: string; kg: string; lotId: string }
 type ReadingDraft = { tempC: string; time: string }
@@ -116,14 +117,14 @@ function Section({ no, title, children }: { no: string; title: string; children:
 function LotSelect({ chemical, value, onChange }: { chemical: ChemicalOption | undefined; value: string; onChange: (value: string) => void }) {
   const t = useT()
   return (
-    <select className="h-9 w-full rounded-md border border-input bg-background px-2 text-sm" value={value} onChange={(event) => onChange(event.target.value)} aria-label={t('cc_production.resin.lot', 'Stock lot')}>
+    <Dropdown className="h-9 w-full rounded-md border border-input bg-background px-2 text-sm" value={value} onChange={(event) => onChange(event.target.value)} aria-label={t('cc_production.resin.lot', 'Stock lot')}>
       <option value="">{t('cc_production.resin.oldestFirst', 'Oldest lot first')}</option>
       {(chemical?.lots ?? []).map((lot) => (
         <option key={lot.lotId} value={lot.lotId}>
           {lot.lotNumber ?? '—'} · {kg(lot.free)} kg · {PLACE_LABEL[lot.place as StockPlace] ?? lot.place}
         </option>
       ))}
-    </select>
+    </Dropdown>
   )
 }
 
@@ -239,13 +240,13 @@ export function ResinBatchForm({ batch }: { batch: BatchView | null }) {
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="resin-vessel">{t('cc_production.resin.vessel', 'Vessel')} *</Label>
-                <select id="resin-vessel" className="h-9 w-full rounded-md border border-input bg-background px-2 text-sm" value={draft.reactorId} onChange={(event) => update({ reactorId: event.target.value })}>
+                <Dropdown id="resin-vessel" className="h-9 w-full rounded-md border border-input bg-background px-2 text-sm" value={draft.reactorId} onChange={(event) => update({ reactorId: event.target.value })}>
                   {setup.reactors.map((reactor) => (
                     <option key={reactor.id} value={reactor.id}>
                       {reactor.code}
                     </option>
                   ))}
-                </select>
+                </Dropdown>
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="resin-no">{t('cc_production.resin.batchNo', 'Batch No.')}</Label>
@@ -295,14 +296,14 @@ export function ResinBatchForm({ batch }: { batch: BatchView | null }) {
                           {standard ? (
                             <span className="font-medium">{chemical?.title}</span>
                           ) : (
-                            <select className="h-9 w-full rounded-md border border-input bg-background px-2 text-sm" value={line.productId} onChange={(event) => updateLine(line.key, { productId: event.target.value, lotId: '' })} aria-label={t('cc_production.resin.material', 'Material')}>
+                            <Dropdown className="h-9 w-full rounded-md border border-input bg-background px-2 text-sm" value={line.productId} onChange={(event) => updateLine(line.key, { productId: event.target.value, lotId: '' })} aria-label={t('cc_production.resin.material', 'Material')}>
                               <option value="">{t('cc_production.resin.pickChemical', 'Pick a chemical')}</option>
                               {setup.chemicals.map((option) => (
                                 <option key={option.id} value={option.id}>
                                   {option.title}
                                 </option>
                               ))}
-                            </select>
+                            </Dropdown>
                           )}
                         </td>
                         <td className="py-2 pr-3">

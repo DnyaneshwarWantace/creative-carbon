@@ -20,6 +20,7 @@ import { useGranted } from '../../../cc_departments/components/useGranted'
 import { day, kg, thisMonth, todayIso, type ResinSetup } from './shared'
 import { OfflineBadge, isOffline, queueSave } from '../offline'
 import { PlantTable } from '../PlantTable'
+import { Dropdown } from '../../../cc_lists/components/Dropdown'
 
 type Issue = { id: string; issueDate: string; productTitle: string; kg: number; usedFor: 'coating' | 'other'; dryerCode: string | null; note: string | null; lots: Array<{ lotNumber: string | null; kg: number }>; status: 'posted' | 'cancelled'; byName: string | null; updatedAt: string }
 type Dryer = { id: string; code: string }
@@ -147,13 +148,13 @@ export function ChemicalIssuesPage() {
                 </div>
                 <div className="space-y-1.5 lg:col-span-2">
                   <Label htmlFor="issue-item">{t('cc_production.register.item', 'Chemical')}</Label>
-                  <select id="issue-item" className="h-9 w-full rounded-md border border-input bg-background px-2 text-sm" value={form.productId} onChange={(event) => setForm({ ...form, productId: event.target.value })}>
+                  <Dropdown id="issue-item" className="h-9 w-full rounded-md border border-input bg-background px-2 text-sm" value={form.productId} onChange={(event) => setForm({ ...form, productId: event.target.value })}>
                     {(setup?.chemicals ?? []).map((option) => (
                       <option key={option.id} value={option.id}>
                         {option.title} · {kg(option.free)} kg
                       </option>
                     ))}
-                  </select>
+                  </Dropdown>
                 </div>
                 <div className="space-y-1.5">
                   <Label htmlFor="issue-kg">kg</Label>
@@ -162,22 +163,22 @@ export function ChemicalIssuesPage() {
                 </div>
                 <div className="space-y-1.5">
                   <Label htmlFor="issue-for">{t('cc_production.issues.usedFor', 'Used for')}</Label>
-                  <select id="issue-for" className="h-9 w-full rounded-md border border-input bg-background px-2 text-sm" value={form.usedFor} onChange={(event) => setForm({ ...form, usedFor: event.target.value as 'coating' | 'other' })}>
+                  <Dropdown id="issue-for" className="h-9 w-full rounded-md border border-input bg-background px-2 text-sm" value={form.usedFor} onChange={(event) => setForm({ ...form, usedFor: event.target.value as 'coating' | 'other' })}>
                     <option value="coating">{t('cc_production.issues.coating', 'Coating dryer')}</option>
                     <option value="other">{t('cc_production.issues.other', 'Other')}</option>
-                  </select>
+                  </Dropdown>
                 </div>
                 {form.usedFor === 'coating' ? (
                   <div className="space-y-1.5">
                     <Label htmlFor="issue-dryer">{t('cc_production.issues.dryer', 'Dryer')}</Label>
-                    <select id="issue-dryer" className="h-9 w-full rounded-md border border-input bg-background px-2 text-sm" value={form.dryerCode} onChange={(event) => setForm({ ...form, dryerCode: event.target.value })}>
+                    <Dropdown id="issue-dryer" className="h-9 w-full rounded-md border border-input bg-background px-2 text-sm" value={form.dryerCode} onChange={(event) => setForm({ ...form, dryerCode: event.target.value })}>
                       <option value="">—</option>
                       {dryers.map((dryer) => (
                         <option key={dryer.id} value={dryer.code}>
                           {dryer.code}
                         </option>
                       ))}
-                    </select>
+                    </Dropdown>
                   </div>
                 ) : null}
                 <div className="space-y-1.5 sm:col-span-2 lg:col-span-5">

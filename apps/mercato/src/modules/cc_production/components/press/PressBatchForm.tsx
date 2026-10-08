@@ -18,6 +18,7 @@ import { flash } from '@open-mercato/ui/backend/FlashMessages'
 import { pressFigures } from '../../lib/pressFigures'
 import { kg, todayIso } from '../resin/shared'
 import { HEATING_FIELDS, parseWeight, weightText, type PressBatchView, type PressSetup } from './shared'
+import { Dropdown } from '../../../cc_lists/components/Dropdown'
 
 type SheetDraft = { key: string; thicknessMm: string; count: string; weight: string; grade: string }
 type DaylightDraft = { key: string; no: number; sheets: SheetDraft[] }
@@ -192,7 +193,7 @@ export function PressBatchForm({ batch }: { batch: PressBatchView | null }) {
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="press-no">{t('cc_production.press.press', 'Press No.')} *</Label>
-              <select id="press-no" className="h-9 w-full rounded-md border border-input bg-background px-2 text-sm" value={draft.pressId} onChange={(event) => update({ pressId: event.target.value })}>
+              <Dropdown id="press-no" className="h-9 w-full rounded-md border border-input bg-background px-2 text-sm" value={draft.pressId} onChange={(event) => update({ pressId: event.target.value })}>
                 {setup.presses.map((entry) => (
                   <option key={entry.id} value={entry.id}>
                     {entry.number}
@@ -200,7 +201,7 @@ export function PressBatchForm({ batch }: { batch: PressBatchView | null }) {
                     {entry.isWorking ? '' : ' · not working'}
                   </option>
                 ))}
-              </select>
+              </Dropdown>
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="press-cycle">{t('cc_production.press.cycle', 'Cycle no.')}</Label>
@@ -314,7 +315,7 @@ export function PressBatchForm({ batch }: { batch: PressBatchView | null }) {
                       <p className={cn('text-sm tabular-nums md:col-span-2', usual.reduce((sum, lot) => sum + lot.freeKg, 0) < needed && 'text-status-error-text')}>
                         {kg(needed)} kg · {t('cc_production.press.inStock', '{kg} in stock', { kg: available })}
                       </p>
-                      <select className="h-9 rounded-md border border-input bg-background px-2 text-sm md:col-span-4" value={choice.lotId} onChange={(event) => update({ choices: { ...draft.choices, [grade]: { ...choice, lotId: event.target.value } } })} aria-label={`${grade} lot`}>
+                      <Dropdown className="h-9 rounded-md border border-input bg-background px-2 text-sm md:col-span-4" value={choice.lotId} onChange={(event) => update({ choices: { ...draft.choices, [grade]: { ...choice, lotId: event.target.value } } })} aria-label={`${grade} lot`}>
                         <option value="">{t('cc_production.press.oldest', 'Oldest first ({lot})', { lot: usual[0]?.lotNumber ?? '—' })}</option>
                         {lots.map((lot) => (
                           <option key={lot.lotId} value={lot.lotId}>
@@ -322,7 +323,7 @@ export function PressBatchForm({ batch }: { batch: PressBatchView | null }) {
                             {lot.band === 'expired' ? ' · past 7 days' : ''}
                           </option>
                         ))}
-                      </select>
+                      </Dropdown>
                       {needsReason ? (
                         <Input className="md:col-span-4" placeholder={t('cc_production.press.why', 'Why not the oldest?')} value={choice.reason} onChange={(event) => update({ choices: { ...draft.choices, [grade]: { ...choice, reason: event.target.value } } })} />
                       ) : null}
