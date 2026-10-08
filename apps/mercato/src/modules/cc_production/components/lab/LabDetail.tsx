@@ -3,11 +3,9 @@
 import * as React from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { ArrowLeft, CheckCircle2, CircleDashed, Download, ExternalLink, FileText, Pencil, Printer, XCircle } from 'lucide-react'
+import { CheckCircle2, CircleDashed, Download, ExternalLink, FileText, FlaskConical, Pencil, Printer, XCircle } from 'lucide-react'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { cn } from '@open-mercato/shared/lib/utils'
-import { Page, PageBody } from '@open-mercato/ui/backend/Page'
-import { ErrorMessage } from '@open-mercato/ui/backend/detail'
 import { AttachmentsSection } from '@open-mercato/ui/backend/detail/AttachmentsSection'
 import { Button } from '@open-mercato/ui/primitives/button'
 import { Notice } from '@open-mercato/ui/primitives/Notice'
@@ -15,11 +13,12 @@ import { apiCall } from '@open-mercato/ui/backend/utils/apiCall'
 import { flash } from '@open-mercato/ui/backend/FlashMessages'
 import { companyHeader, type DocCompany } from '../../../cc_orders/components/printDocs'
 import { useGranted } from '../../../cc_departments/components/useGranted'
-import { formatDateTime } from '../../../cc_orders/components/format'
 import { day } from '../resin/shared'
 import { LAB_ENTITY, fileSize } from './LabForm'
 import type { LabReportFile, LabResult, LabTest } from './types'
-import { PageLoading } from '../../../cc_ui/components/PageLoading'
+import { FieldList, HistoryPanel, Panel, RecordColumns, RecordPage, RecordState, type Fact } from '../../../cc_ui/components/RecordPage'
+import { PlantChain } from '../../../cc_ui/components/PlantChain'
+import { recordHref } from '../../../cc_ui/lib/links'
 
 const RESULT_STYLE: Record<LabResult, { label: string; tone: string; icon: typeof CheckCircle2 }> = {
   pass: { label: 'Pass', tone: 'border-status-success-border bg-status-success-bg text-status-success-text', icon: CheckCircle2 },
@@ -65,8 +64,8 @@ function printSummary(test: LabTest, company: DocCompany | null): boolean {
 
 function ReportPreview({ file }: { file: LabReportFile }) {
   const src = `/api/attachments/file/${file.id}`
-  if (file.mimeType.startsWith('image/')) return <img src={src} alt={file.fileName} className="max-h-[70vh] w-full rounded-lg border object-contain" />
-  if (file.mimeType === 'application/pdf') return <iframe src={src} title={file.fileName} className="h-[70vh] w-full rounded-lg border" />
+  if (file.mimeType.startsWith('image/')) return <img src={src} alt={file.fileName} className="max-h-screen w-full rounded-md border border-border object-contain" />
+  if (file.mimeType === 'application/pdf') return <iframe src={src} title={file.fileName} className="h-200 max-h-screen w-full rounded-md border border-border" />
   return null
 }
 
@@ -93,164 +92,170 @@ export function LabDetailPage({ testId }: { testId: string }) {
     apiCall<DocCompany>('/api/cc_accounts/company').then((call) => setCompany(call.ok ? (call.result ?? null) : null))
   }, [load])
 
-  if (error) return <Page><PageBody><ErrorMessage label={error} /></PageBody></Page>
-  if (!test) return <Page><PageBody><PageLoading label={t('cc_production.lab.loading', 'Loading…')} /></PageBody></Page>
+  if (error || !test) return <RecordState error={error} loadingLabel={t('cc_production.lab.loading', 'Loading…')} />
 
   const style = RESULT_STYLE[test.result]
   const ResultIcon = style.icon
   const reports = test.reports ?? []
   const preview = reports.find((file) => file.id === previewId) ?? null
-
-  const facts: Array<{ label: string; value: React.ReactNode }> = [
-    { label: t('cc_production.lab.point', 'Testing point'), value: test.testPoint === 'incoming' ? t('cc_production.lab.incoming', 'Raw material in') : t('cc_production.lab.outgoing', 'Finished goods out') },
+  const facts: Fact[] = [
     { label: t('cc_production.lab.testedOn', 'Tested on'), value: day(test.testDate) },
+    { label: t('cc_production.lab.point', 'Testing point'), value: test.testPoint === 'incoming' ? t('cc_production.lab.incoming', 'Raw material in') : t('cc_production.lab.outgoing', 'Finished goods out') },
     { label: t('cc_production.lab.standard', 'Standard'), value: test.standard ?? '—' },
+    { label: t('cc_production.lab.result', 'Result'), value: t(`cc_production.lab.${test.result}`, style.label), tone: test.result === 'pass' ? 'good' : test.result === 'fail' ? 'bad' : 'warn' },
+    { label: t('cc_production.lab.files', 'Report files'), value: String(reports.length), tone: reports.length ? undefined : 'warn' },
     { label: t('cc_production.lab.testedBy', 'Tested by'), value: test.testedBy ?? '—' },
-    { label: t('cc_production.lab.lots', 'Lot(s)'), value: test.lotRefs ? <span className="font-mono text-xs">{test.lotRefs}</span> : '—' },
-    { label: t('cc_production.lab.item', 'Item'), value: test.itemTitle ?? '—' },
-    { label: t('cc_production.moulding.customer', 'Customer'), value: test.customerId ? <Link className="text-primary hover:underline" href={`/backend/customers/companies/${test.customerId}`}>{test.customerName}</Link> : (test.customerName ?? t('cc_production.lab.noCustomer', 'No particular customer')) },
-    { label: t('cc_production.lab.order', 'Order'), value: test.orderId ? <Link className="font-mono text-primary hover:underline" href={`/backend/orders/${test.orderId}/stages/qc`}>{test.orderNo}</Link> : t('cc_production.lab.noOrder', 'Not for an order') },
+  ]
+  const details: Array<[string, React.ReactNode]> = [
+    [t('cc_production.lab.reportNo', 'Report No.'), test.reportNo],
+    [t('cc_production.lab.lots', 'Lot(s)'), test.lotRefs ? <span key="lots" className="font-mono text-xs">{test.lotRefs}</span> : null],
+    [
+      t('cc_production.lab.item', 'Item'),
+      test.productId ? (
+        <Link key="item" className="underline-offset-2 hover:underline" href={recordHref.product(test.productId)}>
+          {test.itemTitle ?? '—'}
+        </Link>
+      ) : (
+        test.itemTitle
+      ),
+    ],
+    [
+      t('cc_production.moulding.customer', 'Customer'),
+      test.customerId ? (
+        <Link key="customer" className="underline-offset-2 hover:underline" href={recordHref.customer(test.customerId)}>
+          {test.customerName}
+        </Link>
+      ) : (
+        test.customerName ?? t('cc_production.lab.noCustomer', 'No particular customer')
+      ),
+    ],
+    [
+      t('cc_production.lab.order', 'Order'),
+      test.orderId ? (
+        <Link key="order" className="font-mono underline-offset-2 hover:underline" href={`${recordHref.order(test.orderId)}/stages/qc`}>
+          {test.orderNo}
+        </Link>
+      ) : (
+        t('cc_production.lab.noOrder', 'Not for an order')
+      ),
+    ],
   ]
 
   return (
-    <Page>
-      <PageBody>
-        <div className="mx-auto max-w-6xl space-y-5 pb-16">
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-            <div className="flex items-start gap-3">
-              <Button asChild variant="ghost" size="icon" className="mt-0.5 shrink-0" aria-label={t('common.back', 'Back')}>
-                <Link href="/backend/quality/lab">
-                  <ArrowLeft className="h-4 w-4" />
-                </Link>
-              </Button>
-              <div className="min-w-0">
-                <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">{t('cc_production.lab.entity', 'Lab test report')}</p>
-                <h1 className="text-xl font-semibold sm:text-2xl">{test.testType}</h1>
-                <p className="mt-1 text-sm text-muted-foreground">{[day(test.testDate), test.reportNo, test.itemTitle].filter(Boolean).join(' · ')}</p>
-              </div>
-            </div>
-            <div className="flex flex-wrap gap-2 sm:justify-end">
-              {reports.length ? (
-                <Button asChild>
-                  <a href={`/api/attachments/file/${reports[0].id}?download=1`}>
-                    <Download className="mr-1.5 h-4 w-4" aria-hidden="true" />
-                    {reports.length > 1 ? t('cc_production.lab.downloadFirst', 'Download report (1 of {count})', { count: reports.length }) : t('cc_production.lab.download', 'Download report')}
-                  </a>
-                </Button>
-              ) : null}
-              <Button type="button" variant="outline" onClick={() => { if (!printSummary(test, company)) flash(t('cc_production.lab.popup', 'Allow pop-ups to print.'), 'error') }}>
-                <Printer className="mr-1.5 h-4 w-4" aria-hidden="true" />
-                {t('cc_production.lab.print', 'Print record')}
-              </Button>
-              {canEnter ? (
-                <Button type="button" variant="outline" onClick={() => router.push(`/backend/quality/lab/${test.id}/edit`)}>
-                  <Pencil className="mr-1.5 h-4 w-4" aria-hidden="true" />
-                  {t('cc_production.lab.edit', 'Edit')}
-                </Button>
-              ) : null}
-            </div>
-          </div>
-
-          <div className={cn('flex items-center gap-3 rounded-xl border p-4', style.tone)}>
-            <ResultIcon className="h-6 w-6 shrink-0" aria-hidden="true" />
-            <div>
-              <p className="text-base font-semibold">{t(`cc_production.lab.${test.result}`, style.label)}</p>
-              <p className="text-xs opacity-80">
-                {test.result === 'pass'
-                  ? test.orderNo
-                    ? t('cc_production.lab.passOrder', 'QC done. "Customer tests done" is ticked on order {no}.', { no: test.orderNo })
-                    : t('cc_production.lab.passPlain', 'QC done.')
-                  : test.result === 'fail'
-                    ? t('cc_production.lab.failHint', 'Does not meet the standard. Hold the lot or re-test.')
-                    : t('cc_production.lab.pendingHint', 'Waiting for the result. Edit the test when the report comes back.')}
-              </p>
-            </div>
-          </div>
-
-          {!reports.length ? <Notice variant="warning" title={t('cc_production.lab.noReportTitle', 'No report attached yet')} message={t('cc_production.lab.noReportBody', 'Upload the lab’s report below so anyone can open or download it.')} /> : null}
-
-          <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
-            <div className="space-y-5 lg:col-span-2">
-              {reports.length ? (
-                <section className="rounded-xl border bg-card shadow-xs">
-                  <header className="flex items-center justify-between gap-2 border-b px-4 py-3 sm:px-5">
-                    <h2 className="text-sm font-semibold">{t('cc_production.lab.reportFile', 'Lab test report')}</h2>
-                    {preview ? (
-                      <a className="inline-flex items-center gap-1 text-xs text-primary hover:underline" href={`/api/attachments/file/${preview.id}`} target="_blank" rel="noopener">
-                        {t('cc_production.lab.openNewTab', 'Open in new tab')}
-                        <ExternalLink className="h-3 w-3" aria-hidden="true" />
-                      </a>
-                    ) : null}
-                  </header>
-                  <ul className="divide-y">
-                    {reports.map((file) => (
-                      <li key={file.id} className={cn('flex items-center gap-3 px-4 py-2.5 sm:px-5', file.id === previewId && 'bg-muted/40')}>
-                        <FileText className="h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
-                        <button type="button" className="min-w-0 flex-1 truncate text-left text-sm hover:underline" onClick={() => setPreviewId(file.id)}>
-                          {file.fileName}
-                        </button>
-                        <span className="hidden text-xs text-muted-foreground sm:inline">{fileSize(file.fileSize)}</span>
-                        <Button asChild variant="ghost" size="icon" className="h-8 w-8" aria-label={t('cc_production.lab.download', 'Download report')}>
-                          <a href={`/api/attachments/file/${file.id}?download=1`}>
-                            <Download className="h-4 w-4" />
-                          </a>
-                        </Button>
-                      </li>
-                    ))}
-                  </ul>
-                  {preview ? (
-                    <div className="border-t p-4 sm:p-5">
-                      <ReportPreview file={preview} />
-                    </div>
-                  ) : null}
-                </section>
-              ) : null}
-
-              {canEnter ? (
-                <section className="rounded-xl border bg-card p-4 shadow-xs sm:p-5">
-                  <AttachmentsSection entityId={LAB_ENTITY} recordId={test.id} title={reports.length ? t('cc_production.lab.moreFiles', 'Add or remove files') : t('cc_production.lab.uploadTitle', 'Upload the lab test report')} onChanged={() => void load()} compact />
-                </section>
-              ) : null}
-            </div>
-
-            <aside className="space-y-5">
-              <section className="rounded-xl border bg-card p-4 shadow-xs sm:p-5">
-                <h2 className="mb-3 text-sm font-semibold">{t('cc_production.lab.details', 'Details')}</h2>
-                <dl className="space-y-3">
-                  {facts.map((fact) => (
-                    <div key={fact.label} className="flex items-start justify-between gap-4">
-                      <dt className="shrink-0 text-xs text-muted-foreground">{fact.label}</dt>
-                      <dd className="text-right text-sm">{fact.value}</dd>
-                    </div>
-                  ))}
-                </dl>
-                {test.notes ? (
-                  <div className="mt-4 border-t pt-3">
-                    <p className="text-xs text-muted-foreground">{t('cc_production.resin.notes', 'Remarks')}</p>
-                    <p className="mt-1 whitespace-pre-wrap text-sm">{test.notes}</p>
-                  </div>
-                ) : null}
-              </section>
-              <section className="rounded-xl border bg-card p-4 shadow-xs sm:p-5">
-                <h2 className="mb-3 text-sm font-semibold">{t('cc_production.lab.history', 'History')}</h2>
-                <ol className="relative space-y-4 border-l pl-4">
-                  {[...test.history].reverse().map((entry, index) => (
-                    <li key={`${entry.at}-${index}`} className="text-sm">
-                      <span className="absolute -left-1.5 mt-1.5 h-3 w-3 rounded-full border-2 border-background bg-primary" aria-hidden="true" />
-                      <p className="font-medium first-letter:uppercase">{entry.action}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {formatDateTime(entry.at)}
-                        {entry.by ? ` · ${entry.by}` : ''}
-                      </p>
-                      {entry.note ? <p className="text-xs text-muted-foreground">{entry.note}</p> : null}
+    <RecordPage
+      back={{ href: '/backend/quality/lab', label: t('cc_production.nav.lab', 'Lab test reports') }}
+      overline={[t('cc_production.lab.entity', 'Lab test report'), test.reportNo].filter(Boolean).join(' · ')}
+      title={test.testType}
+      mono={false}
+      badges={
+        <span className={cn('inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs font-semibold', style.tone)}>
+          <ResultIcon className="h-3.5 w-3.5" aria-hidden="true" />
+          {t(`cc_production.lab.${test.result}`, style.label)}
+        </span>
+      }
+      meta={
+        test.result === 'pass'
+          ? test.orderNo
+            ? t('cc_production.lab.passOrder', 'QC done. "Customer tests done" is ticked on order {no}.', { no: test.orderNo })
+            : t('cc_production.lab.passPlain', 'QC done.')
+          : test.result === 'fail'
+            ? t('cc_production.lab.failHint', 'Does not meet the standard. Hold the lot or re-test.')
+            : t('cc_production.lab.pendingHint', 'Waiting for the result. Edit the test when the report comes back.')
+      }
+      actions={
+        <>
+          {reports.length ? (
+            <Button asChild size="sm">
+              <a href={`/api/attachments/file/${reports[0].id}?download=1`}>
+                <Download className="mr-1.5 h-4 w-4" aria-hidden="true" />
+                {reports.length > 1 ? t('cc_production.lab.downloadFirst', 'Download report (1 of {count})', { count: reports.length }) : t('cc_production.lab.download', 'Download report')}
+              </a>
+            </Button>
+          ) : null}
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              if (!printSummary(test, company)) flash(t('cc_production.lab.popup', 'Allow pop-ups to print.'), 'error')
+            }}
+          >
+            <Printer className="mr-1.5 h-4 w-4" aria-hidden="true" />
+            {t('cc_production.lab.print', 'Print record')}
+          </Button>
+          {canEnter ? (
+            <Button type="button" variant="outline" size="sm" onClick={() => router.push(`/backend/quality/lab/${test.id}/edit`)}>
+              <Pencil className="mr-1.5 h-4 w-4" aria-hidden="true" />
+              {t('cc_production.lab.edit', 'Edit')}
+            </Button>
+          ) : null}
+        </>
+      }
+      alert={!reports.length ? <Notice variant="warning" title={t('cc_production.lab.noReportTitle', 'No report attached yet')} message={t('cc_production.lab.noReportBody', 'Upload the lab’s report below so anyone can open or download it.')} /> : null}
+      chain={test.testPoint === 'outgoing' ? <PlantChain current="fg" hrefs={{ despatch: test.orderId ? recordHref.order(test.orderId) : null }} /> : undefined}
+      facts={facts}
+    >
+      <RecordColumns
+        main={
+          <>
+            {reports.length ? (
+              <Panel
+                title={t('cc_production.lab.reportFile', 'Lab test report')}
+                icon={FileText}
+                count={reports.length}
+                flush
+                action={
+                  preview ? (
+                    <a className="inline-flex items-center gap-1 text-primary hover:underline" href={`/api/attachments/file/${preview.id}`} target="_blank" rel="noopener">
+                      {t('cc_production.lab.openNewTab', 'Open in new tab')}
+                      <ExternalLink className="h-3 w-3" aria-hidden="true" />
+                    </a>
+                  ) : null
+                }
+              >
+                <ul className="divide-y divide-border">
+                  {reports.map((file) => (
+                    <li key={file.id} className={cn('flex items-center gap-3 px-3 py-2', file.id === previewId && 'bg-muted/40')}>
+                      <FileText className="h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
+                      <button type="button" className="min-w-0 flex-1 truncate text-left text-sm hover:underline" onClick={() => setPreviewId(file.id)}>
+                        {file.fileName}
+                      </button>
+                      <span className="hidden font-mono text-xs text-muted-foreground sm:inline">{fileSize(file.fileSize)}</span>
+                      <Button asChild variant="ghost" size="icon" className="h-8 w-8" aria-label={t('cc_production.lab.download', 'Download report')}>
+                        <a href={`/api/attachments/file/${file.id}?download=1`}>
+                          <Download className="h-4 w-4" />
+                        </a>
+                      </Button>
                     </li>
                   ))}
-                </ol>
+                </ul>
+                {preview ? (
+                  <div className="border-t border-border p-3">
+                    <ReportPreview file={preview} />
+                  </div>
+                ) : null}
+              </Panel>
+            ) : null}
+            {canEnter ? (
+              <section className="rounded-md border border-border bg-card p-3 shadow-sm">
+                <AttachmentsSection entityId={LAB_ENTITY} recordId={test.id} title={reports.length ? t('cc_production.lab.moreFiles', 'Add or remove files') : t('cc_production.lab.uploadTitle', 'Upload the lab test report')} onChanged={() => void load()} compact />
               </section>
-            </aside>
-          </div>
-        </div>
-      </PageBody>
-    </Page>
+            ) : null}
+          </>
+        }
+        side={
+          <Panel title={t('cc_production.lab.details', 'Details')} icon={FlaskConical}>
+            <FieldList columns={1} fields={details} />
+            {test.notes ? (
+              <div className="mt-3 border-t border-border pt-3">
+                <p className="font-mono text-overline uppercase tracking-widest text-muted-foreground">{t('cc_production.resin.notes', 'Remarks')}</p>
+                <p className="mt-1 whitespace-pre-wrap text-sm">{test.notes}</p>
+              </div>
+            ) : null}
+          </Panel>
+        }
+      />
+      <HistoryPanel entries={[...test.history].reverse().map((entry, index) => ({ key: `${entry.at}-${index}`, label: <span className="first-letter:uppercase">{entry.action}</span>, note: entry.note, by: entry.by, at: entry.at }))} />
+    </RecordPage>
   )
 }
