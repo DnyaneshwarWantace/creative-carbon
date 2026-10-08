@@ -203,7 +203,7 @@ export function DieAvailabilityPage() {
             </div>
           ) : (
             <>
-              <section className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
+              <section className="overflow-x-auto rounded-md border border-foreground/70 bg-card shadow-sm">
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-border bg-muted/50 text-left text-xs uppercase tracking-wide text-muted-foreground">

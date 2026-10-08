@@ -563,7 +563,7 @@ export function StocktakePage() {
             </Dropdown>
             <Input type="date" className="w-40" value={countDate} onChange={(event) => setCountDate(event.target.value)} aria-label={t('cc_production.resin.date', 'Date')} />
           </div>
-          <section className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
+          <section className="overflow-x-auto rounded-md border border-foreground/70 bg-card shadow-sm">
             {!lots ? (
               <div className="flex justify-center py-12">
                 <Spinner />

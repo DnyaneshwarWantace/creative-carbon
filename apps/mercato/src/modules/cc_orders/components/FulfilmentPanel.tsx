@@ -175,6 +175,7 @@ export function FulfilmentPanel({ orderId, stageKey, stageStatus, editable }: { 
                   ) : !candidates.length ? (
                     <p className="text-xs text-muted-foreground">{t('cc_orders.fulfilment.noStock', 'No finished stock of this item. The short quantity shows on the production plan.')}</p>
                   ) : (
+                    <div className="overflow-x-auto">
                     <table className="w-full text-xs">
                       <thead>
                         <tr className="text-left text-muted-foreground">
@@ -222,6 +223,7 @@ export function FulfilmentPanel({ orderId, stageKey, stageStatus, editable }: { 
                         ))}
                       </tbody>
                     </table>
+                    </div>
                   )
                 ) : (
                   <Button type="button" size="sm" variant="outline" onClick={() => void findStock(line)}>
