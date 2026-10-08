@@ -135,7 +135,7 @@ export async function returnLots(ctx: StoreContext, stock: PlantStock, productId
 export async function produceLot(
   ctx: StoreContext,
   stock: PlantStock,
-  input: { productId: string; place: StockPlace; lotNumber: string; existingLotId: string | null; kg: number; manufacturedAt: string } & Movement,
+  input: { productId: string; place: StockPlace; lotNumber: string; existingLotId: string | null; kg: number; manufacturedAt: string; expiresAt?: string | null; lotMetadata?: Record<string, unknown> } & Movement,
 ): Promise<string> {
   const variantId = stock.variants.get(input.productId)
   if (!variantId) throw new PlantError('That item has no stock record', 404)
@@ -153,8 +153,9 @@ export async function produceLot(
       lotNumber: input.lotNumber,
       batchNumber: input.lotNumber,
       manufacturedAt: input.manufacturedAt,
+      ...(input.expiresAt ? { expiresAt: input.expiresAt } : {}),
       status: 'available',
-      metadata: input.metadata,
+      metadata: { ...input.metadata, ...(input.lotMetadata ?? {}) },
     })).lotId
   }
   await runCommand(ctx, 'wms.inventory.receive', {

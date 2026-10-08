@@ -158,3 +158,54 @@ export const chemicalRegisterSchema = z.object({
   item: z.string().uuid(),
   month: z.string().regex(/^\d{4}-\d{2}$/),
 })
+
+export const COATING_SLOTS = ['08:00', '10:00', '12:00', '14:00', '16:00', '18:00', '20:00', '22:00'] as const
+
+const nullableNumber = optionalNumber.optional().transform((value) => value ?? null)
+
+export const coatingRowSchema = z.object({
+  sn: z.coerce.number().int().min(1).max(30),
+  clothProductId: z.string().uuid(),
+  gsm: nullableNumber,
+  kushan: nullableNumber,
+  treatedWeight: nullableNumber,
+  rawKg: z.coerce.number().min(0).max(100_000),
+  balanceRawKg: nullableNumber,
+  coatedNos: z.coerce.number().int().min(0).max(100_000),
+  resinLotId: z.string().uuid().nullable().optional().transform((value) => value ?? null),
+  rcPct: nullableNumber,
+  vcPct: nullableNumber,
+})
+
+export const coatingSlotSchema = z.object({
+  time: z.string().trim().regex(/^\d{1,2}[:.]\d{2}$/),
+  dbpKg: nullableNumber,
+  oleicKg: nullableNumber,
+  outputKg: nullableNumber,
+})
+
+export const coatingSheetInputSchema = z.object({
+  sheetDate: isoDate,
+  dryerId: z.string().uuid(),
+  rows: z.array(coatingRowSchema).max(30).default([]),
+  slots: z.array(coatingSlotSchema).max(16).default([]),
+  notes: z.string().trim().max(2000).nullable().optional(),
+})
+
+export type CoatingSheetInput = z.infer<typeof coatingSheetInputSchema>
+
+export const coatingSheetUpdateSchema = coatingSheetInputSchema.extend({ id: z.string().uuid() })
+
+export const coatingActionSchema = z.object({ id: z.string().uuid(), action: z.enum(['post', 'reopen', 'delete']) })
+
+export const coatingListSchema = z.object({
+  id: z.string().uuid().optional(),
+  date: isoDate.optional(),
+  month: z.string().regex(/^\d{4}-\d{2}$/).optional(),
+})
+
+export const bstageScrapSchema = z.object({
+  lotId: z.string().uuid(),
+  kg: z.coerce.number().positive().max(1_000_000).optional(),
+  reason: z.string().trim().min(2).max(500),
+})

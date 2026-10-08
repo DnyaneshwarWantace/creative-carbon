@@ -312,8 +312,11 @@ export function ResinBatchPage({ batchId }: { batchId: string }) {
               {batch.wentTo.length ? (
                 <ul className="mt-3 space-y-1 text-sm">
                   {batch.wentTo.map((entry) => (
-                    <li key={entry.id}>
-                      {entry.label} · {kg(entry.kg)} kg
+                    <li key={`${entry.id}-${entry.label}`}>
+                      <Link className="underline-offset-2 hover:underline" href={`/backend/coating/${entry.id}`}>
+                        {entry.label}
+                      </Link>{' '}
+                      · {kg(entry.kg)} kg
                     </li>
                   ))}
                 </ul>

@@ -31,6 +31,8 @@ const UI_FEATURES = [
   'cc_production.resin.enter',
   'cc_production.resin.sign',
   'cc_production.chemicals.issue',
+  'cc_production.coating.enter',
+  'cc_production.bstage.manage',
   'catalog.products.manage',
 ]
 

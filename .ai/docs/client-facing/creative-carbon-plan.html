@@ -184,7 +184,7 @@
 
 <div class="wrap">
   <header class="hero">
-    <span class="eyebrow">● Detailed build plan · v6 · Stages 0–3 done and tested</span>
+    <span class="eyebrow">● Detailed build plan · v7 · Stages 0–4 done and tested</span>
     <h1>Creative Carbon on the Dermat base: every stage, page, field and link</h1>
     <p class="lede">For each stage this page lists the screens, every field with its type and rule, what the detail page shows, which stage feeds it and which stage it feeds, the stock it moves, and the small things that are easy to miss. Sources are the dev brief, the 12 register photos and the Kheda audit recording. <strong>Anything we had to guess is marked "confirm".</strong></p>
     <div class="facts">
@@ -199,7 +199,7 @@
       <a class="pchip done" href="#s1"><div class="pn">Stage 1<span>Wk 2</span></div><div class="pv">Masters</div></a>
       <a class="pchip done" href="#s2"><div class="pn">Stage 2<span>Wk 2</span></div><div class="pv">Bulk upload</div></a>
       <a class="pchip done" href="#s3"><div class="pn">Stage 3<span>Wk 3</span></div><div class="pv">Resin · Chemicals</div></a>
-      <a class="pchip" href="#s4"><div class="pn">Stage 4<span>Wk 3</span></div><div class="pv">Coating · B-stage</div></a>
+      <a class="pchip done" href="#s4"><div class="pn">Stage 4<span>Wk 3</span></div><div class="pv">Coating · B-stage</div></a>
       <a class="pchip" href="#s5"><div class="pn">Stage 5<span>Wk 4</span></div><div class="pv">Press</div></a>
       <a class="pchip" href="#s6"><div class="pn">Stage 6<span>Wk 4</span></div><div class="pv">Moulding</div></a>
       <a class="pchip" href="#s7"><div class="pn">Stage 7<span>Wk 4</span></div><div class="pv">Cutting · QC · FG</div></a>
@@ -238,7 +238,7 @@
       <a href="#s1"><span class="dot done"></span>1 Masters</a>
       <a href="#s2"><span class="dot done"></span>2 Bulk upload</a>
       <a href="#s3"><span class="dot done"></span>3 Resin · Chemicals</a>
-      <a href="#s4"><span class="dot planned"></span>4 Coating · B-stage</a>
+      <a href="#s4"><span class="dot done"></span>4 Coating · B-stage</a>
       <a href="#s5"><span class="dot planned"></span>5 Press</a>
       <a href="#s6"><span class="dot planned"></span>6 Moulding</a>
       <a href="#s7"><span class="dot planned"></span>7 Cutting · QC · FG</a>
@@ -643,7 +643,7 @@
 
 <!-- ============ STAGE 4 ============ -->
       <section id="s4">
-        <div class="mod-head"><h2>Stage 4 · Coating (impregnation) and the B-stage board</h2><span class="verdict planned">PLANNED</span><span class="when">Week 3</span></div>
+        <div class="mod-head"><h2>Stage 4 · Coating (impregnation) and the B-stage board</h2><span class="verdict done">DONE · TESTED</span><span class="when">finished 8 Oct</span></div>
         <p class="mod-dek">"Quality Control Report, Dryer No. N": one sheet per dryer per day, two dryers to a printed page.</p>
         <div class="meta"><span><b>Pages</b> /backend/coating?date=&amp;dryer= (tabs Dryer 1, 2, 3, Mixer) · /coating/&lt;id&gt; · /backend/bstage (board) · /lots/&lt;lot&gt;</span><span><b>Users</b> coating operator, floor supervisor</span><span><b>Paper</b> IMG_7783</span></div>
 
@@ -691,7 +691,26 @@
         </div>
         <p class="warn"><b>From the recording:</b> B-stage is "mostly FIFO" but the grade needed today decides. A lot treated today may be used in two days. Sheets are made grade by grade, depending on orders. So the picker sorts oldest first but filters by grade first.</p>
         <p class="exit"><b>Done when:</b> the 3 July dryer 2 and 3 sheets type in and give 1570 and 1664 kg day totals, and lots appear on the board with their clocks.</p>
-      </section>
+            <h3>What the photo settled</h3>
+        <div class="itemlist">
+          <div class="item done"><span class="mark">✓</span><span class="txt"><b>Kushan</b> is the sample weight <i>before treating</i> (pencil note on IMG_7783) and Treated Cloth Weight the sample <i>after coating</i>: 1 − 1070 ÷ 1960 = 45.4 %, the RC written on that row. Both are sample weights, not stock kg.</span></div>
+          <div class="item done"><span class="mark">✓</span><span class="txt"><b>Remarks</b> is the output kg per time slot; the ringed 1570 is their sum (637 + 286.4 + 531.1 + 116.16). Raw kg 347 + 151 + 298 + 65 = 861 ringed, nos 786 ringed.</span></div>
+          <div class="item done"><span class="mark">✓</span><span class="txt"><b>One B-stage lot per row.</b> The day output is shared across rows by raw kg × Treated ÷ Kushan (row 1: 347 × 1960 ÷ 1070 = 636, the 637 in the first slot). Resin used = output − raw cloth − DBP / oleic acid.</span></div>
+          <div class="item partial"><span class="mark">?</span><span class="txt">Dryer 3's second group of slots adds to 1666.66; the ring says 1664. Either a figure is misread from the photo or the ring is rounded; confirm with the coating operator.</span></div>
+        </div>
+      <h3>What was built</h3>
+        <div class="itemlist">
+          <div class="item done"><span class="mark">✓</span><span class="txt"><b>Dryer sheets</b> (Plant → Dryer sheets): date picker, tabs Dryer 1, 2, 3 and Mixer oven (a dot shows which have a sheet that day), the paper grid S.N. 1–10 with every column, GSM filled from the item, NIL accepted, RC / VC out of band shown amber, and the two-hourly log 8.00 … 10.00 with DBP, Olic acid and Remarks kg. Totals (raw, nos, output, resin) and each row's B-stage kg are worked out as you type.</span></div>
+          <div class="item done"><span class="mark">✓</span><span class="txt"><b>Post</b>: raw cloth (raw − balance) out of Warehouse A / B / shop floor oldest lot first, resin out of the resin tank (oldest, or the batch picked on the row), one B-stage lot per row onto the shop floor with use-by = date + 7 days, DBP and oleic acid posted as chemical issues for that dryer. Nothing moves if anything is short. <b>Reopen</b> reverses all of it while no lot has been used or scrapped.</span></div>
+          <div class="item done"><span class="mark">✓</span><span class="txt"><b>B-stage items</b> are made automatically per cloth and resin grade (e.g. "B-stage 10x10 PFC", shelf life 7, usable to 10 days, editable on the item). Lot numbers read <code>B-030726-D2-1</code> (date, dryer, S.N.).</span></div>
+          <div class="item done"><span class="mark">✓</span><span class="txt"><b>B-stage board</b>: columns Day 0–4, Day 5–7 (amber), past 7 (red), past 10 (blocked from pressing); each card shows lot no., cloth, GSM, kg and nos left, dryer, resin batch, date. Search by lot, cloth, dryer or resin batch. Phone friendly.</span></div>
+          <div class="item done"><span class="mark">✓</span><span class="txt"><b>Lot page</b>: cloth, kg / nos made and left, where, coated date and dryer, use-by, resin batch, every movement in and out, print label, scrap (all or some kg, with a reason). The <b>sheet page</b> shows each row's came-from lots and its B-stage lot; the <b>resin batch page</b> now lists the dryer rows its resin went to.</span></div>
+          <div class="item done"><span class="mark">✓</span><span class="txt"><b>Upload tiles</b> "Dryer sheets · cloth rows" and "Dryer sheets · time slots": rows with the same date and dryer make one sheet, ditto marks and NIL work, "G-10x10" matches "G 10x10", Post = Yes posts the sheet.</span></div>
+          <div class="item done"><span class="mark">✓</span><span class="txt"><b>Rights</b>: Coating (enter, scrap), Floor supervisor, Data entry; Press &amp; moulding, Store, QC and Sales can see the board.</span></div>
+          <div class="item partial"><span class="mark">→</span><span class="txt">"Use in a press batch" and "sell" act on these lots from Stage 5 and Stage 9. The day-5 alert to the production head and owner goes with the notifications in Stage 8; the board colours show it today.</span></div>
+        </div>
+        <p class="exit"><b>Tested 8 Oct:</b> type check 0 errors · end-to-end suite Stages 0–4: <b>48 / 48 passing</b> — the 3 July Dryer 2 sheet typed in gives 861 kg raw, 786 nos and 1570.66 kg output; one sheet per dryer per day; posting moves 498 kg of 10x10, the resin worked out and 16 kg DBP, makes lots B-030726-D2-1…4; the resin batch lists the four dryer rows; the July lots sit in the blocked column with 325 nos on lot 1; today's lot is fresh, RC 52 % warns, partial scrap blocks reopen; the Dryer 3 sheet comes in through both upload tiles (unknown cloth reported) and posts with 933 kg, 875 nos; pages open; reopen restores cloth, resin and DBP; test data cleaned up.</p>
+</section>
 
 <!-- ============ STAGE 5 ============ -->
       <section id="s5">

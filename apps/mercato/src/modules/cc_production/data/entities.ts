@@ -525,3 +525,96 @@ export class ChemicalIssue {
   @Property({ name: 'deleted_at', type: Date, nullable: true })
   deletedAt?: Date | null
 }
+
+export type CoatingRow = {
+  sn: number
+  clothProductId: string
+  clothTitle: string
+  gsm: number | null
+  kushan: number | null
+  treatedWeight: number | null
+  rawKg: number
+  balanceRawKg: number
+  coatedNos: number
+  resinLotId: string | null
+  rcPct: number | null
+  vcPct: number | null
+  rawLots: Array<{ lotId: string; lotNumber: string | null; place: string; kg: number }>
+  resinLots: Array<{ lotId: string; lotNumber: string | null; place: string; kg: number }>
+  resinProductId: string | null
+  resinBatchNo: string | null
+  bstageProductId: string | null
+  bstageLotId: string | null
+  bstageLotNumber: string | null
+  bstageKg: number | null
+  resinKg: number | null
+}
+
+export type CoatingSlot = { time: string; dbpKg: number | null; oleicKg: number | null; outputKg: number | null }
+
+@Entity({ tableName: 'cc_coating_sheets' })
+@Index({ name: 'cc_coating_sheets_scope_idx', properties: ['organizationId', 'tenantId', 'sheetDate'] })
+@Index({
+  name: 'cc_coating_sheets_day_unique_idx',
+  expression: 'create unique index "cc_coating_sheets_day_unique_idx" on "cc_coating_sheets" ("organization_id", "dryer_id", "sheet_date") where deleted_at is null',
+})
+export class CoatingSheet {
+  [OptionalProps]?: 'createdAt' | 'updatedAt' | 'deletedAt' | 'updatedByName' | 'status' | 'postedAt' | 'postedByName' | 'notes' | 'history' | 'issueIds' | 'warnings'
+
+  @PrimaryKey({ type: 'uuid', defaultRaw: 'gen_random_uuid()' })
+  id!: string
+
+  @Property({ name: 'organization_id', type: 'uuid' })
+  organizationId!: string
+
+  @Property({ name: 'tenant_id', type: 'uuid' })
+  tenantId!: string
+
+  @Property({ name: 'sheet_date', type: 'text' })
+  sheetDate!: string
+
+  @Property({ name: 'dryer_id', type: 'uuid' })
+  dryerId!: string
+
+  @Property({ name: 'dryer_code', type: 'text' })
+  dryerCode!: string
+
+  @Property({ type: 'json' })
+  rows!: CoatingRow[]
+
+  @Property({ type: 'json' })
+  slots!: CoatingSlot[]
+
+  @Property({ type: 'text', default: 'draft' })
+  status: 'draft' | 'posted' = 'draft'
+
+  @Property({ name: 'issue_ids', type: 'json', nullable: true })
+  issueIds?: string[] | null
+
+  @Property({ type: 'json', nullable: true })
+  warnings?: string[] | null
+
+  @Property({ name: 'posted_at', type: Date, nullable: true })
+  postedAt?: Date | null
+
+  @Property({ name: 'posted_by_name', type: 'text', nullable: true })
+  postedByName?: string | null
+
+  @Property({ type: 'text', nullable: true })
+  notes?: string | null
+
+  @Property({ type: 'json', nullable: true })
+  history?: PlantHistoryEntry[] | null
+
+  @Property({ name: 'updated_by_name', type: 'text', nullable: true })
+  updatedByName?: string | null
+
+  @Property({ name: 'created_at', type: Date, onCreate: () => new Date() })
+  createdAt: Date = new Date()
+
+  @Property({ name: 'updated_at', type: Date, onCreate: () => new Date(), onUpdate: () => new Date() })
+  updatedAt: Date = new Date()
+
+  @Property({ name: 'deleted_at', type: Date, nullable: true })
+  deletedAt?: Date | null
+}

@@ -1,6 +1,6 @@
 import type { StoreContext } from '../../cc_store/lib/server'
 import { loadProducts } from '../../cc_orders/lib/server'
-import { Reactor, ResinBatch, type PlantHistoryEntry, type ResinMaterialLine } from '../data/entities'
+import { CoatingSheet, Reactor, ResinBatch, type PlantHistoryEntry, type ResinMaterialLine } from '../data/entities'
 import { RESIN_GRADES, type ResinBatchInput } from '../data/validators'
 import { PlantError } from './server'
 import { consumeLots, freeLots, kg3, lotOnHand, movementTime, pickLots, plantStock, produceLot, returnLots, type PickedLot } from './plantStock'
@@ -363,11 +363,20 @@ export async function batchView(ctx: StoreContext, batch: ResinBatch) {
     reopenUntil: batch.status === 'draft' ? null : deadline?.toISOString() ?? null,
     canReopen: batch.status !== 'draft' && Boolean(deadline && deadline.getTime() >= Date.now()),
     resin: batch.status === 'posted' && batch.resinLotId ? { productId: batch.resinProductId ?? null, title: resinTitle, lotId: batch.resinLotId, lotNumber: batch.resinLotNumber ?? null, leftKg: resinLeftKg } : null,
-    wentTo: [] as Array<{ id: string; label: string; kg: number }>,
+    wentTo: batch.resinLotId ? await coatingUses(ctx, batch.resinLotId) : [],
     compare: { batches: recentRows, averagePct: pcts.length ? Math.round((pcts.reduce((sum, value) => sum + value, 0) / pcts.length) * 10) / 10 : null },
     history: batch.history ?? [],
     createdAt: batch.createdAt.toISOString(),
   }
+}
+
+async function coatingUses(ctx: StoreContext, resinLotId: string) {
+  const sheets = await ctx.em.find(CoatingSheet, { ...scope(ctx), deletedAt: null, status: 'posted' })
+  return sheets.flatMap((sheet) =>
+    sheet.rows
+      .filter((row) => row.resinLots.some((lot) => lot.lotId === resinLotId))
+      .map((row) => ({ id: sheet.id, label: `${sheet.dryerCode} · ${sheet.sheetDate} · row ${row.sn}${row.bstageLotNumber ? ` → ${row.bstageLotNumber}` : ''}`, kg: kg3(row.resinLots.filter((lot) => lot.lotId === resinLotId).reduce((sum, lot) => sum + lot.kg, 0)) })),
+  )
 }
 
 export async function listBatches(ctx: StoreContext, query: { status: string; grade?: string; month?: string; search?: string; page: number; pageSize: number }) {

@@ -44,6 +44,17 @@ export function performerId(ctx: StoreContext): string {
   return UUID_RE.test(candidate) ? candidate : ctx.organizationId
 }
 
+export function commandContext(ctx: StoreContext): CommandRuntimeContext {
+  return {
+    container: ctx.container,
+    auth: ctx.auth,
+    organizationScope: ctx.organizationScope,
+    selectedOrganizationId: ctx.organizationId,
+    organizationIds: ctx.organizationScope?.filterIds ?? [ctx.organizationId],
+    request: ctx.request,
+  }
+}
+
 export async function runCommand<T>(ctx: StoreContext, commandId: string, input: Record<string, unknown>): Promise<T> {
   const commandCtx: CommandRuntimeContext = {
     container: ctx.container,

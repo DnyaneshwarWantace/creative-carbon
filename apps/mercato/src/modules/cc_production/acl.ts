@@ -7,6 +7,9 @@ export const features = [
   { id: 'cc_production.resin.enter', title: 'Enter, post and reopen resin batches', module: 'cc_production', dependsOn: ['cc_production.resin.view'] },
   { id: 'cc_production.resin.sign', title: 'Sign resin batches as chemist or in-charge', module: 'cc_production', dependsOn: ['cc_production.resin.view'] },
   { id: 'cc_production.chemicals.issue', title: 'Issue chemicals outside resin batches (methanol, DBP, oleic acid)', module: 'cc_production', dependsOn: ['cc_production.resin.view'] },
+  { id: 'cc_production.coating.view', title: 'See dryer sheets and the B-stage board', module: 'cc_production' },
+  { id: 'cc_production.coating.enter', title: 'Enter, post and reopen dryer sheets', module: 'cc_production', dependsOn: ['cc_production.coating.view'] },
+  { id: 'cc_production.bstage.manage', title: 'Scrap B-stage lots', module: 'cc_production', dependsOn: ['cc_production.coating.view'] },
   { id: 'cc_production.prices.manage', title: 'Change price lists', module: 'cc_production', dependsOn: ['cc_production.prices.view'] },
 ]
 

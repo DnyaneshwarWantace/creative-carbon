@@ -1,0 +1,28 @@
+import { NextResponse } from 'next/server'
+import { z } from 'zod'
+import type { OpenApiRouteDoc } from '@open-mercato/shared/lib/openapi'
+import { resolveStoreContext } from '../../../../cc_store/lib/server'
+import { coatingSetup } from '../../../lib/coating'
+import { plantErrorResponse } from '../../../lib/server'
+
+export const metadata = {
+  GET: { requireAuth: true, requireFeatures: ['cc_production.coating.view'] },
+}
+
+async function GET(req: Request) {
+  const ctx = await resolveStoreContext(req)
+  if ('error' in ctx) return NextResponse.json({ error: ctx.error }, { status: ctx.status })
+  try {
+    return NextResponse.json(await coatingSetup(ctx))
+  } catch (error) {
+    return plantErrorResponse(error)
+  }
+}
+
+export const openApi: OpenApiRouteDoc = {
+  tag: 'Creative Carbon Coating',
+  summary: 'What the dryer sheet needs: dryers, cloths with stock, resin lots in the tank, time slots, RC / VC bands',
+  methods: { GET: { summary: 'Dryer sheet setup', tags: ['Creative Carbon Coating'], responses: [{ status: 200, description: 'Setup', schema: z.object({}).passthrough() }] } },
+}
+
+export { GET }
