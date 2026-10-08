@@ -1,6 +1,8 @@
 import { loadCustomers } from '../../cc_orders/lib/server'
 import type { StoreContext } from '../../cc_store/lib/server'
-import { CoatingSheet, Dryer, Mould, MouldingEntry, Press, PressBatch, Reactor, ResinBatch } from '../data/entities'
+import { CoatingSheet, CuttingEntry, DamageEntry, Dryer, FgDirectIn, FgInspection, Mould, MouldingEntry, Press, PressBatch, Reactor, ResinBatch, ThicknessInspection } from '../data/entities'
+import { movementDocument, type DocumentLink } from '../../cc_ui/lib/links'
+import { cuttingView, fgReportView, thicknessView } from './finishing'
 import { sheetFigures } from './coatingFigures'
 import { mouldedProductsByDie, runningTotals } from './moulding'
 import { kg3 } from './plantStock'
@@ -201,5 +203,151 @@ function machineView(input: { kind: MachineKind; id: string; code: string; title
       drafts: input.work.filter((row) => row.status === 'draft').length,
       overCapacity: input.work.filter((row) => row.overCapacity).length,
     },
+  }
+}
+
+export type LotTrace = { lotId: string; lotNumber: string | null; title: string | null; madeBy: DocumentLink | null; usedBy: Array<{ document: DocumentLink; kg: number; at: string }> }
+
+export async function traceLots(ctx: StoreContext, lotIds: string[]): Promise<Map<string, LotTrace>> {
+  const unique = [...new Set(lotIds.filter(Boolean))]
+  const result = new Map<string, LotTrace>()
+  if (!unique.length) return result
+  const rows = await ctx.em.getConnection().execute<Array<{ lot_id: string; lot_number: string | null; title: string | null; type: string; quantity: string; performed_at: Date; metadata: Record<string, unknown> | null }>>(
+    `select m.lot_id, lot.lot_number, p.title, m.type, m.quantity, m.performed_at, m.metadata
+       from wms_inventory_movements m
+       join wms_inventory_lots lot on lot.id = m.lot_id
+       left join catalog_product_variants v on v.id = lot.catalog_variant_id
+       left join catalog_products p on p.id = v.product_id
+      where m.lot_id = any(?::uuid[]) and m.tenant_id = ? and m.organization_id = ? and m.deleted_at is null
+      order by m.performed_at asc, m.created_at asc`,
+    [`{${unique.join(',')}}`, ctx.tenantId, ctx.organizationId],
+  )
+  for (const lotId of unique) result.set(lotId, { lotId, lotNumber: null, title: null, madeBy: null, usedBy: [] })
+  for (const row of rows) {
+    const trace = result.get(row.lot_id)!
+    trace.lotNumber = row.lot_number
+    trace.title = row.title
+    const document = movementDocument(row.metadata)
+    const quantity = Number(row.quantity)
+    const incoming = row.type === 'receipt' || (row.type === 'adjust' && quantity > 0)
+    if (incoming && !trace.madeBy) trace.madeBy = document
+    else if (!incoming && document) {
+      const same = trace.usedBy.find((entry) => entry.document.href === document.href && entry.document.label === document.label)
+      if (same) same.kg = kg3(same.kg + Math.abs(quantity))
+      else trace.usedBy.push({ document, kg: kg3(Math.abs(quantity)), at: new Date(row.performed_at).toISOString() })
+    }
+  }
+  return result
+}
+
+function historyOf(entries: Array<{ action: string; by: string | null; at: string; note: string | null }> | null | undefined) {
+  return entries ?? []
+}
+
+export async function cuttingDetail(ctx: StoreContext, id: string) {
+  const cut = await ctx.em.findOne(CuttingEntry, { id, ...scope(ctx), deletedAt: null })
+  if (!cut) throw new PlantError('Cutting entry not found', 404)
+  const traces = await traceLots(ctx, [cut.sourceLotId, cut.outputLotId ?? ''])
+  const [thickness, fgReports] = await Promise.all([
+    cut.outputLotId ? ctx.em.find(ThicknessInspection, { ...scope(ctx), lotId: cut.outputLotId, deletedAt: null }, { orderBy: { inspectDate: 'desc' } }) : Promise.resolve([] as ThicknessInspection[]),
+    cut.outputLotId ? fgReportsForLot(ctx, cut.outputLotId) : Promise.resolve([]),
+  ])
+  return {
+    ...cuttingView(cut),
+    sourceTitle: traces.get(cut.sourceLotId)?.title ?? null,
+    source: traces.get(cut.sourceLotId) ?? null,
+    output: cut.outputLotId ? traces.get(cut.outputLotId) ?? null : null,
+    thickness: thickness.map((row) => ({ id: row.id, inspectDate: row.inspectDate, result: row.result, outOfTolerance: row.outOfTolerance })),
+    fgReports,
+    history: historyOf(cut.history),
+    createdAt: cut.createdAt.toISOString(),
+  }
+}
+
+async function fgReportsForLot(ctx: StoreContext, lotId: string) {
+  const rows = await ctx.em.getConnection().execute<Array<{ id: string; report_date: string; status: string }>>(
+    `select id, report_date, status from cc_fg_inspections
+      where tenant_id = ? and organization_id = ? and deleted_at is null and rows @> ?::jsonb
+      order by report_date desc limit 20`,
+    [ctx.tenantId, ctx.organizationId, JSON.stringify([{ sourceLotId: lotId }])],
+  )
+  return rows.map((row) => ({ id: row.id, reportDate: row.report_date, status: row.status }))
+}
+
+export async function thicknessDetail(ctx: StoreContext, id: string) {
+  const row = await ctx.em.findOne(ThicknessInspection, { id, ...scope(ctx), deletedAt: null })
+  if (!row) throw new PlantError('Thickness inspection not found', 404)
+  const traces = row.lotId ? await traceLots(ctx, [row.lotId]) : new Map<string, LotTrace>()
+  const cutting = row.lotId ? await ctx.em.findOne(CuttingEntry, { ...scope(ctx), outputLotId: row.lotId, deletedAt: null }) : null
+  return {
+    ...thicknessView(row),
+    lot: row.lotId ? traces.get(row.lotId) ?? null : null,
+    cutting: cutting ? { id: cutting.id, entryDate: cutting.entryDate, cutSize: cutting.cutSize } : null,
+    fgReports: row.lotId ? await fgReportsForLot(ctx, row.lotId) : [],
+    byName: row.byName ?? null,
+    history: historyOf(row.history),
+    createdAt: row.createdAt.toISOString(),
+  }
+}
+
+export async function fgDetail(ctx: StoreContext, id: string) {
+  const report = await ctx.em.findOne(FgInspection, { id, ...scope(ctx), deletedAt: null })
+  if (!report) throw new PlantError('FG inspection report not found', 404)
+  const traces = await traceLots(ctx, report.rows.flatMap((row) => [row.sourceLotId, row.outputLotId ?? '']))
+  return {
+    ...fgReportView(report),
+    postedAt: report.postedAt ? report.postedAt.toISOString() : null,
+    byName: report.byName ?? null,
+    rows: report.rows.map((row) => ({
+      ...row,
+      source: traces.get(row.sourceLotId) ?? null,
+      output: row.outputLotId ? traces.get(row.outputLotId) ?? null : null,
+    })),
+  }
+}
+
+export async function directInDetail(ctx: StoreContext, id: string) {
+  const record = await ctx.em.findOne(FgDirectIn, { id, ...scope(ctx), deletedAt: null })
+  if (!record) throw new PlantError('Bought-in entry not found', 404)
+  const traces = record.lotId ? await traceLots(ctx, [record.lotId]) : new Map<string, LotTrace>()
+  return {
+    id: record.id,
+    inDate: record.inDate,
+    supplier: record.supplier,
+    invoiceNo: record.invoiceNo ?? null,
+    productId: record.productId,
+    itemTitle: record.itemTitle,
+    sheetSize: record.sheetSize ?? null,
+    thicknessMm: record.thicknessMm ? Number(record.thicknessMm) : null,
+    nos: record.nos ?? null,
+    kg: Number(record.kg),
+    lotId: record.lotId ?? null,
+    lotNumber: record.lotNumber ?? null,
+    status: record.status,
+    byName: record.byName ?? null,
+    lot: record.lotId ? traces.get(record.lotId) ?? null : null,
+    history: historyOf(record.history),
+    createdAt: record.createdAt.toISOString(),
+  }
+}
+
+export async function damageDetail(ctx: StoreContext, id: string) {
+  const record = await ctx.em.findOne(DamageEntry, { id, ...scope(ctx), deletedAt: null })
+  if (!record) throw new PlantError('Damage entry not found', 404)
+  const traces = await traceLots(ctx, [record.lotId])
+  return {
+    id: record.id,
+    entryDate: record.entryDate,
+    productId: record.productId,
+    itemTitle: record.itemTitle,
+    lotId: record.lotId,
+    lotNumber: record.lotNumber ?? null,
+    place: record.place,
+    kg: Number(record.kg),
+    reason: record.reason,
+    byName: record.byName ?? null,
+    lot: traces.get(record.lotId) ?? null,
+    history: historyOf(record.history),
+    createdAt: record.createdAt.toISOString(),
   }
 }

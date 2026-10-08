@@ -11,9 +11,11 @@ export const recordHref = {
   bstageLot: (id: string) => `/backend/bstage/lots/${id}`,
   pressBatch: (id: string) => `/backend/press/batches/${id}`,
   mouldingEntry: (id: string) => `/backend/moulding/entries/${id}`,
-  cutting: () => '/backend/cutting',
-  fgInspection: () => '/backend/quality/fg-inspection',
-  directIn: () => '/backend/fg/direct-in',
+  cutting: (id: string) => `/backend/cutting/${id}`,
+  thickness: (id: string) => `/backend/quality/thickness/${id}`,
+  fgInspection: (id: string) => `/backend/quality/fg-inspection/${id}`,
+  directIn: (id: string) => `/backend/fg/direct-in/${id}`,
+  damage: (id: string) => `/backend/fg/damage/${id}`,
   labTest: (id: string) => `/backend/quality/lab/${id}`,
   stocktake: () => '/backend/stock/stocktake',
   storeLedger: () => '/backend/store/ledger',
@@ -75,10 +77,14 @@ export function movementDocument(metadata: Record<string, unknown> | null | unde
   const issueId = str(metadata.issueId)
   if (source === 'cc_production.chemical_issue') return { kind: 'chemical_issue', label: str(metadata.dryerCode), href: issueId ? recordHref.chemicalIssue(issueId) : '/backend/resin/issues' }
   if (source === 'cc_production.finishing') {
-    if (str(metadata.cuttingId)) return { kind: 'cutting', label: null, href: recordHref.cutting() }
-    if (str(metadata.fgReportId)) return { kind: 'fg_inspection', label: null, href: recordHref.fgInspection() }
-    if (str(metadata.directInId)) return { kind: 'direct_in', label: null, href: recordHref.directIn() }
-    if (str(metadata.damageId)) return { kind: 'damage', label: null, href: null }
+    const cuttingId = str(metadata.cuttingId)
+    if (cuttingId) return { kind: 'cutting', label: null, href: recordHref.cutting(cuttingId) }
+    const fgReportId = str(metadata.fgReportId)
+    if (fgReportId) return { kind: 'fg_inspection', label: null, href: recordHref.fgInspection(fgReportId) }
+    const directInId = str(metadata.directInId)
+    if (directInId) return { kind: 'direct_in', label: null, href: recordHref.directIn(directInId) }
+    const damageId = str(metadata.damageId)
+    if (damageId) return { kind: 'damage', label: null, href: recordHref.damage(damageId) }
   }
   const orderId = str(metadata.orderId)
   if (orderId) return { kind: 'order', label: str(metadata.orderNo), href: recordHref.order(orderId) }
