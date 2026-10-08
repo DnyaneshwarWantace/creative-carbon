@@ -618,3 +618,117 @@ export class CoatingSheet {
   @Property({ name: 'deleted_at', type: Date, nullable: true })
   deletedAt?: Date | null
 }
+
+export type PressSheet = {
+  thicknessMm: number
+  count: number
+  weightKg: number
+  weightMinKg: number | null
+  grade: string
+  tolerance: { minKg: number; maxKg: number } | null
+  toleranceOk: boolean | null
+}
+
+export type PressDaylight = { no: number; sheets: PressSheet[] }
+
+export type PressLotChoice = { grade: string; lotId: string; reason: string }
+
+export type PressPick = { grade: string; productId: string; lotId: string; lotNumber: string | null; place: string; kg: number; ageDays: number }
+
+export type PressOutput = { grade: string; thicknessMm: number; productId: string; productTitle: string; lotId: string; lotNumber: string; kg: number; nos: number }
+
+export type PressHeating = Record<string, string | number | null>
+
+@Entity({ tableName: 'cc_press_batches' })
+@Index({ name: 'cc_press_batches_scope_idx', properties: ['organizationId', 'tenantId', 'batchDate'] })
+@Index({
+  name: 'cc_press_batches_no_unique_idx',
+  expression: 'create unique index "cc_press_batches_no_unique_idx" on "cc_press_batches" ("organization_id", "batch_month", "seq")',
+})
+export class PressBatch {
+  [OptionalProps]?: 'createdAt' | 'updatedAt' | 'updatedByName' | 'status' | 'cycleNo' | 'checkedBy' | 'remark' | 'reviewedBy' | 'reviewedAt' | 'heating' | 'lotChoices' | 'picks' | 'outputs' | 'warnings' | 'postedAt' | 'postedByName' | 'history' | 'cancelReason'
+
+  @PrimaryKey({ type: 'uuid', defaultRaw: 'gen_random_uuid()' })
+  id!: string
+
+  @Property({ name: 'organization_id', type: 'uuid' })
+  organizationId!: string
+
+  @Property({ name: 'tenant_id', type: 'uuid' })
+  tenantId!: string
+
+  @Property({ name: 'batch_no', type: 'text' })
+  batchNo!: string
+
+  @Property({ name: 'batch_month', type: 'text' })
+  batchMonth!: string
+
+  @Property({ type: 'int' })
+  seq!: number
+
+  @Property({ name: 'batch_date', type: 'text' })
+  batchDate!: string
+
+  @Property({ name: 'press_id', type: 'uuid' })
+  pressId!: string
+
+  @Property({ name: 'press_number', type: 'int' })
+  pressNumber!: number
+
+  @Property({ name: 'cycle_no', type: 'int', nullable: true })
+  cycleNo?: number | null
+
+  @Property({ type: 'json' })
+  daylights!: PressDaylight[]
+
+  @Property({ name: 'lot_choices', type: 'json', nullable: true })
+  lotChoices?: PressLotChoice[] | null
+
+  @Property({ type: 'json', nullable: true })
+  picks?: PressPick[] | null
+
+  @Property({ type: 'json', nullable: true })
+  outputs?: PressOutput[] | null
+
+  @Property({ type: 'json', nullable: true })
+  heating?: PressHeating | null
+
+  @Property({ type: 'json', nullable: true })
+  warnings?: string[] | null
+
+  @Property({ name: 'checked_by', type: 'text', nullable: true })
+  checkedBy?: string | null
+
+  @Property({ type: 'text', nullable: true })
+  remark?: string | null
+
+  @Property({ name: 'reviewed_by', type: 'text', nullable: true })
+  reviewedBy?: string | null
+
+  @Property({ name: 'reviewed_at', type: Date, nullable: true })
+  reviewedAt?: Date | null
+
+  @Property({ type: 'text', default: 'draft' })
+  status: 'draft' | 'posted' | 'cancelled' = 'draft'
+
+  @Property({ name: 'cancel_reason', type: 'text', nullable: true })
+  cancelReason?: string | null
+
+  @Property({ name: 'posted_at', type: Date, nullable: true })
+  postedAt?: Date | null
+
+  @Property({ name: 'posted_by_name', type: 'text', nullable: true })
+  postedByName?: string | null
+
+  @Property({ type: 'json', nullable: true })
+  history?: PlantHistoryEntry[] | null
+
+  @Property({ name: 'updated_by_name', type: 'text', nullable: true })
+  updatedByName?: string | null
+
+  @Property({ name: 'created_at', type: Date, onCreate: () => new Date() })
+  createdAt: Date = new Date()
+
+  @Property({ name: 'updated_at', type: Date, onCreate: () => new Date(), onUpdate: () => new Date() })
+  updatedAt: Date = new Date()
+}

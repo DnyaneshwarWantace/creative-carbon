@@ -209,3 +209,62 @@ export const bstageScrapSchema = z.object({
   kg: z.coerce.number().positive().max(1_000_000).optional(),
   reason: z.string().trim().min(2).max(500),
 })
+
+export const pressSheetSchema = z.object({
+  thicknessMm: z.coerce.number().positive().max(500),
+  count: z.coerce.number().int().min(1).max(500).default(1),
+  weightKg: z.coerce.number().positive().max(100_000),
+  weightMinKg: nullableNumber,
+  grade: z.string().trim().min(1).max(40),
+})
+
+export const pressDaylightSchema = z.object({
+  no: z.coerce.number().int().min(1).max(100),
+  sheets: z.array(pressSheetSchema).min(1).max(10),
+})
+
+export const pressLotChoiceSchema = z.object({ grade: z.string().trim().min(1).max(40), lotId: z.string().uuid(), reason: z.string().trim().max(500).default('') })
+
+export const PRESS_HEATING_FIELDS = [
+  'hydraulicPressure',
+  'formingStart',
+  'formingComplete',
+  'steamStart',
+  'temp120At',
+  'maxTempAt',
+  'soakingTime',
+  'cbtMaxTemp',
+  'coolingStart',
+  'coolingStop',
+  'totalTime',
+  'remarks',
+  'inchargeSign',
+  'operatorSign',
+] as const
+
+export const pressBatchInputSchema = z.object({
+  batchDate: isoDate,
+  pressId: z.string().uuid(),
+  cycleNo: z.preprocess((value) => (value === '' || value === undefined ? null : value), z.coerce.number().int().min(0).max(100_000).nullable()).optional(),
+  daylights: z.array(pressDaylightSchema).max(100).default([]),
+  lotChoices: z.array(pressLotChoiceSchema).max(50).default([]),
+  heating: z.record(z.string(), z.union([z.string().max(200), z.number(), z.null()])).nullable().optional(),
+  checkedBy: z.string().trim().max(120).nullable().optional(),
+  remark: z.string().trim().max(1000).nullable().optional(),
+})
+
+export type PressBatchInput = z.infer<typeof pressBatchInputSchema>
+
+export const pressBatchUpdateSchema = pressBatchInputSchema.extend({ id: z.string().uuid() })
+
+export const pressActionSchema = z.object({ id: z.string().uuid(), action: z.enum(['post', 'reopen', 'cancel', 'review']), reason: z.string().trim().max(500).optional() })
+
+export const pressListSchema = z.object({
+  id: z.string().uuid().optional(),
+  date: isoDate.optional(),
+  month: z.string().regex(/^\d{4}-\d{2}$/).optional(),
+  pressId: z.string().uuid().optional(),
+  status: z.enum(['draft', 'posted', 'cancelled', 'all']).default('all'),
+})
+
+export const pressSetupSchema = z.object({ date: isoDate.optional() })

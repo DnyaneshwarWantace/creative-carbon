@@ -93,6 +93,7 @@ export const HISTORY_LABEL: Record<string, string> = {
   signed_incharge: 'Signed by in-charge',
   issued: 'Issued',
   cancelled: 'Cancelled',
+  reviewed: 'Reviewed',
 }
 
 export function kg(value: number | null | undefined): string {

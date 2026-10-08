@@ -10,6 +10,9 @@ export const features = [
   { id: 'cc_production.coating.view', title: 'See dryer sheets and the B-stage board', module: 'cc_production' },
   { id: 'cc_production.coating.enter', title: 'Enter, post and reopen dryer sheets', module: 'cc_production', dependsOn: ['cc_production.coating.view'] },
   { id: 'cc_production.bstage.manage', title: 'Scrap B-stage lots', module: 'cc_production', dependsOn: ['cc_production.coating.view'] },
+  { id: 'cc_production.press.view', title: 'See press batches, the daily production batch report and the loading register', module: 'cc_production' },
+  { id: 'cc_production.press.enter', title: 'Enter, post, reopen and cancel press batches', module: 'cc_production', dependsOn: ['cc_production.press.view'] },
+  { id: 'cc_production.press.review', title: 'Review / approve press batches', module: 'cc_production', dependsOn: ['cc_production.press.view'] },
   { id: 'cc_production.prices.manage', title: 'Change price lists', module: 'cc_production', dependsOn: ['cc_production.prices.view'] },
 ]
 

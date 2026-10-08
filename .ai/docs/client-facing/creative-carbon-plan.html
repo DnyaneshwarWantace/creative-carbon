@@ -184,7 +184,7 @@
 
 <div class="wrap">
   <header class="hero">
-    <span class="eyebrow">● Detailed build plan · v7 · Stages 0–4 done and tested</span>
+    <span class="eyebrow">● Detailed build plan · v8 · Stages 0–5 done and tested</span>
     <h1>Creative Carbon on the Dermat base: every stage, page, field and link</h1>
     <p class="lede">For each stage this page lists the screens, every field with its type and rule, what the detail page shows, which stage feeds it and which stage it feeds, the stock it moves, and the small things that are easy to miss. Sources are the dev brief, the 12 register photos and the Kheda audit recording. <strong>Anything we had to guess is marked "confirm".</strong></p>
     <div class="facts">
@@ -200,7 +200,7 @@
       <a class="pchip done" href="#s2"><div class="pn">Stage 2<span>Wk 2</span></div><div class="pv">Bulk upload</div></a>
       <a class="pchip done" href="#s3"><div class="pn">Stage 3<span>Wk 3</span></div><div class="pv">Resin · Chemicals</div></a>
       <a class="pchip done" href="#s4"><div class="pn">Stage 4<span>Wk 3</span></div><div class="pv">Coating · B-stage</div></a>
-      <a class="pchip" href="#s5"><div class="pn">Stage 5<span>Wk 4</span></div><div class="pv">Press</div></a>
+      <a class="pchip done" href="#s5"><div class="pn">Stage 5<span>Wk 4</span></div><div class="pv">Press</div></a>
       <a class="pchip" href="#s6"><div class="pn">Stage 6<span>Wk 4</span></div><div class="pv">Moulding</div></a>
       <a class="pchip" href="#s7"><div class="pn">Stage 7<span>Wk 4</span></div><div class="pv">Cutting · QC · FG</div></a>
       <a class="pchip demo" href="#s8"><div class="pn">Stage 8<span>Wk 5</span></div><div class="pv">Stock · Owner · Demo</div></a>
@@ -239,7 +239,7 @@
       <a href="#s2"><span class="dot done"></span>2 Bulk upload</a>
       <a href="#s3"><span class="dot done"></span>3 Resin · Chemicals</a>
       <a href="#s4"><span class="dot done"></span>4 Coating · B-stage</a>
-      <a href="#s5"><span class="dot planned"></span>5 Press</a>
+      <a href="#s5"><span class="dot done"></span>5 Press</a>
       <a href="#s6"><span class="dot planned"></span>6 Moulding</a>
       <a href="#s7"><span class="dot planned"></span>7 Cutting · QC · FG</a>
       <a href="#s8"><span class="dot planned"></span>8 Stock · Owner · Demo</a>
@@ -714,7 +714,7 @@
 
 <!-- ============ STAGE 5 ============ -->
       <section id="s5">
-        <div class="mod-head"><h2>Stage 5 · Laminate pressing</h2><span class="verdict planned">PLANNED</span><span class="when">Week 4</span></div>
+        <div class="mod-head"><h2>Stage 5 · Laminate pressing</h2><span class="verdict done">DONE · TESTED</span><span class="when">finished 8 Oct</span></div>
         <p class="mod-dek">Three papers describe one press load: the press loading register (per press, per daylight), the daily production batch report <code>CCCPL/F/PRP/02</code> (per batch summary) and the optional press heating slip. In the system they are one record seen three ways.</p>
         <div class="meta"><span><b>Pages</b> /backend/press/batches · /new · /&lt;id&gt; · /backend/press/daily-report?date= · /backend/press/loading?press=&amp;date=</span><span><b>Users</b> press in-charge, supervisor</span><span><b>Paper</b> IMG_7785, 7787, 7788</span></div>
         <h3>Press batch: fields</h3>
@@ -744,7 +744,26 @@
         </div>
         <p class="mod-dek" style="margin-top:12px"><b>Detail page:</b> header strip (batch, press, date, 24 sheets, 996.300 kg) · daylight grid with tolerance flags · output lots with links · B-stage lots used and their age · heating slip · warnings · history.</p>
         <p class="exit"><b>Done when:</b> F/01 to F/04 of 2 Oct type in and show 814.600, 1008.800, 996.300 and 776.700 kg with the right "n/18" and "n/24" counts.</p>
-      </section>
+            <h3>What the photos settled</h3>
+        <div class="itemlist">
+          <div class="item done"><span class="mark">✓</span><span class="txt"><b>"2/24"</b> is the last line's sheets over the batch's total sheets: F/03 has 10 + 6 + 6 + 2 = 24, F/01 10 + 4 + 4 = 18, F/02 10 + 8, F/04 10 + 1 + 6 + 1.</span></div>
+          <div class="item done"><span class="mark">✓</span><span class="txt">The F/03 loading register (IMG_7785) adds to the book's <b>996.300</b>: 25 mm 235.8 + 15 mm 418.7 + 10 mm 277.8 + 1.5 mm 10 × <b>6.400</b>. So in "6.200/6.400" the higher figure is the loading weight; both are checked against the range.</span></div>
+          <div class="item done"><span class="mark">✓</span><span class="txt">A daylight can carry <b>two sheets</b> (15 mm and 10 mm in daylights 4–9), each with its own weight, so a daylight holds several sheet lines.</span></div>
+          <div class="item partial"><span class="mark">?</span><span class="txt">The loading register says <b>Press No. 2</b> for this laminate load, but the master has presses 1–20 for moulding and 21–24 for laminate (our guess from the visit). Confirm how they number the laminate presses; renaming them in Masters → Plant machines is all it takes.</span></div>
+        </div>
+      <h3>What was built</h3>
+        <div class="itemlist">
+          <div class="item done"><span class="mark">✓</span><span class="txt"><b>Press batch</b> (Plant → Press batches): date, laminate press (moulding-only presses are not offered), cycle no., a daylight grid with one or more sheets per daylight (thickness, sheets, loading weight or "min/max", grade with ditto), specified range beside each weight and out-of-range weights in amber. Sheets and total kg are worked out as you type.</span></div>
+          <div class="item done"><span class="mark">✓</span><span class="txt"><b>Numbering</b> F/NN/MM/YYYY is given on save, runs without gaps in the month and is shown before saving. A batch is never deleted: a draft can be <b>cancelled</b> with a reason and its number stays in the book; the date cannot move to another month.</span></div>
+          <div class="item done"><span class="mark">✓</span><span class="txt"><b>Post</b> takes B-stage for each grade oldest first (paper for F2F3, the cloth itself for 10x10 / 6x6), never lots past 10 days, lots past 7 days only when picked; picking a lot that is not the oldest needs a reason, which is kept on the batch. It makes one pressed lot per grade + thickness on the shop floor (kg = loading weights, nos = sheets) under the matching sheet item (F2F3 10x10 Sheet, Fabric 10x10 Sheet …). <b>Reopen</b> reverses it while no pressed lot has been touched.</span></div>
+          <div class="item done"><span class="mark">✓</span><span class="txt"><b>Batch page</b>: header strip (batch, press, date, sheets, kg), the book line ("10x10 25mm = 2/24"), daylight grid with tolerance ticks, B-stage lots used with their age (links to the lot page, which now shows the press batch), pressed lots with kg left, heating slip, warnings, checked by / remark, review, history, print.</span></div>
+          <div class="item done"><span class="mark">✓</span><span class="txt"><b>Daily production batch report</b> (CCCPL/F/PRP/02) for any date, laid out like the book (No., Date, Batch No., Item description with ditto, Size &amp; total weight, Checked by, Remark, Reviewed by), and the <b>press loading register</b> per press per day with the specified range at the foot. Both print.</span></div>
+          <div class="item done"><span class="mark">✓</span><span class="txt"><b>Heating slip</b>: every field of the slip, collapsed and optional; total input weight = batch total.</span></div>
+          <div class="item done"><span class="mark">✓</span><span class="txt"><b>Upload tile "Press loading register"</b>: one row per sheet, rows with the same Batch No. are one load and keep the book's number (F/6 → F/06), ditto works, "6.200/6.400" accepted, Post = Yes posts.</span></div>
+          <div class="item partial"><span class="mark">→</span><span class="txt">The owner's switch to hide the heating slip completely, and the "produced today" tile, come with the settings and owner dashboard in Stage 8. Cutting and thickness inspection pick these pressed lots in Stage 7.</span></div>
+        </div>
+        <p class="exit"><b>Tested 8 Oct:</b> type check 0 errors · end-to-end suite Stages 0–5: <b>58 / 58 passing</b> — F/01 to F/04 of 2 Oct type in and show 814.600, 1008.800, 996.300 and 776.700 kg with 4/18, 8/18, 2/24 and 1/18; F/03 from the photo warns on daylights 7–9 (10 mm above 46.300); posting F/03 takes 932.3 kg of 10x10 and 64 kg of F2 paper B-stage oldest first and makes four pressed lots (64 · 277.8 · 418.7 · 235.8 kg); a non-oldest lot is refused without a reason and accepted with one; a cancelled draft keeps its number and the next batch is F/05; reopen returns the B-stage; the loading register uploads with its book number and posts; pages open; test data cleaned up (test batches are left cancelled in a far-future month, since numbers are never deleted).</p>
+</section>
 
 <!-- ============ STAGE 6 ============ -->
       <section id="s6">

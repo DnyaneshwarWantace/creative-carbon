@@ -33,6 +33,8 @@ const UI_FEATURES = [
   'cc_production.chemicals.issue',
   'cc_production.coating.enter',
   'cc_production.bstage.manage',
+  'cc_production.press.enter',
+  'cc_production.press.review',
   'catalog.products.manage',
 ]
 
