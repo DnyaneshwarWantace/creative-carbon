@@ -3,23 +3,22 @@
 import * as React from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { ArrowLeft, CheckCircle2, Pencil, Printer, RotateCcw, Send, ShoppingCart, XCircle } from 'lucide-react'
+import { CheckCircle2, FileText, Pencil, Printer, RotateCcw, Scale, Send, ShoppingCart, Waypoints, XCircle } from 'lucide-react'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
-import { Page, PageBody } from '@open-mercato/ui/backend/Page'
 import { Button } from '@open-mercato/ui/primitives/button'
 import { Input } from '@open-mercato/ui/primitives/input'
 import { Label } from '@open-mercato/ui/primitives/label'
 import { StatusBadge } from '@open-mercato/ui/primitives/status-badge'
-import { ErrorMessage } from '@open-mercato/ui/backend/detail'
 import { apiCall } from '@open-mercato/ui/backend/utils/apiCall'
 import { flash } from '@open-mercato/ui/backend/FlashMessages'
 import type { DocCompany } from '../../cc_orders/components/printDocs'
-import { formatDate, formatDateTime, formatQty, todayIso } from '../../cc_orders/components/format'
+import { formatDate, formatQty, todayIso } from '../../cc_orders/components/format'
 import { useGranted } from '../../cc_departments/components/useGranted'
 import { useSend } from '../../cc_production/components/finishing/shared'
 import { printQuotation } from './printQuotation'
 import { QUOTE_LABEL, QUOTE_VARIANT, type Quotation } from './types'
-import { PageLoading } from '../../cc_ui/components/PageLoading'
+import { FieldList, HistoryPanel, LinkRows, Panel, RecordColumns, RecordPage, RecordState, type Fact } from '../../cc_ui/components/RecordPage'
+import { recordHref } from '../../cc_ui/lib/links'
 
 export function QuotationPage({ quotationId }: { quotationId: string }) {
   const t = useT()
@@ -60,188 +59,212 @@ export function QuotationPage({ quotationId }: { quotationId: string }) {
     await load()
   }
 
-  if (error) return <Page><PageBody><ErrorMessage label={error} /></PageBody></Page>
-  if (!quote) return <Page><PageBody><PageLoading label={t('cc_crm.loading', 'Loading…')} /></PageBody></Page>
+  if (error || !quote) return <RecordState error={error} loadingLabel={t('cc_crm.loading', 'Loading…')} />
 
   const symbol = quote.currency === 'INR' ? '₹' : `${quote.currency} `
   const exportTerms = quote.market === 'export'
   const totals = quote.totals ?? { gross: 0, discount: 0, taxable: 0, gst: 0, total: 0 }
   const converted = quote.status === 'converted'
+  const value = exportTerms ? totals.taxable : totals.total
+  const totalKg = quote.lines.filter((line) => line.product?.unit !== 'nos').reduce((sum, line) => sum + line.quantity, 0)
+  const facts: Fact[] = [
+    { label: t('cc_crm.quotations.date', 'Date'), value: formatDate(quote.quoteDate) },
+    { label: t('cc_crm.form.validUntil', 'Valid until'), value: formatDate(quote.validUntil), tone: quote.expired ? 'bad' : undefined },
+    { label: t('cc_crm.quotations.lines', 'Lines'), value: String(quote.lines.length) },
+    { label: t('cc_crm.quotations.kg', 'Quantity'), value: `${formatQty(totalKg, 3)} kg` },
+    { label: t('cc_crm.quotations.total', 'Value'), value: `${symbol}${formatQty(value, 2)}` },
+    { label: t('cc_orders.form.market', 'Domestic / export'), value: exportTerms ? `${t('cc_orders.form.export', 'Export')} · ${quote.incoterm ?? '—'}` : t('cc_orders.form.domestic', 'Domestic') },
+  ]
 
   return (
-    <Page>
-      <PageBody>
-        <div className="mx-auto max-w-6xl space-y-5 pb-16">
-          <div className="flex flex-col gap-3 border-b pb-4 lg:flex-row lg:items-center lg:justify-between">
-            <div className="flex items-center gap-3">
-              <Button asChild variant="ghost" size="icon" aria-label={t('common.back', 'Back')}>
-                <Link href={quote.enquiryId ? `/backend/crm/enquiries/${quote.enquiryId}` : '/backend/crm/quotations'}>
-                  <ArrowLeft className="h-4 w-4" />
+    <RecordPage
+      back={{ href: '/backend/crm/quotations', label: t('cc_crm.nav.quotations', 'Quotations') }}
+      overline={[t('cc_crm.quotations.overline', 'Quotation'), quote.customer?.name].filter(Boolean).join(' · ')}
+      title={quote.quoteNo}
+      badges={
+        <>
+          <StatusBadge variant={QUOTE_VARIANT[quote.status]}>{t(`cc_crm.quote.${quote.status}`, QUOTE_LABEL[quote.status])}</StatusBadge>
+          {quote.expired ? <StatusBadge variant="error">{t('cc_crm.quotations.expired', 'expired')}</StatusBadge> : null}
+        </>
+      }
+      meta={quote.byName ? t('cc_crm.quotations.madeBy', 'Made by {name}', { name: quote.byName }) : undefined}
+      actions={
+        <>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              if (!printQuotation(quote, company)) flash(t('cc_crm.errors.popup', 'Allow pop-ups to print.'), 'error')
+            }}
+          >
+            <Printer className="mr-1.5 h-4 w-4" />
+            {t('cc_crm.actions.print', 'Print / PDF')}
+          </Button>
+          {canManage && !converted ? (
+            <>
+              <Button asChild variant="outline" size="sm">
+                <Link href={`/backend/crm/quotations/${quote.id}/edit`}>
+                  <Pencil className="mr-1.5 h-4 w-4" />
+                  {t('cc_crm.actions.edit', 'Edit')}
                 </Link>
               </Button>
-              <div>
-                <h1 className="flex flex-wrap items-center gap-2 text-xl font-bold">
-                  <span className="font-mono">{quote.quoteNo}</span>
-                  <StatusBadge variant={QUOTE_VARIANT[quote.status]}>{t(`cc_crm.quote.${quote.status}`, QUOTE_LABEL[quote.status])}</StatusBadge>
-                  {quote.expired ? <StatusBadge variant="error">{t('cc_crm.quotations.expired', 'expired')}</StatusBadge> : null}
-                </h1>
-                <p className="text-sm text-muted-foreground">
-                  {quote.customer?.name ?? '—'} · {formatDate(quote.quoteDate)} · {t('cc_crm.form.validUntil', 'Valid until')} {formatDate(quote.validUntil)}
-                  {quote.enquiryNo ? (
-                    <>
-                      {' · '}
-                      <Link className="text-primary hover:underline" href={`/backend/crm/enquiries/${quote.enquiryId}`}>
-                        {quote.enquiryNo}
-                      </Link>
-                    </>
-                  ) : null}
-                </p>
-              </div>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              <Button type="button" variant="outline" onClick={() => { if (!printQuotation(quote, company)) flash(t('cc_crm.errors.popup', 'Allow pop-ups to print.'), 'error') }}>
-                <Printer className="mr-1.5 h-4 w-4" />
-                {t('cc_crm.actions.print', 'Print / PDF')}
-              </Button>
-              {canManage && !converted ? (
-                <>
-                  <Button asChild variant="outline">
-                    <Link href={`/backend/crm/quotations/${quote.id}/edit`}>
-                      <Pencil className="mr-1.5 h-4 w-4" />
-                      {t('cc_crm.actions.edit', 'Edit')}
-                    </Link>
-                  </Button>
-                  {quote.status === 'draft' ? (
-                    <Button type="button" variant="outline" disabled={busy} onClick={() => act('sent')}>
-                      <Send className="mr-1.5 h-4 w-4" />
-                      {t('cc_crm.actions.sent', 'Mark sent')}
-                    </Button>
-                  ) : null}
-                  {quote.status === 'draft' || quote.status === 'sent' ? (
-                    <>
-                      <Button type="button" variant="outline" disabled={busy} onClick={() => act('accepted')}>
-                        <CheckCircle2 className="mr-1.5 h-4 w-4" />
-                        {t('cc_crm.actions.accepted', 'Accepted')}
-                      </Button>
-                      <Button type="button" variant="outline" disabled={busy} onClick={() => act('rejected')}>
-                        <XCircle className="mr-1.5 h-4 w-4" />
-                        {t('cc_crm.actions.rejected', 'Rejected')}
-                      </Button>
-                    </>
-                  ) : (
-                    <Button type="button" variant="outline" disabled={busy} onClick={() => act('reopen')}>
-                      <RotateCcw className="mr-1.5 h-4 w-4" />
-                      {t('cc_crm.actions.reopen', 'Reopen')}
-                    </Button>
-                  )}
-                </>
-              ) : null}
-              {converted && quote.convertedOrderId ? (
-                <Button asChild>
-                  <Link href={`/backend/orders/${quote.convertedOrderId}`}>
-                    <ShoppingCart className="mr-1.5 h-4 w-4" />
-                    {t('cc_crm.actions.openOrder', 'Open order {no}', { no: quote.convertedOrderNo ?? '' })}
-                  </Link>
+              {quote.status === 'draft' ? (
+                <Button type="button" variant="outline" size="sm" disabled={busy} onClick={() => act('sent')}>
+                  <Send className="mr-1.5 h-4 w-4" />
+                  {t('cc_crm.actions.sent', 'Mark sent')}
                 </Button>
               ) : null}
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
-            <div className="space-y-5 lg:col-span-2">
-              <section className="overflow-x-auto rounded-xl border bg-card shadow-xs">
-                <table className="w-full min-w-max text-sm">
-                  <thead className="bg-muted/40 text-xs text-muted-foreground">
-                    <tr className="border-b">
-                      <th className="px-3 py-2 text-left">#</th>
-                      <th className="px-3 py-2 text-left">{t('cc_orders.form.product', 'Item')}</th>
-                      <th className="px-3 py-2 text-right">{t('cc_orders.form.quantity', 'Qty (kg)')}</th>
-                      <th className="px-3 py-2 text-right">{t('cc_crm.quotations.rate', 'Rate / kg')}</th>
-                      <th className="px-3 py-2 text-right">{t('cc_orders.form.discount', 'Disc. %')}</th>
-                      <th className="px-3 py-2 text-right">{t('cc_crm.quotations.amount', 'Amount')}</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {quote.lines.map((line, index) => {
-                      const spec = line.specs?.material ?? {}
-                      const detail = [spec.grade, spec.weave, spec.sheet_size, spec.thickness_mm ? `${spec.thickness_mm} mm` : null, spec.pieces ? `${spec.pieces} pcs` : null].filter(Boolean).join(' · ')
-                      return (
-                        <tr key={line.id} className="border-b align-top last:border-0">
-                          <td className="px-3 py-2 text-xs text-muted-foreground">{index + 1}</td>
-                          <td className="px-3 py-2">
-                            <div className="font-medium">{line.product?.title ?? '—'}</div>
-                            {detail ? <div className="text-xs text-muted-foreground">{detail}</div> : null}
-                          </td>
-                          <td className="px-3 py-2 text-right tabular-nums">{formatQty(line.quantity, 3)}</td>
-                          <td className="px-3 py-2 text-right tabular-nums">{line.rate == null ? '—' : `${symbol}${formatQty(line.rate, 2)}`}</td>
-                          <td className="px-3 py-2 text-right tabular-nums">{line.discountPercent ? `${line.discountPercent}%` : '—'}</td>
-                          <td className="px-3 py-2 text-right tabular-nums">{symbol}{formatQty(exportTerms ? (line.price?.taxable ?? 0) : (line.price?.total ?? 0), 2)}</td>
-                        </tr>
-                      )
-                    })}
-                  </tbody>
-                </table>
-                <dl className="ml-auto w-full max-w-xs space-y-1 border-t p-4 text-sm">
+              {quote.status === 'draft' || quote.status === 'sent' ? (
+                <>
+                  <Button type="button" variant="outline" size="sm" disabled={busy} onClick={() => act('accepted')}>
+                    <CheckCircle2 className="mr-1.5 h-4 w-4" />
+                    {t('cc_crm.actions.accepted', 'Accepted')}
+                  </Button>
+                  <Button type="button" variant="outline" size="sm" disabled={busy} onClick={() => act('rejected')}>
+                    <XCircle className="mr-1.5 h-4 w-4" />
+                    {t('cc_crm.actions.rejected', 'Rejected')}
+                  </Button>
+                </>
+              ) : (
+                <Button type="button" variant="outline" size="sm" disabled={busy} onClick={() => act('reopen')}>
+                  <RotateCcw className="mr-1.5 h-4 w-4" />
+                  {t('cc_crm.actions.reopen', 'Reopen')}
+                </Button>
+              )}
+            </>
+          ) : null}
+          {converted && quote.convertedOrderId ? (
+            <Button asChild size="sm">
+              <Link href={recordHref.order(quote.convertedOrderId)}>
+                <ShoppingCart className="mr-1.5 h-4 w-4" />
+                {t('cc_crm.actions.openOrder', 'Open order {no}', { no: quote.convertedOrderNo ?? '' })}
+              </Link>
+            </Button>
+          ) : null}
+        </>
+      }
+      facts={facts}
+    >
+      <RecordColumns
+        main={
+          <Panel title={t('cc_crm.quotations.linesTitle', 'Lines')} icon={FileText} count={quote.lines.length} flush>
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-max text-sm">
+                <thead className="bg-muted font-mono text-overline uppercase tracking-widest text-muted-foreground">
+                  <tr>
+                    <th className="border-b-2 border-foreground/70 px-3 py-2 text-left">#</th>
+                    <th className="border-b-2 border-foreground/70 px-3 py-2 text-left">{t('cc_orders.form.product', 'Item')}</th>
+                    <th className="border-b-2 border-foreground/70 px-3 py-2 text-right">{t('cc_crm.quotations.qty', 'Qty')}</th>
+                    <th className="border-b-2 border-foreground/70 px-3 py-2 text-right">{t('cc_crm.quotations.rateShort', 'Rate')}</th>
+                    <th className="border-b-2 border-foreground/70 px-3 py-2 text-right">{t('cc_orders.form.discount', 'Disc. %')}</th>
+                    <th className="border-b-2 border-foreground/70 px-3 py-2 text-right">{t('cc_crm.quotations.amount', 'Amount')}</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border">
+                  {quote.lines.map((line, index) => {
+                    const spec = line.specs?.material ?? {}
+                    const unit = line.product?.unit === 'nos' ? t('cc_ui.pcs', 'pcs') : 'kg'
+                    const detail = [spec.grade, spec.weave, spec.sheet_size, spec.thickness_mm ? `${spec.thickness_mm} mm` : null, spec.pieces ? t('cc_crm.quotations.sheets', '{n} sheets', { n: spec.pieces }) : null].filter(Boolean).join(' · ')
+                    return (
+                      <tr key={line.id} className="align-top even:bg-muted/30">
+                        <td className="px-3 py-2 font-mono text-xs text-muted-foreground">{index + 1}</td>
+                        <td className="px-3 py-2">
+                          {line.product ? (
+                            <Link className="font-medium underline-offset-2 hover:underline" href={recordHref.product(line.product.id)}>
+                              {line.product.title}
+                            </Link>
+                          ) : (
+                            '—'
+                          )}
+                          {detail ? <div className="text-xs text-muted-foreground">{detail}</div> : null}
+                        </td>
+                        <td className="px-3 py-2 text-right font-mono tabular-nums">
+                          {formatQty(line.quantity, unit === 'kg' ? 3 : 0)} {unit}
+                        </td>
+                        <td className="px-3 py-2 text-right font-mono tabular-nums">{line.rate == null ? '—' : `${symbol}${formatQty(line.rate, 2)} / ${unit}`}</td>
+                        <td className="px-3 py-2 text-right font-mono tabular-nums">{line.discountPercent ? `${line.discountPercent}%` : '—'}</td>
+                        <td className="px-3 py-2 text-right font-mono tabular-nums">
+                          {symbol}
+                          {formatQty(exportTerms ? (line.price?.taxable ?? 0) : (line.price?.total ?? 0), 2)}
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+                <tfoot className="border-t-4 border-double border-foreground/70 bg-muted font-mono">
                   {exportTerms ? null : (
                     <>
-                      <div className="flex justify-between"><dt className="text-muted-foreground">{t('cc_orders.form.taxable', 'Taxable')}</dt><dd className="tabular-nums">{symbol}{formatQty(totals.taxable, 2)}</dd></div>
-                      <div className="flex justify-between"><dt className="text-muted-foreground">GST</dt><dd className="tabular-nums">{symbol}{formatQty(totals.gst, 2)}</dd></div>
+                      <tr>
+                        <td className="px-3 py-1.5 text-muted-foreground" colSpan={5}>
+                          {t('cc_orders.form.taxable', 'Taxable')}
+                        </td>
+                        <td className="px-3 py-1.5 text-right tabular-nums">
+                          {symbol}
+                          {formatQty(totals.taxable, 2)}
+                        </td>
+                      </tr>
+                      <tr>
+                        <td className="px-3 py-1.5 text-muted-foreground" colSpan={5}>
+                          GST
+                        </td>
+                        <td className="px-3 py-1.5 text-right tabular-nums">
+                          {symbol}
+                          {formatQty(totals.gst, 2)}
+                        </td>
+                      </tr>
                     </>
                   )}
-                  <div className="flex justify-between border-t pt-1 font-bold"><dt>{t('cc_crm.quotations.total', 'Value')}</dt><dd className="tabular-nums">{symbol}{formatQty(exportTerms ? totals.taxable : totals.total, 2)}</dd></div>
-                </dl>
-              </section>
-
-              <section className="rounded-xl border bg-card p-5 shadow-xs">
-                <h2 className="mb-3 text-sm font-semibold">{t('cc_crm.history', 'History')}</h2>
-                <ol className="space-y-2 text-sm">
-                  {[...quote.history].reverse().map((item, index) => (
-                    <li key={`${item.at}-${index}`} className="flex gap-3">
-                      <span className="w-32 shrink-0 text-xs text-muted-foreground">{formatDateTime(item.at)}</span>
-                      <span>
-                        <span className="font-medium">{item.action}</span>
-                        {item.note ? <span className="text-muted-foreground"> · {item.note}</span> : null}
-                        {item.by ? <span className="text-xs text-muted-foreground"> — {item.by}</span> : null}
-                      </span>
-                    </li>
-                  ))}
-                </ol>
-              </section>
+                  <tr className="font-semibold">
+                    <td className="px-3 py-1.5" colSpan={5}>
+                      Σ {t('cc_crm.quotations.total', 'Value')}
+                    </td>
+                    <td className="px-3 py-1.5 text-right tabular-nums">
+                      {symbol}
+                      {formatQty(value, 2)}
+                    </td>
+                  </tr>
+                </tfoot>
+              </table>
             </div>
+          </Panel>
+        }
+        side={
+          <>
+            <Panel title={t('cc_crm.quotations.links', 'Came from · went to')} icon={Waypoints} flush>
+              <LinkRows
+                empty={t('cc_crm.quotations.noLinks', 'Not linked to an enquiry or order.')}
+                rows={[
+                  ...(quote.customer ? [{ key: 'customer', href: recordHref.customer(quote.customer.id), primary: quote.customer.name, secondary: t('cc_crm.quotations.customer', 'Customer') }] : []),
+                  ...(quote.enquiryId ? [{ key: 'enquiry', href: recordHref.enquiry(quote.enquiryId), primary: <span className="font-mono">{quote.enquiryNo ?? '—'}</span>, secondary: t('cc_crm.quotations.fromEnquiry', 'Enquiry it answers') }] : []),
+                  ...(quote.convertedOrderId ? [{ key: 'order', href: recordHref.order(quote.convertedOrderId), primary: <span className="font-mono">{quote.convertedOrderNo ?? '—'}</span>, secondary: t('cc_crm.quotations.becameOrder', 'Order booked from it') }] : []),
+                ]}
+              />
+            </Panel>
 
-            <aside className="space-y-5">
-              <section className="rounded-xl border bg-card p-5 text-sm shadow-xs">
-                <h2 className="mb-2 text-sm font-semibold">{t('cc_crm.quotations.terms', 'Terms')}</h2>
-                <dl className="grid grid-cols-[auto,1fr] gap-x-3 gap-y-1.5">
-                  <dt className="text-muted-foreground">{t('cc_orders.form.market', 'Domestic / export')}</dt>
-                  <dd className="text-right">{exportTerms ? t('cc_orders.form.export', 'Export') : t('cc_orders.form.domestic', 'Domestic')}</dd>
-                  <dt className="text-muted-foreground">{t('cc_orders.form.currency', 'Currency')}</dt>
-                  <dd className="text-right">{quote.currency}</dd>
-                  {exportTerms ? (
-                    <>
-                      <dt className="text-muted-foreground">{t('cc_orders.form.incoterm', 'Incoterm')}</dt>
-                      <dd className="text-right">{quote.incoterm ?? '—'}</dd>
-                      <dt className="text-muted-foreground">{t('cc_orders.form.port', 'Port of loading')}</dt>
-                      <dd className="text-right">{quote.portOfLoading ?? '—'}</dd>
-                      <dt className="text-muted-foreground">{t('cc_orders.form.country', 'Country')}</dt>
-                      <dd className="text-right">{quote.country ?? '—'}</dd>
-                    </>
-                  ) : null}
-                  <dt className="text-muted-foreground">{t('cc_orders.form.paymentTerms', 'Payment terms')}</dt>
-                  <dd className="text-right">{quote.paymentRemarks ?? quote.paymentTerms ?? '—'}</dd>
-                  <dt className="text-muted-foreground">{t('cc_orders.form.deliveryDate', 'Delivery date')}</dt>
-                  <dd className="text-right">{formatDate(quote.deliveryDate)}</dd>
-                  <dt className="text-muted-foreground">{t('cc_crm.quotations.by', 'Made by')}</dt>
-                  <dd className="text-right">{quote.byName ?? '—'}</dd>
-                </dl>
-              </section>
+            <Panel title={t('cc_crm.quotations.terms', 'Terms')} icon={Scale}>
+              <FieldList
+                columns={1}
+                fields={[
+                  [t('cc_orders.form.market', 'Domestic / export'), exportTerms ? t('cc_orders.form.export', 'Export') : t('cc_orders.form.domestic', 'Domestic')],
+                  [t('cc_orders.form.currency', 'Currency'), quote.currency],
+                  ...(exportTerms
+                    ? ([
+                        [t('cc_orders.form.incoterm', 'Incoterm'), quote.incoterm],
+                        [t('cc_orders.form.port', 'Port of loading'), quote.portOfLoading],
+                        [t('cc_orders.form.country', 'Country'), quote.country],
+                      ] as Array<[string, React.ReactNode]>)
+                    : []),
+                  [t('cc_orders.form.paymentTerms', 'Payment terms'), quote.paymentRemarks ?? quote.paymentTerms],
+                  [t('cc_orders.form.deliveryDate', 'Delivery date'), quote.deliveryDate ? formatDate(quote.deliveryDate) : null],
+                  [t('cc_crm.quotations.by', 'Made by'), quote.byName],
+                ]}
+              />
+            </Panel>
 
-              {canConvert && !converted && quote.status !== 'rejected' ? (
-                <section className="space-y-3 rounded-xl border border-primary/40 bg-card p-5 shadow-xs">
-                  <h2 className="flex items-center gap-2 text-sm font-semibold">
-                    <ShoppingCart className="h-4 w-4 text-primary" />
-                    {t('cc_crm.actions.convert', 'Convert to order')}
-                  </h2>
+            {canConvert && !converted && quote.status !== 'rejected' ? (
+              <Panel title={t('cc_crm.actions.convert', 'Convert to order')} icon={ShoppingCart}>
+                <div className="space-y-3">
                   <p className="text-xs text-muted-foreground">{t('cc_crm.quotations.convertHint', 'Books an order with these lines, rates, specs and terms. The enquiry is marked won.')}</p>
                   <div className="space-y-1.5">
                     <Label className="text-xs text-muted-foreground">{t('cc_orders.form.orderDate', 'Order date')}</Label>
@@ -254,13 +277,14 @@ export function QuotationPage({ quotationId }: { quotationId: string }) {
                   <Button type="button" className="w-full" disabled={busy} onClick={() => act('convert', { orderDate: convert.orderDate, customerPoRef: convert.customerPoRef || null })}>
                     {t('cc_crm.actions.convert', 'Convert to order')}
                   </Button>
-                </section>
-              ) : null}
-            </aside>
-          </div>
-        </div>
-      </PageBody>
-    </Page>
+                </div>
+              </Panel>
+            ) : null}
+          </>
+        }
+      />
+      <HistoryPanel entries={[...quote.history].reverse().map((item, index) => ({ key: `${item.at}-${index}`, label: item.action, note: item.note, by: item.by, at: item.at }))} />
+    </RecordPage>
   )
 }
 
