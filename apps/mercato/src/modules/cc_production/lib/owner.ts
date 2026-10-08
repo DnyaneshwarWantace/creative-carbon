@@ -11,6 +11,7 @@ import { PlantError } from './server'
 import { kg3, plantStock } from './plantStock'
 import { overdueEnquiries } from '../../cc_crm/lib/enquiries'
 import { reorderSuggestions } from '../../cc_purchase/lib/reorder'
+import { movementDocument } from '../../cc_ui/lib/links'
 
 function scope(ctx: StoreContext) {
   return { tenantId: ctx.tenantId, organizationId: ctx.organizationId }
@@ -240,6 +241,7 @@ export async function lotDetail(ctx: StoreContext, lotId: string) {
         reason: row.reason,
         reasonCode: row.reason_code,
         source: typeof row.metadata?.source === 'string' ? row.metadata.source : null,
+        document: movementDocument(row.metadata),
       }
     }),
   }
