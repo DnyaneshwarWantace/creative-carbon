@@ -184,7 +184,7 @@
 
 <div class="wrap">
   <header class="hero">
-    <span class="eyebrow">● Detailed build plan · v8 · Stages 0–5 done and tested</span>
+    <span class="eyebrow">● Detailed build plan · v9 · Stages 0–6 done and tested</span>
     <h1>Creative Carbon on the Dermat base: every stage, page, field and link</h1>
     <p class="lede">For each stage this page lists the screens, every field with its type and rule, what the detail page shows, which stage feeds it and which stage it feeds, the stock it moves, and the small things that are easy to miss. Sources are the dev brief, the 12 register photos and the Kheda audit recording. <strong>Anything we had to guess is marked "confirm".</strong></p>
     <div class="facts">
@@ -201,7 +201,7 @@
       <a class="pchip done" href="#s3"><div class="pn">Stage 3<span>Wk 3</span></div><div class="pv">Resin · Chemicals</div></a>
       <a class="pchip done" href="#s4"><div class="pn">Stage 4<span>Wk 3</span></div><div class="pv">Coating · B-stage</div></a>
       <a class="pchip done" href="#s5"><div class="pn">Stage 5<span>Wk 4</span></div><div class="pv">Press</div></a>
-      <a class="pchip" href="#s6"><div class="pn">Stage 6<span>Wk 4</span></div><div class="pv">Moulding</div></a>
+      <a class="pchip done" href="#s6"><div class="pn">Stage 6<span>Wk 4</span></div><div class="pv">Moulding</div></a>
       <a class="pchip" href="#s7"><div class="pn">Stage 7<span>Wk 4</span></div><div class="pv">Cutting · QC · FG</div></a>
       <a class="pchip demo" href="#s8"><div class="pn">Stage 8<span>Wk 5</span></div><div class="pv">Stock · Owner · Demo</div></a>
       <a class="pchip" href="#s9"><div class="pn">Stage 9<span>Wk 6–7</span></div><div class="pv">Order → Despatch</div></a>
@@ -240,7 +240,7 @@
       <a href="#s3"><span class="dot done"></span>3 Resin · Chemicals</a>
       <a href="#s4"><span class="dot done"></span>4 Coating · B-stage</a>
       <a href="#s5"><span class="dot done"></span>5 Press</a>
-      <a href="#s6"><span class="dot planned"></span>6 Moulding</a>
+      <a href="#s6"><span class="dot done"></span>6 Moulding</a>
       <a href="#s7"><span class="dot planned"></span>7 Cutting · QC · FG</a>
       <a href="#s8"><span class="dot planned"></span>8 Stock · Owner · Demo</a>
       <a href="#s9"><span class="dot planned"></span>9 Order → Despatch</a>
@@ -767,7 +767,7 @@
 
 <!-- ============ STAGE 6 ============ -->
       <section id="s6">
-        <div class="mod-head"><h2>Stage 6 · Moulded products</h2><span class="verdict planned">PLANNED</span><span class="when">Week 4 (prototype first)</span></div>
+        <div class="mod-head"><h2>Stage 6 · Moulded products</h2><span class="verdict done">DONE · TESTED</span><span class="when">finished 8 Oct</span></div>
         <p class="mod-dek">Moulded products daily production register: machines 1–20 across the top, a 1st-shift and a 2nd-shift block down the page. The hardest grid in the build, so it is prototyped first.</p>
         <div class="meta"><span><b>Pages</b> /backend/moulding?date= (the grid) · /moulding/entries/&lt;id&gt; · /backend/moulding/dies (availability by shift)</span><span><b>Users</b> shift in-charge, store in-charge, operators</span><span><b>Paper</b> IMG_7786 · job card to come</span></div>
         <div class="tablewrap">
@@ -794,7 +794,24 @@
           <div class="box stock"><div class="lbl">Stock</div><ul><li>Chindi, cloth, B-stage kg out</li><li>Moulded lot in: pieces, kg = pieces × article weight</li></ul></div>
         </div>
         <p class="warn"><b>Phone layout:</b> 20 machine columns don't fit a phone. On a phone the grid becomes one card per machine with the two shifts stacked; on the desktop it is the full page as printed.</p>
-      </section>
+            <h3>What the photo settled</h3>
+        <div class="itemlist">
+          <div class="item done"><span class="mark">✓</span><span class="txt"><b>Total</b> on the 13 June register (IMG_7786) is the running total for that die's order, not the shift figure: machine 12, die 1142, 17 made this shift, Total 97 of an order of 100. The system keeps that running total itself; a "made before" box carries what was made before the register started.</span></div>
+          <div class="item done"><span class="mark">✓</span><span class="txt">"(34 mm)" under Die Heat Time is the die thickness; it now shows from the die master under the die.</span></div>
+          <div class="item partial"><span class="mark">?</span><span class="txt">Machine 7's die is hard to read on the photo ("36x30x8313"?) and is not in the die list yet; it goes in with the full mould list. "15x2, 6x1" under Weight of Cloth is kept exactly as written next to the kg; confirm whether it means pieces × size.</span></div>
+        </div>
+      <h3>What was built</h3>
+        <div class="itemlist">
+          <div class="item done"><span class="mark">✓</span><span class="txt"><b>Moulding register</b> (Plant → Moulding register): pick the date, 1st / 2nd shift tabs, machines 1–20 across and the printed rows down (Die No., Die Heat Time, Order Qty., Weight of Article, Chindi, Cloth with item and "as written", B-stage, Shift Prod., Start Time, Operator from the operators list, Made before), Top / Bottom temp and Curing time behind a switch, Total as "97 of 100", Grand Total and Weight Total at the foot. Typing a Die No. fills the customer, the die thickness and the article weight from the moulded item.</span></div>
+          <div class="item done"><span class="mark">✓</span><span class="txt"><b>One die, one machine per shift</b>: saving a die that is already on another machine in that shift is refused with the machine number; an unknown die is refused. On a phone the grid becomes one card per machine.</span></div>
+          <div class="item done"><span class="mark">✓</span><span class="txt"><b>Post the shift</b>: chindi, cloth and B-stage kg out of stock (oldest lot first), one moulded lot per machine on the shop floor in pieces (kg = pieces × article weight kept on the lot), under the moulded item for that die (made automatically if new, with Die No., article weight and customer). One machine that cannot post does not stop the others. <b>Reopen</b> per machine while its lot is untouched.</span></div>
+          <div class="item done"><span class="mark">✓</span><span class="txt"><b>Three sign-offs</b> (shift in-charge, store in-charge, authorised) per shift, recorded with name and time, never blocking posting.</span></div>
+          <div class="item done"><span class="mark">✓</span><span class="txt"><b>Entry page</b>: die, customer, operator, production and kg, inputs and the lots they came from, the moulded lot and pieces left, every shift of this die on this order with its running total, history. <b>Die availability</b>: each die's machine in each shift for a day, idle machines, search by die or customer.</span></div>
+          <div class="item done"><span class="mark">✓</span><span class="txt"><b>Upload tile "Moulded products register"</b>: one row per machine per shift; rows replace that machine and leave the others; Post = Yes posts the shift.</span></div>
+          <div class="item partial"><span class="mark">→</span><span class="txt">Order Qty. is typed for now; linking it to the open order line for that die (and showing "97 of 100 made" on the order) comes with orders in Stage 9. Trim and FG inspection of moulded lots is Stage 7.</span></div>
+        </div>
+        <p class="exit"><b>Tested 8 Oct:</b> type check 0 errors · end-to-end suite Stages 0–6: <b>68 / 68 passing</b> — machines 1–20, operators and dies from the masters; the 13 June 1st shift typed in gives 97 of 100 on die 1142, 15, 4, 85, 20, 14 on the others, Grand Total 124 and Weight Total 275.950 kg; die 1142 on a second machine in the same shift refused, unknown die refused, the same die in the 2nd shift allowed and reaching 100 of 100; posting takes 2 kg chindi and 1.5 kg cloth and makes lot M-…-S1-P12 with 17 pieces under "Moulded 1142"; die availability shows 1142 on machine 12 in both shifts; three sign-offs; reopen returns the chindi; a 2nd-shift upload posts two machines; pages open; test data cleaned up.</p>
+</section>
 
 <!-- ============ STAGE 7 ============ -->
       <section id="s7">

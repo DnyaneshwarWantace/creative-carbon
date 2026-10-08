@@ -268,3 +268,45 @@ export const pressListSchema = z.object({
 })
 
 export const pressSetupSchema = z.object({ date: isoDate.optional() })
+
+const optionalText = (max: number) => z.preprocess((value) => (typeof value === 'string' && value.trim() === '' ? null : value), z.string().trim().max(max).nullable()).optional().transform((value) => value ?? null)
+const optionalInt = z.preprocess((value) => (value === '' || value === undefined ? null : value), z.coerce.number().int().min(0).max(10_000_000).nullable()).optional().transform((value) => value ?? null)
+
+export const mouldingEntrySchema = z.object({
+  pressId: z.string().uuid(),
+  dieNo: z.string().trim().min(1).max(60),
+  dieHeatTime: optionalText(40),
+  orderQty: optionalInt,
+  orderRef: optionalText(60),
+  priorMade: optionalInt,
+  articleWeightKg: z.coerce.number().positive().max(10_000),
+  chindiKg: nullableNumber,
+  clothProductId: z.string().uuid().nullable().optional().transform((value) => value ?? null),
+  clothKg: nullableNumber,
+  clothNote: optionalText(120),
+  bstageGrade: optionalText(40),
+  bstageKg: nullableNumber,
+  productionNos: z.coerce.number().int().min(0).max(1_000_000),
+  startTime: optionalText(20),
+  operatorName: optionalText(80),
+  topTemp: optionalText(20),
+  bottomTemp: optionalText(20),
+  curingTime: optionalText(20),
+})
+
+export type MouldingEntryInput = z.infer<typeof mouldingEntrySchema>
+
+export const mouldingShiftSchema = z.object({
+  entryDate: isoDate,
+  shift: z.coerce.number().int().min(1).max(2),
+  entries: z.array(mouldingEntrySchema).max(40),
+})
+
+export const mouldingActionSchema = z.object({
+  entryDate: isoDate,
+  shift: z.coerce.number().int().min(1).max(2),
+  action: z.enum(['post', 'reopen', 'sign_shift', 'sign_store', 'sign_authorised']),
+  pressId: z.string().uuid().optional(),
+})
+
+export const mouldingDaySchema = z.object({ date: isoDate, id: z.string().uuid().optional() })

@@ -13,6 +13,9 @@ export const features = [
   { id: 'cc_production.press.view', title: 'See press batches, the daily production batch report and the loading register', module: 'cc_production' },
   { id: 'cc_production.press.enter', title: 'Enter, post, reopen and cancel press batches', module: 'cc_production', dependsOn: ['cc_production.press.view'] },
   { id: 'cc_production.press.review', title: 'Review / approve press batches', module: 'cc_production', dependsOn: ['cc_production.press.view'] },
+  { id: 'cc_production.moulding.view', title: 'See the moulded products register and die availability', module: 'cc_production' },
+  { id: 'cc_production.moulding.enter', title: 'Enter, post and reopen moulding entries', module: 'cc_production', dependsOn: ['cc_production.moulding.view'] },
+  { id: 'cc_production.moulding.sign', title: 'Sign the moulding register (shift in-charge, store in-charge, authorised)', module: 'cc_production', dependsOn: ['cc_production.moulding.view'] },
   { id: 'cc_production.prices.manage', title: 'Change price lists', module: 'cc_production', dependsOn: ['cc_production.prices.view'] },
 ]
 

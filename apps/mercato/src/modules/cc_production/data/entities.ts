@@ -732,3 +732,184 @@ export class PressBatch {
   @Property({ name: 'updated_at', type: Date, onCreate: () => new Date(), onUpdate: () => new Date() })
   updatedAt: Date = new Date()
 }
+
+export type MouldingStatus = 'draft' | 'posted'
+
+@Entity({ tableName: 'cc_moulding_entries' })
+@Index({ name: 'cc_moulding_entries_scope_idx', properties: ['organizationId', 'tenantId', 'entryDate'] })
+@Index({ name: 'cc_moulding_entries_mould_idx', properties: ['organizationId', 'mouldId'] })
+@Index({
+  name: 'cc_moulding_entries_cell_unique_idx',
+  expression: 'create unique index "cc_moulding_entries_cell_unique_idx" on "cc_moulding_entries" ("organization_id", "entry_date", "shift", "press_id") where deleted_at is null',
+})
+export class MouldingEntry {
+  [OptionalProps]?: 'createdAt' | 'updatedAt' | 'deletedAt' | 'updatedByName' | 'status' | 'dieHeatTime' | 'orderQty' | 'orderRef' | 'priorMade' | 'chindiProductId' | 'chindiKg' | 'clothProductId' | 'clothKg' | 'clothNote' | 'bstageGrade' | 'bstageKg' | 'startTime' | 'operatorName' | 'topTemp' | 'bottomTemp' | 'curingTime' | 'picks' | 'outputProductId' | 'outputLotId' | 'outputLotNumber' | 'postedAt' | 'postedByName' | 'history' | 'customerName'
+
+  @PrimaryKey({ type: 'uuid', defaultRaw: 'gen_random_uuid()' })
+  id!: string
+
+  @Property({ name: 'organization_id', type: 'uuid' })
+  organizationId!: string
+
+  @Property({ name: 'tenant_id', type: 'uuid' })
+  tenantId!: string
+
+  @Property({ name: 'entry_date', type: 'text' })
+  entryDate!: string
+
+  @Property({ type: 'int' })
+  shift!: number
+
+  @Property({ name: 'press_id', type: 'uuid' })
+  pressId!: string
+
+  @Property({ name: 'press_number', type: 'int' })
+  pressNumber!: number
+
+  @Property({ name: 'mould_id', type: 'uuid' })
+  mouldId!: string
+
+  @Property({ name: 'die_no', type: 'text' })
+  dieNo!: string
+
+  @Property({ name: 'customer_name', type: 'text', nullable: true })
+  customerName?: string | null
+
+  @Property({ name: 'die_heat_time', type: 'text', nullable: true })
+  dieHeatTime?: string | null
+
+  @Property({ name: 'order_qty', type: 'int', nullable: true })
+  orderQty?: number | null
+
+  @Property({ name: 'order_ref', type: 'text', nullable: true })
+  orderRef?: string | null
+
+  @Property({ name: 'prior_made', type: 'int', nullable: true })
+  priorMade?: number | null
+
+  @Property({ name: 'article_weight_kg', type: 'numeric', columnType: 'numeric(12,3)' })
+  articleWeightKg!: string
+
+  @Property({ name: 'chindi_product_id', type: 'uuid', nullable: true })
+  chindiProductId?: string | null
+
+  @Property({ name: 'chindi_kg', type: 'numeric', columnType: 'numeric(12,3)', nullable: true })
+  chindiKg?: string | null
+
+  @Property({ name: 'cloth_product_id', type: 'uuid', nullable: true })
+  clothProductId?: string | null
+
+  @Property({ name: 'cloth_kg', type: 'numeric', columnType: 'numeric(12,3)', nullable: true })
+  clothKg?: string | null
+
+  @Property({ name: 'cloth_note', type: 'text', nullable: true })
+  clothNote?: string | null
+
+  @Property({ name: 'bstage_grade', type: 'text', nullable: true })
+  bstageGrade?: string | null
+
+  @Property({ name: 'bstage_kg', type: 'numeric', columnType: 'numeric(12,3)', nullable: true })
+  bstageKg?: string | null
+
+  @Property({ name: 'production_nos', type: 'int' })
+  productionNos!: number
+
+  @Property({ name: 'start_time', type: 'text', nullable: true })
+  startTime?: string | null
+
+  @Property({ name: 'operator_name', type: 'text', nullable: true })
+  operatorName?: string | null
+
+  @Property({ name: 'top_temp', type: 'text', nullable: true })
+  topTemp?: string | null
+
+  @Property({ name: 'bottom_temp', type: 'text', nullable: true })
+  bottomTemp?: string | null
+
+  @Property({ name: 'curing_time', type: 'text', nullable: true })
+  curingTime?: string | null
+
+  @Property({ type: 'json', nullable: true })
+  picks?: PressPick[] | null
+
+  @Property({ name: 'output_product_id', type: 'uuid', nullable: true })
+  outputProductId?: string | null
+
+  @Property({ name: 'output_lot_id', type: 'uuid', nullable: true })
+  outputLotId?: string | null
+
+  @Property({ name: 'output_lot_number', type: 'text', nullable: true })
+  outputLotNumber?: string | null
+
+  @Property({ type: 'text', default: 'draft' })
+  status: MouldingStatus = 'draft'
+
+  @Property({ name: 'posted_at', type: Date, nullable: true })
+  postedAt?: Date | null
+
+  @Property({ name: 'posted_by_name', type: 'text', nullable: true })
+  postedByName?: string | null
+
+  @Property({ type: 'json', nullable: true })
+  history?: PlantHistoryEntry[] | null
+
+  @Property({ name: 'updated_by_name', type: 'text', nullable: true })
+  updatedByName?: string | null
+
+  @Property({ name: 'created_at', type: Date, onCreate: () => new Date() })
+  createdAt: Date = new Date()
+
+  @Property({ name: 'updated_at', type: Date, onCreate: () => new Date(), onUpdate: () => new Date() })
+  updatedAt: Date = new Date()
+
+  @Property({ name: 'deleted_at', type: Date, nullable: true })
+  deletedAt?: Date | null
+}
+
+@Entity({ tableName: 'cc_moulding_signoffs' })
+@Index({
+  name: 'cc_moulding_signoffs_unique_idx',
+  expression: 'create unique index "cc_moulding_signoffs_unique_idx" on "cc_moulding_signoffs" ("organization_id", "entry_date", "shift")',
+})
+export class MouldingSignoff {
+  [OptionalProps]?: 'createdAt' | 'updatedAt' | 'shiftIncharge' | 'shiftInchargeAt' | 'storeIncharge' | 'storeInchargeAt' | 'authorised' | 'authorisedAt'
+
+  @PrimaryKey({ type: 'uuid', defaultRaw: 'gen_random_uuid()' })
+  id!: string
+
+  @Property({ name: 'organization_id', type: 'uuid' })
+  organizationId!: string
+
+  @Property({ name: 'tenant_id', type: 'uuid' })
+  tenantId!: string
+
+  @Property({ name: 'entry_date', type: 'text' })
+  entryDate!: string
+
+  @Property({ type: 'int' })
+  shift!: number
+
+  @Property({ name: 'shift_incharge', type: 'text', nullable: true })
+  shiftIncharge?: string | null
+
+  @Property({ name: 'shift_incharge_at', type: Date, nullable: true })
+  shiftInchargeAt?: Date | null
+
+  @Property({ name: 'store_incharge', type: 'text', nullable: true })
+  storeIncharge?: string | null
+
+  @Property({ name: 'store_incharge_at', type: Date, nullable: true })
+  storeInchargeAt?: Date | null
+
+  @Property({ type: 'text', nullable: true })
+  authorised?: string | null
+
+  @Property({ name: 'authorised_at', type: Date, nullable: true })
+  authorisedAt?: Date | null
+
+  @Property({ name: 'created_at', type: Date, onCreate: () => new Date() })
+  createdAt: Date = new Date()
+
+  @Property({ name: 'updated_at', type: Date, onCreate: () => new Date(), onUpdate: () => new Date() })
+  updatedAt: Date = new Date()
+}

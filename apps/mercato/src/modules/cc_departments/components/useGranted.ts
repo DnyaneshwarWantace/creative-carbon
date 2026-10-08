@@ -35,6 +35,8 @@ const UI_FEATURES = [
   'cc_production.bstage.manage',
   'cc_production.press.enter',
   'cc_production.press.review',
+  'cc_production.moulding.enter',
+  'cc_production.moulding.sign',
   'catalog.products.manage',
 ]
 
