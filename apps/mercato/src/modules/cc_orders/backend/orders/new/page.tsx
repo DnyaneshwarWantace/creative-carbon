@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 import { useSearchParams } from 'next/navigation'
-import { OrderForm } from '../../../components/OrderForm'
+import { CcOrderForm as OrderForm } from '../../../components/CcOrderForm'
 
 function NewOrder() {
   const searchParams = useSearchParams()

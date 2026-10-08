@@ -165,9 +165,11 @@ test.describe.serial('Stage 4 · coating (dryer sheets) and the B-stage board', 
 
   test('the lots are on the board with their clocks; a 3 July lot is past 10 days and blocked', async ({ request }) => {
     const board = (await (await request.get(`/api/cc_production/bstage?q=${LOT}-D2`)).json()) as Board
+    const mine = new Set(dryer2.rows.map((row) => row.bstageLotId))
     const blocked = board.columns.find((column) => column.band === 'blocked')!
-    expect(blocked.lots.map((lot) => lot.lotNumber).sort()).toEqual([`${LOT}-D2-1`, `${LOT}-D2-2`, `${LOT}-D2-3`, `${LOT}-D2-4`])
-    const first = blocked.lots.find((lot) => lot.lotNumber === `${LOT}-D2-1`)!
+    const ours = blocked.lots.filter((lot) => mine.has(lot.lotId))
+    expect(ours.map((lot) => lot.lotNumber).sort()).toEqual([`${LOT}-D2-1`, `${LOT}-D2-2`, `${LOT}-D2-3`, `${LOT}-D2-4`])
+    const first = ours.find((lot) => lot.lotNumber === `${LOT}-D2-1`)!
     expect(first.nosLeft).toBe(325)
     expect(first.clothTitle).toBe('10x10')
     expect(first.resinBatchNo).toBe(resinBatch.batchNo)

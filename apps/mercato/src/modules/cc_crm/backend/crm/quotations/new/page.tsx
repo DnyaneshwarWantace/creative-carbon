@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 import { useSearchParams } from 'next/navigation'
-import { OrderForm } from '../../../../../cc_orders/components/OrderForm'
+import { CcOrderForm as OrderForm } from '../../../../../cc_orders/components/CcOrderForm'
 
 function NewQuotation() {
   const searchParams = useSearchParams()

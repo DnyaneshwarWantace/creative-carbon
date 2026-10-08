@@ -95,3 +95,31 @@ export async function loadAddresses(customerId: string): Promise<CustomerAddress
     })
     .filter((entry) => entry.text)
 }
+
+export type ProductSpecs = { unit: string | null; kind: string | null; specs: Record<string, string> }
+
+const SPEC_FROM_PRODUCT: Record<string, string> = {
+  product_form: 'form',
+  laminate_grade: 'grade',
+  weave: 'weave',
+  thickness_mm: 'thickness_mm',
+  sheet_size: 'sheet_size',
+  die_no: 'die_no',
+}
+
+export async function loadProductSpecs(id: string): Promise<ProductSpecs> {
+  const call = await apiCall<{ items?: Array<Record<string, unknown>> }>(`/api/catalog/products?id=${encodeURIComponent(id)}&pageSize=1`, undefined, { fallback: { items: [] } })
+  const item = call.ok ? (call.result?.items?.[0] ?? {}) : {}
+  const custom = (item.customFields ?? {}) as Record<string, unknown>
+  const pick = (key: string) => {
+    const value = item[`cf_${key}`] ?? custom[key]
+    return value === null || value === undefined ? '' : String(value).trim()
+  }
+  const specs: Record<string, string> = {}
+  for (const [from, to] of Object.entries(SPEC_FROM_PRODUCT)) {
+    const value = pick(from)
+    if (value) specs[to] = value
+  }
+  const standard = pick('test_standard')
+  return { unit: pick('default_unit') || null, kind: pick('item_type') || null, specs: { ...specs, ...(standard ? { __test_standard: standard } : {}) } }
+}
