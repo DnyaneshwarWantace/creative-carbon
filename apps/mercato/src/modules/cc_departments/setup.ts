@@ -8,13 +8,14 @@ export const setup: ModuleSetupConfig = {
     ],
     employee: [
       'cc_departments.view',
+      'cc_departments.erp',
     ],
-    sales: ['cc_departments.view', 'perspectives.use'],
-    procurement: ['cc_departments.view', 'perspectives.use'],
-    supervisor: ['cc_departments.view', 'perspectives.use'],
-    quality_control: ['cc_departments.view', 'perspectives.use'],
-    fg_store: ['cc_departments.view', 'perspectives.use'],
-    accounts: ['cc_departments.view', 'perspectives.use'],
+    sales: ['cc_departments.view', 'cc_departments.erp', 'perspectives.use'],
+    procurement: ['cc_departments.view', 'cc_departments.erp', 'perspectives.use'],
+    supervisor: ['cc_departments.view', 'cc_departments.erp', 'perspectives.use'],
+    quality_control: ['cc_departments.view', 'cc_departments.erp', 'perspectives.use'],
+    fg_store: ['cc_departments.view', 'cc_departments.erp', 'perspectives.use'],
+    accounts: ['cc_departments.view', 'cc_departments.erp', 'perspectives.use'],
   },
   seedDefaults: async (ctx) => {
     await seedCcDepartments(ctx.em, { tenantId: ctx.tenantId, organizationId: ctx.organizationId })

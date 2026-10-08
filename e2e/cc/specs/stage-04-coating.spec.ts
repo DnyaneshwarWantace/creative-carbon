@@ -3,10 +3,14 @@ import { expect, test, type APIRequestContext } from '@playwright/test'
 const LOCK = 'x-om-ext-optimistic-lock-expected-updated-at'
 const today = new Date(Date.now() + 5.5 * 3600_000).toISOString().slice(0, 10)
 const stamp = Date.now()
-const PAST_YEAR = 1990 + (stamp % 30)
+const PAST_YEAR = 1100 + (stamp % 800)
 const YY = String(PAST_YEAR).slice(2)
-const PAPER_DATE = `${PAST_YEAR}-07-03`
-const LOT = `B-0307${YY}`
+const DAY = 1 + (Math.floor(stamp / 800) % 28)
+const MONTH = 1 + (Math.floor(stamp / 22400) % 12)
+const DD = String(DAY).padStart(2, '0')
+const MM = String(MONTH).padStart(2, '0')
+const PAPER_DATE = `${PAST_YEAR}-${MM}-${DD}`
+const LOT = `B-${DD}${MM}${YY}`
 
 type Setup = { dryers: Array<{ id: string; code: string; kind: string }>; cloths: Array<{ id: string; title: string; free: number }>; resinLots: Array<{ lotId: string; lotNumber: string | null; free: number }> }
 type Sheet = {
@@ -205,14 +209,14 @@ test.describe.serial('Stage 4 · coating (dryer sheets) and the B-stage board', 
   test('the 3 July Dryer 3 sheet (test year) comes in through the two upload tiles and posts (Stage 2 upload centre)', async ({ request }) => {
     const registers = (await (await request.get('/api/cc_production/upload')).json()) as { items: Array<{ key: string }> }
     expect(registers.items.map((item) => item.key)).toEqual(expect.arrayContaining(['dryer_sheets', 'dryer_slots']))
-    const slotsCsv = ['Date,Dryer,Time,DBP,Olic Acid,Remarks', `3/7/${PAST_YEAR},3,4.00,,,241.416`, 'do,do,6.00,,,610.542', 'do,do,20.00,,,615.754', 'do,do,22.00,15,,198.948'].join('\n')
+    const slotsCsv = ['Date,Dryer,Time,DBP,Olic Acid,Remarks', `${DAY}/${MONTH}/${PAST_YEAR},3,4.00,,,241.416`, 'do,do,6.00,,,610.542', 'do,do,20.00,,,615.754', 'do,do,22.00,15,,198.948'].join('\n')
     const slots = await request.post('/api/cc_production/upload', { multipart: { register: 'dryer_slots', dryRun: 'false', file: { name: `slots-${stamp}.csv`, mimeType: 'text/csv', buffer: Buffer.from(slotsCsv) } } })
     expect(slots.ok(), await slots.text()).toBeTruthy()
     expect(((await slots.json()) as { created: number }).created).toBe(1)
 
     const rowsCsv = [
       'Date,Dryer,S.N.,Cloth Name,GSM,Kushan,Treated Cloth Weight,Raw Cloth Weight,Balance Raw Cloth,Coated Cloth Nos,Resine Type / Batch,RC,VC,Post',
-      `03/07/${PAST_YEAR},Dryer 3,6,10x10,300,1070,1916,140,NIL,126,P.F,44,3.1,Yes`,
+      `${DD}/${MM}/${PAST_YEAR},Dryer 3,6,10x10,300,1070,1916,140,NIL,126,P.F,44,3.1,Yes`,
       'do,do,7,10x10,300,1070,1926,343,NIL,317,P.F,44,3.2,',
       'do,do,8,10x10,300,1020,1961,341,NIL,314,P.F,45,3.3,',
       'do,do,9,G-10x10,280,920,1686,109,NIL,118,P.F,45,2.5,',

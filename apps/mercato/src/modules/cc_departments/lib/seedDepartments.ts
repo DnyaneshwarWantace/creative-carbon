@@ -5,7 +5,7 @@ import { Department, type DepartmentType } from '../data/entities'
 
 export type DepartmentSeedScope = { tenantId: string; organizationId: string }
 
-export type DepartmentSeed = { name: string; type: DepartmentType; features: string[] }
+export type DepartmentSeed = { name: string; type: DepartmentType; features: string[]; crmOnly?: boolean }
 
 const EVERYONE = ['cc_dashboard.my_work', 'perspectives.use', 'cc_departments.view']
 
@@ -17,6 +17,7 @@ export const CC_DEPARTMENTS: DepartmentSeed[] = [
       'cc_dashboard.*',
       'cc_orders.*',
       'cc_crm.*',
+      'cc_crm.team',
       'cc_production.*',
       'cc_store.*',
       'cc_purchase.*',
@@ -192,6 +193,28 @@ async function ensureRole(em: EntityManager, scope: DepartmentSeedScope, name: s
   return role
 }
 
+const CRM_SALES_FEATURES = [
+  'cc_crm.view',
+  'cc_crm.manage',
+  'cc_crm.convert',
+  'cc_orders.view',
+  'cc_orders.manage',
+  'cc_orders.money',
+  'customers.companies.view',
+  'customers.companies.manage',
+  'cc_production.prices.view',
+  'catalog.products.view',
+  'attachments.view',
+  'attachments.manage',
+]
+
+export const CRM_ROLE_NAMES = { manager: 'CRM manager', sales: 'Sales (CRM)' } as const
+
+export const CRM_DEPARTMENTS: DepartmentSeed[] = [
+  { name: CRM_ROLE_NAMES.manager, type: 'sales', crmOnly: true, features: [...CRM_SALES_FEATURES, 'cc_crm.team', 'cc_production.prices.manage'] },
+  { name: CRM_ROLE_NAMES.sales, type: 'sales', crmOnly: true, features: CRM_SALES_FEATURES },
+]
+
 async function ensureAcl(em: EntityManager, scope: DepartmentSeedScope, role: Role, features: string[]) {
   const wanted = Array.from(new Set([...EVERYONE, ...features]))
   const existing = await findOneWithDecryption(em, RoleAcl, { role, tenantId: scope.tenantId }, {}, { tenantId: scope.tenantId, organizationId: null })
@@ -208,7 +231,7 @@ async function ensureAcl(em: EntityManager, scope: DepartmentSeedScope, role: Ro
 }
 
 export async function seedCcDepartments(em: EntityManager, scope: DepartmentSeedScope) {
-  for (const seed of CC_DEPARTMENTS) {
+  for (const seed of [...CC_DEPARTMENTS, ...CRM_DEPARTMENTS]) {
     let department = await em.findOne(Department, { tenantId: scope.tenantId, organizationId: scope.organizationId, name: seed.name, deletedAt: null })
     const role = department?.roleId ? ((await em.findOne(Role, { id: department.roleId, deletedAt: null })) ?? (await ensureRole(em, scope, seed.name))) : await ensureRole(em, scope, seed.name)
     if (!department) {
@@ -217,7 +240,7 @@ export async function seedCcDepartments(em: EntityManager, scope: DepartmentSeed
     } else if (department.roleId !== role.id) {
       department.roleId = role.id
     }
-    await ensureAcl(em, scope, role, seed.features)
+    await ensureAcl(em, scope, role, seed.crmOnly ? seed.features : [...seed.features, 'cc_departments.erp'])
   }
   await em.flush()
 }

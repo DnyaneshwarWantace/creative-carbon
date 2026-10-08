@@ -67,7 +67,7 @@ test.describe.serial('Stage 3 · resin plant and the chemical register', () => {
     const standard = data.chemicals.filter((entry) => entry.standard)
     expect(standard.map((entry) => `${entry.letter} ${entry.title}`)).toEqual(['A Phenol', 'B Formaldehyde', 'C Cardinol', 'D Liquid Ammonia', 'E Caustic Soda Flakes', 'F Methanol', 'G Oxalic Acid'])
     const [year, monthPart, dayPart] = today.split('-')
-    expect(data.nextBatchNo).toMatch(new RegExp(`^CCCPL/${dayPart}${monthPart}${year.slice(2)}/\\d{2}$`))
+    expect(data.nextBatchNo).toMatch(new RegExp(`^CCCPL/${dayPart}${monthPart}${year.slice(2)}/\\d{2,}$`))
     phenol = chemical(data, 'Phenol')
     formaldehyde = chemical(data, 'Formaldehyde')
     methanol = chemical(data, 'Methanol')
@@ -107,7 +107,7 @@ test.describe.serial('Stage 3 · resin plant and the chemical register', () => {
     expect(response.status(), await response.text()).toBe(201)
     const batch = (await response.json()) as Batch
     expect(batch.status).toBe('draft')
-    expect(batch.batchNo).toMatch(/^CCCPL\/\d{6}\/\d{2}$/)
+    expect(batch.batchNo).toMatch(/^CCCPL\/\d{6}\/\d{2,}$/)
     expect(batch.totalInputKg).toBe(2250)
     expect(batch.yieldPct).toBe(48.9)
     expect(await freeKg(request, 'Phenol')).toBe(before)

@@ -45,6 +45,7 @@ const UI_FEATURES = [
   'cc_crm.convert',
   'cc_crm.manage',
   'cc_crm.view',
+  'cc_crm.team',
 ]
 
 let cache: Promise<Set<string>> | null = null

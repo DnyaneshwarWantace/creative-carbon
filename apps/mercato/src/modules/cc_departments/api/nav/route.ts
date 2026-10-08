@@ -3,7 +3,9 @@ import { z } from 'zod'
 import type { OpenApiRouteDoc } from '@open-mercato/shared/lib/openapi'
 import type { BackendChromeNavGroup, BackendChromeNavItem, BackendChromePayload } from '@open-mercato/shared/modules/navigation/backendChrome'
 import { GET as coreNav } from '@open-mercato/core/modules/auth/api/admin/nav'
+import { getAuthFromRequest } from '@open-mercato/shared/lib/auth/server'
 import { CRM_PREFIXES, isCrmPath } from '../../lib/workspace'
+import { resolveWorkspaceAccess } from '../../lib/workspaceAccess'
 
 export const metadata = {
   GET: { requireAuth: true },
@@ -18,6 +20,7 @@ function flatten(groups: BackendChromeNavGroup[]): BackendChromeNavItem[] {
 function crmGroups(groups: BackendChromeNavGroup[]): BackendChromeNavGroup[] {
   const items = flatten(groups).filter((item) => isCrmPath(item.href) && !item.hidden)
   const rank = (href: string) => {
+    if (href.startsWith('/backend/crm/team')) return CRM_PREFIXES.length + 1
     const index = CRM_PREFIXES.findIndex((prefix) => href === prefix || href.startsWith(`${prefix}/`))
     return index < 0 ? CRM_PREFIXES.length : index
   }
@@ -41,7 +44,9 @@ async function GET(req: Request) {
   const response = await coreNav(req)
   if (!response.ok) return response
   const payload = (await response.json()) as BackendChromePayload
-  const groups = parsed.data.workspace === 'crm' ? crmGroups(payload.groups) : erpGroups(payload.groups)
+  const access = await resolveWorkspaceAccess(await getAuthFromRequest(req))
+  const workspace = parsed.data.workspace === 'erp' && !access.erp ? 'crm' : parsed.data.workspace === 'crm' && !access.crm ? 'erp' : parsed.data.workspace
+  const groups = !access.crm && !access.erp ? [] : workspace === 'crm' ? crmGroups(payload.groups) : erpGroups(payload.groups)
   return NextResponse.json({ ...payload, groups })
 }
 

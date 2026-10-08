@@ -165,7 +165,7 @@ test.describe.serial('Stage 9 · one-page order, booking to despatch', () => {
     expect(b?.onHand).toBe(round(200 - 145.5))
     expect(b?.free).toBe(50)
     expect(view.lines[0].allocations.find((row) => row.status === 'reserved')?.qty).toBe(4.5)
-    const ledger = (await (await request.get('/api/cc_store/stock/ledger?place=fg&limit=20&offset=0')).json()) as { items: Array<{ orderNo: string | null; quantity: number }> }
+    const ledger = (await (await request.get(`/api/cc_store/stock/ledger?place=fg&productId=${productId}&pageSize=100`)).json()) as { items: Array<{ orderNo: string | null; quantity: number }> }
     const current = await order(request, orderId)
     expect(ledger.items.filter((row) => row.orderNo === current.orderNo).map((row) => row.quantity).sort()).toEqual([-300, -145.5].sort())
   })
