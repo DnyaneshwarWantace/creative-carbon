@@ -19,7 +19,6 @@ import { selectClass, useSend } from '../finishing/shared'
 import { OfflineBadge, usePlantPwa } from '../offline'
 import { PlantTable } from '../PlantTable'
 import { Dropdown } from '../../../cc_lists/components/Dropdown'
-import { PageLoading } from '../../../cc_ui/components/PageLoading'
 
 type PlanRow = { area: string; resource: string; item: string | null; plannedQty: number; unit: string; actual: number; pct: number | null }
 type Overview = {
@@ -491,72 +490,7 @@ export function StockGridPage() {
   )
 }
 
-type LotPage = { lot: { lotId: string; lotNumber: string; title: string; onHand: number; free: number; placeLabel: string; unit?: string; nosLeft?: number | null; status?: string; madeOn?: string | null; batchNo?: string | null }; metadata: Record<string, unknown> | null; movements: Array<{ id: string; at: string; qty: number; place: string | null; reason: string | null; source: string | null }> }
-
-export function StockLotPage({ lotId }: { lotId: string }) {
-  const t = useT()
-  const [data, setData] = React.useState<LotPage | null>(null)
-  const [error, setError] = React.useState<string | null>(null)
-  React.useEffect(() => {
-    void apiCall<LotPage>(`/api/cc_production/stock/lot?id=${encodeURIComponent(lotId)}`).then((call) => {
-      if (!call.ok || !call.result) setError(t('cc_production.stock.lotError', 'Could not load this lot.'))
-      else setData(call.result)
-    })
-  }, [lotId, t])
-  if (error) return <Page><PageBody><ErrorMessage label={error} /></PageBody></Page>
-  if (!data) return <Page><PageBody><PageLoading label={t('cc_production.resin.loading', 'Loading…')} /></PageBody></Page>
-  const meta = data.metadata ?? {}
-  const facts = (['grade', 'thicknessMm', 'cutSize', 'sheetSize', 'batchNo', 'dieNo', 'customerName', 'disposition', 'supplier', 'invoiceNo', 'parentLot'] as const).filter((field) => meta[field] !== undefined && meta[field] !== null && meta[field] !== '')
-  return (
-    <Page>
-      <PageBody>
-        <div className="mx-auto flex max-w-3xl flex-col gap-5 pb-12">
-          <Link href="/backend/stock" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
-            <ArrowLeft className="h-4 w-4" aria-hidden="true" />
-            {t('cc_production.stock.title', 'All stock')}
-          </Link>
-          <header>
-            <p className="text-overline font-semibold uppercase tracking-widest text-muted-foreground">{data.lot.title}</p>
-            <h1 className="font-mono text-2xl font-bold tracking-tight">{data.lot.lotNumber}</h1>
-            <p className="text-sm text-muted-foreground">
-              {data.lot.placeLabel} · {kg(data.lot.onHand)} {data.lot.unit === 'nos' ? 'pcs' : 'kg'} left{data.lot.status && data.lot.status !== 'available' ? ` · ${data.lot.status}` : ''}
-            </p>
-          </header>
-          {facts.length ? (
-            <section className="grid grid-cols-2 gap-3 rounded-xl border border-border bg-card p-4 shadow-sm sm:grid-cols-3">
-              {facts.map((field) => (
-                <div key={field}>
-                  <p className="text-xs uppercase tracking-wide text-muted-foreground">{field}</p>
-                  <p className="text-sm font-semibold">{String(meta[field])}</p>
-                </div>
-              ))}
-            </section>
-          ) : null}
-          <section className="rounded-xl border border-border bg-card shadow-sm">
-            <h2 className="border-b border-border px-5 py-3 text-sm font-semibold uppercase tracking-wide">{t('cc_production.bstage.movements', 'Came from and went to')}</h2>
-            <ul className="divide-y divide-border">
-              {data.movements.map((movement) => (
-                <li key={movement.id} className="flex flex-wrap items-baseline justify-between gap-2 px-5 py-2.5 text-sm">
-                  <span>
-                    {movement.reason ?? '—'}
-                    {movement.place ? <span className="text-muted-foreground"> · {movement.place}</span> : null}
-                  </span>
-                  <span className="flex gap-4 tabular-nums">
-                    <span className={movement.qty < 0 ? 'text-muted-foreground' : 'font-semibold'}>
-                      {movement.qty > 0 ? '+' : ''}
-                      {kg(movement.qty)}
-                    </span>
-                    <span className="text-xs text-muted-foreground">{when(movement.at)}</span>
-                  </span>
-                </li>
-              ))}
-            </ul>
-          </section>
-        </div>
-      </PageBody>
-    </Page>
-  )
-}
+export { StockLotPage } from './LotPage'
 
 export function StocktakePage() {
   const t = useT()

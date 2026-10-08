@@ -351,3 +351,65 @@ export async function damageDetail(ctx: StoreContext, id: string) {
     createdAt: record.createdAt.toISOString(),
   }
 }
+
+type LotRowRaw = { id: string; lot_number: string; catalog_variant_id: string; metadata: Record<string, unknown> | null }
+
+async function lotByNumber(ctx: StoreContext, lotNumber: string, variantId: string): Promise<LotRowRaw | null> {
+  const rows = await ctx.em.getConnection().execute<LotRowRaw[]>(
+    `select id, lot_number, catalog_variant_id, metadata from wms_inventory_lots
+      where lot_number = ? and tenant_id = ? and organization_id = ? and deleted_at is null
+      order by (catalog_variant_id = ?) desc, created_at asc limit 1`,
+    [lotNumber, ctx.tenantId, ctx.organizationId, variantId],
+  )
+  return rows[0] ?? null
+}
+
+async function childLots(ctx: StoreContext, lotNumbers: string[]): Promise<Array<LotRowRaw & { parent: string }>> {
+  if (!lotNumbers.length) return []
+  const rows = await ctx.em.getConnection().execute<Array<LotRowRaw & { parent: string }>>(
+    `select id, lot_number, catalog_variant_id, metadata, metadata->>'parentLot' as parent from wms_inventory_lots
+      where metadata->>'parentLot' = any(?::text[]) and tenant_id = ? and organization_id = ? and deleted_at is null
+      order by created_at asc limit 200`,
+    [`{${lotNumbers.map((value) => `"${value.replace(/"/g, '')}"`).join(',')}}`, ctx.tenantId, ctx.organizationId],
+  )
+  return rows
+}
+
+export async function lotFamily(ctx: StoreContext, lotId: string) {
+  const [self] = await ctx.em.getConnection().execute<LotRowRaw[]>(
+    'select id, lot_number, catalog_variant_id, metadata from wms_inventory_lots where id = ? and tenant_id = ? and organization_id = ? and deleted_at is null',
+    [lotId, ctx.tenantId, ctx.organizationId],
+  )
+  if (!self) throw new PlantError('Lot not found', 404)
+  const ancestors: LotRowRaw[] = []
+  let cursor: LotRowRaw = self
+  for (let depth = 0; depth < 6; depth += 1) {
+    const parentNumber = typeof cursor.metadata?.parentLot === 'string' ? cursor.metadata.parentLot : null
+    if (!parentNumber) break
+    const parent = await lotByNumber(ctx, parentNumber, cursor.catalog_variant_id)
+    if (!parent || parent.id === cursor.id || ancestors.some((entry) => entry.id === parent.id)) break
+    ancestors.push(parent)
+    cursor = parent
+  }
+  const level1 = await childLots(ctx, [self.lot_number])
+  const level2 = await childLots(ctx, level1.map((row) => row.lot_number))
+  const children = [...level1.map((row) => ({ ...row, depth: 1 })), ...level2.map((row) => ({ ...row, depth: 2 }))]
+  const traces = await traceLots(ctx, [self.id, ...ancestors.map((row) => row.id), ...children.map((row) => row.id)])
+  const allocations = await ctx.em.getConnection().execute<Array<{ order_id: string; order_no: string; qty: string; unit: string; status: string; created_at: Date }>>(
+    `select a.order_id, o.order_no, a.qty, a.unit, a.status, a.created_at from cc_order_allocations a join cc_orders o on o.id = a.order_id
+      where a.lot_id = ? and a.tenant_id = ? and a.organization_id = ? order by a.created_at asc`,
+    [self.id, ctx.tenantId, ctx.organizationId],
+  )
+  const view = (row: LotRowRaw) => {
+    const trace = traces.get(row.id)
+    return { lotId: row.id, lotNumber: row.lot_number, title: trace?.title ?? null, madeBy: trace?.madeBy ?? null }
+  }
+  return {
+    lotId: self.id,
+    madeBy: traces.get(self.id)?.madeBy ?? null,
+    usedBy: traces.get(self.id)?.usedBy ?? [],
+    ancestors: ancestors.map(view),
+    children: children.map((row) => ({ ...view(row), depth: row.depth, parentLot: row.parent })),
+    allocations: allocations.map((row) => ({ orderId: row.order_id, orderNo: row.order_no, qty: Number(row.qty), unit: row.unit, status: row.status, at: new Date(row.created_at).toISOString() })),
+  }
+}
