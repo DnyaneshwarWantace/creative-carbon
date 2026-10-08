@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { z } from 'zod'
 import type { OpenApiRouteDoc } from '@open-mercato/shared/lib/openapi'
 import { CcOrder } from '../../../cc_orders/data/entities'
-import { currentUserName, resolveOrderContext } from '../../../cc_orders/lib/server'
+import { currentUserName, loadCustomers, resolveOrderContext } from '../../../cc_orders/lib/server'
 import { enforceCommandOptimisticLock } from '@open-mercato/shared/lib/crud/optimistic-lock-command'
 import { OrderPayment } from '../../data/entities'
 import { paymentInputSchema, paymentUpdateSchema } from '../../data/validators'
@@ -15,14 +15,21 @@ export const metadata = {
   PUT: { requireAuth: true, requireFeatures: ['cc_accounts.record'] },
 }
 
-const querySchema = z.object({ orderId: z.string().uuid() })
+const querySchema = z.object({ orderId: z.string().uuid().optional(), id: z.string().uuid().optional() }).refine((value) => Boolean(value.orderId || value.id), { message: 'orderId or id is required' })
 
 async function GET(req: Request) {
   const ctx = await resolveOrderContext(req)
   if ('error' in ctx) return NextResponse.json({ error: ctx.error }, { status: ctx.status })
   const parsed = querySchema.safeParse(Object.fromEntries(new URL(req.url).searchParams))
-  if (!parsed.success) return NextResponse.json({ error: 'orderId is required' }, { status: 400 })
-  return NextResponse.json({ items: (await paymentsFor(ctx, [parsed.data.orderId])).map(paymentView) })
+  if (!parsed.success) return NextResponse.json({ error: 'orderId or id is required' }, { status: 400 })
+  if (parsed.data.id) {
+    const payment = await ctx.em.findOne(OrderPayment, { id: parsed.data.id, tenantId: ctx.tenantId, organizationId: ctx.organizationId })
+    if (!payment) return NextResponse.json({ error: 'Payment not found' }, { status: 404 })
+    const order = await ctx.em.findOne(CcOrder, { id: payment.orderId, tenantId: ctx.tenantId, organizationId: ctx.organizationId })
+    const customers = await loadCustomers(ctx, order ? [order.customerId] : [])
+    return NextResponse.json({ ...paymentView(payment), customerId: order?.customerId ?? null, customerName: order ? customers.get(order.customerId)?.name ?? null : null })
+  }
+  return NextResponse.json({ items: (await paymentsFor(ctx, [parsed.data.orderId as string])).map(paymentView) })
 }
 
 async function POST(req: Request) {
@@ -66,7 +73,7 @@ export const openApi: OpenApiRouteDoc = {
   tag: 'Creative Carbon Accounts',
   summary: 'Payments received against an order',
   methods: {
-    GET: { summary: 'Payments of one order (voided ones included, marked)', tags: ['Creative Carbon Accounts'], query: querySchema, responses: [{ status: 200, description: 'Payments', schema: z.object({ items: z.array(z.object({ id: z.string() }).passthrough()) }) }] },
+    GET: { summary: 'Payments of one order (?orderId=, voided ones included, marked) or one payment with its customer (?id=)', tags: ['Creative Carbon Accounts'], query: querySchema, responses: [{ status: 200, description: 'Payments', schema: z.object({ items: z.array(z.object({ id: z.string() }).passthrough()) }) }] },
     PUT: { summary: 'Correct a payment (amount, date, mode, reference, matched invoice) with a reason; every change is kept in its history', tags: ['Creative Carbon Accounts'], requestBody: { schema: paymentUpdateSchema }, responses: [{ status: 200, description: 'Updated', schema: z.object({ id: z.string() }).passthrough() }] },
     POST: { summary: 'Record a payment (advance, balance or other)', tags: ['Creative Carbon Accounts'], requestBody: { schema: paymentInputSchema }, responses: [{ status: 201, description: 'Recorded', schema: z.object({ id: z.string() }).passthrough() }] },
   },

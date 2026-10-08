@@ -27,6 +27,8 @@ export const recordHref = {
   grn: (id: string) => `/backend/purchase/grns/${id}`,
   proforma: (id: string) => `/backend/accounts/proformas/${id}`,
   invoice: (id: string) => `/backend/accounts/invoices/${id}`,
+  payment: (id: string) => `/backend/accounts/payments/${id}`,
+  vendorBill: (id: string) => `/backend/accounts/vendor-bills/${id}`,
 }
 
 export type MachineKind = 'reactor' | 'dryer' | 'press'

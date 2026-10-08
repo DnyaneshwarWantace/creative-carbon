@@ -435,7 +435,9 @@ export function VendorFile({ vendorId }: { vendorId: string }) {
                       {data.bills.map((bill) => (
                         <li key={bill.id} className="flex items-center justify-between gap-3 px-3 py-2 even:bg-muted/30">
                           <span className="min-w-0">
-                            <span className="block font-mono text-xs font-semibold">{bill.billNo}</span>
+                            <Link className="block font-mono text-xs font-semibold underline-offset-2 hover:underline" href={recordHref.vendorBill(bill.id)}>
+                              {bill.billNo}
+                            </Link>
                             <span className="block truncate text-xs text-muted-foreground">{[day(bill.billDate), bill.poCode, bill.grnCodes.join(', ') || null].filter(Boolean).join(' · ')}</span>
                           </span>
                           <span className="flex shrink-0 items-center gap-2">
