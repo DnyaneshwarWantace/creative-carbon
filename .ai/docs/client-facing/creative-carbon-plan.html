@@ -385,6 +385,7 @@
           <div class="item done"><span class="mark">✓</span><span class="txt"><b>Vendor page</b>: lots received with QC pass / hold, vendor bills, POs and materials as register grids.</span></div>
           <div class="item done"><span class="mark">✓</span><span class="txt"><b>Dermat leftovers removed</b>: supplier categories read "Chemicals and reinforcement" / "Consumables and packing" (were raw / packing material); party import sample rows no longer name a cosmetics company.</span></div>
           <div class="item done"><span class="mark">✓</span><span class="txt"><b>D2 (Stages 2–3)</b>: resin batch page on the ledger layout with the chain strip (vessel opens its machine page, every lot and GRN is a link, sign-offs / went to / yield comparison on the side). New chemical issue page (lots taken with GRNs, the coating day sheet it went to, cancel with reason). New upload page (counts, every row to fix with the reason, open the register for that date). <b>Every plant register table</b> now has zebra rows, a sticky ledger header and an optional double-ruled Σ row, and a button inside a row no longer opens the row.</span></div>
+          <div class="item done"><span class="mark">✓</span><span class="txt"><b>D3 (Stages 4–6)</b>: coating day sheet (cloth rows with Σ, every raw / resin / B-stage lot linked, slot log with totals, the dryer's chemical issues), B-stage lot (age band and use-by as facts, every movement opens the document that moved it), press batch (daylight register with range beside weight, press opens its machine page, B-stage used with age at use, pressed lots), moulding entry (die and machine open their pages, the run on this die and order, lots used and the moulded lot). Die availability now links each die. Lot movements from the API now carry their document link everywhere.</span></div>
           <div class="item planned"><span class="mark">○</span><span class="txt"><b>Upload page: list the records each upload made.</b> Needs one new column on the upload table (ids of records created / updated) and a small change in each register importer. Waiting for approval of the database change.</span></div>
           <div class="item missing"><span class="mark">!</span><span class="txt"><b>Not checked in a browser yet.</b> This copy's migrations need the database restored from the dump, so a fresh database cannot be built in the cloud session. Type check and lint pass; open the five pages on port 3010 before Stage 1 goes back to Done.</span></div>
         </div>
@@ -406,12 +407,12 @@
               <tr><td class="k">Resin batch</td><td class="t">/backend/resin/batches/&lt;id&gt;</td><td>Chemical lots and their GRNs</td><td>Resin lot in the tank, coating runs that used it</td><td><span class="verdict done">Built</span></td></tr>
               <tr><td class="k">Chemical issue</td><td class="t">/backend/resin/issues/&lt;id&gt;</td><td>Chemical lots taken (oldest first) and their GRNs</td><td>Coating day sheet of that dryer and date, or "other" with the note</td><td><span class="verdict done">Built</span></td></tr>
               <tr class="grp"><td colspan="5">Stage 4 Coating</td></tr>
-              <tr><td class="k">Coating day sheet</td><td class="t">/backend/coating/&lt;id&gt;</td><td>Resin lots, raw cloth / paper lots, chemical issues</td><td>B-stage lots made, press batches and moulding entries that used them, B-stage sold or scrapped</td><td><span class="verdict partial">Upgrade</span></td></tr>
-              <tr><td class="k">B-stage lot</td><td class="t">/backend/bstage/lots/&lt;id&gt;</td><td>Coating day sheet, cloth row, resin lot</td><td>Press batches, moulding entries, sales, scrap</td><td><span class="verdict partial">Upgrade</span></td></tr>
+              <tr><td class="k">Coating day sheet</td><td class="t">/backend/coating/&lt;id&gt;</td><td>Resin lots, raw cloth / paper lots, chemical issues</td><td>B-stage lots made, press batches and moulding entries that used them, B-stage sold or scrapped</td><td><span class="verdict done">Built</span></td></tr>
+              <tr><td class="k">B-stage lot</td><td class="t">/backend/bstage/lots/&lt;id&gt;</td><td>Coating day sheet, cloth row, resin lot</td><td>Press batches, moulding entries, sales, scrap</td><td><span class="verdict done">Built</span></td></tr>
               <tr class="grp"><td colspan="5">Stage 5 Press</td></tr>
-              <tr><td class="k">Press batch</td><td class="t">/backend/press/batches/&lt;id&gt;</td><td>B-stage lots used (oldest first, age at use)</td><td>Pressed lots, cutting entries, thickness, FG lots, orders</td><td><span class="verdict partial">Upgrade</span></td></tr>
+              <tr><td class="k">Press batch</td><td class="t">/backend/press/batches/&lt;id&gt;</td><td>B-stage lots used (oldest first, age at use)</td><td>Pressed lots, cutting entries, thickness, FG lots, orders</td><td><span class="verdict done">Built</span></td></tr>
               <tr class="grp"><td colspan="5">Stage 6 Moulding</td></tr>
-              <tr><td class="k">Moulding entry</td><td class="t">/backend/moulding/entries/&lt;id&gt;</td><td>Chindi, cloth and B-stage lots, the die, the press</td><td>Moulded lot, cutting, FG, the order for that die</td><td><span class="verdict partial">Upgrade</span></td></tr>
+              <tr><td class="k">Moulding entry</td><td class="t">/backend/moulding/entries/&lt;id&gt;</td><td>Chindi, cloth and B-stage lots, the die, the press</td><td>Moulded lot, cutting, FG, the order for that die</td><td><span class="verdict done">Built</span></td></tr>
               <tr class="grp"><td colspan="5">Stage 7 Cutting · QC · FG</td></tr>
               <tr><td class="k">Cutting entry</td><td class="t">/backend/cutting/&lt;id&gt;</td><td>Pressed or moulded lot</td><td>Trimmed lot, thickness inspection, FG inspection</td><td><span class="verdict planned">Missing</span></td></tr>
               <tr><td class="k">Thickness inspection</td><td class="t">/backend/quality/thickness/&lt;id&gt;</td><td>Trimmed lot, press batch line (target thickness)</td><td>FG inspection</td><td><span class="verdict planned">Missing</span></td></tr>
@@ -762,7 +763,7 @@
 
 <!-- ============ STAGE 4 ============ -->
       <section id="s4">
-        <div class="mod-head"><h2>Stage 4 · Coating (impregnation) and the B-stage board</h2><span class="verdict done">DONE · TESTED</span><span class="when">finished 8 Oct</span><span class="verdict partial">REOPENED · DETAIL &amp; UI PASS</span></div>
+        <div class="mod-head"><h2>Stage 4 · Coating (impregnation) and the B-stage board</h2><span class="verdict done">DONE · TESTED</span><span class="when">finished 8 Oct</span><span class="verdict partial">DETAIL PAGES BUILT · CLICK-THROUGH DUE</span></div>
         <p class="mod-dek">"Quality Control Report, Dryer No. N": one sheet per dryer per day, two dryers to a printed page.</p>
         <div class="meta"><span><b>Pages</b> /backend/coating?date=&amp;dryer= (tabs Dryer 1, 2, 3, Mixer) · /coating/&lt;id&gt; · /backend/bstage (board) · /lots/&lt;lot&gt;</span><span><b>Users</b> coating operator, floor supervisor</span><span><b>Paper</b> IMG_7783</span></div>
 
@@ -831,14 +832,14 @@
         <p class="exit"><b>Tested 8 Oct:</b> type check 0 errors · end-to-end suite Stages 0–4: <b>48 / 48 passing</b> — the 3 July Dryer 2 sheet typed in gives 861 kg raw, 786 nos and 1570.66 kg output; one sheet per dryer per day; posting moves 498 kg of 10x10, the resin worked out and 16 kg DBP, makes lots B-030726-D2-1…4; the resin batch lists the four dryer rows; the July lots sit in the blocked column with 325 nos on lot 1; today's lot is fresh, RC 52 % warns, partial scrap blocks reopen; the Dryer 3 sheet comes in through both upload tiles (unknown cloth reported) and posts with 933 kg, 875 nos; pages open; reopen restores cloth, resin and DBP; test data cleaned up.</p>
         <h3 id="s4-detail">Detail pages (v14) <span class="tag new">NEW</span></h3>
         <div class="itemlist">
-          <div class="item partial"><span class="mark">↻</span><span class="txt"><b>Coating day sheet</b> <span class="src">/backend/coating/&lt;id&gt;</span> Shared layout; slot log and cloth rows unchanged.<span class="sub">Came from: Resin lots, raw cloth / paper lots, chemical issues · Went to: B-stage lots made, press batches and moulding entries that used them, B-stage sold or scrapped</span></span></div>
-          <div class="item partial"><span class="mark">↻</span><span class="txt"><b>B-stage lot</b> <span class="src">/backend/bstage/lots/&lt;id&gt;</span> Shared layout; age counter in the header.<span class="sub">Came from: Coating day sheet, cloth row, resin lot · Went to: Press batches, moulding entries, sales, scrap</span></span></div>
+          <div class="item done"><span class="mark">✓</span><span class="txt"><b>Coating day sheet</b> <span class="src">/backend/coating/&lt;id&gt;</span> Shared layout; slot log and cloth rows unchanged.<span class="sub">Came from: Resin lots, raw cloth / paper lots, chemical issues · Went to: B-stage lots made, press batches and moulding entries that used them, B-stage sold or scrapped</span></span></div>
+          <div class="item done"><span class="mark">✓</span><span class="txt"><b>B-stage lot</b> <span class="src">/backend/bstage/lots/&lt;id&gt;</span> Shared layout; age counter in the header.<span class="sub">Came from: Coating day sheet, cloth row, resin lot · Went to: Press batches, moulding entries, sales, scrap</span></span></div>
         </div>
       </section>
 
 <!-- ============ STAGE 5 ============ -->
       <section id="s5">
-        <div class="mod-head"><h2>Stage 5 · Laminate pressing</h2><span class="verdict done">DONE · TESTED</span><span class="when">finished 8 Oct</span><span class="verdict partial">REOPENED · DETAIL &amp; UI PASS</span></div>
+        <div class="mod-head"><h2>Stage 5 · Laminate pressing</h2><span class="verdict done">DONE · TESTED</span><span class="when">finished 8 Oct</span><span class="verdict partial">DETAIL PAGES BUILT · CLICK-THROUGH DUE</span></div>
         <p class="mod-dek">Three papers describe one press load: the press loading register (per press, per daylight), the daily production batch report <code>CCCPL/F/PRP/02</code> (per batch summary) and the optional press heating slip. In the system they are one record seen three ways.</p>
         <div class="meta"><span><b>Pages</b> /backend/press/batches · /new · /&lt;id&gt; · /backend/press/daily-report?date= · /backend/press/loading?press=&amp;date=</span><span><b>Users</b> press in-charge, supervisor</span><span><b>Paper</b> IMG_7785, 7787, 7788</span></div>
         <h3>Press batch: fields</h3>
@@ -889,13 +890,13 @@
         <p class="exit"><b>Tested 8 Oct:</b> type check 0 errors · end-to-end suite Stages 0–5: <b>58 / 58 passing</b> — F/01 to F/04 of 2 Oct type in and show 814.600, 1008.800, 996.300 and 776.700 kg with 4/18, 8/18, 2/24 and 1/18; F/03 from the photo warns on daylights 7–9 (10 mm above 46.300); posting F/03 takes 932.3 kg of 10x10 and 64 kg of F2 paper B-stage oldest first and makes four pressed lots (64 · 277.8 · 418.7 · 235.8 kg); a non-oldest lot is refused without a reason and accepted with one; a cancelled draft keeps its number and the next batch is F/05; reopen returns the B-stage; the loading register uploads with its book number and posts; pages open; test data cleaned up (test batches are left cancelled in a far-future month, since numbers are never deleted).</p>
         <h3 id="s5-detail">Detail pages (v14) <span class="tag new">NEW</span></h3>
         <div class="itemlist">
-          <div class="item partial"><span class="mark">↻</span><span class="txt"><b>Press batch</b> <span class="src">/backend/press/batches/&lt;id&gt;</span> Shared layout with the chain strip and tolerance warnings panel.<span class="sub">Came from: B-stage lots used (oldest first, age at use) · Went to: Pressed lots, cutting entries, thickness, FG lots, orders</span></span></div>
+          <div class="item done"><span class="mark">✓</span><span class="txt"><b>Press batch</b> <span class="src">/backend/press/batches/&lt;id&gt;</span> Shared layout with the chain strip and tolerance warnings panel.<span class="sub">Came from: B-stage lots used (oldest first, age at use) · Went to: Pressed lots, cutting entries, thickness, FG lots, orders</span></span></div>
         </div>
       </section>
 
 <!-- ============ STAGE 6 ============ -->
       <section id="s6">
-        <div class="mod-head"><h2>Stage 6 · Moulded products</h2><span class="verdict done">DONE · TESTED</span><span class="when">finished 8 Oct</span><span class="verdict partial">REOPENED · DETAIL &amp; UI PASS</span></div>
+        <div class="mod-head"><h2>Stage 6 · Moulded products</h2><span class="verdict done">DONE · TESTED</span><span class="when">finished 8 Oct</span><span class="verdict partial">DETAIL PAGES BUILT · CLICK-THROUGH DUE</span></div>
         <p class="mod-dek">Moulded products daily production register: machines 1–20 across the top, a 1st-shift and a 2nd-shift block down the page. The hardest grid in the build, so it is prototyped first.</p>
         <div class="meta"><span><b>Pages</b> /backend/moulding?date= (the grid) · /moulding/entries/&lt;id&gt; · /backend/moulding/dies (availability by shift)</span><span><b>Users</b> shift in-charge, store in-charge, operators</span><span><b>Paper</b> IMG_7786 · job card to come</span></div>
         <div class="tablewrap">
@@ -941,7 +942,7 @@
         <p class="exit"><b>Tested 8 Oct:</b> type check 0 errors · end-to-end suite Stages 0–6: <b>68 / 68 passing</b> — machines 1–20, operators and dies from the masters; the 13 June 1st shift typed in gives 97 of 100 on die 1142, 15, 4, 85, 20, 14 on the others, Grand Total 124 and Weight Total 275.950 kg; die 1142 on a second machine in the same shift refused, unknown die refused, the same die in the 2nd shift allowed and reaching 100 of 100; posting takes 2 kg chindi and 1.5 kg cloth and makes lot M-…-S1-P12 with 17 pieces under "Moulded 1142"; die availability shows 1142 on machine 12 in both shifts; three sign-offs; reopen returns the chindi; a 2nd-shift upload posts two machines; pages open; test data cleaned up.</p>
         <h3 id="s6-detail">Detail pages (v14) <span class="tag new">NEW</span></h3>
         <div class="itemlist">
-          <div class="item partial"><span class="mark">↻</span><span class="txt"><b>Moulding entry</b> <span class="src">/backend/moulding/entries/&lt;id&gt;</span> Shared layout; links to the new die and machine pages.<span class="sub">Came from: Chindi, cloth and B-stage lots, the die, the press · Went to: Moulded lot, cutting, FG, the order for that die</span></span></div>
+          <div class="item done"><span class="mark">✓</span><span class="txt"><b>Moulding entry</b> <span class="src">/backend/moulding/entries/&lt;id&gt;</span> Shared layout; links to the new die and machine pages.<span class="sub">Came from: Chindi, cloth and B-stage lots, the die, the press · Went to: Moulded lot, cutting, FG, the order for that die</span></span></div>
         </div>
       </section>
 
