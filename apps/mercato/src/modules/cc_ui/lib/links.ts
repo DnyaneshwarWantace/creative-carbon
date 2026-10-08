@@ -22,6 +22,7 @@ export const recordHref = {
   order: (id: string) => `/backend/orders/${id}`,
   enquiry: (id: string) => `/backend/crm/enquiries/${id}`,
   quotation: (id: string) => `/backend/crm/quotations/${id}`,
+  indent: (id: string) => `/backend/purchase/indents/${id}`,
   purchaseOrder: (id: string) => `/backend/purchase/orders/${id}`,
   grn: (id: string) => `/backend/purchase/grns/${id}`,
   proforma: (id: string) => `/backend/accounts/proformas/${id}`,
