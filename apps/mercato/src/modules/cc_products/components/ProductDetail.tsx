@@ -3,26 +3,23 @@
 import * as React from 'react'
 import { useGranted } from '../../cc_departments/components/useGranted'
 import Link from 'next/link'
-import { ArrowLeft, Boxes, ClipboardList, FileStack, History, Pencil, Plus, Users, Warehouse } from 'lucide-react'
+import { Boxes, ClipboardList, FileStack, History, Pencil, Plus, Printer, Users, Warehouse } from 'lucide-react'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
-import { cn } from '@open-mercato/shared/lib/utils'
-import { Page, PageBody } from '@open-mercato/ui/backend/Page'
 import { Button } from '@open-mercato/ui/primitives/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@open-mercato/ui/primitives/card'
 import { StatusBadge, type StatusBadgeVariant } from '@open-mercato/ui/primitives/status-badge'
 import { apiCall } from '@open-mercato/ui/backend/utils/apiCall'
-import { ErrorMessage } from '@open-mercato/ui/backend/detail'
 import { KIND_CONFIG } from '../lib/kindConfig'
 import { PURCHASED_KINDS, SELLABLE_KINDS, type ProductKind } from '../lib/kinds'
 import { COMMON_FIELD_KEYS, fieldsForKind, loadProductFieldDefs, type ProductFieldDef } from '../lib/fieldDefs'
 import { PRODUCT_KINDS } from '../lib/kinds'
-import { PageLoading } from '../../cc_ui/components/PageLoading'
+import { FieldList, LinkRows, Panel, RecordColumns, RecordPage, RecordState, RegisterGrid, DocLink, formatCount, formatDay, formatKg, type Fact } from '../../cc_ui/components/RecordPage'
+import { recordHref, type DocumentLink } from '../../cc_ui/lib/links'
 
 type Row = Record<string, unknown> & { id: string }
 type StockDetail = {
   stores: Array<{ code: string; onHand: number; reserved: number; available: number }>
-  batches: Array<{ lotNumber: string; store: string | null; onHand: number; expiresAt: string | null; manufacturedAt: string | null; status: string | null }>
-  movements: Array<{ at: string; type: string; quantity: number; from: string | null; to: string | null; lotNumber: string | null; reason: string | null }>
+  batches: Array<{ lotId: string; lotNumber: string; store: string | null; onHand: number; expiresAt: string | null; manufacturedAt: string | null; status: string | null }>
+  movements: Array<{ at: string; type: string; quantity: number; from: string | null; to: string | null; lotId: string | null; lotNumber: string | null; reason: string | null; document: DocumentLink | null }>
 }
 type OrderRow = {
   id: string
@@ -53,51 +50,7 @@ function text(value: unknown): string {
   return value === undefined || value === null || value === '' ? '—' : String(value)
 }
 
-function qty(value: number, digits = 3): string {
-  return new Intl.NumberFormat('en-IN', { maximumFractionDigits: digits }).format(value)
-}
-
-function date(value: string | null): string {
-  return value ? new Date(value).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'
-}
-
-function Tile({ label, value, tone }: { label: string; value: string; tone?: 'bad' | 'ok' }) {
-  return (
-    <div className="rounded-lg border bg-card p-3">
-      <div className="text-xs text-muted-foreground">{label}</div>
-      <div className={cn('text-lg font-semibold', tone === 'bad' && 'text-status-error-text', tone === 'ok' && 'text-status-success-text')}>{value}</div>
-    </div>
-  )
-}
-
-function Section({ icon: Icon, title, description, action, children, flush }: {
-  icon: typeof Boxes
-  title: string
-  description?: string
-  action?: React.ReactNode
-  children: React.ReactNode
-  flush?: boolean
-}) {
-  return (
-    <Card className="overflow-hidden">
-      <CardHeader className="flex flex-row items-start justify-between gap-2 border-b bg-muted/20 pb-3">
-        <div>
-          <CardTitle className="flex items-center gap-2 text-sm font-bold">
-            <Icon className="h-4 w-4 text-primary" />
-            {title}
-          </CardTitle>
-          {description ? <CardDescription className="text-xs">{description}</CardDescription> : null}
-        </div>
-        {action}
-      </CardHeader>
-      <CardContent className={flush ? 'p-0' : 'pt-3'}>{children}</CardContent>
-    </Card>
-  )
-}
-
-function Empty({ children }: { children: React.ReactNode }) {
-  return <p className="p-4 text-sm text-muted-foreground">{children}</p>
-}
+const COUNTED_UNITS = new Set(['nos', 'pcs', 'pc', 'piece', 'pieces'])
 
 export function ProductDetail({ productId }: { productId: string }) {
   const t = useT()
@@ -167,298 +120,214 @@ export function ProductDetail({ productId }: { productId: string }) {
     }
   }, [productId, t, granted])
 
-  if (loadError) {
-    return (
-      <Page>
-        <PageBody>
-          <ErrorMessage label={loadError} />
-        </PageBody>
-      </Page>
-    )
-  }
-  if (!product || !config || !kind) {
-    return (
-      <Page>
-        <PageBody>
-          <PageLoading label={t('cc_products.detail.loading', 'Loading product…')} />
-        </PageBody>
-      </Page>
-    )
+  if (loadError || !product || !config || !kind) {
+    return <RecordState error={loadError} loadingLabel={t('cc_products.detail.loading', 'Loading product…')} />
   }
 
   const unit = text(read(product, 'default_unit'))
+  const counted = COUNTED_UNITS.has(unit.toLowerCase())
+  const amount = (value: number) => (counted ? `${formatCount(value)} ${t('cc_ui.pcs', 'pcs')}` : `${formatKg(value)} kg`)
   const onHand = stock?.stores.reduce((sum, row) => sum + row.onHand, 0) ?? 0
   const available = stock?.stores.reduce((sum, row) => sum + row.available, 0) ?? 0
   const minStock = Number(read(profile, 'reorder_point') ?? read(profile, 'reorderPoint') ?? 0)
   const code = text(read(product, 'item_code'))
-  const customers = new Map<string, { id: string; name: string; pieces: number; last: string }>()
-  if (SELLABLE_KINDS.has(kind)) {
+  const sellable = SELLABLE_KINDS.has(kind)
+  const openPos = (purchases ?? []).filter((po) => !['received', 'cancelled', 'draft'].includes(po.status))
+  const onOrder = openPos.reduce((sum, po) => sum + (po.product ? Math.max(po.product.quantity - po.product.received, 0) : 0), 0)
+  const customers = new Map<string, { id: string; name: string; quantity: number; last: string }>()
+  if (sellable) {
     for (const order of orders ?? []) {
       if (order.status === 'cancelled') continue
-      const pieces = order.products.filter((entry) => entry.id === productId).reduce((sum, entry) => sum + entry.quantity, 0)
+      const quantity = order.products.filter((entry) => entry.id === productId).reduce((sum, entry) => sum + entry.quantity, 0)
       const current = customers.get(order.customerId)
       customers.set(order.customerId, {
         id: order.customerId,
         name: order.customerName,
-        pieces: (current?.pieces ?? 0) + pieces,
+        quantity: (current?.quantity ?? 0) + quantity,
         last: current && current.last > order.orderDate ? current.last : order.orderDate,
       })
     }
   }
 
-  const showField = (key: string) => !COMMON_FIELD_KEYS.has(key)
-  const details: Array<[string, string]> = [
+  const details: Array<[string, React.ReactNode]> = [
     [config.codeLabel, code],
     [t('cc_products.form.unit', 'Unit'), unit],
     [t('cc_products.detail.hsn', 'HSN code'), text(read(product, 'hsn_code'))],
-    ...defs.filter((def) => showField(def.key)).map((def) => [def.label, text(read(product, def.key))] as [string, string]),
+    ...defs.filter((def) => !COMMON_FIELD_KEYS.has(def.key)).map((def) => [def.label, text(read(product, def.key))] as [string, React.ReactNode]),
     [t('cc_products.detail.cost', 'Cost price'), read(product, 'cost_price') ? `₹ ${text(read(product, 'cost_price'))}` : '—'],
-    ...(SELLABLE_KINDS.has(kind)
-      ? [[t('cc_products.detail.selling', 'Selling price'), read(product, 'selling_price') ? `₹ ${text(read(product, 'selling_price'))}` : '—'] as [string, string]]
-      : []),
+    ...(sellable ? [[t('cc_products.detail.selling', 'Selling price'), read(product, 'selling_price') ? `₹ ${text(read(product, 'selling_price'))}` : '—'] as [string, React.ReactNode]] : []),
+  ]
+
+  const facts: Fact[] = [
+    { label: t('cc_products.stock.onHand', 'On hand'), value: amount(onHand) },
+    { label: t('cc_products.stock.available', 'Free to use'), value: amount(available), tone: minStock && available < minStock ? 'bad' : undefined },
+    { label: t('cc_products.stock.minStock', 'Min stock'), value: minStock ? amount(minStock) : '—', tone: minStock ? (available < minStock ? 'bad' : 'good') : undefined },
+    { label: t('cc_products.detail.lotCount', 'Lots in stock'), value: formatCount(stock?.batches.length ?? 0) },
+    ...(purchases ? [{ label: t('cc_products.detail.onOrder', 'On order from vendors'), value: amount(onOrder), hint: t('cc_products.detail.openPos', '{count} open POs', { count: openPos.length }) }] : []),
+    { label: t('cc_products.detail.lastMove', 'Last movement'), value: stock?.movements[0] ? formatDay(stock.movements[0].at) : '—' },
   ]
 
   return (
-    <Page>
-      <PageBody>
-        <div className="mx-auto max-w-7xl space-y-5 pb-16">
-          <div className="flex flex-col gap-4 border-b pb-4 lg:flex-row lg:items-start lg:justify-between">
-            <div className="min-w-0 space-y-1">
-              <Link href={`/backend/products?tab=${config.slug}`} className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground">
-                <ArrowLeft className="h-3 w-3" />
-                {config.title}
+    <RecordPage
+      back={{ href: `/backend/products?tab=${config.slug}`, label: config.title }}
+      overline={`${config.singular}${code !== '—' ? ` · ${code}` : ''}`}
+      title={text(product.title)}
+      mono={false}
+      badges={
+        <>
+          <StatusBadge variant="info">{config.singular}</StatusBadge>
+          {read(product, 'is_active') === false ? <StatusBadge variant="neutral">{t('cc_products.detail.inactive', 'Inactive')}</StatusBadge> : null}
+        </>
+      }
+      meta={[`SKU ${text(read(product, 'sku'))}`, unit !== '—' ? `${t('cc_products.detail.countedIn', 'Counted in')} ${unit}` : null].filter(Boolean).join(' · ')}
+      actions={
+        <>
+          <Button type="button" variant="outline" size="sm" onClick={() => window.print()}>
+            <Printer className="mr-1.5 h-4 w-4" aria-hidden="true" />
+            {t('cc_products.detail.print', 'Print')}
+          </Button>
+          {purchases && granted.has('cc_purchase.manage') ? (
+            <Button asChild variant="outline" size="sm">
+              <Link href={`/backend/purchase/orders/new?items=${productId}:0`}>
+                <FileStack className="mr-1.5 h-4 w-4" aria-hidden="true" />
+                {t('cc_products.detail.raisePo', 'Raise PO')}
               </Link>
-              <div className="flex flex-wrap items-center gap-2">
-                {code !== '—' ? <span className="font-mono text-lg font-semibold text-muted-foreground">{code}</span> : null}
-                <h1 className="text-xl font-bold">{text(product.title)}</h1>
-                <StatusBadge variant="info">{config.singular}</StatusBadge>
-                {read(product, 'is_active') === false ? <StatusBadge variant="neutral">{t('cc_products.detail.inactive', 'Inactive')}</StatusBadge> : null}
-              </div>
-              <p className="text-xs text-muted-foreground">
-                {[`SKU ${text(read(product, 'sku'))}`, unit !== '—' ? `${t('cc_products.detail.countedIn', 'Counted in')} ${unit}` : null].filter(Boolean).join(' · ')}
-              </p>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              {SELLABLE_KINDS.has(kind) && granted.has('cc_orders.manage') ? (
-                <Button asChild variant="outline" size="sm">
-                  <Link href="/backend/orders/new">
-                    <Plus className="mr-1.5 h-4 w-4" />
-                    {t('cc_products.orders.new', 'New order')}
-                  </Link>
-                </Button>
-              ) : null}
-              <Button asChild size="sm">
-                <Link href={`/backend/products/${productId}/edit`}>
-                  <Pencil className="mr-1.5 h-4 w-4" />
-                  {t('cc_products.detail.edit', 'Edit')}
-                </Link>
-              </Button>
-            </div>
-          </div>
+            </Button>
+          ) : null}
+          {sellable && granted.has('cc_orders.manage') ? (
+            <Button asChild variant="outline" size="sm">
+              <Link href="/backend/orders/new">
+                <Plus className="mr-1.5 h-4 w-4" aria-hidden="true" />
+                {t('cc_products.orders.new', 'New order')}
+              </Link>
+            </Button>
+          ) : null}
+          <Button asChild size="sm">
+            <Link href={`/backend/products/${productId}/edit`}>
+              <Pencil className="mr-1.5 h-4 w-4" aria-hidden="true" />
+              {t('cc_products.detail.edit', 'Edit')}
+            </Link>
+          </Button>
+        </>
+      }
+      facts={facts}
+    >
+      <RecordColumns
+        main={
+          <>
+            <Panel title={t('cc_products.detail.details', 'Details')} icon={Boxes}>
+              <FieldList fields={details} />
+            </Panel>
 
-          <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
-            <Tile label={t('cc_products.stock.onHand', 'On hand')} value={`${qty(onHand)} ${unit}`} />
-            <Tile label={t('cc_products.stock.available', 'Free to use')} value={`${qty(available)} ${unit}`} tone={minStock && available < minStock ? 'bad' : undefined} />
-            <Tile label={t('cc_products.stock.minStock', 'Min stock')} value={minStock ? `${qty(minStock)} ${unit}` : '—'} tone={minStock ? (available < minStock ? 'bad' : 'ok') : undefined} />
-          </div>
+            <Panel title={t('cc_products.detail.lots', 'Lots in stock')} icon={Warehouse} count={stock?.batches.length ?? null} flush>
+              <RegisterGrid
+                rows={stock?.batches ?? []}
+                rowKey={(row) => `${row.lotId}-${row.store ?? ''}`}
+                rowHref={(row) => recordHref.lot(row.lotId)}
+                empty={stock ? t('cc_products.detail.noStock', 'No stock yet.') : t('cc_products.detail.loadingStock', 'Loading stock…')}
+                columns={[
+                  { key: 'lot', label: t('cc_products.detail.lot', 'Lot No.'), mono: true, render: (row) => row.lotNumber },
+                  { key: 'store', label: t('cc_products.detail.store', 'Store'), render: (row) => row.store ?? '—' },
+                  { key: 'made', label: t('cc_products.detail.made', 'Made / received'), render: (row) => formatDay(row.manufacturedAt) },
+                  {
+                    key: 'expiry',
+                    label: t('cc_products.detail.expiry', 'Expiry'),
+                    render: (row) => {
+                      const expired = row.expiresAt ? new Date(row.expiresAt).getTime() < Date.now() : false
+                      return <span className={expired ? 'font-semibold text-status-error-text' : undefined}>{formatDay(row.expiresAt)}</span>
+                    },
+                  },
+                  { key: 'status', label: t('cc_products.detail.status', 'Status'), render: (row) => row.status ?? '—' },
+                  { key: 'qty', label: counted ? t('cc_ui.pcs', 'pcs') : 'kg', align: 'right', render: (row) => (counted ? formatCount(row.onHand) : formatKg(row.onHand)), total: counted ? formatCount(onHand) : formatKg(onHand) },
+                ]}
+              />
+            </Panel>
 
-          <div className="grid grid-cols-1 items-start gap-5 lg:grid-cols-12">
-            <div className="space-y-5 lg:col-span-7">
-              <Section icon={Boxes} title={t('cc_products.detail.details', 'Details')}>
-                <dl className="grid grid-cols-1 gap-x-6 sm:grid-cols-2">
-                  {details.map(([label, value]) => (
-                    <div key={label} className="flex justify-between gap-3 border-b py-1.5 text-sm last:border-b-0">
-                      <dt className="text-muted-foreground">{label}</dt>
-                      <dd className="text-right">{value}</dd>
-                    </div>
-                  ))}
-                </dl>
-              </Section>
-
-              <Section icon={Warehouse} title={t('cc_products.detail.stock', 'Stock by store and batch')} flush>
-                {!stock ? (
-                  <Empty>{t('cc_products.detail.loadingStock', 'Loading stock…')}</Empty>
-                ) : !stock.stores.length ? (
-                  <Empty>{t('cc_products.detail.noStock', 'No stock yet.')}</Empty>
-                ) : (
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-sm">
-                      <thead className="border-b bg-muted/40 text-xs uppercase tracking-wide text-muted-foreground">
-                        <tr>
-                          <th className="p-3 text-left">{t('cc_products.detail.store', 'Store')}</th>
-                          <th className="p-3 text-right">{t('cc_products.stock.onHand', 'On hand')}</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y">
-                        {stock.stores.map((row) => (
-                          <tr key={row.code}>
-                            <td className="p-3 font-mono text-xs">{row.code}</td>
-                            <td className="p-3 text-right font-mono">{qty(row.onHand)}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                    {stock.batches.length ? (
-                      <table className="w-full border-t text-sm">
-                        <thead className="border-b bg-muted/40 text-xs uppercase tracking-wide text-muted-foreground">
-                          <tr>
-                            <th className="p-3 text-left">{t('cc_products.detail.batch', 'Batch')}</th>
-                            <th className="p-3 text-left">{t('cc_products.detail.store', 'Store')}</th>
-                            <th className="p-3 text-right">{t('cc_products.stock.onHand', 'On hand')}</th>
-                            <th className="p-3 text-left">{t('cc_products.detail.expiry', 'Expiry')}</th>
-                            <th className="p-3 text-left">{t('cc_products.detail.status', 'Status')}</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y">
-                          {stock.batches.map((row) => {
-                            const expired = row.expiresAt ? new Date(row.expiresAt).getTime() < Date.now() : false
-                            return (
-                              <tr key={`${row.lotNumber}-${row.store}`}>
-                                <td className="p-3 font-mono text-xs">{row.lotNumber}</td>
-                                <td className="p-3 font-mono text-xs">{row.store ?? '—'}</td>
-                                <td className="p-3 text-right font-mono">{qty(row.onHand)}</td>
-                                <td className={cn('p-3 text-xs', expired && 'font-semibold text-status-error-text')}>{date(row.expiresAt)}</td>
-                                <td className="p-3 text-xs">{row.status ?? '—'}</td>
-                              </tr>
-                            )
-                          })}
-                        </tbody>
-                      </table>
-                    ) : null}
-                  </div>
-                )}
-              </Section>
-
-              <Section icon={History} title={t('cc_products.detail.movements', 'Recent stock movements')} flush>
-                {stock && stock.movements.length ? (
-                  <ol className="divide-y text-sm">
-                    {stock.movements.map((move, index) => (
-                      <li key={`${move.at}-${index}`} className="flex items-center justify-between gap-3 px-4 py-2">
-                        <span className="min-w-0">
-                          <span className="font-medium capitalize">{move.type.replace(/_/g, ' ')}</span>
-                          <span className="block truncate text-xs text-muted-foreground">
-                            {[move.from && move.to ? `${move.from} → ${move.to}` : (move.to ?? move.from), move.lotNumber ? `Batch ${move.lotNumber}` : null, move.reason].filter(Boolean).join(' · ')}
-                          </span>
-                        </span>
-                        <span className="shrink-0 text-right">
-                          <span className="block font-mono">
-                            {qty(move.quantity)} {unit}
-                          </span>
-                          <span className="text-xs text-muted-foreground">{date(move.at)}</span>
-                        </span>
-                      </li>
-                    ))}
-                  </ol>
-                ) : (
-                  <Empty>{t('cc_products.detail.noMovements', 'No stock movements yet.')}</Empty>
-                )}
-              </Section>
-
-              {purchases ? (
-                <Section
-                  icon={FileStack}
-                  title={t('cc_products.detail.purchases', 'Purchase orders')}
-                  description={t('cc_products.detail.purchasesHint', 'Ordered from vendors, and how much has arrived')}
-                  action={
-                    <Link href={`/backend/purchase/orders/new?items=${productId}:0`} className="text-xs font-medium text-primary hover:underline">
-                      {t('cc_products.detail.raisePo', 'Raise PO')}
-                    </Link>
-                  }
-                  flush
-                >
-                  {purchases.length ? (
-                    <ul className="divide-y text-sm">
-                      {purchases.map((po) => (
-                        <li key={po.id}>
-                          <Link href={`/backend/purchase/orders/${po.id}`} className="flex items-center justify-between gap-3 px-4 py-2.5 hover:bg-muted/40">
-                            <span className="min-w-0">
-                              <span className="block font-mono text-xs font-semibold">{po.code}</span>
-                              <span className="block truncate text-xs text-muted-foreground">
-                                {po.vendorName} · {date(po.poDate)}
-                              </span>
-                            </span>
-                            <span className="flex shrink-0 items-center gap-3">
-                              {po.product ? (
-                                <span className="text-right text-xs tabular-nums text-muted-foreground">
-                                  <span className="block font-mono text-foreground">
-                                    {qty(po.product.received)} / {qty(po.product.quantity)} {po.product.unit}
-                                  </span>
-                                  ₹{qty(po.product.rate, 2)} / {po.product.unit}
-                                </span>
-                              ) : null}
-                              <StatusBadge variant={PO_VARIANT[po.status] ?? 'neutral'}>{PO_LABEL[po.status] ?? po.status}</StatusBadge>
-                            </span>
-                          </Link>
-                        </li>
-                      ))}
-                    </ul>
-                  ) : (
-                    <Empty>{t('cc_products.detail.noPurchases', 'Never ordered from a vendor yet.')}</Empty>
-                  )}
-                </Section>
-              ) : null}
-
-            </div>
-
-            <div className="space-y-5 lg:col-span-5">
-              {SELLABLE_KINDS.has(kind) ? (
-                <Section
-                  icon={ClipboardList}
-                  title={t('cc_products.orders.title', 'Orders for this product')}
-                  flush
-                >
-                  {orders === null ? (
-                    <Empty>{t('cc_products.detail.loadingOrders', 'Loading orders…')}</Empty>
-                  ) : !orders.length ? (
-                    <Empty>{t('cc_products.orders.none', 'No orders yet.')}</Empty>
-                  ) : (
-                    <ul className="divide-y text-sm">
-                      {orders.map((order) => (
-                        <li key={order.id}>
-                          <Link href={`/backend/orders/${order.id}`} className="flex items-center justify-between gap-3 px-4 py-2 hover:bg-muted/30">
-                            <span className="min-w-0">
-                              <span className="font-mono text-xs font-semibold">{order.orderNo}</span>
-                              <span className="block truncate text-xs text-muted-foreground">
-                                {order.customerName}
-                                {' · '}
-                                {order.products.map((entry) => `${entry.title} × ${qty(entry.quantity, 0)}`).join(', ')}
-                              </span>
-                              {order.current.length ? (
-                                <span className="block truncate text-xs">
-                                  {order.current.map((entry) => `${entry.label}${entry.responsibleName ? ` (${entry.responsibleName})` : ''}`).join(' · ')}
-                                </span>
-                              ) : null}
-                            </span>
-                            <StatusBadge variant={ORDER_VARIANT[order.status] ?? 'neutral'}>{t(`cc_orders.status.${order.status}`, order.status)}</StatusBadge>
-                          </Link>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </Section>
-              ) : null}
-
-              {SELLABLE_KINDS.has(kind) && customers.size ? (
-                <Section icon={Users} title={t('cc_products.detail.customers', 'Customers who order it')} flush>
-                  <ul className="divide-y text-sm">
-                    {Array.from(customers.values()).map((entry) => (
-                      <li key={entry.id}>
-                        <Link href={`/backend/customers/companies/${entry.id}`} className="flex items-center justify-between gap-3 px-4 py-2 hover:bg-muted/30">
-                          <span className="truncate">{entry.name || '—'}</span>
-                          <span className="shrink-0 text-xs text-muted-foreground">
-                            {qty(entry.pieces, 0)} pcs · {t('cc_products.detail.last', 'last {date}', { date: date(entry.last) })}
-                          </span>
+            <Panel title={t('cc_products.detail.movements', 'Stock movements')} icon={History} count={stock?.movements.length ?? null} flush>
+              <RegisterGrid
+                rows={stock?.movements ?? []}
+                rowKey={(row) => `${row.at}-${row.lotId ?? ''}-${row.quantity}-${row.type}`}
+                empty={t('cc_products.detail.noMovements', 'No stock movements yet.')}
+                columns={[
+                  { key: 'at', label: t('cc_products.detail.date', 'Date'), render: (row) => formatDay(row.at) },
+                  { key: 'doc', label: t('cc_products.detail.document', 'Document'), render: (row) => (row.document ? <DocLink doc={row.document} /> : <span className="capitalize">{row.type.replace(/_/g, ' ')}</span>) },
+                  {
+                    key: 'lot',
+                    label: t('cc_products.detail.lot', 'Lot No.'),
+                    mono: true,
+                    render: (row) =>
+                      row.lotId ? (
+                        <Link className="underline-offset-2 hover:underline" href={recordHref.lot(row.lotId)}>
+                          {row.lotNumber ?? '—'}
                         </Link>
-                      </li>
-                    ))}
-                  </ul>
-                </Section>
-              ) : null}
-            </div>
-          </div>
-        </div>
-      </PageBody>
-    </Page>
+                      ) : (
+                        row.lotNumber ?? '—'
+                      ),
+                  },
+                  { key: 'where', label: t('cc_products.detail.where', 'From → to'), render: (row) => (row.from && row.to ? `${row.from} → ${row.to}` : (row.to ?? row.from ?? '—')) },
+                  { key: 'qty', label: counted ? t('cc_ui.pcs', 'pcs') : 'kg', align: 'right', render: (row) => (counted ? formatCount(row.quantity) : formatKg(row.quantity)) },
+                ]}
+              />
+            </Panel>
+          </>
+        }
+        side={
+          <>
+            {sellable ? (
+              <Panel title={t('cc_products.orders.title', 'Orders for this product')} icon={ClipboardList} count={orders?.length ?? null} flush>
+                <LinkRows
+                  empty={orders === null ? t('cc_products.detail.loadingOrders', 'Loading orders…') : t('cc_products.orders.none', 'No orders yet.')}
+                  rows={(orders ?? []).map((order) => {
+                    const quantity = order.products.filter((entry) => entry.id === productId).reduce((sum, entry) => sum + entry.quantity, 0)
+                    return {
+                      key: order.id,
+                      href: recordHref.order(order.id),
+                      primary: <span className="font-mono">{order.orderNo}</span>,
+                      secondary: [order.customerName, order.current.map((entry) => entry.label).join(' · ')].filter(Boolean).join(' · '),
+                      value: amount(quantity),
+                      valueHint: formatDay(order.orderDate),
+                      badge: <StatusBadge variant={ORDER_VARIANT[order.status] ?? 'neutral'}>{t(`cc_orders.status.${order.status}`, order.status)}</StatusBadge>,
+                    }
+                  })}
+                />
+              </Panel>
+            ) : null}
+
+            {sellable && customers.size ? (
+              <Panel title={t('cc_products.detail.customers', 'Customers who order it')} icon={Users} count={customers.size} flush>
+                <LinkRows
+                  empty={null}
+                  rows={Array.from(customers.values()).map((entry) => ({
+                    key: entry.id,
+                    href: recordHref.customer(entry.id),
+                    primary: entry.name || '—',
+                    secondary: t('cc_products.detail.last', 'last {date}', { date: formatDay(entry.last) }),
+                    value: amount(entry.quantity),
+                  }))}
+                />
+              </Panel>
+            ) : null}
+
+            {purchases ? (
+              <Panel title={t('cc_products.detail.purchases', 'Purchase orders')} icon={FileStack} count={purchases.length} flush>
+                <LinkRows
+                  empty={t('cc_products.detail.noPurchases', 'Never ordered from a vendor yet.')}
+                  rows={purchases.map((po) => ({
+                    key: po.id,
+                    href: recordHref.purchaseOrder(po.id),
+                    primary: <span className="font-mono">{po.code}</span>,
+                    secondary: `${po.vendorName} · ${formatDay(po.poDate)}`,
+                    value: po.product ? `${counted ? formatCount(po.product.received) : formatKg(po.product.received)} / ${counted ? formatCount(po.product.quantity) : formatKg(po.product.quantity)}` : undefined,
+                    valueHint: po.product ? t('cc_products.detail.receivedOfOrdered', 'received / ordered') : undefined,
+                    badge: <StatusBadge variant={PO_VARIANT[po.status] ?? 'neutral'}>{t(`cc_purchase.status.${po.status}`, PO_LABEL[po.status] ?? po.status)}</StatusBadge>,
+                  }))}
+                />
+              </Panel>
+            ) : null}
+          </>
+        }
+      />
+    </RecordPage>
   )
 }
 
