@@ -109,6 +109,7 @@ async function GET(req: Request) {
             title: products.get(line.productId)?.title ?? '',
             code: products.get(line.productId)?.code ?? null,
             quantity: Number(line.quantity),
+            unit: products.get(line.productId)?.unit ?? null,
           })),
           current: views
             .filter((stage) => stage.status === 'open' || stage.status === 'on_hold')
