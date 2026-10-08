@@ -20,6 +20,7 @@ import { useOrganizationScopeVersion } from '@open-mercato/shared/lib/frontend/u
 import { useConfirmDialog } from '@open-mercato/ui/backend/confirm-dialog'
 import type { FilterDef, FilterValues } from '@open-mercato/ui/backend/FilterBar'
 import { VENDOR_CATEGORIES } from '../../data/validators'
+import { VENDOR_CATEGORY_LABEL } from '../../lib/categories'
 
 type VendorRow = {
   id: string
@@ -39,7 +40,7 @@ type VendorRow = {
   updated_at: string
 }
 
-const CATEGORY_TEXT: Record<string, string> = { rm_supplier: 'Raw material', pm_supplier: 'Packing material', both: 'RM and PM' }
+const CATEGORY_TEXT: Record<string, string> = VENDOR_CATEGORY_LABEL
 
 type ResponsePayload = {
   items: VendorRow[]

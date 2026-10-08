@@ -23,8 +23,8 @@ type Column = { key: string; header: string; required?: boolean; example: string
 type Row = { line: number; values: Record<string, string>; errors: string[]; status: 'ready' | 'error' | 'duplicate' | 'done' | 'failed'; message?: string }
 
 const CUSTOMER_COLUMNS: Column[] = [
-  { key: 'name', header: 'Customer name', required: true, example: 'Rudra Cosmetics' },
-  { key: 'legal_name', header: 'Legal name', example: 'Rudra Cosmetics Pvt Ltd' },
+  { key: 'name', header: 'Customer name', required: true, example: 'Sample Switchgear' },
+  { key: 'legal_name', header: 'Legal name', example: 'Sample Switchgear Pvt Ltd' },
   { key: 'type', header: 'Business or Individual', example: 'Business' },
   { key: 'gst_treatment', header: 'GST treatment', example: 'Registered' },
   { key: 'gstin', header: 'GSTIN', example: '27AAACR1234A1Z5' },
@@ -32,10 +32,10 @@ const CUSTOMER_COLUMNS: Column[] = [
   { key: 'payment_terms', header: 'Payment terms', example: '30 days' },
   { key: 'payment_remarks', header: 'Payment remarks', example: '40% advance 60% before dispatch' },
   { key: 'phone', header: 'Phone', example: '+91 98200 11111' },
-  { key: 'email', header: 'Email', example: 'accounts@rudra.example' },
+  { key: 'email', header: 'Email', example: 'accounts@switchgear.example' },
   { key: 'contact_name', header: 'Contact name', example: 'Rahul Shah' },
   { key: 'contact_phone', header: 'Contact phone', example: '+91 98200 22222' },
-  { key: 'contact_email', header: 'Contact email', example: 'rahul@rudra.example' },
+  { key: 'contact_email', header: 'Contact email', example: 'rahul@switchgear.example' },
   { key: 'billing_street', header: 'Billing street', example: 'Plot 14, MIDC Taloja' },
   { key: 'billing_city', header: 'Billing city', example: 'Raigad' },
   { key: 'billing_state', header: 'Billing state', example: 'Maharashtra' },
