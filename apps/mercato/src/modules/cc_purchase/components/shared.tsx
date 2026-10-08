@@ -61,6 +61,7 @@ export type GrnLineView = {
   store: 'wh_a' | 'wh_b' | 'fg'
   quantity: number
   rate: number | null
+  lotId?: string | null
   lotNumber: string
   mfgDate: string | null
   expiryDate: string | null

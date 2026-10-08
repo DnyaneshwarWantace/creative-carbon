@@ -3,10 +3,9 @@
 import * as React from 'react'
 import { useGranted } from '../../cc_departments/components/useGranted'
 import Link from 'next/link'
-import { ArrowLeft, Undo2 } from 'lucide-react'
+import { Boxes, FileText, Printer, Undo2, Waypoints } from 'lucide-react'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { cn } from '@open-mercato/shared/lib/utils'
-import { Page, PageBody } from '@open-mercato/ui/backend/Page'
 import { Button } from '@open-mercato/ui/primitives/button'
 import { Label } from '@open-mercato/ui/primitives/label'
 import { Textarea } from '@open-mercato/ui/primitives/textarea'
@@ -17,10 +16,12 @@ import { apiCall, withScopedApiRequestHeaders } from '@open-mercato/ui/backend/u
 import { buildOptimisticLockHeader } from '@open-mercato/ui/backend/utils/optimisticLock'
 import { useGuardedMutation } from '@open-mercato/ui/backend/injection/useGuardedMutation'
 import { flash } from '@open-mercato/ui/backend/FlashMessages'
-import { ErrorMessage } from '@open-mercato/ui/backend/detail'
 import { GRN_STATUS, HISTORY_LABEL, LINE_QC, day, qty, when, type GrnLineView, type GrnView } from './shared'
 import { PLACE_LABEL } from '../../cc_products/lib/stock'
-import { PageLoading } from '../../cc_ui/components/PageLoading'
+import { DocLink, FieldList, HistoryPanel, LinkRows, Panel, RecordColumns, RecordPage, RecordState, type Fact } from '../../cc_ui/components/RecordPage'
+import { recordHref, type DocumentLink } from '../../cc_ui/lib/links'
+
+type LotTrace = { lotId: string; lotNumber: string | null; usedBy: Array<{ document: DocumentLink; kg: number; at: string }> }
 
 export function GrnPage({ grnId }: { grnId: string }) {
   const t = useT()
@@ -33,6 +34,7 @@ export function GrnPage({ grnId }: { grnId: string }) {
   const [holding, setHolding] = React.useState<GrnLineView | null>(null)
   const [note, setNote] = React.useState('')
   const [busy, setBusy] = React.useState(false)
+  const [traces, setTraces] = React.useState<LotTrace[] | null>(null)
 
   const load = React.useCallback(async () => {
     const call = await apiCall<GrnView>(`/api/cc_purchase/grns?id=${encodeURIComponent(grnId)}`)
@@ -41,7 +43,12 @@ export function GrnPage({ grnId }: { grnId: string }) {
       return
     }
     setGrn(call.result)
-  }, [grnId, t])
+    const lotIds = call.result.lines.map((line) => line.lotId).filter((id): id is string => Boolean(id))
+    if (lotIds.length && granted.has('cc_store.view')) {
+      const traceCall = await apiCall<{ items?: LotTrace[] }>(`/api/cc_production/records/trace?ids=${lotIds.join(',')}`, undefined, { fallback: { items: [] } })
+      setTraces(traceCall.result?.items ?? [])
+    } else setTraces([])
+  }, [grnId, t, granted])
 
   React.useEffect(() => {
     load()
@@ -101,81 +108,69 @@ export function GrnPage({ grnId }: { grnId: string }) {
     }
   }
 
-  if (error) {
-    return (
-      <Page>
-        <PageBody>
-          <ErrorMessage label={error} />
-        </PageBody>
-      </Page>
-    )
-  }
-  if (!grn) {
-    return (
-      <Page>
-        <PageBody>
-          <PageLoading label={t('cc_purchase.grnDetail.loading', 'Loading GRN…')} />
-        </PageBody>
-      </Page>
-    )
-  }
+  if (error || !grn) return <RecordState error={error} loadingLabel={t('cc_purchase.grnDetail.loading', 'Loading GRN…')} />
 
   const pending = grn.lines.filter((line) => line.qcStatus === 'pending').length
   const failed = grn.lines.filter((line) => line.qcStatus === 'failed').length
+  const passed = grn.lines.filter((line) => line.qcStatus === 'passed').length
+  const used = (traces ?? []).flatMap((trace) => trace.usedBy.map((entry, index) => ({ key: `${trace.lotId}-${index}`, lotNumber: trace.lotNumber, ...entry })))
+  const facts: Fact[] = [
+    { label: t('cc_purchase.grnDetail.date', 'GRN date'), value: day(grn.grnDate) },
+    { label: t('cc_purchase.grnDetail.lines', 'Batches'), value: String(grn.lines.length) },
+    { label: t('cc_purchase.grnDetail.passedShort', 'Passed'), value: String(passed), tone: passed ? 'good' : undefined },
+    { label: t('cc_purchase.grnDetail.underTest', 'Under QC test'), value: String(pending), tone: pending ? 'warn' : undefined },
+    { label: t('cc_purchase.grnDetail.heldShort', 'On hold'), value: String(failed), tone: failed ? 'bad' : undefined },
+    { label: t('cc_purchase.grn.vehicle', 'Vehicle / container no.'), value: grn.vehicleNo ?? '—' },
+  ]
 
   return (
-    <Page>
-      <PageBody>
-        <div className="mx-auto flex max-w-6xl flex-col gap-6 pb-16">
-          <div className="space-y-3">
-            <Link href="/backend/purchase/grns" className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground">
-              <ArrowLeft className="h-3 w-3" aria-hidden="true" />
-              {t('cc_purchase.grns.title', 'Goods receiving (GRN)')}
+    <>
+      <RecordPage
+        back={{ href: '/backend/purchase/grns', label: t('cc_purchase.grns.title', 'Goods receiving (GRN)') }}
+        overline={[t('cc_purchase.grnDetail.overline', 'Goods received'), grn.poCode ? t('cc_purchase.grnDetail.againstPo', 'against {po}', { po: grn.poCode }) : t('cc_purchase.grn.withoutPo', 'Without PO')].join(' · ')}
+        title={grn.code}
+        badges={
+          <StatusBadge variant={GRN_STATUS[grn.status].variant} dot>
+            {GRN_STATUS[grn.status].label}
+          </StatusBadge>
+        }
+        meta={
+          <>
+            <Link className="underline-offset-2 hover:underline" href={recordHref.vendor(grn.vendorId)}>
+              {grn.vendorName}
             </Link>
-            <div className="flex flex-wrap items-center gap-2">
-              <h1 className="font-mono text-2xl font-bold tracking-tight">{grn.code}</h1>
-              <StatusBadge variant={GRN_STATUS[grn.status].variant} dot>
-                {GRN_STATUS[grn.status].label}
-              </StatusBadge>
-            </div>
-            <p className="text-sm text-muted-foreground">
-              {grn.vendorName} ·{' '}
-              {grn.poId ? (
-                <>
-                  {t('cc_purchase.grnDetail.against', 'against')}{' '}
-                  <Link href={`/backend/purchase/orders/${grn.poId}`} className="font-mono font-medium text-foreground hover:underline">
-                    {grn.poCode}
-                  </Link>
-                </>
-              ) : (
-                <span className="font-medium text-foreground">{t('cc_purchase.grn.withoutPo', 'Without PO')}</span>
-              )}{' '}
-              · {day(grn.grnDate)}
-            </p>
-          </div>
-
-          {pending ? (
-            <Alert status="warning" style="lighter" className="rounded-lg">
+            {grn.receivedByName ? ` · ${t('cc_purchase.grnDetail.receivedByName', 'received by {name}', { name: grn.receivedByName })}` : ''}
+          </>
+        }
+        actions={
+          <Button type="button" variant="outline" size="sm" onClick={() => window.print()}>
+            <Printer className="mr-1.5 h-4 w-4" aria-hidden="true" />
+            {t('cc_purchase.grnDetail.print', 'Print')}
+          </Button>
+        }
+        alert={
+          pending ? (
+            <Alert status="warning" style="lighter" className="rounded-md">
               <AlertTitle>{t('cc_purchase.grnDetail.pendingTitle', '{count} batches under QC test', { count: pending })}</AlertTitle>
               <AlertDescription>{t('cc_purchase.grnDetail.pendingBody', 'They are in the store but cannot be reserved or issued until QC approves them.')}</AlertDescription>
             </Alert>
           ) : failed ? (
-            <Alert status="error" style="lighter" className="rounded-lg">
+            <Alert status="error" style="lighter" className="rounded-md">
               <AlertTitle>{t('cc_purchase.grnDetail.failedTitle', '{count} batches rejected by QC', { count: failed })}</AlertTitle>
               <AlertDescription>{t('cc_purchase.grnDetail.failedBody', 'They are on hold in the store. Return them to the vendor; the quantity opens again on the PO.')}</AlertDescription>
             </Alert>
-          ) : null}
-
-          <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-            <section className="overflow-hidden rounded-xl border border-border bg-card shadow-sm lg:col-span-2">
-              <div className="border-b border-border px-5 py-4">
-                <h2 className="text-sm font-semibold">{t('cc_purchase.grnDetail.batches', 'Batches received')}</h2>
-              </div>
+          ) : null
+        }
+        facts={facts}
+      >
+        <RecordColumns
+          main={
+            <Panel title={t('cc_purchase.grnDetail.batches', 'Batches received')} icon={Boxes} count={grn.lines.length} flush>
               <ul className="divide-y divide-border">
                 {grn.lines.map((line) => (
-                  <li key={line.id} className="grid grid-cols-1 gap-3 px-5 py-4 md:grid-cols-12 md:items-center">
+                  <li key={line.id} className="grid grid-cols-1 gap-3 px-3 py-3 even:bg-muted/30 md:grid-cols-12 md:items-center">
                     <div className="min-w-0 md:col-span-5">
-                      <Link href={`/backend/products/${line.productId}`} className="font-medium hover:underline">
+                      <Link href={recordHref.product(line.productId)} className="font-medium hover:underline">
                         {line.title}
                       </Link>
                       <p className="font-mono text-xs text-muted-foreground">
@@ -183,9 +178,16 @@ export function GrnPage({ grnId }: { grnId: string }) {
                       </p>
                     </div>
                     <div className="md:col-span-3">
-                      <p className="text-sm font-semibold tabular-nums">{qty(line.quantity, line.unit)}</p>
+                      <p className="font-mono text-sm font-semibold tabular-nums">{qty(line.quantity, line.unit)}</p>
                       <p className="font-mono text-xs text-muted-foreground">
-                        {t('cc_purchase.grnDetail.batch', 'Batch')} {line.lotNumber}
+                        {t('cc_purchase.grnDetail.batch', 'Batch')}{' '}
+                        {line.lotId ? (
+                          <Link className="underline-offset-2 hover:underline" href={recordHref.lot(line.lotId)}>
+                            {line.lotNumber}
+                          </Link>
+                        ) : (
+                          line.lotNumber
+                        )}
                       </p>
                       <p className="text-xs text-muted-foreground">
                         {line.mfgDate ? `Mfg ${day(line.mfgDate)}` : ''}
@@ -193,9 +195,7 @@ export function GrnPage({ grnId }: { grnId: string }) {
                       </p>
                     </div>
                     <div className="flex flex-wrap items-center justify-between gap-2 md:col-span-4 md:justify-end">
-                      <div className="text-right">
-                        <StatusBadge variant={LINE_QC[line.qcStatus].variant}>{LINE_QC[line.qcStatus].label}</StatusBadge>
-                      </div>
+                      <StatusBadge variant={LINE_QC[line.qcStatus].variant}>{LINE_QC[line.qcStatus].label}</StatusBadge>
                       {line.qcStatus === 'pending' && canChange ? (
                         <div className="flex gap-2">
                           <Button type="button" size="sm" disabled={busy} onClick={() => decide(line, 'passed', null)}>
@@ -216,46 +216,42 @@ export function GrnPage({ grnId }: { grnId: string }) {
                   </li>
                 ))}
               </ul>
-            </section>
-
-            <aside className="flex flex-col gap-6">
-              <section className="rounded-xl border border-border bg-card p-5 shadow-sm">
-                <dl className="grid grid-cols-[auto,1fr] gap-x-4 gap-y-2 text-sm">
-                  <dt className="text-muted-foreground">{t('cc_purchase.grn.invoice', 'Vendor invoice no.')}</dt>
-                  <dd className="text-right font-mono">{grn.invoiceNo ?? '—'}</dd>
-                  <dt className="text-muted-foreground">{t('cc_purchase.grn.invoiceDate', 'Invoice date')}</dt>
-                  <dd className="text-right">{day(grn.invoiceDate)}</dd>
-                  <dt className="text-muted-foreground">{t('cc_purchase.grn.vehicle', 'Vehicle / container no.')}</dt>
-                  <dd className="text-right font-mono">{grn.vehicleNo ?? '—'}</dd>
-                  <dt className="text-muted-foreground">{t('cc_purchase.grnDetail.receivedBy', 'Received by')}</dt>
-                  <dd className="text-right">{grn.receivedByName ?? '—'}</dd>
-                </dl>
-                {grn.notes ? <p className="mt-4 rounded-md bg-muted/50 p-3 text-sm">{grn.notes}</p> : null}
-              </section>
-              <section className="rounded-xl border border-border bg-card p-5 shadow-sm">
-                <h2 className="text-sm font-semibold">{t('cc_purchase.detail.history', 'History')}</h2>
-                <ol className="relative mt-4 space-y-4 border-l border-border pl-5">
-                  {grn.history
-                    .slice()
-                    .reverse()
-                    .map((entry, index) => (
-                      <li key={`${entry.at}-${index}`} className="relative">
-                        <span
-                          className={cn('absolute -left-6 top-1 h-2.5 w-2.5 rounded-full ring-4 ring-card', entry.action === 'qc_failed' || entry.action === 'returned' ? 'bg-status-error-icon' : entry.action === 'qc_passed' ? 'bg-status-success-icon' : 'bg-accent-indigo')}
-                          aria-hidden="true"
-                        />
-                        <p className="text-sm font-medium">{HISTORY_LABEL[entry.action] ?? entry.action}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {entry.by ?? '—'} · {when(entry.at)}
-                        </p>
-                        {entry.note ? <p className="mt-0.5 text-xs">{entry.note}</p> : null}
-                      </li>
-                    ))}
-                </ol>
-              </section>
-            </aside>
-          </div>
-        </div>
+            </Panel>
+          }
+          side={
+            <>
+              <Panel title={t('cc_purchase.grnDetail.paper', 'Vendor paperwork')} icon={FileText}>
+                <FieldList
+                  columns={1}
+                  fields={[
+                    [t('cc_purchase.grn.invoice', 'Vendor invoice no.'), grn.invoiceNo],
+                    [t('cc_purchase.grn.invoiceDate', 'Invoice date'), grn.invoiceDate ? day(grn.invoiceDate) : null],
+                    [t('cc_purchase.grn.vehicle', 'Vehicle / container no.'), grn.vehicleNo],
+                    [
+                      t('cc_purchase.grnDetail.po', 'Purchase order'),
+                      grn.poId ? (
+                        <Link key="po" className="underline-offset-2 hover:underline" href={recordHref.purchaseOrder(grn.poId)}>
+                          {grn.poCode}
+                        </Link>
+                      ) : (
+                        t('cc_purchase.grn.withoutPo', 'Without PO')
+                      ),
+                    ],
+                  ]}
+                />
+                {grn.notes ? <p className="mt-3 rounded-md bg-muted/50 p-3 text-sm">{grn.notes}</p> : null}
+              </Panel>
+              <Panel title={t('cc_purchase.grnDetail.wentTo', 'Where these lots went')} icon={Waypoints} count={traces ? used.length : null} flush>
+                <LinkRows
+                  empty={traces ? t('cc_purchase.grnDetail.notUsed', 'Nothing taken from these lots yet.') : t('cc_purchase.grnDetail.loadingTrace', 'Loading…')}
+                  rows={used.map((entry) => ({ key: entry.key, href: entry.document.href, primary: <DocLink doc={entry.document} />, secondary: `${entry.lotNumber ?? ''} · ${day(entry.at)}`, value: qty(entry.kg, '') }))}
+                />
+              </Panel>
+            </>
+          }
+        />
+        <HistoryPanel entries={grn.history.slice().reverse().map((entry, index) => ({ key: `${entry.at}-${index}`, label: HISTORY_LABEL[entry.action] ?? entry.action, note: entry.note, by: entry.by, at: entry.at }))} />
+      </RecordPage>
 
         <Dialog open={returning !== null} onOpenChange={(value) => (!value ? setReturning(null) : undefined)}>
           <DialogContent
@@ -315,8 +311,7 @@ export function GrnPage({ grnId }: { grnId: string }) {
             </DialogFooter>
           </DialogContent>
         </Dialog>
-      </PageBody>
-    </Page>
+    </>
   )
 }
 

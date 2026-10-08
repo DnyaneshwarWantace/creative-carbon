@@ -526,6 +526,7 @@ export async function grnView(ctx: OrderContext, grn: GoodsReceipt) {
         quantity: num(line.quantity),
         rate: poLine ? num(poLine.rate) : line.rate != null ? num(line.rate) : null,
         gstPercent: poLine ? num(poLine.gstPercent) : line.gstPercent != null ? num(line.gstPercent) : null,
+        lotId: line.lotId ?? null,
         lotNumber: line.lotNumber,
         mfgDate: line.mfgDate ?? null,
         expiryDate: line.expiryDate ?? null,
