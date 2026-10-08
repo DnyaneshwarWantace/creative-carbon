@@ -5,8 +5,8 @@
   "start_url": "/backend/owner",
   "scope": "/",
   "display": "standalone",
-  "background_color": "#f5eee6",
-  "theme_color": "#8a3b2e",
+  "background_color": "#F7F3EE",
+  "theme_color": "#22262E",
   "icons": [
     { "src": "/cc-icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
     { "src": "/cc-icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }

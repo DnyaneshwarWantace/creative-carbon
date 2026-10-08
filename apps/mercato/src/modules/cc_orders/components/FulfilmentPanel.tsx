@@ -359,7 +359,7 @@ export function LineProgress({ orderId }: { orderId: string }) {
   const [data, setData] = React.useState<Fulfilment | null>(null)
   const load = React.useCallback(async () => {
     const call = await apiCall<Fulfilment>(`/api/cc_orders/orders/fulfilment?id=${orderId}`)
-    setData(call.result ?? null)
+    setData(call.ok ? (call.result ?? null) : null)
   }, [orderId])
   React.useEffect(() => {
     void load()

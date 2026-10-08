@@ -38,6 +38,7 @@ export function CcAppShell({ adminNavApi, rightHeaderSlot, productName, ...props
     <AppShell
       {...props}
       productName={workspace === 'crm' ? `${productName ?? ''} · CRM` : productName}
+      logo={{ src: '/cc-logo.png', alt: 'Creative Carbon Composites', preserveAspectRatio: true }}
       adminNavApi={navApi}
       rightHeaderSlot={
         <div className="flex items-center gap-2">
