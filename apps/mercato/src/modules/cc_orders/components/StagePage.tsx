@@ -20,6 +20,7 @@ import { StageContext } from './stage/StageNeeds'
 import { StageHistoryPanel } from './stage/StageHistoryPanel'
 import { StagePageHeader } from './stage/StagePageHeader'
 import { StagePanel } from './stage/StagePanel'
+import { useOrderChanged } from './FulfilmentPanel'
 
 function useStageOrder(orderId: string) {
   const t = useT()
@@ -35,6 +36,8 @@ function useStageOrder(orderId: string) {
     }
     setOrder(call.result)
   }, [orderId, t])
+
+  useOrderChanged(orderId, () => void load())
 
   React.useEffect(() => {
     void load()

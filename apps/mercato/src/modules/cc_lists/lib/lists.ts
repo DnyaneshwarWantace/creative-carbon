@@ -38,7 +38,7 @@ export const LIST_DEFS: ListDef[] = [
     key: 'resin_grades',
     label: 'Resin grades',
     department: 'Masters',
-    usedIn: 'Resin batches, resin and B-stage items',
+    usedIn: 'Resin batch report, resin and B-stage items (each grade needs a resin item with that grade)',
     defaults: ['PFC', 'PFA', 'PFAC', 'E-GLASS'],
   },
   {
@@ -112,11 +112,18 @@ export const LIST_DEFS: ListDef[] = [
     defaults: ['Anjani', 'Anil', 'Nagendra', 'Rajesh', 'Bharat', 'Vinod'],
   },
   {
-    key: 'resin_grades',
-    label: 'Resin grades',
-    department: 'Production',
-    usedIn: 'Resin batch report (each grade needs a resin item with that grade)',
-    defaults: ['PFC', 'PFA', 'PFAC', 'E-GLASS'],
+    key: 'incoterms',
+    label: 'Incoterms',
+    department: 'Sales',
+    usedIn: 'Export orders',
+    defaults: ['FOB', 'CIF', 'CNF', 'EXW'],
+  },
+  {
+    key: 'currencies',
+    label: 'Currencies',
+    department: 'Sales',
+    usedIn: 'Export orders',
+    defaults: ['INR', 'USD', 'EUR', 'AED', 'GBP'],
   },
   {
     key: 'resin_fail_reasons',

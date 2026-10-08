@@ -22,6 +22,7 @@ import { StatePill, sheetWorkState, stageEdit, type SheetColumn, type SheetOrder
 import { useCellEditor } from './useCellEditor'
 import { EditTableBar } from '../../cc_products/components/EditTableBar'
 import { useStageSettings } from './useStageSettings'
+import { useOrderChanged } from './FulfilmentPanel'
 
 type QueueTab = 'active' | 'waiting' | 'done'
 
@@ -82,6 +83,10 @@ export function StageQueue({ stageKey }: { stageKey: string }) {
       silent.current = true
       setReload((value) => value + 1)
     },
+  })
+
+  useOrderChanged(order?.id ?? null, () => {
+    if (order) void openOrder(order.id)
   })
 
   const openOrder = async (id: string) => {

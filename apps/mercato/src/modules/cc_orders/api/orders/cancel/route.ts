@@ -2,7 +2,9 @@ import { NextResponse } from 'next/server'
 import { z } from 'zod'
 import type { OpenApiRouteDoc } from '@open-mercato/shared/lib/openapi'
 import { logEvent, serializeOrder } from '../../../lib/engine'
-import { OrderError, currentUserName, findOrder, resolveOrderContext } from '../../../lib/server'
+import { OrderError, currentUserName, findOrder } from '../../../lib/server'
+import { resolveStoreContext } from '../../../../cc_store/lib/server'
+import { releaseAllForOrder } from '../../../lib/fulfilment'
 import { enforceOrderLock, orderErrorResponse, runGuarded } from '../../../lib/guard'
 
 export const metadata = {
@@ -12,7 +14,7 @@ export const metadata = {
 const bodySchema = z.object({ id: z.string().uuid(), reason: z.string().trim().min(1).max(1000) })
 
 async function POST(req: Request) {
-  const ctx = await resolveOrderContext(req)
+  const ctx = await resolveStoreContext(req)
   if ('error' in ctx) return NextResponse.json({ error: ctx.error }, { status: ctx.status })
   const parsed = bodySchema.safeParse(await req.json().catch(() => null))
   if (!parsed.success) return NextResponse.json({ error: 'Write why the order is cancelled' }, { status: 400 })
@@ -27,6 +29,7 @@ async function POST(req: Request) {
       const byName = await currentUserName(ctx)
       logEvent(ctx, order, 'cancelled', null, parsed.data.reason, byName)
       await ctx.em.flush()
+      await releaseAllForOrder(ctx, order, byName)
       return NextResponse.json(await serializeOrder(ctx, order))
     })
   } catch (error) {

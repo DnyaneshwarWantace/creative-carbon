@@ -2,6 +2,7 @@ import { resolveOrderAccess, trimEvents, trimStages } from './visibility'
 import { CcOrder, CcOrderEvent, CcOrderLine, CcOrderStage, type FieldChange } from '../data/entities'
 import type { StageActionInput } from '../data/validators'
 import { orderHeadline, STAGES, STOCK_STAGES, applyReopenHours, applyStageOverride, isFinished, missingRequired, missingSteps, reopenBlock, stageDef, stageReopenHours, stepStates, type ReopenInfo } from './stages'
+import { qcGate, reverseSaleOut, saleOut } from './fulfilment'
 import { effectiveStageDef, loadStageOverrides, type StageOverrides } from './stageSettings'
 import { paymentView, paymentsFor, received, recordAdvanceFromStage } from '../../cc_accounts/lib/service'
 import { priceLine, priceOrder } from './pricing'
@@ -213,6 +214,7 @@ export async function applyStageAction(ctx: OrderContext, order: CcOrder, input:
       if (missingDocs.length) throw new OrderError(`Upload: ${missingDocs.map((doc) => doc.label).join(', ')}`, 400, { documents: missingDocs.map((doc) => doc.key) })
       const openSteps = missingSteps(def, stage.data)
       if (openSteps.length) throw new OrderError(`Tick these steps first: ${openSteps.join(', ')}`, 400, { steps: openSteps })
+      if (def.key === 'qc') await qcGate(ctx, order)
       if (def.key === 'dispatch') {
         const orderLines = await ctx.em.find(CcOrderLine, { orderId: order.id })
         const totals = priceOrder(orderLines.map(pricedLine), order.pricesIncludeGst)
@@ -229,6 +231,7 @@ export async function applyStageAction(ctx: OrderContext, order: CcOrder, input:
           )
         }
         if (due > 0.5) logEvent(ctx, order, 'payment_override', def.key, `Despatched with ₹${due.toLocaleString('en-IN')} due: ${override}`, byName)
+        await saleOut(ctx, order, byName)
       }
       stage.status = 'done'
       stage.completedAt = new Date()
@@ -290,7 +293,10 @@ export async function applyStageAction(ctx: OrderContext, order: CcOrder, input:
       stage.status = 'open'
       stage.completedAt = null
       stage.completedByName = null
-      if (info.stockMoved) stage.data = { ...(stage.data ?? {}), __stock_posted: true }
+      if (info.stockMoved) {
+        await reverseSaleOut(ctx, order, byName)
+        stage.data = { ...(stage.data ?? {}), __stock_posted: true }
+      }
       for (const entry of stages) {
         if (later.includes(entry.stageKey) && (entry.status === 'open' || entry.status === 'on_hold')) {
           entry.status = 'waiting'
@@ -382,6 +388,11 @@ export async function serializeOrder(ctx: OrderContext, order: CcOrder) {
     sourceOrderId: order.sourceOrderId ?? null,
     salesManager: order.salesManager ?? null,
     paymentTerms: order.paymentTerms ?? null,
+    market: order.market ?? 'domestic',
+    incoterm: order.incoterm ?? null,
+    portOfLoading: order.portOfLoading ?? null,
+    country: order.country ?? null,
+    currency: order.currency ?? null,
     paymentRemarks: order.paymentRemarks ?? null,
     productRemarks: order.productRemarks ?? null,
     billingRemarks: order.billingRemarks ?? null,

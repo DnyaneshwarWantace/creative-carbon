@@ -13,6 +13,11 @@ export type FieldChange = { key: string; label: string; from: string | number | 
 @Unique({ name: 'cc_orders_org_no_uq', properties: ['organizationId', 'tenantId', 'orderNo'] })
 export class CcOrder {
   [OptionalProps]?:
+    | 'market'
+    | 'incoterm'
+    | 'portOfLoading'
+    | 'country'
+    | 'currency'
     | 'status'
     | 'orderType'
     | 'deliveryDate'
@@ -71,6 +76,21 @@ export class CcOrder {
 
   @Property({ name: 'payment_terms', type: 'text', nullable: true })
   paymentTerms?: string | null
+
+  @Property({ type: 'text', default: 'domestic' })
+  market: 'domestic' | 'export' = 'domestic'
+
+  @Property({ type: 'text', nullable: true })
+  incoterm?: string | null
+
+  @Property({ name: 'port_of_loading', type: 'text', nullable: true })
+  portOfLoading?: string | null
+
+  @Property({ type: 'text', nullable: true })
+  country?: string | null
+
+  @Property({ type: 'text', nullable: true })
+  currency?: string | null
 
   @Property({ name: 'payment_remarks', type: 'text', nullable: true })
   paymentRemarks?: string | null
@@ -334,6 +354,109 @@ export class CcStageSetting {
 
   @Property({ name: 'updated_by_name', type: 'text', nullable: true })
   updatedByName?: string | null
+
+  @Property({ name: 'created_at', type: Date, onCreate: () => new Date() })
+  createdAt: Date = new Date()
+
+  @Property({ name: 'updated_at', type: Date, onCreate: () => new Date(), onUpdate: () => new Date() })
+  updatedAt: Date = new Date()
+}
+
+@Entity({ tableName: 'cc_order_allocations' })
+@Index({ name: 'cc_order_allocations_order_idx', properties: ['organizationId', 'orderId'] })
+@Index({ name: 'cc_order_allocations_lot_idx', properties: ['organizationId', 'lotId'] })
+export class CcOrderAllocation {
+  [OptionalProps]?: 'createdAt' | 'updatedAt' | 'reservationId' | 'status' | 'shippedQty' | 'byName' | 'shipments'
+
+  @PrimaryKey({ type: 'uuid', defaultRaw: 'gen_random_uuid()' })
+  id!: string
+
+  @Property({ name: 'organization_id', type: 'uuid' })
+  organizationId!: string
+
+  @Property({ name: 'tenant_id', type: 'uuid' })
+  tenantId!: string
+
+  @Property({ name: 'order_id', type: 'uuid' })
+  orderId!: string
+
+  @Property({ name: 'line_id', type: 'uuid' })
+  lineId!: string
+
+  @Property({ name: 'product_id', type: 'uuid' })
+  productId!: string
+
+  @Property({ name: 'lot_id', type: 'uuid' })
+  lotId!: string
+
+  @Property({ name: 'lot_number', type: 'text' })
+  lotNumber!: string
+
+  @Property({ type: 'text' })
+  place!: string
+
+  @Property({ type: 'numeric', precision: 14, scale: 3 })
+  qty!: string
+
+  @Property({ type: 'text' })
+  unit!: string
+
+  @Property({ name: 'reservation_id', type: 'uuid', nullable: true })
+  reservationId?: string | null
+
+  @Property({ type: 'text', default: 'reserved' })
+  status: 'reserved' | 'shipped' | 'released' = 'reserved'
+
+  @Property({ name: 'shipped_qty', type: 'numeric', precision: 14, scale: 3, default: '0' })
+  shippedQty: string = '0'
+
+  @Property({ type: 'json', nullable: true })
+  shipments?: Array<{ qty: number; at: string; by: string | null }> | null
+
+  @Property({ name: 'by_name', type: 'text', nullable: true })
+  byName?: string | null
+
+  @Property({ name: 'created_at', type: Date, onCreate: () => new Date() })
+  createdAt: Date = new Date()
+
+  @Property({ name: 'updated_at', type: Date, onCreate: () => new Date(), onUpdate: () => new Date() })
+  updatedAt: Date = new Date()
+}
+
+@Entity({ tableName: 'cc_order_packings' })
+@Index({ name: 'cc_order_packings_order_idx', properties: ['organizationId', 'orderId'] })
+export class CcOrderPacking {
+  [OptionalProps]?: 'createdAt' | 'updatedAt' | 'byName' | 'notes'
+
+  @PrimaryKey({ type: 'uuid', defaultRaw: 'gen_random_uuid()' })
+  id!: string
+
+  @Property({ name: 'organization_id', type: 'uuid' })
+  organizationId!: string
+
+  @Property({ name: 'tenant_id', type: 'uuid' })
+  tenantId!: string
+
+  @Property({ name: 'order_id', type: 'uuid' })
+  orderId!: string
+
+  @Property({ name: 'line_id', type: 'uuid' })
+  lineId!: string
+
+  @Property({ type: 'json' })
+  weights!: number[]
+
+  @Property({ name: 'packed_qty', type: 'numeric', precision: 14, scale: 3 })
+  packedQty!: string
+
+  @Property({ type: 'text' })
+  unit!: string
+
+  @Property({ type: 'text', nullable: true })
+  notes?: string | null
+
+  @Property({ name: 'by_name', type: 'text', nullable: true })
+  byName?: string | null
 
   @Property({ name: 'created_at', type: Date, onCreate: () => new Date() })
   createdAt: Date = new Date()

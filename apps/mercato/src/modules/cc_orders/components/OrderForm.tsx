@@ -26,6 +26,7 @@ import { priceOrder } from '../lib/pricing'
 import { SearchPicker, type PickerOption } from './SearchPicker'
 import { formatDate, formatQty, todayIso } from './format'
 import { paymentTermLabel } from '../../cc_lists/lib/paymentTerms'
+import { useListOptions } from '../../cc_lists/components/useListOptions'
 import { usePaymentTerms } from '../../cc_lists/components/usePaymentTerms'
 import { loadAddresses, loadCustomer, loadCustomerOrders, loadProductDetails, searchCustomers, searchFinishedGoods, type CustomerAddress } from './loaders'
 import type { Customer, Order, OrderListItem, ProductInfo } from './types'
@@ -54,6 +55,11 @@ type Header = {
   sourceOrderId: string | null
   salesManager: string
   paymentTerms: string
+  market: 'domestic' | 'export'
+  incoterm: string
+  portOfLoading: string
+  country: string
+  currency: string
   paymentRemarks: string
   productRemarks: string
   billingRemarks: string
@@ -73,6 +79,11 @@ const EMPTY_HEADER: Header = {
   sourceOrderId: null,
   salesManager: '',
   paymentTerms: '',
+  market: 'domestic',
+  incoterm: '',
+  portOfLoading: '',
+  country: '',
+  currency: '',
   paymentRemarks: '',
   productRemarks: '',
   billingRemarks: '',
@@ -131,6 +142,25 @@ function Field({ label, required, children, className }: { label: string; requir
   )
 }
 
+function ListSelect({ listKey, value, onChange }: { listKey: string; value: string; onChange: (value: string) => void }) {
+  const options = useListOptions(listKey, value)
+  return (
+    <Select value={value || '__none'} onValueChange={(next) => onChange(next === '__none' ? '' : next)}>
+      <SelectTrigger>
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent>
+        <SelectItem value="__none">—</SelectItem>
+        {options.map((option) => (
+          <SelectItem key={option} value={option}>
+            {option}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  )
+}
+
 export function OrderForm({ orderId, copyFrom, customerId }: { orderId?: string; copyFrom?: string; customerId?: string }) {
   const t = useT()
   const router = useRouter()
@@ -172,6 +202,11 @@ export function OrderForm({ orderId, copyFrom, customerId }: { orderId?: string;
           sourceOrderId: order.sourceOrderId,
           salesManager: order.salesManager ?? '',
           paymentTerms: order.paymentTerms ?? '',
+          market: order.market ?? 'domestic',
+          incoterm: order.incoterm ?? '',
+          portOfLoading: order.portOfLoading ?? '',
+          country: order.country ?? '',
+          currency: order.currency ?? '',
           paymentRemarks: order.paymentRemarks ?? '',
           productRemarks: order.productRemarks ?? '',
           billingRemarks: order.billingRemarks ?? '',
@@ -621,6 +656,33 @@ export function OrderForm({ orderId, copyFrom, customerId }: { orderId?: string;
                     </SelectContent>
                   </Select>
                 </Field>
+                <Field label={t('cc_orders.form.market', 'Domestic / export')} className="md:col-span-3">
+                  <Select value={header.market} onValueChange={(value) => patchHeader({ market: value === 'export' ? 'export' : 'domestic' })}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="domestic">{t('cc_orders.form.domestic', 'Domestic')}</SelectItem>
+                      <SelectItem value="export">{t('cc_orders.form.export', 'Export')}</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </Field>
+                {header.market === 'export' ? (
+                  <>
+                    <Field label={t('cc_orders.form.incoterm', 'Incoterm')} className="md:col-span-2">
+                      <ListSelect listKey="incoterms" value={header.incoterm} onChange={(value) => patchHeader({ incoterm: value })} />
+                    </Field>
+                    <Field label={t('cc_orders.form.port', 'Port of loading')} className="md:col-span-3">
+                      <ListSelect listKey="ports" value={header.portOfLoading} onChange={(value) => patchHeader({ portOfLoading: value })} />
+                    </Field>
+                    <Field label={t('cc_orders.form.country', 'Country')} className="md:col-span-2">
+                      <Input value={header.country} onChange={(event) => patchHeader({ country: event.target.value })} />
+                    </Field>
+                    <Field label={t('cc_orders.form.currency', 'Currency')} className="md:col-span-2">
+                      <ListSelect listKey="currencies" value={header.currency} onChange={(value) => patchHeader({ currency: value })} />
+                    </Field>
+                  </>
+                ) : null}
                 <Field label={t('cc_orders.form.paymentRemarks', 'Payment remarks')} className="md:col-span-6">
                   <Input value={header.paymentRemarks} onChange={(event) => patchHeader({ paymentRemarks: event.target.value })} placeholder="e.g. 40% advance 60% before dispatch" />
                 </Field>

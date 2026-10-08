@@ -5,7 +5,8 @@ import type { OpenApiRouteDoc } from '@open-mercato/shared/lib/openapi'
 import { stageActionSchema } from '../../../data/validators'
 import { CcOrderStage } from '../../../data/entities'
 import { applyStageAction, serializeOrder } from '../../../lib/engine'
-import { currentUserName, findOrder, hasFeatures, resolveOrderContext } from '../../../lib/server'
+import { currentUserName, findOrder, hasFeatures } from '../../../lib/server'
+import { resolveStoreContext } from '../../../../cc_store/lib/server'
 import { notifyAssigned, notifyStagesOpened, notifyStagesPaused } from '../../../lib/notify'
 import { canSeeMoney } from '../../../lib/money'
 import { stageDef, stageWorkFeature } from '../../../lib/stages'
@@ -17,7 +18,7 @@ export const metadata = {
 }
 
 async function POST(req: Request) {
-  const ctx = await resolveOrderContext(req)
+  const ctx = await resolveStoreContext(req)
   if ('error' in ctx) return NextResponse.json({ error: ctx.error }, { status: ctx.status })
   return withStageOverrides(ctx, async () => {
     const parsed = stageActionSchema.safeParse(await req.json().catch(() => null))

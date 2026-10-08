@@ -184,7 +184,7 @@
 
 <div class="wrap">
   <header class="hero">
-    <span class="eyebrow">● Detailed build plan · v12 · Stages 0–8 done and tested · codes, dropdowns and views added</span>
+    <span class="eyebrow">● Detailed build plan · v13 · Stages 0–9 done and tested</span>
     <h1>Creative Carbon on the Dermat base: every stage, page, field and link</h1>
     <p class="lede">For each stage this page lists the screens, every field with its type and rule, what the detail page shows, which stage feeds it and which stage it feeds, the stock it moves, and the small things that are easy to miss. Sources are the dev brief, the 12 register photos and the Kheda audit recording. <strong>Anything we had to guess is marked "confirm".</strong></p>
     <div class="facts">
@@ -204,7 +204,7 @@
       <a class="pchip done" href="#s6"><div class="pn">Stage 6<span>Wk 4</span></div><div class="pv">Moulding</div></a>
       <a class="pchip done" href="#s7"><div class="pn">Stage 7<span>Wk 4</span></div><div class="pv">Cutting · QC · FG</div></a>
       <a class="pchip demo" href="#s8"><div class="pn">Stage 8<span>Wk 5</span></div><div class="pv">Stock · Owner · Demo</div></a>
-      <a class="pchip" href="#s9"><div class="pn">Stage 9<span>Wk 6–7</span></div><div class="pv">Order → Despatch</div></a>
+      <a class="pchip done" href="#s9"><div class="pn">Stage 9<span>Wk 6–7</span></div><div class="pv">Order → Despatch</div></a>
       <a class="pchip" href="#s10"><div class="pn">Stage 10<span>Wk 7–8</span></div><div class="pv">CRM · Purchase</div></a>
       <a class="pchip" href="#s11"><div class="pn">Stage 11<span>Wk 8</span></div><div class="pv">Documents · Tally</div></a>
       <a class="pchip" href="#s12"><div class="pn">Stage 12<span>Wk 9–12</span></div><div class="pv">Go-live</div></a>
@@ -243,7 +243,7 @@
       <a href="#s6"><span class="dot done"></span>6 Moulding</a>
       <a href="#s7"><span class="dot done"></span>7 Cutting · QC · FG</a>
       <a href="#s8"><span class="dot done"></span>8 Stock · Owner · Demo</a>
-      <a href="#s9"><span class="dot planned"></span>9 Order → Despatch</a>
+      <a href="#s9"><span class="dot done"></span>9 Order → Despatch</a>
       <a href="#s10"><span class="dot planned"></span>10 CRM · Purchase</a>
       <a href="#s11"><span class="dot planned"></span>11 Documents · Tally</a>
       <a href="#s12"><span class="dot planned"></span>12 Go-live</a>
@@ -932,7 +932,7 @@
 
 <!-- ============ STAGE 9 ============ -->
       <section id="s9">
-        <div class="mod-head"><h2>Stage 9 · One-page order, booking to despatch</h2><span class="verdict planned">PLANNED</span><span class="when">Weeks 6–7</span></div>
+        <div class="mod-head"><h2>Stage 9 · One-page order, booking to despatch</h2><span class="verdict done">DONE · TESTED</span><span class="when">finished 8 Oct</span></div>
         <p class="mod-dek">Dermat's order engine as it is: the order page with the stage strip, one stage page per department, department work queues (Coming, Pending, In progress, On hold, Completed), steps, required fields, document uploads, holds with follow-up dates, 24-hour reopen, history of every field change, stage settings the owner can edit. Only the stages are new.</p>
         <div class="flow" aria-label="Order stages">
           <span>1 Order booked</span><i>→</i><span>2 Advance / LC</span><i>→</i><span>3 Stock allocation</span><i>→</i><span>4 QC &amp; test report</span><i>→</i><span>5 Packing &amp; weighment</span><i>→</i><span>6 Invoice &amp; documents</span><i>→</i><span>7 Despatch</span>
@@ -1021,7 +1021,18 @@
             <div class="box"><div class="lbl">Stock · gate</div>Sale out by lot using packed weights. Never more than allocated stock. Money-due check from Dermat stays.</div>
           </div></div>
         </details>
-      </section>
+            <h3>What was built</h3>
+        <div class="itemlist">
+          <div class="item done"><span class="mark">✓</span><span class="txt"><b>Order header</b>: Domestic / Export, and for export the incoterm (FOB, CIF, CNF, EXW), port of loading, country and currency, all from the dropdown master; changes show in the order history. Lines keep form, grade, weave, sheet size, thickness, pieces and die No.</span></div>
+          <div class="item done"><span class="mark">✓</span><span class="txt"><b>Stock allocation</b> (FG store): for each line the matching finished lots — lots marked for this customer at FG inspection first, then lots of the right thickness, oldest first, B-stage with its use-by date. "Find stock" proposes quantities; allocating <b>holds the stock in the store</b> (it is no longer free for anyone else) and release gives it back. "Stock checked" and "Lots allocated" tick themselves when every line is covered; the line shows what is short (which also appears on the owner's shortfall list).</span></div>
+          <div class="item done"><span class="mark">✓</span><span class="txt"><b>QC &amp; test report</b>: the allocated lots with their thickness result and FG inspection; "Read from the inspections" ticks the two steps; QC cannot be completed while any allocated lot is on hold.</span></div>
+          <div class="item done"><span class="mark">✓</span><span class="txt"><b>Packing &amp; weighment</b>: each sheet's weight, five to a row like the book, row and line totals; pieces for moulded lines. Saving every line ticks "Sheets weighed" and fills the net weight; "All packed" ticks Packed.</span></div>
+          <div class="item done"><span class="mark">✓</span><span class="txt"><b>Despatch</b> takes the packed weight out of stock by lot (oldest allocation first), never more than allocated, and logs it with the order No. in the stock ledger; whatever is left of a lot stays held for the order. Reopening despatch (manager right) puts the stock back, still allocated; cancelling the order releases every allocation. The money-due check from Dermat stays.</span></div>
+          <div class="item done"><span class="mark">✓</span><span class="txt"><b>Line progress</b> on the order page: ordered, allocated, made (moulded lines, from the moulding register), packed, despatched and short. Typing a die No. in the moulding register now picks up the open order for that die, fills the order quantity and links the entry to the order.</span></div>
+          <div class="item partial"><span class="mark">→</span><span class="txt">Quotation → order hand-over and the small / big size rate suggestion from the price list come with Stage 10; documents generated from the order and the Tally push are Stage 11.</span></div>
+        </div>
+        <p class="exit"><b>Tested 8 Oct:</b> type check 0 errors · end-to-end suite Stages 0–9: <b>102 / 102 passing</b> — an export FOB Mundra USD order for 450 kg of 12 mm Fabric 10x10, advance skipped for a credit customer, two matching FG lots offered oldest first and held (300 + 150 kg; 200 kg refused as more than the line needs; nothing allocatable once the stage is done), a held lot blocks QC until it passes, nine sheets weighed to 445.500 kg net, invoice, despatch takes 300 + 145.5 kg out by lot with the order No. on the ledger and keeps 4.5 kg held, reopening puts it back, cancelling frees it all, a moulded line for die 1142 shows up in the moulding register with its quantity.</p>
+</section>
 
 <!-- ============ STAGE 10 ============ -->
       <section id="s10">

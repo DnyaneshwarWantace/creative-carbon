@@ -66,6 +66,11 @@ function applyHeader(order: CcOrder, input: OrderInput) {
   order.sourceOrderId = input.sourceOrderId ?? null
   order.salesManager = clean(input.salesManager)
   order.paymentTerms = clean(input.paymentTerms)
+  order.market = input.market
+  order.incoterm = input.market === 'export' ? clean(input.incoterm) : null
+  order.portOfLoading = input.market === 'export' ? clean(input.portOfLoading) : null
+  order.country = input.market === 'export' ? clean(input.country) : null
+  order.currency = input.market === 'export' ? clean(input.currency) : 'INR'
   order.paymentRemarks = clean(input.paymentRemarks)
   order.productRemarks = clean(input.productRemarks)
   order.billingRemarks = clean(input.billingRemarks)
@@ -77,7 +82,7 @@ function applyHeader(order: CcOrder, input: OrderInput) {
 }
 
 function describeChanges(before: { header: Record<string, unknown>; lines: Array<{ productId: string; quantity: number; rate: number | null }> }, input: OrderInput, titles: Map<string, string>): string {
-  const labels: Record<string, string> = { deliveryDate: 'delivery date', customerPoRef: 'customer PO', salesManager: 'sales manager', paymentTerms: 'payment terms', paymentRemarks: 'payment remarks', priority: 'priority', shippingAddress: 'shipping address', billingAddress: 'billing address', productRemarks: 'product remarks', packingRemarks: 'packing remarks', billingRemarks: 'billing remarks' }
+  const labels: Record<string, string> = { deliveryDate: 'delivery date', customerPoRef: 'customer PO', salesManager: 'sales manager', paymentTerms: 'payment terms', market: 'domestic / export', incoterm: 'incoterm', portOfLoading: 'port of loading', country: 'country', currency: 'currency', paymentRemarks: 'payment remarks', priority: 'priority', shippingAddress: 'shipping address', billingAddress: 'billing address', productRemarks: 'product remarks', packingRemarks: 'packing remarks', billingRemarks: 'billing remarks' }
   const changes: string[] = []
   for (const [key, label] of Object.entries(labels)) {
     const was = before.header[key] ?? null
@@ -258,7 +263,7 @@ async function PUT(req: Request) {
         const fresh = await findOrder(txCtx, order.id)
         const oldLines = await em.find(CcOrderLine, { orderId: fresh.id })
         const before = {
-          header: { deliveryDate: fresh.deliveryDate, customerPoRef: fresh.customerPoRef, salesManager: fresh.salesManager, paymentTerms: fresh.paymentTerms, paymentRemarks: fresh.paymentRemarks, priority: fresh.priority, shippingAddress: fresh.shippingAddress, billingAddress: fresh.billingAddress, productRemarks: fresh.productRemarks, packingRemarks: fresh.packingRemarks, billingRemarks: fresh.billingRemarks },
+          header: { deliveryDate: fresh.deliveryDate, customerPoRef: fresh.customerPoRef, salesManager: fresh.salesManager, paymentTerms: fresh.paymentTerms, market: fresh.market, incoterm: fresh.incoterm, portOfLoading: fresh.portOfLoading, country: fresh.country, currency: fresh.currency, paymentRemarks: fresh.paymentRemarks, priority: fresh.priority, shippingAddress: fresh.shippingAddress, billingAddress: fresh.billingAddress, productRemarks: fresh.productRemarks, packingRemarks: fresh.packingRemarks, billingRemarks: fresh.billingRemarks },
           lines: oldLines.map((line) => ({ productId: line.productId, quantity: Number(line.quantity), rate: line.rate == null ? null : Number(line.rate) })),
         }
         const titles = new Map([...(await loadProducts(txCtx, [...oldLines.map((line) => line.productId), ...input.lines.map((line) => line.productId)])).entries()].map(([id, product]) => [id, product.title]))

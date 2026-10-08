@@ -49,9 +49,9 @@ type EntryView = {
 }
 type ShiftView = { shift: number; version: string; entries: EntryView[]; grandTotal: number; weightTotal: number; signoff: { shiftIncharge: string | null; storeIncharge: string | null; authorised: string | null } }
 type Day = { date: string; shifts: ShiftView[]; grandTotal: number; weightTotal: number; errors?: string[] }
-type DieInfo = { dieNo: string; found: boolean; customerName: string | null; articleWeightKg: number | null; thicknessMm: number | null; description: string | null }
+type DieInfo = { dieNo: string; found: boolean; customerName: string | null; articleWeightKg: number | null; thicknessMm: number | null; description: string | null; openOrders?: Array<{ orderNo: string; qty: number }> }
 
-const FIELDS = ['dieNo', 'dieHeatTime', 'orderQty', 'articleWeightKg', 'chindiKg', 'clothKg', 'clothNote', 'clothProductId', 'bstageGrade', 'bstageKg', 'productionNos', 'priorMade', 'startTime', 'operatorName', 'topTemp', 'bottomTemp', 'curingTime'] as const
+const FIELDS = ['dieNo', 'dieHeatTime', 'orderQty', 'orderRef', 'articleWeightKg', 'chindiKg', 'clothKg', 'clothNote', 'clothProductId', 'bstageGrade', 'bstageKg', 'productionNos', 'priorMade', 'startTime', 'operatorName', 'topTemp', 'bottomTemp', 'curingTime'] as const
 type Field = (typeof FIELDS)[number]
 type Cell = Record<Field, string>
 
@@ -141,7 +141,21 @@ export function MouldingPage() {
     if (!info) return
     setDies((previous) => ({ ...previous, [pressId]: info }))
     if (!info.found) flash(t('cc_production.moulding.unknownDie', 'Die {die} is not in the mould list', { die: dieNo }), 'error')
-    else if (info.articleWeightKg && !cellFor(pressId).articleWeightKg) update(pressId, 'articleWeightKg', String(info.articleWeightKg))
+    else {
+      setCells((previous) => {
+        const current = previous[pressId] ?? blank()
+        const order = info.openOrders?.[0]
+        return {
+          ...previous,
+          [pressId]: {
+            ...current,
+            articleWeightKg: current.articleWeightKg || (info.articleWeightKg ? String(info.articleWeightKg) : ''),
+            orderQty: current.orderQty || (order ? String(order.qty) : ''),
+            orderRef: current.orderRef || (order ? order.orderNo : ''),
+          },
+        }
+      })
+    }
   }
 
   const send = async (path: string, method: 'PUT' | 'POST', body: Record<string, unknown>) =>
@@ -165,7 +179,7 @@ export function MouldingPage() {
           dieNo: cell.dieNo.trim(),
           dieHeatTime: value('dieHeatTime'),
           orderQty: value('orderQty'),
-          orderRef: null,
+          orderRef: value('orderRef'),
           priorMade: value('priorMade'),
           articleWeightKg: value('articleWeightKg'),
           chindiKg: value('chindiKg'),
@@ -345,6 +359,7 @@ export function MouldingPage() {
                             {renderInput(press.id, row, !canEnter || entryFor(press.id)?.status === 'posted')}
                             {row.field === 'dieNo' && (dies[press.id]?.customerName || entryFor(press.id)?.customerName) ? <span className="block truncate px-1 text-muted-foreground">{dies[press.id]?.customerName ?? entryFor(press.id)?.customerName}</span> : null}
                             {row.field === 'dieHeatTime' && dies[press.id]?.thicknessMm ? <span className="block px-1 text-muted-foreground">({dies[press.id]?.thicknessMm} mm)</span> : null}
+                            {row.field === 'orderQty' && cellFor(press.id).orderRef ? <span className="block truncate px-1 font-mono text-muted-foreground">{cellFor(press.id).orderRef}</span> : null}
                           </td>
                         ))}
                       </tr>

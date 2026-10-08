@@ -38,6 +38,7 @@ import { openServerExport } from '../../cc_products/lib/csvExport'
 import { paymentTermLabel } from '../../cc_lists/lib/paymentTerms'
 import { useStageSettings } from './useStageSettings'
 import { PRODUCT_KINDS } from '../../cc_products/lib/kinds'
+import { LineProgress, useOrderChanged } from './FulfilmentPanel'
 
 
 const KIND_LABEL: Record<string, string> = Object.fromEntries(PRODUCT_KINDS.map((kind) => [kind.code, kind.label]))
@@ -160,6 +161,8 @@ export function OrderView({ orderId }: { orderId: string }) {
     }
     setOrder(call.result)
   }, [orderId, t])
+
+  useOrderChanged(orderId, () => void load())
 
   React.useEffect(() => {
     const asked = searchParams?.get('stage')
@@ -396,7 +399,12 @@ export function OrderView({ orderId }: { orderId: string }) {
                 {order.canSeeMoney ? <SegmentedControlItem value="money">{t('cc_orders.view.tabMoney', 'Money')}</SegmentedControlItem> : null}
                 <SegmentedControlItem value="history">{t('cc_orders.view.tabHistory', 'History')}</SegmentedControlItem>
               </SegmentedControl>
-              {tab === 'work' ? <StageRecord order={order} people={people} busy={busy} focusKey={openStage} onAction={stageAction} /> : null}
+              {tab === 'work' ? (
+                <>
+                  <LineProgress orderId={order.id} />
+                  <StageRecord order={order} people={people} busy={busy} focusKey={openStage} onAction={stageAction} />
+                </>
+              ) : null}
               {tab === 'products' ? (
           <Card>
             <CardHeader className="border-b bg-muted/20 pb-3">

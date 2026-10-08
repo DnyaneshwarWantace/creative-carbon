@@ -86,6 +86,16 @@ export async function dieLookup(ctx: StoreContext, dieNos: string[]) {
   const unique = [...new Set(dieNos.map((die) => die.trim()).filter(Boolean))]
   const [moulds, products] = await Promise.all([mouldsByDie(ctx, unique), mouldedProductsByDie(ctx, unique)])
   const customers = await loadCustomers(ctx, [...moulds.values()].map((mould) => mould.customerId).filter((id): id is string => Boolean(id)))
+  const openLines = unique.length
+    ? await ctx.em.getConnection().execute<Array<{ die_no: string; order_no: string; quantity: string; customer_id: string }>>(
+        `select upper(l.specs->'material'->>'die_no') as die_no, o.order_no, l.quantity, o.customer_id
+           from cc_order_lines l join cc_orders o on o.id = l.order_id
+          where o.tenant_id = ? and o.organization_id = ? and o.deleted_at is null and o.status in ('booked', 'confirmed')
+            and upper(l.specs->'material'->>'die_no') = any(?::text[])
+          order by o.order_date asc`,
+        [ctx.tenantId, ctx.organizationId, `{${unique.map((die) => `"${die.toUpperCase().replace(/"/g, '')}"`).join(',')}}`],
+      )
+    : []
   return unique.map((dieNo) => {
     const mould = moulds.get(dieNo.toUpperCase())
     const product = products.get(dieNo.toUpperCase())
@@ -99,6 +109,7 @@ export async function dieLookup(ctx: StoreContext, dieNos: string[]) {
       customerName: mould?.customerId ? customers.get(mould.customerId)?.name ?? null : null,
       articleWeightKg: product?.articleWeightKg ?? null,
       productTitle: product?.title ?? null,
+      openOrders: openLines.filter((line) => line.die_no === dieNo.toUpperCase()).map((line) => ({ orderNo: line.order_no, qty: Number(line.quantity) })),
     }
   })
 }

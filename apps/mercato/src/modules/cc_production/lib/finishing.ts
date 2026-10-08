@@ -561,3 +561,7 @@ export async function allLots(ctx: StoreContext, kinds: string[] | null) {
     return rest
   })
 }
+
+export async function lotsWithDetails(ctx: StoreContext, filter: { kinds?: string[]; places?: StockPlace[]; lotId?: string }) {
+  return lotRows(ctx, filter)
+}

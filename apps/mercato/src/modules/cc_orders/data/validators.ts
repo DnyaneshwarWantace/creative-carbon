@@ -29,6 +29,11 @@ export const orderInputSchema = z.object({
   sourceOrderId: z.string().uuid().optional().nullable(),
   salesManager: optionalText(120),
   paymentTerms: optionalText(120),
+  market: z.enum(['domestic', 'export']).default('domestic'),
+  incoterm: optionalText(20),
+  portOfLoading: optionalText(80),
+  country: optionalText(80),
+  currency: optionalText(10),
   paymentRemarks: optionalText(200),
   productRemarks: optionalText(2000),
   billingRemarks: optionalText(2000),
@@ -102,3 +107,20 @@ export const stageSettingSchema = z.object({
 })
 
 export type StageSettingInput = z.infer<typeof stageSettingSchema>
+
+export const fulfilmentQuerySchema = z.object({ id: z.string().uuid(), lineId: z.string().uuid().optional() })
+
+export const fulfilmentActionSchema = z.discriminatedUnion('action', [
+  z.object({ action: z.literal('allocate'), orderId: z.string().uuid(), lineId: z.string().uuid(), lotId: z.string().uuid(), qty: z.coerce.number().positive().max(10_000_000) }),
+  z.object({ action: z.literal('release'), orderId: z.string().uuid(), allocationId: z.string().uuid() }),
+  z.object({
+    action: z.literal('pack'),
+    orderId: z.string().uuid(),
+    lineId: z.string().uuid(),
+    weights: z.array(z.coerce.number().min(0).max(100_000)).max(2000).default([]),
+    pieces: z.coerce.number().int().min(0).max(10_000_000).nullable().optional().transform((value) => value ?? null),
+    notes: z.string().trim().max(500).nullable().optional().transform((value) => value ?? null),
+  }),
+  z.object({ action: z.literal('packed'), orderId: z.string().uuid() }),
+  z.object({ action: z.literal('qc_sync'), orderId: z.string().uuid() }),
+])

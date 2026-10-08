@@ -16,6 +16,7 @@ import { isMoneyStageField } from '../lib/moneyFields'
 import { HOLD_PARTIES, reopenBlock, reopenUntilText, stageList, WORK_STATE_LABEL, stageDef, stageWorkFeature, workState, type StageField, type WorkState } from '../lib/stages'
 import { useGranted } from '../../cc_departments/components/useGranted'
 import { StageDocuments } from './StageDocuments'
+import { FulfilmentPanel } from './FulfilmentPanel'
 import { StageHistory } from './OrderHistory'
 import { SuggestInput } from '../../cc_lists/components/SuggestInput'
 import { cn } from '@open-mercato/shared/lib/utils'
@@ -365,6 +366,9 @@ export function StageWorkArea({ order, stage, people, canWork: canWorkProp, busy
                 {renderInput(field)}
               </div>
             ))}
+            {stage.status !== 'waiting' && ['allocation', 'qc', 'packing', 'dispatch'].includes(stage.key) ? (
+              <FulfilmentPanel orderId={order.id} stageKey={stage.key} stageStatus={stage.status} editable={canWork} />
+            ) : null}
             {stage.status !== 'waiting' ? (
               <StageDocuments orderId={order.id} stageKey={stage.key} documents={order.documents?.[stage.key] ?? []} editable={editable} />
             ) : null}

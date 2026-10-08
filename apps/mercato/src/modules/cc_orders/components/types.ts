@@ -89,6 +89,11 @@ export type Order = {
   orderType: 'new' | 'repeat' | 'revision'
   sourceOrderId: string | null
   salesManager: string | null
+  market?: 'domestic' | 'export'
+  incoterm?: string | null
+  portOfLoading?: string | null
+  country?: string | null
+  currency?: string | null
   paymentTerms: string | null
   paymentRemarks: string | null
   productRemarks: string | null
