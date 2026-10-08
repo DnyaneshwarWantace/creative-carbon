@@ -343,7 +343,7 @@
 
 <!-- ============ DETAIL PAGES (v14) ============ -->
       <section id="detail">
-        <div class="mod-head"><h2>Detail pages: one layout, every record linked</h2><span class="verdict partial">IN PROGRESS · v14</span></div>
+        <div class="mod-head"><h2>Detail pages: one layout, every record linked</h2><span class="verdict partial">BUILT · CLICK-THROUGH DUE · v14</span></div>
         <p class="mod-dek">Stages 1–10 work: the registers post, stock moves and the tests pass. What they lack is finish. The screens were built one stage at a time, so each detail page looks different and the links between records stop at the lot. This pass reopens every stage. Nothing is rebuilt from scratch. Each stage keeps its working entry screens and gets the fixes below. Every register entry, lot, party, machine, die and document gets a detail page with the same layout, and every number on any page opens the page it names. Staff should be able to start at a despatch and click back to the chemical GRN, or start at a GRN and click forward to the customer, without using search. A stage goes back to Done only when every item in its "Detail pages" list is built.</p>
 
         <h3>What is wrong with the screens today (review of 8 Oct)</h3>
@@ -388,6 +388,7 @@
           <div class="item done"><span class="mark">✓</span><span class="txt"><b>D3 (Stages 4–6)</b>: coating day sheet (cloth rows with Σ, every raw / resin / B-stage lot linked, slot log with totals, the dryer's chemical issues), B-stage lot (age band and use-by as facts, every movement opens the document that moved it), press batch (daylight register with range beside weight, press opens its machine page, B-stage used with age at use, pressed lots), moulding entry (die and machine open their pages, the run on this die and order, lots used and the moulded lot). Die availability now links each die. Lot movements from the API now carry their document link everywhere.</span></div>
           <div class="item done"><span class="mark">✓</span><span class="txt"><b>D4 (Stage 7)</b>: new pages for cutting (sheet weights, trim band, source lot back to its press batch, trimmed lot forward to thickness and FG, reverse), thickness (12 readings as the 4×3 grid with out-of-band cells marked), FG inspection report (rows with source and FG lots, customer on allocations, where each FG lot went, reopen), bought-in goods and damage. A lot trace works out what made each lot and what used it from the stock movements. The lab report page still uses its own layout and moves with D5.</span></div>
           <div class="item done"><span class="mark">✓</span><span class="txt"><b>D5 (Stages 7–10)</b>: lot page rebuilt with the family tree (parent lots back to the first, child lots two levels forward, what made each, the orders holding it) and proper field names; lab report; GRN (each batch opens its lot, where each lot went); indent page (new); purchase order; quotation and enquiry on the ledger layout. Order page keeps Dermat's layout but now shows the quotation and enquiry it came from, links every allocated or offered lot, and shows quantity as kg plus pieces instead of "Total pieces".</span></div>
+          <div class="item done"><span class="mark">✓</span><span class="txt"><b>D6 (accounts)</b>: payment page and vendor bill page (new), invoice and proforma on the ledger layout with their live preview kept. Document lines now carry kg or pcs, so prints and WhatsApp messages stop calling sheets "pcs". The Tally push page waits for Stage 11, where the push log is built.</span></div>
           <div class="item planned"><span class="mark">○</span><span class="txt"><b>Upload page: list the records each upload made.</b> Needs one new column on the upload table (ids of records created / updated) and a small change in each register importer. Waiting for approval of the database change.</span></div>
           <div class="item missing"><span class="mark">!</span><span class="txt"><b>Not checked in a browser yet.</b> This copy's migrations need the database restored from the dump, so a fresh database cannot be built in the cloud session. Type check and lint pass; open the five pages on port 3010 before Stage 1 goes back to Done.</span></div>
         </div>
@@ -433,10 +434,10 @@
               <tr><td class="k">Purchase order</td><td class="t">/backend/purchase/orders/&lt;id&gt;</td><td>Indents</td><td>GRNs, vendor bills</td><td><span class="verdict done">Built</span></td></tr>
               <tr><td class="k">GRN</td><td class="t">/backend/purchase/grns/&lt;id&gt;</td><td>PO, vendor, vehicle</td><td>Lots received and what used them</td><td><span class="verdict done">Built</span></td></tr>
               <tr class="grp"><td colspan="5">Stage 11 Accounts · documents</td></tr>
-              <tr><td class="k">Proforma</td><td class="t">/backend/accounts/proformas/&lt;id&gt;</td><td>Order</td><td>Advance payment</td><td><span class="verdict partial">Upgrade</span></td></tr>
-              <tr><td class="k">Tax / export invoice</td><td class="t">/backend/accounts/invoices/&lt;id&gt;</td><td>Order, packing</td><td>Payments, Tally push</td><td><span class="verdict partial">Upgrade</span></td></tr>
-              <tr><td class="k">Payment</td><td class="t">/backend/accounts/payments/&lt;id&gt;</td><td>Customer, invoice</td><td>Dues</td><td><span class="verdict planned">Missing</span></td></tr>
-              <tr><td class="k">Vendor bill</td><td class="t">/backend/accounts/vendor-bills/&lt;id&gt;</td><td>GRN, PO</td><td>Tally push</td><td><span class="verdict planned">Missing</span></td></tr>
+              <tr><td class="k">Proforma</td><td class="t">/backend/accounts/proformas/&lt;id&gt;</td><td>Order</td><td>Advance payment</td><td><span class="verdict done">Built</span></td></tr>
+              <tr><td class="k">Tax / export invoice</td><td class="t">/backend/accounts/invoices/&lt;id&gt;</td><td>Order, packing</td><td>Payments, Tally push</td><td><span class="verdict done">Built</span></td></tr>
+              <tr><td class="k">Payment</td><td class="t">/backend/accounts/payments/&lt;id&gt;</td><td>Customer, invoice</td><td>Dues</td><td><span class="verdict done">Built</span></td></tr>
+              <tr><td class="k">Vendor bill</td><td class="t">/backend/accounts/vendor-bills/&lt;id&gt;</td><td>GRN, PO</td><td>Tally push</td><td><span class="verdict done">Built</span></td></tr>
               <tr><td class="k">Tally push</td><td class="t">/backend/accounts/tally/&lt;id&gt;</td><td>Invoice or bill</td><td>—</td><td><span class="verdict planned">Missing</span></td></tr>
             </tbody>
           </table>
@@ -1213,9 +1214,9 @@
         </div>
               <h3 id="s11-detail">Detail pages (v14) <span class="tag new">NEW</span></h3>
         <div class="itemlist">
-          <div class="item partial"><span class="mark">↻</span><span class="txt"><b>Proforma</b> <span class="src">/backend/accounts/proformas/&lt;id&gt;</span> Shared layout.<span class="sub">Came from: Order · Went to: Advance payment</span></span></div>
-          <div class="item partial"><span class="mark">↻</span><span class="txt"><b>Tax / export invoice</b> <span class="src">/backend/accounts/invoices/&lt;id&gt;</span> Shared layout.<span class="sub">Came from: Order, packing · Went to: Payments, Tally push</span></span></div>
-          <div class="item planned"><span class="mark">○</span><span class="txt"><b>Payment</b> <span class="src">/backend/accounts/payments/&lt;id&gt;</span> New page.<span class="sub">Came from: Customer, invoice · Went to: Dues</span></span></div>
+          <div class="item done"><span class="mark">✓</span><span class="txt"><b>Proforma</b> <span class="src">/backend/accounts/proformas/&lt;id&gt;</span> Shared layout.<span class="sub">Came from: Order · Went to: Advance payment</span></span></div>
+          <div class="item done"><span class="mark">✓</span><span class="txt"><b>Tax / export invoice</b> <span class="src">/backend/accounts/invoices/&lt;id&gt;</span> Shared layout.<span class="sub">Came from: Order, packing · Went to: Payments, Tally push</span></span></div>
+          <div class="item done"><span class="mark">✓</span><span class="txt"><b>Payment</b> <span class="src">/backend/accounts/payments/&lt;id&gt;</span> New page.<span class="sub">Came from: Customer, invoice · Went to: Dues</span></span></div>
           <div class="item planned"><span class="mark">○</span><span class="txt"><b>Vendor bill</b> <span class="src">/backend/accounts/vendor-bills/&lt;id&gt;</span> New page.<span class="sub">Came from: GRN, PO · Went to: Tally push</span></span></div>
           <div class="item planned"><span class="mark">○</span><span class="txt"><b>Tally push</b> <span class="src">/backend/accounts/tally/&lt;id&gt;</span> New page with what was sent and what came back.<span class="sub">Came from: Invoice or bill · Went to: —</span></span></div>
         </div>
