@@ -39,6 +39,8 @@ const UI_FEATURES = [
   'cc_production.moulding.sign',
   'cc_production.cutting.enter',
   'cc_production.quality.enter',
+  'cc_production.plan.manage',
+  'cc_production.owner.view',
   'catalog.products.manage',
 ]
 

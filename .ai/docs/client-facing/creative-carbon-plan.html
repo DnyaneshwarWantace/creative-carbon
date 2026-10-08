@@ -184,7 +184,7 @@
 
 <div class="wrap">
   <header class="hero">
-    <span class="eyebrow">● Detailed build plan · v10 · Stages 0–7 done and tested</span>
+    <span class="eyebrow">● Detailed build plan · v11 · Stages 0–8 done and tested</span>
     <h1>Creative Carbon on the Dermat base: every stage, page, field and link</h1>
     <p class="lede">For each stage this page lists the screens, every field with its type and rule, what the detail page shows, which stage feeds it and which stage it feeds, the stock it moves, and the small things that are easy to miss. Sources are the dev brief, the 12 register photos and the Kheda audit recording. <strong>Anything we had to guess is marked "confirm".</strong></p>
     <div class="facts">
@@ -242,7 +242,7 @@
       <a href="#s5"><span class="dot done"></span>5 Press</a>
       <a href="#s6"><span class="dot done"></span>6 Moulding</a>
       <a href="#s7"><span class="dot done"></span>7 Cutting · QC · FG</a>
-      <a href="#s8"><span class="dot planned"></span>8 Stock · Owner · Demo</a>
+      <a href="#s8"><span class="dot done"></span>8 Stock · Owner · Demo</a>
       <a href="#s9"><span class="dot planned"></span>9 Order → Despatch</a>
       <a href="#s10"><span class="dot planned"></span>10 CRM · Purchase</a>
       <a href="#s11"><span class="dot planned"></span>11 Documents · Tally</a>
@@ -901,7 +901,7 @@
 
 <!-- ============ STAGE 8 ============ -->
       <section id="s8">
-        <div class="mod-head"><h2>Stage 8 · Stock, owner overview, offline, demo</h2><span class="verdict planned">PLANNED</span><span class="when">Week 5 · mid-November demo</span></div>
+        <div class="mod-head"><h2>Stage 8 · Stock, owner overview, offline, demo</h2><span class="verdict done">DONE · TESTED</span><span class="when">finished 8 Oct · demo loaded</span></div>
         <div class="grid2">
           <div class="box"><h4>Stock</h4><p>One grid for every type, weight first: item, type, store, kg, nos, lots, oldest lot age, reorder flag. Filters by type and store, search as you type. Click a row → lots → lot page. Reinforcement stock list (the dated diary page) becomes a stocktake screen that posts the difference.</p></div>
           <div class="box"><h4>Owner overview (three questions only)</h4><ul><li><b>Produced today:</b> press batches and kg by thickness, moulded pieces, resin kg and yield %</li><li><b>On plan:</b> today's plan (written the day before) against actual, and the order shortfall list</li><li><b>Breakdowns:</b> failed batches, idle presses, damaged material, B-stage at risk</li></ul></div>
@@ -909,7 +909,18 @@
           <div class="box"><h4>Demo script</h4><ol style="margin:0;padding-left:18px"><li>Resin batch CCCPL/110726/06 → yield 53.8%</li><li>Dryer 2 day sheet → B-stage lots on the board</li><li>Press batch F/03/10/2026 → 996.300 kg, 24 sheets</li><li>Thickness and FG inspection</li><li>Stock and his three-question overview on a phone</li></ol></div>
         </div>
         <p class="exit"><b>Done when:</b> the demo runs on their own numbers on a phone over a hotspot. Polish resin, the B-stage board and the moulding grid before anything else.</p>
-      </section>
+            <h3>What was built</h3>
+        <div class="itemlist">
+          <div class="item done"><span class="mark">✓</span><span class="txt"><b>All stock</b> (Store): one grid for every type and store, weight first — item, type, store, kg or pieces, nos, lots, oldest lot age, kg on hold, reorder flag (from the item's reorder point); filter by type and store, search as you type; click a row for its lots, click a lot for the <b>lot page</b> (where it is, what is left, every movement in and out with its reason).</span></div>
+          <div class="item done"><span class="mark">✓</span><span class="txt"><b>Stocktake</b>: pick the store and type (reinforcement by default, as on the dated stock list), enter the counted quantity for the lots counted; only the differences are posted, with the count date in the reason. Reserved stock cannot be counted away.</span></div>
+          <div class="item done"><span class="mark">✓</span><span class="txt"><b>Owner overview</b> (Overview, opens first on the phone): <b>1</b> produced — press kg and sheets by thickness, moulded pieces and kg, resin kg and yield %, B-stage coated; <b>2</b> against the plan — each line of the day's plan with actual and a bar, plus orders short of finished stock; <b>3</b> breakdowns — idle presses, failed resin batches (30 days), B-stage at risk, damaged material (week), offline saves that overwrote a change.</span></div>
+          <div class="item done"><span class="mark">✓</span><span class="txt"><b>Production plan</b>, written the day before: lines by area (resin, coating, press, moulding), machine / dryer, die or grade, planned kg / nos / sheets.</span></div>
+          <div class="item done"><span class="mark">✓</span><span class="txt"><b>Phone and offline</b>: installs to the home screen (Creative Carbon icon, opens on the owner overview); masters and form set-ups are kept on the phone; the moulding register, dryer sheet, thickness and chemical issue screens save on the phone when there is no network and show "N waiting to sync", then sync by themselves. If someone changed the same record meanwhile, the last save wins and the clash is listed for the owner. Posting (stock moves) waits for the network.</span></div>
+          <div class="item done"><span class="mark">✓</span><span class="txt"><b>Demo on their own numbers</b> (<code>node scripts/cc-seed/seed-demo.mjs</code>): resin CCCPL/110726/06 → 2971.5 kg in, 1600 kg, <b>53.8 %</b>; the 3 July Dryer 2 and 3 sheets → 1570.66 / 1666.66 kg and lots on the board (blocked by age, as they are); press F/01–F/04 of 2 October → 814.600 · 1008.800 · <b>996.300</b> (24 sheets) · 776.700 kg; F/03 cut, thickness-checked and FG-inspected (2 pieces to BHEL, 6 for export); the 13 June moulding register (die 1142: 97 of 100); today's plan. It only adds what is missing, so it can be run again.</span></div>
+          <div class="item partial"><span class="mark">→</span><span class="txt">Running it on a phone over a hotspot, and polishing resin, the B-stage board and the moulding grid by eye, needs a browser session (the API checks all pass; the visual click-through is still to do).</span></div>
+        </div>
+        <p class="exit"><b>Tested 8 Oct:</b> type check 0 errors · end-to-end suite Stages 0–8: <b>85 / 85 passing</b>, run with the demo data loaded and leaving it untouched — plan vs actual (17 of 30 nos on machine 12, 10 of 10 on 11), idle machines, stock grid and lot page, stocktake posting only −0.5 kg with the count date, a stale offline save refused, replayed without the version and the clash shown to the owner, manifest / icons / offline worker served, the demo's 53.8 %, 996.300 kg / 24 sheets, 3596.400 kg and 78 sheets pressed on 2 October, 1570.66 kg on Dryer 2. Found and fixed on the way: a typed "made before" now restarts a die's running total, so an old run of the same die and quantity is not added in.</p>
+</section>
 
 <!-- ============ STAGE 9 ============ -->
       <section id="s9">

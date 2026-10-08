@@ -21,6 +21,7 @@ import { useGranted } from '../../../cc_departments/components/useGranted'
 import { sheetFigures } from '../../lib/coatingFigures'
 import { kg, todayIso } from '../resin/shared'
 import { SHEET_STATUS, paperTime, type CoatingSetup, type SheetListItem, type SheetView } from './shared'
+import { OfflineBadge, isOffline, queueSave } from '../offline'
 
 const ROWS = 10
 
@@ -180,6 +181,12 @@ export function CoatingDayPage() {
       flash(t('cc_production.coating.pickCloth', 'Pick the cloth name on every row you filled'), 'error')
       return
     }
+    if (isOffline()) {
+      const dryerCode = setup?.dryers.find((dryer) => dryer.id === dryerId)?.code ?? 'dryer'
+      queueSave({ screen: 'Dryer sheet', recordRef: `${dryerCode} ${date}`, path: '/api/cc_production/coating/sheets', method: sheet ? 'PUT' : 'POST', body: sheet ? { ...body, id: sheet.id } : body, updatedAt: sheet?.updatedAt ?? null })
+      flash(t('cc_production.offline.queued', 'Saved on this phone. It will sync when the network is back. Post it once it has synced.'), 'success')
+      return
+    }
     setBusy(true)
     try {
       const saved = await send<SheetView>('/api/cc_production/coating/sheets', sheet ? 'PUT' : 'POST', sheet ? { ...body, id: sheet.id } : body, sheet?.updatedAt ?? null)
@@ -237,6 +244,7 @@ export function CoatingDayPage() {
               </p>
             </div>
             <div className="flex flex-wrap items-center gap-2">
+              <OfflineBadge onSynced={() => void load()} />
               <Input type="date" className="w-44" value={date} onChange={(event) => setDate(event.target.value)} aria-label={t('cc_production.resin.date', 'Date')} />
               <Button asChild variant="outline">
                 <Link href="/backend/bstage">

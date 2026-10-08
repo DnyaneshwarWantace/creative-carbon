@@ -381,3 +381,29 @@ export const directInSchema = z.object({
 })
 
 export const damageSchema = z.object({ entryDate: isoDate, lotId: z.string().uuid(), kg: z.coerce.number().positive().max(1_000_000), reason: z.string().trim().min(2).max(300) })
+
+export const ownerQuerySchema = z.object({ date: isoDate })
+
+export const planLineSchema = z.object({
+  area: z.enum(['resin', 'coating', 'press', 'moulding']),
+  resource: z.string().trim().max(40).default(''),
+  item: optionalText(80),
+  plannedQty: z.coerce.number().min(0).max(10_000_000),
+  unit: z.enum(['kg', 'nos', 'sheets']),
+  note: optionalText(200),
+})
+
+export const planSaveSchema = z.object({ planDate: isoDate, lines: z.array(planLineSchema).max(80), notes: optionalText(1000) })
+
+export const stockGridSchema = z.object({ kind: z.string().max(40).optional(), place: z.enum(['wh_a', 'wh_b', 'tank', 'floor', 'fg']).optional(), q: z.string().trim().max(100).optional() })
+
+export const stocktakeQuerySchema = z.object({ place: z.enum(['wh_a', 'wh_b', 'tank', 'floor', 'fg']), kind: z.string().max(40).optional() })
+
+export const stocktakeSchema = z.object({
+  place: z.enum(['wh_a', 'wh_b', 'tank', 'floor', 'fg']),
+  countDate: isoDate,
+  lines: z.array(z.object({ lotId: z.string().uuid(), counted: z.coerce.number().min(0).max(10_000_000) })).min(1).max(500),
+  note: optionalText(300),
+})
+
+export const clashSchema = z.object({ screen: z.string().trim().min(1).max(80), recordRef: z.string().trim().min(1).max(200), detail: optionalText(1000) })

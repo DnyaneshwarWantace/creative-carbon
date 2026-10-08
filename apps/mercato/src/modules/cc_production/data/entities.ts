@@ -1309,3 +1309,71 @@ export class DamageEntry {
   @Property({ name: 'deleted_at', type: Date, nullable: true })
   deletedAt?: Date | null
 }
+
+export type PlanLine = { area: 'resin' | 'coating' | 'press' | 'moulding'; resource: string; item: string | null; plannedQty: number; unit: 'kg' | 'nos' | 'sheets'; note: string | null }
+
+@Entity({ tableName: 'cc_production_plans' })
+@Index({
+  name: 'cc_production_plans_day_unique_idx',
+  expression: 'create unique index "cc_production_plans_day_unique_idx" on "cc_production_plans" ("organization_id", "plan_date")',
+})
+export class ProductionPlan {
+  [OptionalProps]?: 'createdAt' | 'updatedAt' | 'byName' | 'notes'
+
+  @PrimaryKey({ type: 'uuid', defaultRaw: 'gen_random_uuid()' })
+  id!: string
+
+  @Property({ name: 'organization_id', type: 'uuid' })
+  organizationId!: string
+
+  @Property({ name: 'tenant_id', type: 'uuid' })
+  tenantId!: string
+
+  @Property({ name: 'plan_date', type: 'text' })
+  planDate!: string
+
+  @Property({ type: 'json' })
+  lines!: PlanLine[]
+
+  @Property({ type: 'text', nullable: true })
+  notes?: string | null
+
+  @Property({ name: 'by_name', type: 'text', nullable: true })
+  byName?: string | null
+
+  @Property({ name: 'created_at', type: Date, onCreate: () => new Date() })
+  createdAt: Date = new Date()
+
+  @Property({ name: 'updated_at', type: Date, onCreate: () => new Date(), onUpdate: () => new Date() })
+  updatedAt: Date = new Date()
+}
+
+@Entity({ tableName: 'cc_sync_clashes' })
+@Index({ name: 'cc_sync_clashes_scope_idx', properties: ['organizationId', 'tenantId', 'createdAt'] })
+export class SyncClash {
+  [OptionalProps]?: 'createdAt' | 'byName' | 'detail'
+
+  @PrimaryKey({ type: 'uuid', defaultRaw: 'gen_random_uuid()' })
+  id!: string
+
+  @Property({ name: 'organization_id', type: 'uuid' })
+  organizationId!: string
+
+  @Property({ name: 'tenant_id', type: 'uuid' })
+  tenantId!: string
+
+  @Property({ type: 'text' })
+  screen!: string
+
+  @Property({ name: 'record_ref', type: 'text' })
+  recordRef!: string
+
+  @Property({ type: 'text', nullable: true })
+  detail?: string | null
+
+  @Property({ name: 'by_name', type: 'text', nullable: true })
+  byName?: string | null
+
+  @Property({ name: 'created_at', type: Date, onCreate: () => new Date() })
+  createdAt: Date = new Date()
+}

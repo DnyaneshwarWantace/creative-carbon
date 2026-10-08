@@ -49,14 +49,14 @@ export type LotInfo = {
   metadata: Record<string, unknown>
 }
 
-type LotRow = { lot_id: string; lot_number: string; product_id: string; title: string; kind: string; unit: string | null; location_id: string; status: string | null; on_hand: string; free: string; metadata: Record<string, unknown> | null; manufactured_at: Date | null }
+type LotRow = { lot_id: string; lot_number: string; product_id: string; title: string; kind: string; unit: string | null; location_id: string; status: string | null; on_hand: string; free: string; metadata: Record<string, unknown> | null; manufactured_at: Date | null; created_at: Date }
 
 async function lotRows(ctx: StoreContext, filter: { lotId?: string; kinds?: string[]; places?: StockPlace[] }): Promise<LotInfo[]> {
   const stock = await plantStock(ctx, [])
   const places = filter.places ?? (['wh_a', 'wh_b', 'floor', 'fg', 'tank'] as StockPlace[])
   const rows = await ctx.em.getConnection().execute<LotRow[]>(
     `select lot.id as lot_id, lot.lot_number, p.id as product_id, p.title, p.custom_fieldset_code as kind, p.default_unit as unit, b.location_id,
-            coalesce(lot.status, 'available') as status, b.quantity_on_hand as on_hand, (b.quantity_on_hand - b.quantity_reserved - b.quantity_allocated) as free, lot.metadata, lot.manufactured_at
+            coalesce(lot.status, 'available') as status, b.quantity_on_hand as on_hand, (b.quantity_on_hand - b.quantity_reserved - b.quantity_allocated) as free, lot.metadata, lot.manufactured_at, lot.created_at
        from wms_inventory_lots lot
        join catalog_product_variants v on v.id = lot.catalog_variant_id
        join catalog_products p on p.id = v.product_id
@@ -94,7 +94,7 @@ async function lotRows(ctx: StoreContext, filter: { lotId?: string; kinds?: stri
       batchNo: typeof meta.batchNo === 'string' ? meta.batchNo : null,
       cutSize: typeof meta.cutSize === 'string' ? meta.cutSize : null,
       articleWeightKg: numberFrom(meta.articleWeightKg),
-      madeOn: row.manufactured_at ? new Date(row.manufactured_at).toISOString().slice(0, 10) : null,
+      madeOn: new Date(row.manufactured_at ?? row.created_at).toISOString().slice(0, 10),
       metadata: meta,
     }
   })

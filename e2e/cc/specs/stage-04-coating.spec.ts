@@ -1,9 +1,12 @@
 import { expect, test, type APIRequestContext } from '@playwright/test'
 
 const LOCK = 'x-om-ext-optimistic-lock-expected-updated-at'
-const PAPER_DATE = '2026-07-03'
 const today = new Date(Date.now() + 5.5 * 3600_000).toISOString().slice(0, 10)
 const stamp = Date.now()
+const PAST_YEAR = 1990 + (stamp % 30)
+const YY = String(PAST_YEAR).slice(2)
+const PAPER_DATE = `${PAST_YEAR}-07-03`
+const LOT = `B-0307${YY}`
 
 type Setup = { dryers: Array<{ id: string; code: string; kind: string }>; cloths: Array<{ id: string; title: string; free: number }>; resinLots: Array<{ lotId: string; lotNumber: string | null; free: number }> }
 type Sheet = {
@@ -99,7 +102,7 @@ test.describe.serial('Stage 4 · coating (dryer sheets) and the B-stage board', 
     resinBatch = (await posted.json()) as typeof resinBatch
   })
 
-  test('the 3 July Dryer 2 sheet types in and gives the ringed totals: 861 kg raw, 786 nos, 1570 kg output', async ({ request }) => {
+  test('the 3 July Dryer 2 sheet (photo figures, test year) types in and gives the ringed totals: 861 kg raw, 786 nos, 1570 kg output', async ({ request }) => {
     const clothBefore = await clothFree(request, '10x10')
     const body = {
       sheetDate: PAPER_DATE,
@@ -141,7 +144,7 @@ test.describe.serial('Stage 4 · coating (dryer sheets) and the B-stage board', 
     expect(posted.ok(), await posted.text()).toBeTruthy()
     dryer2 = (await posted.json()) as Sheet
     expect(dryer2.status).toBe('posted')
-    expect(dryer2.rows.map((row) => row.bstageLotNumber)).toEqual(['B-030726-D2-1', 'B-030726-D2-2', 'B-030726-D2-3', 'B-030726-D2-4'])
+    expect(dryer2.rows.map((row) => row.bstageLotNumber)).toEqual([`${LOT}-D2-1`, `${LOT}-D2-2`, `${LOT}-D2-3`, `${LOT}-D2-4`])
     expect(round(dryer2.rows.reduce((sum, row) => sum + (row.bstageKg ?? 0), 0))).toBe(1570.66)
     expect(dryer2.rows[0].resinBatchNo).toBe(resinBatch.batchNo)
     expect(await clothFree(request, '10x10')).toBe(round(clothBefore - 498))
@@ -159,10 +162,10 @@ test.describe.serial('Stage 4 · coating (dryer sheets) and the B-stage board', 
   })
 
   test('the lots are on the board with their clocks; a 3 July lot is past 10 days and blocked', async ({ request }) => {
-    const board = (await (await request.get('/api/cc_production/bstage?q=B-030726-D2')).json()) as Board
+    const board = (await (await request.get(`/api/cc_production/bstage?q=${LOT}-D2`)).json()) as Board
     const blocked = board.columns.find((column) => column.band === 'blocked')!
-    expect(blocked.lots.map((lot) => lot.lotNumber).sort()).toEqual(['B-030726-D2-1', 'B-030726-D2-2', 'B-030726-D2-3', 'B-030726-D2-4'])
-    const first = blocked.lots.find((lot) => lot.lotNumber === 'B-030726-D2-1')!
+    expect(blocked.lots.map((lot) => lot.lotNumber).sort()).toEqual([`${LOT}-D2-1`, `${LOT}-D2-2`, `${LOT}-D2-3`, `${LOT}-D2-4`])
+    const first = blocked.lots.find((lot) => lot.lotNumber === `${LOT}-D2-1`)!
     expect(first.nosLeft).toBe(325)
     expect(first.clothTitle).toBe('10x10')
     expect(first.resinBatchNo).toBe(resinBatch.batchNo)
@@ -195,17 +198,17 @@ test.describe.serial('Stage 4 · coating (dryer sheets) and the B-stage board', 
     await removeSheet(request, today, dryer('Dryer 1').id)
   })
 
-  test('the 3 July Dryer 3 sheet comes in through the two upload tiles and posts (Stage 2 upload centre)', async ({ request }) => {
+  test('the 3 July Dryer 3 sheet (test year) comes in through the two upload tiles and posts (Stage 2 upload centre)', async ({ request }) => {
     const registers = (await (await request.get('/api/cc_production/upload')).json()) as { items: Array<{ key: string }> }
     expect(registers.items.map((item) => item.key)).toEqual(expect.arrayContaining(['dryer_sheets', 'dryer_slots']))
-    const slotsCsv = ['Date,Dryer,Time,DBP,Olic Acid,Remarks', '3/7/26,3,4.00,,,241.416', 'do,do,6.00,,,610.542', 'do,do,20.00,,,615.754', 'do,do,22.00,15,,198.948'].join('\n')
+    const slotsCsv = ['Date,Dryer,Time,DBP,Olic Acid,Remarks', `3/7/${PAST_YEAR},3,4.00,,,241.416`, 'do,do,6.00,,,610.542', 'do,do,20.00,,,615.754', 'do,do,22.00,15,,198.948'].join('\n')
     const slots = await request.post('/api/cc_production/upload', { multipart: { register: 'dryer_slots', dryRun: 'false', file: { name: `slots-${stamp}.csv`, mimeType: 'text/csv', buffer: Buffer.from(slotsCsv) } } })
     expect(slots.ok(), await slots.text()).toBeTruthy()
     expect(((await slots.json()) as { created: number }).created).toBe(1)
 
     const rowsCsv = [
       'Date,Dryer,S.N.,Cloth Name,GSM,Kushan,Treated Cloth Weight,Raw Cloth Weight,Balance Raw Cloth,Coated Cloth Nos,Resine Type / Batch,RC,VC,Post',
-      '03/07/2026,Dryer 3,6,10x10,300,1070,1916,140,NIL,126,P.F,44,3.1,Yes',
+      `03/07/${PAST_YEAR},Dryer 3,6,10x10,300,1070,1916,140,NIL,126,P.F,44,3.1,Yes`,
       'do,do,7,10x10,300,1070,1926,343,NIL,317,P.F,44,3.2,',
       'do,do,8,10x10,300,1020,1961,341,NIL,314,P.F,45,3.3,',
       'do,do,9,G-10x10,280,920,1686,109,NIL,118,P.F,45,2.5,',
@@ -228,7 +231,7 @@ test.describe.serial('Stage 4 · coating (dryer sheets) and the B-stage board', 
     expect(dryer3.figures.nosTotal).toBe(875)
     expect(dryer3.figures.outputTotal).toBe(1666.66)
     expect(dryer3.figures.dbpTotal).toBe(15)
-    expect(dryer3.rows.map((row) => row.bstageLotNumber)).toEqual(['B-030726-D3-6', 'B-030726-D3-7', 'B-030726-D3-8', 'B-030726-D3-9'])
+    expect(dryer3.rows.map((row) => row.bstageLotNumber)).toEqual([`${LOT}-D3-6`, `${LOT}-D3-7`, `${LOT}-D3-8`, `${LOT}-D3-9`])
   })
 
   test('coating pages open', async ({ request }) => {

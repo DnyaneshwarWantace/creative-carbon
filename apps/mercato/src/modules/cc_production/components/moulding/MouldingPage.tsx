@@ -17,6 +17,7 @@ import { useGuardedMutation } from '@open-mercato/ui/backend/injection/useGuarde
 import { flash } from '@open-mercato/ui/backend/FlashMessages'
 import { useGranted } from '../../../cc_departments/components/useGranted'
 import { kg, todayIso } from '../resin/shared'
+import { OfflineBadge, isOffline, queueSave } from '../offline'
 
 type Setup = { presses: Array<{ id: string; number: number; isWorking: boolean }>; operators: string[]; chindi: Array<{ id: string; title: string }>; cloths: Array<{ id: string; title: string }> }
 type EntryView = {
@@ -181,7 +182,13 @@ export function MouldingPage() {
           curingTime: value('curingTime'),
         }
       })
-    const call = await send('/api/cc_production/moulding', 'PUT', { entryDate: date, shift, entries })
+    const body = { entryDate: date, shift, entries }
+    if (isOffline()) {
+      queueSave({ screen: 'Moulding register', recordRef: `${date} shift ${shift}`, path: '/api/cc_production/moulding', method: 'PUT', body, updatedAt: current?.entries.length ? current.version : null })
+      flash(t('cc_production.offline.queued', 'Saved on this phone. It will sync when the network is back.'), 'success')
+      return null
+    }
+    const call = await send('/api/cc_production/moulding', 'PUT', body)
     if (!call.ok || !call.result || call.result.error) {
       flash(call.result?.error ?? t('cc_production.moulding.saveError', 'Could not save the shift.'), 'error')
       return null
@@ -283,6 +290,7 @@ export function MouldingPage() {
               </p>
             </div>
             <div className="flex flex-wrap items-center gap-2">
+              <OfflineBadge onSynced={() => void load()} />
               <Input type="date" className="w-44" value={date} onChange={(event) => setDate(event.target.value)} aria-label={t('cc_production.resin.date', 'Date')} />
               <Button asChild variant="outline">
                 <Link href={`/backend/moulding/dies?date=${date}`}>

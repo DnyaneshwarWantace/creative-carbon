@@ -18,6 +18,7 @@ import { useGuardedMutation } from '@open-mercato/ui/backend/injection/useGuarde
 import { flash } from '@open-mercato/ui/backend/FlashMessages'
 import { useGranted } from '../../../cc_departments/components/useGranted'
 import { day, kg, thisMonth, todayIso, type ResinSetup } from './shared'
+import { OfflineBadge, isOffline, queueSave } from '../offline'
 
 type Issue = { id: string; issueDate: string; productTitle: string; kg: number; usedFor: 'coating' | 'other'; dryerCode: string | null; note: string | null; lots: Array<{ lotNumber: string | null; kg: number }>; status: 'posted' | 'cancelled'; byName: string | null; updatedAt: string }
 type Dryer = { id: string; code: string }
@@ -72,6 +73,12 @@ export function ChemicalIssuesPage() {
       flash(t('cc_production.issues.fill', 'Pick the chemical and enter the kg'), 'error')
       return
     }
+    if (isOffline()) {
+      queueSave({ screen: 'Chemical issue', recordRef: `${body.issueDate} ${body.productId} ${Date.now()}`, path: '/api/cc_production/resin/issues', method: 'POST', body, updatedAt: null })
+      flash(t('cc_production.offline.queued', 'Saved on this phone. It will sync when the network is back.'), 'success')
+      setForm({ ...EMPTY, issueDate: form.issueDate, productId: form.productId, usedFor: form.usedFor, dryerCode: form.dryerCode })
+      return
+    }
     setBusy(true)
     try {
       const call = await runMutation({
@@ -122,6 +129,7 @@ export function ChemicalIssuesPage() {
       <PageBody>
         <div className="mx-auto flex max-w-5xl flex-col gap-6 pb-12">
           <header className="space-y-1">
+            <OfflineBadge onSynced={() => void load()} />
             <p className="text-overline font-semibold uppercase tracking-widest text-muted-foreground">{t('cc_production.resin.plant', 'Resin plant')}</p>
             <h1 className="text-2xl font-bold tracking-tight">{t('cc_production.issues.title', 'Chemical issue')}</h1>
             <p className="max-w-2xl text-sm text-muted-foreground">

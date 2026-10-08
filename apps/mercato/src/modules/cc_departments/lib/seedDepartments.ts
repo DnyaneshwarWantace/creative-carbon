@@ -56,6 +56,8 @@ export const CC_DEPARTMENTS: DepartmentSeed[] = [
       'cc_production.quality.view',
       'cc_production.cutting.enter',
       'cc_production.quality.enter',
+      'cc_production.owner.view',
+      'cc_production.plan.manage',
       'cc_orders.view',
       'cc_orders.full',
       'cc_orders.stages',

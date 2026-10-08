@@ -15,6 +15,7 @@ import { flash } from '@open-mercato/ui/backend/FlashMessages'
 import { useGranted } from '../../../cc_departments/components/useGranted'
 import { day, kg, thisMonth, todayIso } from '../resin/shared'
 import { lotLabel, selectClass, useSend, useSetup } from './shared'
+import { OfflineBadge, isOffline, queueSave } from '../offline'
 
 type Cutting = { id: string; entryDate: string; sourceLotNumber: string | null; sheetsIn: number; sourceKgUsed: number; cutSize: string; trimmedKg: number; trimKg: number; trimPct: number; outputLotNumber: string | null; status: string; warnings: string[]; updatedAt: string }
 
@@ -236,6 +237,12 @@ export function ThicknessPage() {
     setBusy(true)
     try {
       const body = { inspectDate: form.inspectDate, lotId: form.lotId || null, lotRef: form.lotRef, grade: form.grade, daylight: form.daylight, targetMm: form.targetMm, minusMm: form.minusMm, plusMm: form.plusMm, readings: form.readings.map(Number), result }
+      if (isOffline()) {
+        queueSave({ screen: 'Thickness inspection', recordRef: `${form.lotRef || form.lotId} ${form.inspectDate} ${Date.now()}`, path: '/api/cc_production/thickness', method: 'POST', body, updatedAt: null })
+        flash(t('cc_production.offline.queued', 'Saved on this phone. It will sync when the network is back.'), 'success')
+        setForm({ ...form, lotId: '', lotRef: '', daylight: '', readings: Array.from({ length: 12 }, () => '') })
+        return
+      }
       const saved = await send<Thickness>('/api/cc_production/thickness', 'POST', body)
       if (saved) {
         flash(saved.result === 'pass' ? t('cc_production.thickness.passed', 'Passed.') : t('cc_production.thickness.held', 'On hold. The lot stays out of FG.'), saved.result === 'pass' ? 'success' : 'error')
@@ -251,6 +258,7 @@ export function ThicknessPage() {
     <Page>
       <PageBody>
         <div className="mx-auto flex max-w-5xl flex-col gap-6 pb-12">
+          <OfflineBadge onSynced={() => void load()} />
           <Header eyebrow={t('cc_production.quality.eyebrow', 'Quality')} title={t('cc_production.thickness.title', 'Thickness inspection')} lede={t('cc_production.thickness.lede', 'Twelve readings per board, rows 4′ 8′ 4′ 8′ as in the book. A board on hold stays out of the FG store until it passes. The tolerance is kept per thickness once entered.')} month={month} setMonth={setMonth} />
           {granted.has('cc_production.quality.enter') ? (
             <section className="grid grid-cols-1 gap-4 rounded-xl border border-border bg-card p-5 shadow-sm md:grid-cols-6">

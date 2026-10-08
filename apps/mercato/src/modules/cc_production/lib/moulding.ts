@@ -319,7 +319,7 @@ export async function runningTotals(ctx: StoreContext, items: MouldingEntry[]): 
   const totals = new Map<string, number>()
   for (const item of all) {
     const runKey = `${item.mouldId}|${item.orderRef ?? `qty:${item.orderQty ?? ''}`}`
-    const before = totals.has(runKey) ? totals.get(runKey)! : item.priorMade ?? 0
+    const before = item.priorMade !== null && item.priorMade !== undefined ? item.priorMade : totals.get(runKey) ?? 0
     const after = before + item.productionNos
     totals.set(runKey, after)
     result.set(item.id, after)
@@ -402,12 +402,25 @@ export async function mouldingEntryView(ctx: StoreContext, id: string) {
   if (item.status === 'posted' && item.outputProductId && item.outputLotId) leftNos = await lotOnHand(ctx, await plantStock(ctx, [item.outputProductId]), item.outputProductId, item.outputLotId, 'floor')
   const sameRun = await ctx.em.find(MouldingEntry, { ...scope(ctx), mouldId: item.mouldId, deletedAt: null, ...(item.orderRef ? { orderRef: item.orderRef } : { orderQty: item.orderQty ?? null }) }, { orderBy: { entryDate: 'asc', shift: 'asc' } })
   const runTotals = await runningTotals(ctx, sameRun)
+  const ownIndex = sameRun.findIndex((other) => other.id === item.id)
+  let start = 0
+  sameRun.forEach((other, index) => {
+    if (ownIndex >= index && other.priorMade !== null && other.priorMade !== undefined) start = index
+  })
+  let end = sameRun.length
+  for (let index = ownIndex + 1; index < sameRun.length; index += 1) {
+    if (sameRun[index].priorMade !== null && sameRun[index].priorMade !== undefined) {
+      end = index
+      break
+    }
+  }
+  const segment = sameRun.slice(start, end)
   return {
     ...entryView(item, totals.get(item.id)),
     entryDate: item.entryDate,
     shift: item.shift,
     leftNos,
-    run: sameRun.map((other) => ({ id: other.id, entryDate: other.entryDate, shift: other.shift, pressNumber: other.pressNumber, productionNos: other.productionNos, total: runTotals.get(other.id) ?? other.productionNos, status: other.status })),
+    run: segment.map((other) => ({ id: other.id, entryDate: other.entryDate, shift: other.shift, pressNumber: other.pressNumber, productionNos: other.productionNos, total: runTotals.get(other.id) ?? other.productionNos, status: other.status })),
   }
 }
 
