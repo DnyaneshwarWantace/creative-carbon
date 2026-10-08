@@ -71,7 +71,7 @@ export const openApi: OpenApiRouteDoc = {
   tag: 'Creative Carbon CRM',
   summary: 'Quotations (lines as on an order; currency, incoterm, valid until)',
   methods: {
-    GET: { summary: 'List (?status=&enquiryId=) or one (?id=)', tags: ['Creative Carbon CRM'], query: quotationListSchema, responses: [{ status: 200, description: 'Quotations', schema: z.object({}).passthrough() }] },
+    GET: { summary: 'List (?status=&enquiryId=&orderId=) or one (?id=)', tags: ['Creative Carbon CRM'], query: quotationListSchema, responses: [{ status: 200, description: 'Quotations', schema: z.object({}).passthrough() }] },
     POST: { summary: 'Make a quotation (number CCCPL/QT/<FY>/<n>); orderDate is the quotation date', tags: ['Creative Carbon CRM'], requestBody: { schema: quotationInputSchema }, responses: [{ status: 201, description: 'Created', schema: z.object({ id: z.string(), quoteNo: z.string() }) }] },
     PUT: { summary: 'Change a quotation (until it becomes an order)', tags: ['Creative Carbon CRM'], requestBody: { schema: quotationUpdateSchema }, responses: [{ status: 200, description: 'Saved', schema: z.object({ ok: z.boolean() }).passthrough() }] },
   },

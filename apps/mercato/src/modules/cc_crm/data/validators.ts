@@ -65,6 +65,7 @@ export const quotationActionSchema = z.object({
 export const quotationListSchema = z.object({
   id: z.string().uuid().optional(),
   enquiryId: z.string().uuid().optional(),
+  orderId: z.string().uuid().optional(),
   status: z.enum(['draft', 'sent', 'accepted', 'rejected', 'converted', 'open', 'all']).default('all'),
 })
 
