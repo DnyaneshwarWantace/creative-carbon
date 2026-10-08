@@ -11,6 +11,9 @@ import { APP_VERSION } from '@open-mercato/shared/lib/version'
 import { parseBooleanWithDefault } from '@open-mercato/shared/lib/boolean'
 import { PageInjectionBoundary } from '@open-mercato/ui/backend/injection/PageInjectionBoundary'
 import { BackendHeaderChrome } from '@/components/BackendHeaderChrome'
+import { redirect } from 'next/navigation'
+import { resolveWorkspaceAccess } from '@/modules/cc_departments/lib/workspaceAccess'
+import { allowedOn, homeFor, pathKind } from '@/modules/cc_departments/lib/workspace'
 import { enabledModules } from '@/modules'
 
 function collectStaticSettingsPathPrefixes(): string[] {
@@ -51,6 +54,12 @@ export default async function BackendLayout({
   if (!path) {
     const slug = resolvedParams.slug ?? []
     path = '/backend' + (Array.isArray(slug) && slug.length > 0 ? `/${slug.join('/')}` : '')
+  }
+
+  const workspaceAccess = await resolveWorkspaceAccess(auth)
+  if (auth?.sub && !allowedOn(pathKind(path), workspaceAccess)) {
+    const home = homeFor(workspaceAccess)
+    if (home && home !== path) redirect(home)
   }
 
   const { translate, locale, dict } = await resolveTranslations()
@@ -108,6 +117,7 @@ export default async function BackendLayout({
         email={auth?.email}
         canManageUpgradeActions={canManageUpgradeActions}
         groups={[]}
+        workspaceAccess={workspaceAccess}
         currentTitle={currentTitle}
         breadcrumb={breadcrumb}
         sidebarCollapsedDefault={initialCollapsed}
