@@ -6,7 +6,7 @@ export const recordHref = {
   customer: (id: string) => `/backend/customers/companies/${id}`,
   vendor: (id: string) => `/backend/cc_vendors/${id}`,
   resinBatch: (id: string) => `/backend/resin/batches/${id}`,
-  chemicalIssue: () => '/backend/resin/issues',
+  chemicalIssue: (id: string) => `/backend/resin/issues/${id}`,
   coatingSheet: (id: string) => `/backend/coating/${id}`,
   bstageLot: (id: string) => `/backend/bstage/lots/${id}`,
   pressBatch: (id: string) => `/backend/press/batches/${id}`,
@@ -72,7 +72,8 @@ export function movementDocument(metadata: Record<string, unknown> | null | unde
     const label = [str(metadata.dieNo), str(metadata.entryDate), metadata.shift ? `S${metadata.shift}` : null].filter(Boolean).join(' · ')
     return { kind: 'moulding', label: label || null, href: recordHref.mouldingEntry(entryId) }
   }
-  if (source === 'cc_production.chemical_issue') return { kind: 'chemical_issue', label: str(metadata.dryerCode), href: recordHref.chemicalIssue() }
+  const issueId = str(metadata.issueId)
+  if (source === 'cc_production.chemical_issue') return { kind: 'chemical_issue', label: str(metadata.dryerCode), href: issueId ? recordHref.chemicalIssue(issueId) : '/backend/resin/issues' }
   if (source === 'cc_production.finishing') {
     if (str(metadata.cuttingId)) return { kind: 'cutting', label: null, href: recordHref.cutting() }
     if (str(metadata.fgReportId)) return { kind: 'fg_inspection', label: null, href: recordHref.fgInspection() }

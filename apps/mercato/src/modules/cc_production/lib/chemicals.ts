@@ -1,9 +1,9 @@
 import type { StoreContext } from '../../cc_store/lib/server'
 import { loadProducts } from '../../cc_orders/lib/server'
-import { ChemicalIssue, ResinBatch } from '../data/entities'
+import { ChemicalIssue, CoatingSheet, ResinBatch } from '../data/entities'
 import { PlantError } from './server'
 import { consumeLots, freeLots, kg3, movementTime, pickLots, plantStock, returnLots } from './plantStock'
-import { CHEMICAL_PLACES, chemicalProducts } from './resin'
+import { CHEMICAL_PLACES, chemicalProducts, lotSources } from './resin'
 
 const SOURCE = 'cc_production.chemical_issue'
 
@@ -68,6 +68,22 @@ export async function createIssue(ctx: StoreContext, input: ChemicalIssueInput, 
     throw error
   }
   return issueRow(issue)
+}
+
+export async function issueDetail(ctx: StoreContext, id: string) {
+  const issue = await findIssue(ctx, id)
+  const sources = await lotSources(ctx, (issue.lots ?? []).map((lot) => lot.lotId))
+  const sheet =
+    issue.usedFor === 'coating' && issue.dryerCode
+      ? await ctx.em.findOne(CoatingSheet, { organizationId: ctx.organizationId, tenantId: ctx.tenantId, dryerCode: issue.dryerCode, sheetDate: issue.issueDate, deletedAt: null })
+      : null
+  const row = issueRow(issue)
+  return {
+    ...row,
+    lots: row.lots.map((lot) => ({ ...lot, ...(sources.get(lot.lotId) ?? { grnCode: null, grnId: null }) })),
+    coatingSheet: sheet ? { id: sheet.id, sheetDate: sheet.sheetDate, dryerCode: sheet.dryerCode, status: sheet.status } : null,
+    createdAt: issue.createdAt.toISOString(),
+  }
 }
 
 export async function findIssue(ctx: StoreContext, id: string): Promise<ChemicalIssue> {

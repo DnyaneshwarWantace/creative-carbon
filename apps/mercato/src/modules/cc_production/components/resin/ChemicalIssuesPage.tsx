@@ -21,6 +21,7 @@ import { day, kg, thisMonth, todayIso, type ResinSetup } from './shared'
 import { OfflineBadge, isOffline, queueSave } from '../offline'
 import { PlantTable } from '../PlantTable'
 import { Dropdown } from '../../../cc_lists/components/Dropdown'
+import { recordHref } from '../../../cc_ui/lib/links'
 
 type Issue = { id: string; issueDate: string; productTitle: string; kg: number; usedFor: 'coating' | 'other'; dryerCode: string | null; note: string | null; lots: Array<{ lotNumber: string | null; kg: number }>; status: 'posted' | 'cancelled'; byName: string | null; updatedAt: string }
 type Dryer = { id: string; code: string }
@@ -207,11 +208,12 @@ export function ChemicalIssuesPage() {
               tableId="cc_production.chemical_issues"
               rows={items}
               rowKey={(row) => row.id}
+              rowHref={(row) => recordHref.chemicalIssue(row.id)}
               empty={<EmptyState className="py-14" variant="subtle" icon={<Beaker className="h-5 w-5" aria-hidden="true" />} title={t('cc_production.issues.empty', 'No chemical issues this month')} />}
               columns={[
                 { key: 'date', label: t('cc_production.resin.date', 'Date'), alwaysVisible: true, render: (issue) => day(issue.issueDate) },
                 { key: 'chemical', label: t('cc_production.register.item', 'Chemical'), render: (issue) => <span className="font-medium">{issue.productTitle}</span> },
-                { key: 'kg', label: 'kg', align: 'right', render: (issue) => kg(issue.kg) },
+                { key: 'kg', label: 'kg', align: 'right', render: (issue) => kg(issue.kg), total: kg(items.filter((issue) => issue.status !== 'cancelled').reduce((sum, issue) => sum + issue.kg, 0)) },
                 { key: 'usedFor', label: t('cc_production.issues.usedFor', 'Used for'), render: (issue) => (issue.usedFor === 'coating' ? `${t('cc_production.issues.coating', 'Coating dryer')} ${issue.dryerCode ?? ''}` : t('cc_production.issues.other', 'Other')) },
                 { key: 'lots', label: t('cc_production.resin.lots', 'Lots used'), render: (issue) => <span className="font-mono text-xs">{issue.lots.map((lot) => lot.lotNumber ?? '—').join(', ')}</span> },
                 { key: 'note', label: t('cc_production.issues.note', 'Note'), render: (issue) => issue.note ?? '' },
