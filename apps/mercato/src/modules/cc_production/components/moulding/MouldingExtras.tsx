@@ -3,19 +3,24 @@
 import * as React from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { ArrowLeft } from 'lucide-react'
+import { Boxes, History, Layers, Shapes } from 'lucide-react'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { Page, PageBody } from '@open-mercato/ui/backend/Page'
 import { Input } from '@open-mercato/ui/primitives/input'
 import { StatusBadge } from '@open-mercato/ui/primitives/status-badge'
 import { Spinner } from '@open-mercato/ui/primitives/spinner'
-import { ErrorMessage } from '@open-mercato/ui/backend/detail'
 import { apiCall } from '@open-mercato/ui/backend/utils/apiCall'
 import { HISTORY_LABEL, day, kg, todayIso, when } from '../resin/shared'
-import { PageLoading } from '../../../cc_ui/components/PageLoading'
+import { FieldList, HistoryPanel, LinkRows, Panel, PanelEmpty, RecordColumns, RecordPage, RecordState, RegisterGrid, type Fact } from '../../../cc_ui/components/RecordPage'
+import { PlantChain } from '../../../cc_ui/components/PlantChain'
+import { recordHref } from '../../../cc_ui/lib/links'
 
 type EntryPage = {
   id: string
+  pressId: string
+  mouldId: string
+  orderRef: string | null
+  outputLotId: string | null
   entryDate: string
   shift: number
   pressNumber: number
@@ -52,96 +57,111 @@ export function MouldingEntryPage({ entryId }: { entryId: string }) {
       else setEntry(call.result)
     })
   }, [entryId, t])
-  if (error) return <Page><PageBody><ErrorMessage label={error} /></PageBody></Page>
-  if (!entry) return <Page><PageBody><PageLoading label={t('cc_production.resin.loading', 'Loading…')} /></PageBody></Page>
-  const facts: Array<[string, string]> = [
-    [t('cc_production.resin.date', 'Date'), `${day(entry.entryDate)} · ${entry.shift === 1 ? '1st' : '2nd'} shift`],
-    [t('cc_production.moulding.machine', 'Machine No.'), String(entry.pressNumber)],
-    [t('cc_production.moulding.customer', 'Customer'), entry.customerName ?? '—'],
-    [t('cc_production.moulding.operator', 'Operator'), `${entry.operatorName ?? '—'}${entry.startTime ? ` · ${entry.startTime}` : ''}`],
-    [t('cc_production.moulding.production', 'Production'), `${entry.productionNos} nos × ${kg(entry.articleWeightKg)} kg = ${kg(entry.weightKg)} kg`],
-    [t('cc_production.moulding.order', 'Order'), entry.orderQty ? `${entry.total} of ${entry.orderQty} made` : `${entry.total} made`],
-    [t('cc_production.moulding.inputs', 'Inputs'), [entry.chindiKg ? `chindi ${kg(entry.chindiKg)} kg` : null, entry.clothKg ? `cloth ${kg(entry.clothKg)} kg${entry.clothNote ? ` (${entry.clothNote})` : ''}` : null, entry.bstageKg ? `B-stage ${entry.bstageGrade} ${kg(entry.bstageKg)} kg` : null].filter(Boolean).join(' · ') || '—'],
-    [t('cc_production.moulding.lot', 'Lot'), entry.outputLotNumber ? `${entry.outputLotNumber}${entry.leftNos !== null ? ` · ${entry.leftNos} nos left` : ''}` : '—'],
+  if (error || !entry) return <RecordState error={error} loadingLabel={t('cc_production.resin.loading', 'Loading…')} />
+  const shiftLabel = entry.shift === 1 ? t('cc_production.moulding.shiftFirst', '1st shift') : t('cc_production.moulding.shiftSecond', '2nd shift')
+  const facts: Fact[] = [
+    { label: t('cc_production.resin.date', 'Date'), value: day(entry.entryDate), hint: shiftLabel },
+    {
+      label: t('cc_production.moulding.machine', 'Machine No.'),
+      value: (
+        <Link className="underline-offset-2 hover:underline" href={recordHref.machine('press', entry.pressId)}>
+          {entry.pressNumber}
+        </Link>
+      ),
+    },
+    { label: t('cc_production.moulding.thisShift', 'This shift'), value: `${entry.productionNos} ${t('cc_ui.pcs', 'pcs')}`, hint: `${kg(entry.weightKg)} kg` },
+    { label: t('cc_production.moulding.totalMade', 'Total'), value: String(entry.total), hint: entry.orderQty ? t('cc_production.moulding.ofOrder', 'of {qty} ordered', { qty: entry.orderQty }) : undefined, tone: entry.orderQty && entry.total >= entry.orderQty ? 'good' : undefined },
+    { label: t('cc_production.moulding.articleWeight', 'Article weight'), value: `${kg(entry.articleWeightKg)} kg` },
+    { label: t('cc_production.moulding.lotLeft', 'Left in lot'), value: entry.leftNos !== null ? `${entry.leftNos} ${t('cc_ui.pcs', 'pcs')}` : '—' },
   ]
   return (
-    <Page>
-      <PageBody>
-        <div className="mx-auto flex max-w-4xl flex-col gap-5 pb-12">
-          <Link href={`/backend/moulding?date=${entry.entryDate}&shift=${entry.shift}`} className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
-            <ArrowLeft className="h-4 w-4" aria-hidden="true" />
-            {t('cc_production.moulding.title', 'Moulded products daily production register')}
+    <RecordPage
+      back={{ href: `/backend/moulding?date=${entry.entryDate}&shift=${entry.shift}`, label: t('cc_production.moulding.title', 'Moulded products daily production register') }}
+      overline={[t('cc_production.moulding.overline', 'Moulding register'), entry.customerName].filter(Boolean).join(' · ')}
+      title={
+        <>
+          {t('cc_production.moulding.die', 'Die')}{' '}
+          <Link className="underline-offset-4 hover:underline" href={recordHref.die(entry.mouldId)}>
+            {entry.dieNo}
           </Link>
-          <header className="flex flex-wrap items-center gap-3">
-            <h1 className="text-2xl font-bold tracking-tight">
-              {t('cc_production.moulding.die', 'Die')} <span className="font-mono">{entry.dieNo}</span>
-            </h1>
-            <StatusBadge variant={entry.status === 'posted' ? 'success' : 'warning'} dot>
-              {entry.status === 'posted' ? 'Posted' : 'Not posted'}
-            </StatusBadge>
-          </header>
-          <section className="grid grid-cols-1 gap-4 rounded-xl border border-border bg-card p-5 shadow-sm sm:grid-cols-2">
-            {facts.map(([label, value]) => (
-              <div key={label}>
-                <p className="text-xs uppercase tracking-wide text-muted-foreground">{label}</p>
-                <p className="mt-0.5 text-sm font-semibold">{value}</p>
-              </div>
-            ))}
-          </section>
-          {entry.picks.length ? (
-            <section className="rounded-xl border border-border bg-card p-5 shadow-sm">
-              <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide">{t('cc_production.coating.cameFrom', 'Came from')}</h2>
-              <ul className="space-y-1 text-sm">
-                {entry.picks.map((pick) => (
-                  <li key={`${pick.lotId}-${pick.grade}`} className="flex justify-between">
-                    <span className="font-mono text-xs">{pick.lotNumber}</span>
-                    <span className="text-xs text-muted-foreground">
-                      {pick.grade} · {kg(pick.kg)} kg
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            </section>
-          ) : null}
-          <section className="rounded-xl border border-border bg-card p-5 shadow-sm">
-            <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide">{t('cc_production.moulding.run', 'This die on this order')}</h2>
-            <ul className="space-y-1 text-sm tabular-nums">
-              {entry.run.map((other) => (
-                <li key={other.id} className="flex justify-between gap-3">
-                  <Link className="underline-offset-2 hover:underline" href={`/backend/moulding/entries/${other.id}`}>
-                    {day(other.entryDate)} · shift {other.shift} · machine {other.pressNumber}
-                  </Link>
-                  <span className="text-muted-foreground">
-                    +{other.productionNos} → {other.total}
-                    {entry.orderQty ? ` of ${entry.orderQty}` : ''}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          </section>
-          <section className="rounded-xl border border-border bg-card p-5 shadow-sm">
-            <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide">{t('cc_production.resin.history', 'History')}</h2>
-            <ul className="space-y-1.5 text-sm">
-              {[...entry.history].reverse().map((item, index) => (
-                <li key={`${item.at}-${index}`} className="flex flex-wrap justify-between gap-2">
-                  <span>
-                    <span className="font-medium">{HISTORY_LABEL[item.action] ?? item.action}</span>
-                    {item.note ? <span className="text-muted-foreground"> · {item.note}</span> : null}
-                  </span>
-                  <span className="text-xs text-muted-foreground">
-                    {item.by ?? '—'} · {when(item.at)}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          </section>
-        </div>
-      </PageBody>
-    </Page>
+        </>
+      }
+      badges={
+        <StatusBadge variant={entry.status === 'posted' ? 'success' : 'warning'} dot>
+          {entry.status === 'posted' ? t('cc_production.moulding.posted', 'Posted') : t('cc_production.moulding.notPosted', 'Not posted')}
+        </StatusBadge>
+      }
+      meta={[entry.operatorName ? t('cc_production.moulding.operatorIs', 'Operator {name}', { name: entry.operatorName }) : null, entry.startTime ? t('cc_production.moulding.startedAt', 'started {time}', { time: entry.startTime }) : null, entry.dieHeatTime ? t('cc_production.moulding.heatAt', 'die heat {time}', { time: entry.dieHeatTime }) : null].filter(Boolean).join(' · ')}
+      chain={<PlantChain route="moulded" current="moulding" hrefs={{ cutting: entry.outputLotId ? recordHref.lot(entry.outputLotId) : null }} />}
+      facts={facts}
+    >
+      <RecordColumns
+        main={
+          <>
+            <Panel title={t('cc_production.moulding.run', 'This die on this order')} icon={History} count={entry.run.length} flush>
+              <RegisterGrid
+                rows={entry.run}
+                rowKey={(other) => other.id}
+                rowHref={(other) => recordHref.mouldingEntry(other.id)}
+                empty={t('cc_production.moulding.noRun', 'No other shift on this die and order.')}
+                columns={[
+                  { key: 'date', label: t('cc_production.resin.date', 'Date'), render: (other) => `${day(other.entryDate)} · S${other.shift}` },
+                  { key: 'machine', label: t('cc_production.moulding.machine', 'Machine No.'), render: (other) => other.pressNumber },
+                  { key: 'status', label: t('cc_production.resin.status', 'Status'), render: (other) => <StatusBadge variant={other.status === 'posted' ? 'success' : 'warning'}>{other.status === 'posted' ? t('cc_production.moulding.posted', 'Posted') : t('cc_production.moulding.notPosted', 'Not posted')}</StatusBadge> },
+                  { key: 'nos', label: t('cc_production.moulding.thisShift', 'This shift'), align: 'right', render: (other) => `+${other.productionNos}` },
+                  { key: 'total', label: t('cc_production.moulding.totalMade', 'Total'), align: 'right', render: (other) => `${other.total}${entry.orderQty ? ` / ${entry.orderQty}` : ''}` },
+                ]}
+              />
+            </Panel>
+            <Panel title={t('cc_production.moulding.inputs', 'Inputs')} icon={Layers}>
+              <FieldList
+                fields={[
+                  [t('cc_production.moulding.chindi', 'Chindi'), entry.chindiKg ? `${kg(entry.chindiKg)} kg` : null],
+                  [t('cc_production.moulding.cloth', 'Cloth'), entry.clothKg ? `${kg(entry.clothKg)} kg${entry.clothNote ? ` (${entry.clothNote})` : ''}` : null],
+                  [t('cc_production.moulding.bstage', 'B-stage'), entry.bstageKg ? `${entry.bstageGrade ?? ''} ${kg(entry.bstageKg)} kg` : null],
+                  [t('cc_production.moulding.production', 'Production'), `${entry.productionNos} × ${kg(entry.articleWeightKg)} kg = ${kg(entry.weightKg)} kg`],
+                ]}
+              />
+            </Panel>
+          </>
+        }
+        side={
+          <>
+            <Panel title={t('cc_production.coating.cameFrom', 'Came from')} icon={Boxes} count={entry.picks.length} flush>
+              <LinkRows
+                empty={entry.status === 'draft' ? t('cc_production.resin.pickedOnPost', 'Picked when posted (oldest lot first)') : t('cc_production.moulding.noPicks', 'No stock lots recorded.')}
+                rows={entry.picks.map((pick) => ({ key: `${pick.lotId}-${pick.grade}`, href: recordHref.lot(pick.lotId), primary: <span className="font-mono">{pick.lotNumber ?? '—'}</span>, secondary: pick.grade, value: `${kg(pick.kg)} kg` }))}
+              />
+            </Panel>
+            <Panel title={t('cc_production.resin.wentTo', 'Went to')} icon={Shapes} flush>
+              {entry.outputLotId ? (
+                <LinkRows
+                  empty={null}
+                  rows={[
+                    {
+                      key: entry.outputLotId,
+                      href: recordHref.lot(entry.outputLotId),
+                      primary: <span className="font-mono">{entry.outputLotNumber ?? '—'}</span>,
+                      secondary: t('cc_production.moulding.mouldedLot', 'Moulded lot'),
+                      value: `${entry.productionNos} ${t('cc_ui.pcs', 'pcs')}`,
+                      valueHint: entry.leftNos !== null ? t('cc_production.moulding.leftNos', '{nos} left', { nos: entry.leftNos }) : undefined,
+                    },
+                  ]}
+                />
+              ) : (
+                <PanelEmpty>{t('cc_production.resin.notPostedYet', 'Not posted yet.')}</PanelEmpty>
+              )}
+              {entry.orderRef ? <p className="border-t border-border px-3 py-2 text-xs text-muted-foreground">{t('cc_production.moulding.forOrder', 'For order {no}', { no: entry.orderRef })}</p> : null}
+            </Panel>
+          </>
+        }
+      />
+      <HistoryPanel entries={[...entry.history].reverse().map((item, index) => ({ key: `${item.at}-${index}`, label: HISTORY_LABEL[item.action] ?? item.action, note: item.note, by: item.by, at: item.at }))} />
+    </RecordPage>
   )
 }
 
-type Availability = { date: string; dies: Array<{ dieNo: string; customerName: string | null; shift1: number | null; shift2: number | null; orderQty: number | null }>; idleMachines: Record<string, number[]> }
+type Availability = { date: string; dies: Array<{ mouldId: string; dieNo: string; customerName: string | null; shift1: number | null; shift2: number | null; orderQty: number | null }>; idleMachines: Record<string, number[]> }
 
 export function DieAvailabilityPage() {
   const t = useT()
@@ -195,8 +215,12 @@ export function DieAvailabilityPage() {
                   </thead>
                   <tbody className="divide-y divide-border">
                     {rows.map((die) => (
-                      <tr key={die.dieNo}>
-                        <td className="px-4 py-2 font-mono">{die.dieNo}</td>
+                      <tr key={die.dieNo} className="even:bg-muted/30">
+                        <td className="px-4 py-2 font-mono">
+                          <Link className="underline-offset-2 hover:underline" href={recordHref.die(die.mouldId)}>
+                            {die.dieNo}
+                          </Link>
+                        </td>
                         <td className="px-4 py-2">{die.customerName ?? '—'}</td>
                         <td className="px-4 py-2 text-center">{die.shift1 ? `M${die.shift1}` : <span className="text-muted-foreground">free</span>}</td>
                         <td className="px-4 py-2 text-center">{die.shift2 ? `M${die.shift2}` : <span className="text-muted-foreground">free</span>}</td>

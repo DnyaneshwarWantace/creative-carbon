@@ -437,9 +437,9 @@ export async function mouldingEntryView(ctx: StoreContext, id: string) {
 
 export async function dieAvailability(ctx: StoreContext, date: string) {
   const items = await ctx.em.find(MouldingEntry, { ...scope(ctx), entryDate: date, deletedAt: null }, { orderBy: { dieNo: 'asc' } })
-  const dies = new Map<string, { dieNo: string; customerName: string | null; shift1: number | null; shift2: number | null; orderQty: number | null }>()
+  const dies = new Map<string, { mouldId: string; dieNo: string; customerName: string | null; shift1: number | null; shift2: number | null; orderQty: number | null }>()
   for (const item of items) {
-    const row = dies.get(item.mouldId) ?? { dieNo: item.dieNo, customerName: item.customerName ?? null, shift1: null, shift2: null, orderQty: item.orderQty ?? null }
+    const row = dies.get(item.mouldId) ?? { mouldId: item.mouldId, dieNo: item.dieNo, customerName: item.customerName ?? null, shift1: null, shift2: null, orderQty: item.orderQty ?? null }
     if (item.shift === 1) row.shift1 = item.pressNumber
     else row.shift2 = item.pressNumber
     dies.set(item.mouldId, row)
