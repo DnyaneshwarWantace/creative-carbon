@@ -1135,7 +1135,7 @@ export class FgInspection {
 @Entity({ tableName: 'cc_lab_tests' })
 @Index({ name: 'cc_lab_tests_scope_idx', properties: ['organizationId', 'tenantId', 'testDate'] })
 export class LabTest {
-  [OptionalProps]?: 'createdAt' | 'updatedAt' | 'deletedAt' | 'history' | 'byName' | 'lotRefs' | 'productId' | 'itemTitle' | 'customerId' | 'customerName' | 'standard' | 'result' | 'notes'
+  [OptionalProps]?: 'createdAt' | 'updatedAt' | 'deletedAt' | 'history' | 'byName' | 'lotRefs' | 'productId' | 'itemTitle' | 'customerId' | 'customerName' | 'standard' | 'result' | 'notes' | 'orderId' | 'orderNo' | 'reportNo' | 'testedBy' | 'testPoint'
 
   @PrimaryKey({ type: 'uuid', defaultRaw: 'gen_random_uuid()' })
   id!: string
@@ -1166,6 +1166,21 @@ export class LabTest {
 
   @Property({ name: 'test_type', type: 'text' })
   testType!: string
+
+  @Property({ name: 'order_id', type: 'uuid', nullable: true })
+  orderId?: string | null
+
+  @Property({ name: 'order_no', type: 'text', nullable: true })
+  orderNo?: string | null
+
+  @Property({ name: 'report_no', type: 'text', nullable: true })
+  reportNo?: string | null
+
+  @Property({ name: 'tested_by', type: 'text', nullable: true })
+  testedBy?: string | null
+
+  @Property({ name: 'test_point', type: 'text', default: 'outgoing' })
+  testPoint: 'incoming' | 'outgoing' = 'outgoing'
 
   @Property({ type: 'text', nullable: true })
   standard?: string | null

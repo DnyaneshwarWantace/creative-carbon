@@ -41,6 +41,26 @@ export async function notifyStagesOpened(ctx: Scope, order: CcOrder, stageKeys: 
         { tenantId: ctx.tenantId, organizationId: ctx.organizationId },
       )
     }
+    const assigned = await ctx.em.fork().find(CcOrderStage, { orderId: order.id, stageKey: { $in: stageKeys }, responsibleUserId: { $ne: null } })
+    for (const stage of assigned) {
+      const def = stageDef(stage.stageKey)
+      if (!def || !stage.responsibleUserId) continue
+      await service(ctx).create(
+        {
+          recipientUserId: stage.responsibleUserId,
+          type: 'cc_orders.stage.assigned',
+          title: `${def.label}: ${order.orderNo} is assigned to you`,
+          body: [customer, order.priority === 'urgent' ? 'Urgent order' : null, def.hint].filter(Boolean).join(' · '),
+          severity: order.priority === 'urgent' ? 'warning' : 'info',
+          sourceModule: 'cc_orders',
+          sourceEntityType: 'cc_orders:order',
+          sourceEntityId: order.id,
+          linkHref: `/backend/orders/${order.id}/stages/${stage.stageKey}`,
+          groupKey: `cc_orders:${order.id}:${stage.stageKey}:assigned`,
+        },
+        { tenantId: ctx.tenantId, organizationId: ctx.organizationId },
+      )
+    }
   } catch (error) {
     logger.error('Failed to send stage-ready notification', { err: error })
   }

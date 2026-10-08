@@ -62,7 +62,7 @@ export function CrmHomePage() {
   const [data, setData] = React.useState<Dashboard | null>(null)
 
   React.useEffect(() => {
-    apiCall<Dashboard>('/api/cc_crm/dashboard').then((call) => setData(call.ok ? (call.result ?? null) : null))
+    apiCall<Dashboard>('/api/cc_crm/dashboard').then((call) => setData(call.ok ? (call.ok ? (call.result ?? null) : null) : null))
   }, [])
 
   return (

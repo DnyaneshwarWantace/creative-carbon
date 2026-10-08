@@ -18,7 +18,8 @@ export const ORDER_CHANGED_EVENT = 'cc-order-changed'
 type Allocation = { id: string; lotId: string; lotNumber: string; place: string; qty: number; shippedQty: number; status: 'reserved' | 'shipped' | 'released'; lotStatus: string }
 type Line = { lineId: string; productId: string; title: string; kind: string | null; unit: string; qty: number; material: Record<string, string>; allocated: number; short: number; packed: number | null; weights: number[]; despatched: number; made: number | null; allocations: Allocation[] }
 type QcLot = { allocationId: string; lotId: string; lotNumber: string; status: string; fgInspected: boolean; thickness: { result: string; date: string } | null; boughtIn: boolean }
-type Fulfilment = { lines: Line[]; totals: { ordered: number; allocated: number; packed: number; despatched: number }; onHold: string[]; qc: { lots: QcLot[]; allThickness: boolean; allFg: boolean } }
+type Fulfilment = { lines: Line[]; totals: { ordered: number; allocated: number; packed: number; despatched: number }; onHold: string[]; qc: { lots: QcLot[]; labTests?: QcLabTest[]; allThickness: boolean; allFg: boolean } }
+type QcLabTest = { id: string; testDate: string; testType: string; standard: string | null; result: string; reportNo: string | null; lotRefs: string | null }
 type Candidate = { lotId: string; lotNumber: string; placeLabel: string; status: string; free: number; unit: string; nosLeft: number | null; thicknessMm: number | null; sheetSize: string | null; madeOn: string | null; expiresOn: string | null; forCustomer: boolean; markedFor: string | null; matches: boolean }
 
 const num = (value: number | null | undefined) => (value === null || value === undefined ? '—' : new Intl.NumberFormat('en-IN', { maximumFractionDigits: 3 }).format(value))
@@ -70,7 +71,7 @@ export function FulfilmentPanel({ orderId, stageKey, stageStatus, editable }: { 
 
   const load = React.useCallback(async () => {
     const call = await apiCall<Fulfilment>(`/api/cc_orders/orders/fulfilment?id=${orderId}`)
-    if (call.result) {
+    if (call.ok && call.result) {
       setData(call.result)
       setWeights(Object.fromEntries(call.result.lines.map((line) => [line.lineId, line.weights.length ? line.weights.map(String) : ['', '', '', '', '']])))
       setPieces(Object.fromEntries(call.result.lines.map((line) => [line.lineId, line.packed !== null && line.unit === 'nos' ? String(line.packed) : ''])))
@@ -248,6 +249,33 @@ export function FulfilmentPanel({ orderId, stageKey, stageStatus, editable }: { 
           ) : (
             <p className="text-xs text-muted-foreground">{t('cc_orders.fulfilment.nothingAllocated', 'Nothing is allocated yet.')}</p>
           )}
+          <div className="space-y-1 border-t pt-2">
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-xs font-semibold">{t('cc_orders.fulfilment.labTests', 'Lab test reports for this order')}</p>
+              {can('cc_production.quality.enter') ? (
+                <Link className="inline-flex items-center gap-1 text-xs text-primary hover:underline" href={`/backend/quality/lab/new?orderId=${orderId}`}>
+                  <Plus className="h-3 w-3" aria-hidden="true" />
+                  {t('cc_orders.fulfilment.addLabTest', 'Add lab test')}
+                </Link>
+              ) : null}
+            </div>
+            {data.qc.labTests?.length ? (
+              <ul className="space-y-1 text-xs">
+                {data.qc.labTests.map((test) => (
+                  <li key={test.id} className="flex flex-wrap justify-between gap-2">
+                    <Link className="underline-offset-2 hover:underline" href={`/backend/quality/lab/${test.id}`}>
+                      {test.testType}
+                      {test.standard ? ` · ${test.standard}` : ''}
+                      {test.reportNo ? ` · ${test.reportNo}` : ''}
+                    </Link>
+                    <span className={cn(test.result === 'pass' ? 'text-status-success-text' : test.result === 'fail' ? 'text-status-error-text' : 'text-muted-foreground')}>{test.result}</span>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-xs text-muted-foreground">{t('cc_orders.fulfilment.noLabTests', 'No lab test linked yet. A passed test ticks "Customer tests done".')}</p>
+            )}
+          </div>
           {data.onHold.length ? <p className="text-xs text-status-error-text">{t('cc_orders.fulfilment.holdBlocks', 'QC cannot be completed while these lots are on hold: {lots}', { lots: data.onHold.join(', ') })}</p> : null}
           {can('cc_orders.work.qc') && data.qc.lots.length ? (
             <Button type="button" size="sm" variant="outline" disabled={busy} onClick={() => void post({ action: 'qc_sync' }, t('cc_orders.fulfilment.qcRead', 'Steps ticked from the thickness and FG inspections.'))}>
@@ -359,7 +387,7 @@ export function LineProgress({ orderId }: { orderId: string }) {
   const [data, setData] = React.useState<Fulfilment | null>(null)
   const load = React.useCallback(async () => {
     const call = await apiCall<Fulfilment>(`/api/cc_orders/orders/fulfilment?id=${orderId}`)
-    setData(call.ok ? (call.result ?? null) : null)
+    setData(call.ok ? (call.ok ? (call.result ?? null) : null) : null)
   }, [orderId])
   React.useEffect(() => {
     void load()

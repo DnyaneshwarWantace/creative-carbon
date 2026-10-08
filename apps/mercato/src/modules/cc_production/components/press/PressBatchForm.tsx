@@ -100,7 +100,7 @@ export function PressBatchForm({ batch }: { batch: PressBatchView | null }) {
     setDraft((current) => (current ? { ...current, batchDate: value } : current))
     if (batch || !value) return
     const call = await apiCall<PressSetup>(`/api/cc_production/press/setup?date=${value}`)
-    if (call.result) setSetup(call.result)
+    if (call.ok && call.result) setSetup(call.result)
   }
 
   if (error) return <Page><PageBody><ErrorMessage label={error} /></PageBody></Page>

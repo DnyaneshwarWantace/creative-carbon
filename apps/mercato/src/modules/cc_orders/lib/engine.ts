@@ -95,8 +95,22 @@ export function orderStatusFromStages(order: CcOrder, stages: CcOrderStage[]): C
   return 'booked'
 }
 
-async function afterOpened(ctx: OrderContext, order: CcOrder, opened: string[]) {
+export async function assignDefaultPeople(ctx: OrderContext, order: CcOrder, stages: CcOrderStage[], opened: string[]) {
+  if (!opened.length) return
+  const overrides = await loadStageOverrides(ctx)
+  for (const key of opened) {
+    const override = overrides.get(key)
+    const stage = stages.find((entry) => entry.stageKey === key)
+    if (!stage || stage.responsibleUserId || !override?.defaultUserId) continue
+    stage.responsibleUserId = override.defaultUserId
+    stage.responsibleName = override.defaultUserName ?? null
+    logEvent(ctx, order, 'assigned', key, `${override.defaultUserName ?? 'Default person'} (automatic)`, null)
+  }
+}
+
+async function afterOpened(ctx: OrderContext, order: CcOrder, opened: string[], stages: CcOrderStage[] = []) {
   for (const key of opened) logEvent(ctx, order, 'opened', key, null, null)
+  await assignDefaultPeople(ctx, order, stages, opened)
 }
 
 export function reopenInfo(order: { status: string }, stages: CcOrderStage[], stageKey: string, overrides?: StageOverrides): ReopenInfo {
@@ -242,7 +256,7 @@ export async function applyStageAction(ctx: OrderContext, order: CcOrder, input:
       if (def.key === 'advance' && (await recordAdvanceFromStage(ctx, order, stage.data ?? {}, byName))) {
         logEvent(ctx, order, 'payment', def.key, `Advance ₹${Number(stage.data?.advance_amount).toLocaleString('en-IN')} recorded in Accounts`, byName)
       }
-      await afterOpened(ctx, order, openReadyStages(stages))
+      await afterOpened(ctx, order, openReadyStages(stages), stages)
       break
     }
     case 'skip': {
@@ -252,7 +266,7 @@ export async function applyStageAction(ctx: OrderContext, order: CcOrder, input:
       stage.completedAt = new Date()
       stage.completedByName = byName
       logEvent(ctx, order, 'skipped', def.key, note, byName)
-      await afterOpened(ctx, order, openReadyStages(stages))
+      await afterOpened(ctx, order, openReadyStages(stages), stages)
       break
     }
     case 'hold': {

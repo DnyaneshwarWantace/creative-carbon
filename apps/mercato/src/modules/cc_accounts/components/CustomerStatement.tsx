@@ -67,7 +67,7 @@ export function CustomerStatement({ customerId, customerName }: { customerId: st
     Promise.all([apiCall<Statement>(`/api/cc_accounts/statement?customerId=${encodeURIComponent(customerId)}`), apiCall<CompanyView>('/api/cc_accounts/company')]).then(([call, companyCall]) => {
       if (!call.ok || !call.result) setFailed(true)
       else setStatement(call.result)
-      setCompany(companyCall.result ?? null)
+      setCompany(companyCall.ok ? (companyCall.result ?? null) : null)
     })
   }, [customerId])
 

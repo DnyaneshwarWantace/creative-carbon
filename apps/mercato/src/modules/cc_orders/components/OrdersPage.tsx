@@ -282,7 +282,7 @@ export function OrdersPage() {
       const call = await apiCall<SheetResponse>(`/api/cc_orders/orders/sheet?${params.toString()}`)
       if (cancelled) return
       if (!call.ok || !call.result) flash(t('cc_orders.list.loadError', 'Failed to load orders'), 'error')
-      setData(call.ok ? (call.result ?? null) : null)
+      setData(call.ok ? (call.ok ? (call.result ?? null) : null) : null)
       setLoading(false)
       silent.current = false
     }, quiet ? 0 : 200)

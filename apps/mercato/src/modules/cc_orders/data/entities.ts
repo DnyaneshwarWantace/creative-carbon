@@ -311,7 +311,7 @@ export class CcOrderEvent {
 @Entity({ tableName: 'cc_stage_settings' })
 @Unique({ name: 'cc_stage_settings_scope_uq', properties: ['organizationId', 'tenantId', 'stageKey'] })
 export class CcStageSetting {
-  [OptionalProps]?: 'label' | 'dayLimit' | 'reopenHours' | 'hiddenSteps' | 'requiredFields' | 'extraFields' | 'documents' | 'extraDocuments' | 'sharedFields' | 'updatedByName' | 'createdAt' | 'updatedAt'
+  [OptionalProps]?: 'label' | 'dayLimit' | 'reopenHours' | 'hiddenSteps' | 'requiredFields' | 'extraFields' | 'documents' | 'extraDocuments' | 'sharedFields' | 'defaultUserId' | 'defaultUserName' | 'updatedByName' | 'createdAt' | 'updatedAt'
 
   @PrimaryKey({ type: 'uuid', defaultRaw: 'gen_random_uuid()' })
   id!: string
@@ -351,6 +351,12 @@ export class CcStageSetting {
 
   @Property({ name: 'shared_fields', type: 'json', nullable: true })
   sharedFields?: string[] | null
+
+  @Property({ name: 'default_user_id', type: 'uuid', nullable: true })
+  defaultUserId?: string | null
+
+  @Property({ name: 'default_user_name', type: 'text', nullable: true })
+  defaultUserName?: string | null
 
   @Property({ name: 'updated_by_name', type: 'text', nullable: true })
   updatedByName?: string | null

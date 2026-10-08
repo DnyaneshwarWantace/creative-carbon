@@ -31,7 +31,7 @@ export function OrderMoneyCard({ order, onChanged }: { order: Order; onChanged: 
   const [piBusy, setPiBusy] = React.useState(false)
   const [company, setCompany] = React.useState<DocCompany | null>(null)
   React.useEffect(() => {
-    apiCall<DocCompany>('/api/cc_accounts/company').then((call) => setCompany(call.result ?? null))
+    apiCall<DocCompany>('/api/cc_accounts/company').then((call) => setCompany(call.ok ? (call.result ?? null) : null))
   }, [])
   const openDocument = async (kind: 'proformas' | 'invoices') => {
     setPiBusy(true)

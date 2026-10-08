@@ -154,7 +154,7 @@ export function DieAvailabilityPage() {
     setData(null)
     router.replace(`/backend/moulding/dies?date=${date}`)
     void apiCall<Availability>(`/api/cc_production/moulding/dies?date=${date}`).then((call) => {
-      if (!cancelled) setData(call.ok ? (call.result ?? null) : null)
+      if (!cancelled) setData(call.ok ? (call.ok ? (call.result ?? null) : null) : null)
     })
     return () => {
       cancelled = true

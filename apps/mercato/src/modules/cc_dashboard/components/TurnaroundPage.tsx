@@ -33,7 +33,7 @@ export function TurnaroundPage() {
 
   React.useEffect(() => {
     setData(null)
-    apiCall<Data>(`/api/cc_dashboard/turnaround?days=${days}`).then((call) => setData(call.ok ? (call.result ?? null) : null))
+    apiCall<Data>(`/api/cc_dashboard/turnaround?days=${days}`).then((call) => setData(call.ok ? (call.ok ? (call.result ?? null) : null) : null))
   }, [days])
 
   const maxStage = Math.max(1, ...(data?.stages ?? []).map((row) => row.averageDays))

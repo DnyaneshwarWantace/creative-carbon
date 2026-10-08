@@ -365,9 +365,13 @@ export const labInputSchema = z.object({
   standard: optionalText(80),
   result: z.enum(['pass', 'fail', 'pending']).default('pending'),
   notes: optionalText(2000),
+  orderId: z.string().uuid().nullable().optional().transform((value) => value ?? null),
+  reportNo: optionalText(80),
+  testedBy: optionalText(120),
+  testPoint: z.enum(['incoming', 'outgoing']).default('outgoing'),
 })
 export const labUpdateSchema = labInputSchema.extend({ id: z.string().uuid() })
-export const labListSchema = z.object({ month: z.string().regex(/^\d{4}-\d{2}$/).optional(), id: z.string().uuid().optional(), last: z.enum(['true']).optional(), customerName: z.string().max(200).optional(), itemTitle: z.string().max(200).optional() })
+export const labListSchema = z.object({ month: z.string().regex(/^\d{4}-\d{2}$/).optional(), orderId: z.string().uuid().optional(), result: z.enum(['pass', 'fail', 'pending']).optional(), testPoint: z.enum(['incoming', 'outgoing']).optional(), search: z.string().trim().max(200).optional(), id: z.string().uuid().optional(), last: z.enum(['true']).optional(), customerName: z.string().max(200).optional(), itemTitle: z.string().max(200).optional() })
 
 export const directInSchema = z.object({
   inDate: isoDate,

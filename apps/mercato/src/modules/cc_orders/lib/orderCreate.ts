@@ -1,7 +1,7 @@
 import type { EntityManager } from '@mikro-orm/postgresql'
 import { CcOrder, CcOrderLine, CcOrderStage } from '../data/entities'
 import type { OrderInput } from '../data/validators'
-import { createStages, logEvent, openReadyStages } from './engine'
+import { assignDefaultPeople, createStages, logEvent, openReadyStages } from './engine'
 import { OrderError, customerExists, loadProducts, nextOrderNo, type OrderContext } from './server'
 import { notifyStagesOpened } from './notify'
 
@@ -101,7 +101,9 @@ export async function createOrderRecord(ctx: OrderContext, input: OrderInput, by
     await writeLines(txCtx, created, input)
     const stages = createStages(txCtx, created, byName)
     logEvent(txCtx, created, 'created', 'order', note ?? (created.orderType === 'repeat' ? 'Repeat order' : null), byName)
-    for (const opened of openReadyStages(stages)) logEvent(txCtx, created, 'opened', opened, null, null)
+    const opened = openReadyStages(stages)
+    for (const key of opened) logEvent(txCtx, created, 'opened', key, null, null)
+    await assignDefaultPeople(txCtx, created, stages, opened)
     await em.flush()
     return created
   })

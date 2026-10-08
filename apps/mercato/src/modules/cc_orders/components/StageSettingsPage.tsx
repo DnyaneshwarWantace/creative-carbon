@@ -32,9 +32,9 @@ type BaseStage = {
 }
 type ExtraField = { key: string; label: string; type: FieldType; options?: string[]; required?: boolean }
 type ExtraDoc = { key: string; label: string; required: boolean }
-type Override = { stageKey: string; label: string | null; dayLimit: number | null; reopenHours: number | null; hiddenSteps: string[]; requiredFields: string[]; sharedFields: string[] | null; extraFields: ExtraField[]; documents: Record<string, 'always' | 'optional'>; extraDocuments: ExtraDoc[]; updatedAt: string; updatedByName: string | null }
+type Override = { stageKey: string; label: string | null; dayLimit: number | null; reopenHours: number | null; hiddenSteps: string[]; requiredFields: string[]; sharedFields: string[] | null; extraFields: ExtraField[]; documents: Record<string, 'always' | 'optional'>; extraDocuments: ExtraDoc[]; defaultUserId?: string | null; defaultUserName?: string | null; updatedAt: string; updatedByName: string | null }
 type Payload = { stages: BaseStage[]; overrides: Override[]; fieldTypes: FieldType[] }
-type Draft = { label: string; dayLimit: string; reopenHours: string; hiddenSteps: string[]; requiredFields: string[]; sharedFields: string[]; extraFields: Array<ExtraField & { optionsText: string }>; documents: Record<string, 'always' | 'optional'>; extraDocuments: ExtraDoc[] }
+type Draft = { defaultUserId: string; label: string; dayLimit: string; reopenHours: string; hiddenSteps: string[]; requiredFields: string[]; sharedFields: string[]; extraFields: Array<ExtraField & { optionsText: string }>; documents: Record<string, 'always' | 'optional'>; extraDocuments: ExtraDoc[] }
 
 const TYPE_LABEL: Record<FieldType, string> = { text: 'Text', number: 'Number', date: 'Date', textarea: 'Long text', select: 'Dropdown' }
 
@@ -44,6 +44,7 @@ function slug(label: string): string {
 
 function draftFor(stage: BaseStage, override: Override | undefined): Draft {
   return {
+    defaultUserId: override?.defaultUserId ?? '',
     label: override?.label ?? stage.label,
     dayLimit: String(override?.dayLimit ?? stage.dayLimit ?? ''),
     reopenHours: String(override?.reopenHours ?? stage.reopenHours),
@@ -64,6 +65,11 @@ export function StageSettingsPage() {
   const [selected, setSelected] = React.useState<string>('advance')
   const [draft, setDraft] = React.useState<Draft | null>(null)
   const [busy, setBusy] = React.useState(false)
+  const [people, setPeople] = React.useState<Array<{ id: string; name: string }>>([])
+
+  React.useEffect(() => {
+    apiCall<{ items?: Array<{ id: string; name: string }> }>('/api/cc_orders/people', undefined, { fallback: { items: [] } }).then((call) => setPeople(call.ok ? (call.result?.items ?? []) : []))
+  }, [])
 
   const apply = React.useCallback((payload: Payload, key: string) => {
     setData(payload)
@@ -102,6 +108,7 @@ export function StageSettingsPage() {
       const body = {
         stageKey: stage.key,
         label: draft.label.trim() || null,
+        defaultUserId: draft.defaultUserId || null,
         dayLimit: Number(draft.dayLimit) || null,
         reopenHours: draft.reopenHours.trim() === '' ? null : Number(draft.reopenHours),
         hiddenSteps: draft.hiddenSteps,
@@ -171,6 +178,23 @@ export function StageSettingsPage() {
                   <Label htmlFor="stage-reopen">{t('cc_orders.stageSettings.reopen', 'Can be reopened for (hours)')}</Label>
                   <Input id="stage-reopen" type="number" min={0} max={720} value={draft.reopenHours} onChange={(event) => patch({ reopenHours: event.target.value })} />
                   <p className="text-xs text-muted-foreground">{t('cc_orders.stageSettings.reopenHint', 'After a stage is done, its department can reopen it for this long, as long as the next team has not started. 0 = never. Later only a manager can reopen.')}</p>
+                </div>
+                <div className="space-y-1.5 sm:col-span-2">
+                  <Label htmlFor="stage-default-person">{t('cc_orders.stageSettings.defaultPerson', 'Assign automatically to')}</Label>
+                  <Select value={draft.defaultUserId || '__none'} onValueChange={(value) => patch({ defaultUserId: value === '__none' ? '' : value })}>
+                    <SelectTrigger id="stage-default-person">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__none">{t('cc_orders.stageSettings.nobody', 'Nobody — the whole department sees it')}</SelectItem>
+                      {people.map((person) => (
+                        <SelectItem key={person.id} value={person.id}>
+                          {person.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">{t('cc_orders.stageSettings.defaultPersonHint', 'When an order reaches this stage it is assigned to this person, who gets a notification. The department still sees it and anyone can reassign it on the order.')}</p>
                 </div>
               </section>
 

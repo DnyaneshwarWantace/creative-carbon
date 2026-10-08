@@ -255,7 +255,7 @@ export async function markPacked(ctx: OrderContext, order: CcOrder, byName: stri
 
 export async function qcView(ctx: OrderContext, order: CcOrder) {
   const allocations = await ctx.em.find(CcOrderAllocation, { ...scope(ctx), orderId: order.id, status: { $in: ['reserved', 'shipped'] } })
-  if (!allocations.length) return { lots: [], allThickness: false, allFg: false }
+  if (!allocations.length) return { lots: [], labTests: (await orderLabTests(ctx, order.id)).map((test) => ({ id: test.id, testDate: test.test_date, testType: test.test_type, standard: test.standard, result: test.result, reportNo: test.report_no, lotRefs: test.lot_refs })), allThickness: false, allFg: false }
   const store = asStore(ctx)
   const lots = []
   for (const allocation of allocations) {
@@ -280,9 +280,25 @@ export async function qcView(ctx: OrderContext, order: CcOrder) {
   }
   return {
     lots,
+    labTests: (await orderLabTests(ctx, order.id)).map((test) => ({ id: test.id, testDate: test.test_date, testType: test.test_type, standard: test.standard, result: test.result, reportNo: test.report_no, lotRefs: test.lot_refs })),
     allFg: lots.every((lot) => lot.fgInspected),
     allThickness: lots.every((lot) => lot.boughtIn || lot.thickness?.result === 'pass'),
   }
+}
+
+export async function orderLabTests(ctx: Pick<OrderContext, 'em' | 'tenantId' | 'organizationId'>, orderId: string) {
+  return ctx.em.getConnection().execute<Array<{ id: string; test_date: string; test_type: string; standard: string | null; result: string; report_no: string | null; lot_refs: string | null }>>(
+    `select id, test_date, test_type, standard, result, report_no, lot_refs from cc_lab_tests where tenant_id = ? and organization_id = ? and order_id = ? and deleted_at is null order by test_date desc, created_at desc`,
+    [ctx.tenantId, ctx.organizationId, orderId],
+  )
+}
+
+export async function markOrderTests(ctx: OrderContext, order: CcOrder, test: { testType: string; reportNo?: string | null }, byName: string | null) {
+  const stage = await ctx.em.findOne(CcOrderStage, { orderId: order.id, stageKey: 'qc' })
+  if (!stage || (stage.status !== 'open' && stage.status !== 'on_hold')) return
+  setSteps(stage, { tests: true }, byName)
+  logEvent(ctx, order, 'step', 'qc', `Customer tests done: ${test.testType}${test.reportNo ? ` (report ${test.reportNo})` : ''}`, byName)
+  await ctx.em.flush()
 }
 
 export async function syncQcSteps(ctx: OrderContext, order: CcOrder, byName: string | null) {
@@ -290,7 +306,8 @@ export async function syncQcSteps(ctx: OrderContext, order: CcOrder, byName: str
   requireOpen(stage, 'QC & test report')
   const view = await qcView(ctx, order)
   if (!view.lots.length) throw new OrderError('Nothing is allocated to this order yet', 409)
-  setSteps(stage, { thickness: view.allThickness, fg_inspection: view.allThickness && view.allFg }, byName)
+  const passedTests = (await orderLabTests(ctx, order.id)).some((test) => test.result === 'pass')
+  setSteps(stage, { thickness: view.allThickness, fg_inspection: view.allThickness && view.allFg, ...(passedTests ? { tests: true } : {}) }, byName)
   await ctx.em.flush()
   return view
 }

@@ -40,7 +40,7 @@ export function EnquiriesPage() {
       const params = new URLSearchParams({ stage: tab })
       if (search.trim()) params.set('search', search.trim())
       apiCall<ListResult>(`/api/cc_crm/enquiries?${params.toString()}`).then((call) => {
-        if (!cancelled && call.result) setData(call.result)
+        if (!cancelled && call.ok && call.result) setData(call.result)
       })
     }, 200)
     return () => {

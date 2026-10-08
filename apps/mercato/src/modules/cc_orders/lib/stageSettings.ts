@@ -17,6 +17,8 @@ export function overrideOf(row: CcStageSetting): StageOverride {
     documents: row.documents ?? {},
     extraDocuments: row.extraDocuments ?? [],
     sharedFields: row.sharedFields ?? null,
+    defaultUserId: row.defaultUserId ?? null,
+    defaultUserName: row.defaultUserName ?? null,
   }
 }
 

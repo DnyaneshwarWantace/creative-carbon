@@ -1,8 +1,8 @@
 "use client"
 
 import * as React from 'react'
-import { LabPage } from '../../../components/finishing/QualityPages'
+import { LabListPage } from '../../../components/lab/LabPages'
 
-export default function CcLabPageRoute() {
-  return <LabPage />
+export default function CcLabTestsPage() {
+  return <LabListPage />
 }

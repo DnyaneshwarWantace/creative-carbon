@@ -6,7 +6,7 @@ import { runRouteMutationGuards } from '@open-mercato/shared/lib/crud/route-muta
 import { CrudHttpError } from '@open-mercato/shared/lib/crud/errors'
 import { CcStageSetting } from '../../data/entities'
 import { stageSettingSchema } from '../../data/validators'
-import { currentUserName, resolveOrderContext, type OrderContext } from '../../lib/server'
+import { currentUserName, resolveOrderContext, userNames, type OrderContext } from '../../lib/server'
 import { overrideOf } from '../../lib/stageSettings'
 import { DEFAULT_REOPEN_HOURS, DEFAULT_SHARED_FIELDS, EXTRA_FIELD_TYPES, LOCKED_STEPS, STAGES, STAGE_DAY_LIMIT, STAGE_DOCUMENTS } from '../../lib/stages'
 
@@ -91,6 +91,8 @@ async function PUT(req: Request) {
       row.documents = input.documents
       row.sharedFields = sameKeys(input.sharedFields ?? null, DEFAULT_SHARED_FIELDS[base.key] ?? []) ? null : input.sharedFields ?? null
       row.extraDocuments = input.extraDocuments
+      row.defaultUserId = input.defaultUserId ?? null
+      row.defaultUserName = input.defaultUserId ? ((await userNames(ctx, [input.defaultUserId])).get(input.defaultUserId) ?? null) : null
       row.updatedByName = await currentUserName(ctx)
       row.updatedAt = new Date()
       ctx.em.persist(row)

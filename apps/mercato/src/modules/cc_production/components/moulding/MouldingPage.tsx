@@ -122,7 +122,7 @@ export function MouldingPage() {
     setDay(null)
     router.replace(`/backend/moulding?date=${date}&shift=${shift}`)
     const call = await apiCall<Day>(`/api/cc_production/moulding?date=${date}`)
-    if (call.result) applyDay(call.result)
+    if (call.ok && call.result) applyDay(call.result)
   }, [date, shift, router, applyDay])
 
   React.useEffect(() => {

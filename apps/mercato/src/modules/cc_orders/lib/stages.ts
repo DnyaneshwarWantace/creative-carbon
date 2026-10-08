@@ -239,6 +239,8 @@ export type StageOverride = {
   documents?: Record<string, 'always' | 'optional'> | null
   extraDocuments?: Array<{ key: string; label: string; required: boolean }> | null
   sharedFields?: string[] | null
+  defaultUserId?: string | null
+  defaultUserName?: string | null
 }
 
 export const DEFAULT_SHARED_FIELDS: Record<string, string[]> = {

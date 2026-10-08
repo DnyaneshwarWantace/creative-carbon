@@ -408,7 +408,7 @@ export function StockGridPage() {
       if (place) params.set('place', place)
       if (search.trim()) params.set('q', search.trim())
       const call = await apiCall<StockGrid>(`/api/cc_production/stock?${params.toString()}`)
-      if (!cancelled) setGrid(call.ok ? (call.result ?? null) : null)
+      if (!cancelled) setGrid(call.ok ? (call.ok ? (call.result ?? null) : null) : null)
     }, 200)
     return () => {
       cancelled = true

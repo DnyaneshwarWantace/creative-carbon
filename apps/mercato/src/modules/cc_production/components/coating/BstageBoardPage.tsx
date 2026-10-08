@@ -57,7 +57,7 @@ export function BstageBoardPage() {
       const params = new URLSearchParams()
       if (search.trim()) params.set('q', search.trim())
       const call = await apiCall<Board>(`/api/cc_production/bstage?${params.toString()}`)
-      if (!cancelled) setBoard(call.ok ? (call.result ?? null) : null)
+      if (!cancelled) setBoard(call.ok ? (call.ok ? (call.result ?? null) : null) : null)
     }, 200)
     return () => {
       cancelled = true

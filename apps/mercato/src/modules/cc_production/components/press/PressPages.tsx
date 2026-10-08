@@ -241,7 +241,7 @@ export function LoadingRegisterPage() {
 
   React.useEffect(() => {
     void apiCall<PressSetup>('/api/cc_production/press/setup').then((call) => {
-      if (!call.result) return
+      if (!call.ok || !call.result) return
       setSetup(call.result)
       setPressId((current) => current || call.result!.presses[0]?.id || '')
     })

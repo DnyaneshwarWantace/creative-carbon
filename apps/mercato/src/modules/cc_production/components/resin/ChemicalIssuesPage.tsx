@@ -46,7 +46,7 @@ export function ChemicalIssuesPage() {
       apiCall<ResinSetup>('/api/cc_production/resin/setup'),
       apiCall<{ items: Dryer[] }>('/api/cc_production/masters?type=dryers&includeInactive=false', undefined, { fallback: { items: [] } }),
     ])
-    if (setupCall.result) {
+    if (setupCall.ok && setupCall.result) {
       setSetup(setupCall.result)
       setForm((current) => (current.productId ? current : { ...current, productId: setupCall.result!.chemicals.find((chemical) => !chemical.standard)?.id ?? setupCall.result!.chemicals[0]?.id ?? '' }))
     }

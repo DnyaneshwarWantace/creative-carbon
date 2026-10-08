@@ -5,7 +5,7 @@ import { enforceCommandOptimisticLock } from '@open-mercato/shared/lib/crud/opti
 import { currentUserName } from '../../../cc_orders/lib/server'
 import { resolveStoreContext } from '../../../cc_store/lib/server'
 import { labInputSchema, labListSchema, labUpdateSchema } from '../../data/validators'
-import { findLabTest, labView, lastLabTest, listLabTests, saveLabTest } from '../../lib/lab'
+import { findLabTest, labDetail, labView, lastLabTest, listLabTests, saveLabTest } from '../../lib/lab'
 import { plantErrorResponse, runPlantGuarded } from '../../lib/server'
 
 export const metadata = {
@@ -20,9 +20,9 @@ async function GET(req: Request) {
   const parsed = labListSchema.safeParse(Object.fromEntries(new URL(req.url).searchParams))
   if (!parsed.success) return NextResponse.json({ error: 'Invalid query' }, { status: 400 })
   try {
-    if (parsed.data.id) return NextResponse.json(labView(await findLabTest(ctx, parsed.data.id)))
-    if (parsed.data.last && parsed.data.customerName) return NextResponse.json({ item: await lastLabTest(ctx, parsed.data.customerName, parsed.data.itemTitle ?? null) })
-    return NextResponse.json({ items: await listLabTests(ctx, { month: parsed.data.month }) })
+    if (parsed.data.id) return NextResponse.json(await labDetail(ctx, await findLabTest(ctx, parsed.data.id)))
+    if (parsed.data.last && (parsed.data.customerName || parsed.data.itemTitle)) return NextResponse.json({ item: await lastLabTest(ctx, parsed.data.customerName ?? null, parsed.data.itemTitle ?? null) })
+    return NextResponse.json({ items: await listLabTests(ctx, { month: parsed.data.month, orderId: parsed.data.orderId, result: parsed.data.result, testPoint: parsed.data.testPoint, search: parsed.data.search }) })
   } catch (error) {
     return plantErrorResponse(error)
   }

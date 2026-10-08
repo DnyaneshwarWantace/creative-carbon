@@ -41,7 +41,7 @@ export function QuotationPage({ quotationId }: { quotationId: string }) {
 
   React.useEffect(() => {
     void load()
-    apiCall<DocCompany>('/api/cc_accounts/company').then((call) => setCompany(call.result ?? null))
+    apiCall<DocCompany>('/api/cc_accounts/company').then((call) => setCompany(call.ok ? (call.result ?? null) : null))
   }, [load])
 
   const act = async (action: string, extra: Record<string, unknown> = {}) => {

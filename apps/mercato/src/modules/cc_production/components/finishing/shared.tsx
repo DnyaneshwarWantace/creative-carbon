@@ -41,7 +41,7 @@ export function useSetup() {
   const [setup, setSetup] = React.useState<FinishingSetup | null>(null)
   const reload = React.useCallback(async () => {
     const call = await apiCall<FinishingSetup>('/api/cc_production/finishing/setup')
-    if (call.result) setSetup(call.result)
+    if (call.ok && call.result) setSetup(call.result)
   }, [])
   React.useEffect(() => {
     void reload()

@@ -61,7 +61,7 @@ export function ProformaPage({ id }: { id: string }) {
       return
     }
     apply(call.result)
-    setCompany(companyCall.result ?? null)
+    setCompany(companyCall.ok ? (companyCall.result ?? null) : null)
     const order = await apiCall<{ customer?: { phone?: string | null } | null }>(`/api/cc_orders/orders?id=${encodeURIComponent(call.result.orderId)}`)
     setPhone(order.result?.customer?.phone ?? null)
   }, [id, t])
