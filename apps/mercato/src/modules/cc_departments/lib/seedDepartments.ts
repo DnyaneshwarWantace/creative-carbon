@@ -16,6 +16,7 @@ export const CC_DEPARTMENTS: DepartmentSeed[] = [
     features: [
       'cc_dashboard.*',
       'cc_orders.*',
+      'cc_crm.*',
       'cc_production.*',
       'cc_store.*',
       'cc_purchase.*',
@@ -148,6 +149,9 @@ export const CC_DEPARTMENTS: DepartmentSeed[] = [
       'cc_orders.manage',
       'cc_orders.money',
       'cc_orders.stages',
+      'cc_crm.view',
+      'cc_crm.manage',
+      'cc_crm.convert',
       'customers.companies.view',
       'customers.companies.manage',
       'cc_production.prices.view',

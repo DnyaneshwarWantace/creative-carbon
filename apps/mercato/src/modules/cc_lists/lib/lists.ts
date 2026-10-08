@@ -119,6 +119,20 @@ export const LIST_DEFS: ListDef[] = [
     defaults: ['FOB', 'CIF', 'CNF', 'EXW'],
   },
   {
+    key: 'enquiry_sources',
+    label: 'Enquiry sources',
+    department: 'Sales',
+    usedIn: 'Enquiries',
+    defaults: ['IndiaMART', 'WhatsApp', 'Email', 'Phone', 'Walk-in', 'Referral'],
+  },
+  {
+    key: 'lost_reasons',
+    label: 'Lost enquiry reasons',
+    department: 'Sales',
+    usedIn: 'Enquiries (marked lost)',
+    defaults: ['Price too high', 'Delivery time', 'Grade not made', 'No reply', 'Went to competitor', 'Requirement dropped'],
+  },
+  {
     key: 'currencies',
     label: 'Currencies',
     department: 'Sales',

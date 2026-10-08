@@ -37,6 +37,17 @@ export const ACCESS_AREAS: AccessArea[] = [
     ],
   },
   {
+    key: 'crm',
+    label: 'Enquiries & quotations',
+    department: 'Sales',
+    pages: 'Enquiries, quotations',
+    abilities: [
+      { feature: 'cc_crm.view', label: 'See enquiries and quotations', short: 'View' },
+      { feature: 'cc_crm.manage', label: 'Log and follow up enquiries, make quotations', short: 'Enter' },
+      { feature: 'cc_crm.convert', label: 'Convert a quotation to an order', short: 'Convert' },
+    ],
+  },
+  {
     key: 'work',
     label: 'Department stages',
     department: 'Every department',
@@ -89,6 +100,7 @@ export const ACCESS_AREAS: AccessArea[] = [
     pages: 'Purchase orders, goods receiving',
     abilities: [
       { feature: 'cc_purchase.view', label: 'See purchase orders and GRNs', short: 'View' },
+      { feature: 'cc_purchase.indent', label: 'Raise indents (and from reorder suggestions)', short: 'Indent' },
       { feature: 'cc_purchase.manage', label: 'Raise and edit purchase orders', short: 'Raise' },
       { feature: 'cc_purchase.approve', label: 'Approve purchase orders', short: 'Approve' },
       { feature: 'cc_purchase.receive', label: 'Receive goods and return to vendor', short: 'Receive' },

@@ -42,6 +42,7 @@ export const grnInputSchema = z.object({
   grnDate: day,
   invoiceNo: z.string().trim().max(80).optional().nullable(),
   invoiceDate: day.optional().nullable(),
+  vehicleNo: z.string().trim().max(60).optional().nullable(),
   notes: z.string().trim().max(2000).optional().nullable(),
   lines: z
     .array(
@@ -78,6 +79,7 @@ export const directGrnInputSchema = z.object({
   grnDate: day,
   invoiceNo: z.string().trim().max(80).optional().nullable(),
   invoiceDate: day.optional().nullable(),
+  vehicleNo: z.string().trim().max(60).optional().nullable(),
   reason: z.string().trim().min(3, 'Write why there is no PO').max(500),
   notes: z.string().trim().max(2000).optional().nullable(),
   lines: z

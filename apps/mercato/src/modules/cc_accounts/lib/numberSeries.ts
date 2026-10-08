@@ -1,6 +1,6 @@
 import type { EntityManager } from '@mikro-orm/postgresql'
 
-export type SeriesKey = 'SO' | 'PI' | 'INV' | 'CN' | 'VB' | 'IND' | 'PO' | 'GR' | 'SKU' | 'RB' | 'PB' | 'LOT_BS' | 'LOT_PR' | 'LOT_MO' | 'LOT_CUT' | 'LOT_FG' | 'LOT_BI'
+export type SeriesKey = 'SO' | 'ENQ' | 'QT' | 'PI' | 'INV' | 'CN' | 'VB' | 'IND' | 'PO' | 'GR' | 'SKU' | 'RB' | 'PB' | 'LOT_BS' | 'LOT_PR' | 'LOT_MO' | 'LOT_CUT' | 'LOT_FG' | 'LOT_BI'
 
 export type SeriesSetting = { prefix: string; suffix: string; pad: number; startAt: number }
 
@@ -8,6 +8,8 @@ export type SeriesDef = SeriesSetting & { key: SeriesKey; label: string; departm
 
 export const SERIES_DEFS: SeriesDef[] = [
   { key: 'SO', label: 'Sales order', department: 'Sales', table: 'cc_orders', column: 'order_no', prefix: 'CCCPL/SO/{FY}/', suffix: '', pad: 4, startAt: 1 },
+  { key: 'ENQ', label: 'Enquiry', department: 'Sales', table: 'cc_enquiries', column: 'enquiry_no', prefix: 'CCCPL/ENQ/{FY}/', suffix: '', pad: 4, startAt: 1 },
+  { key: 'QT', label: 'Quotation', department: 'Sales', table: 'cc_quotations', column: 'quote_no', prefix: 'CCCPL/QT/{FY}/', suffix: '', pad: 4, startAt: 1 },
   { key: 'PI', label: 'Proforma invoice', department: 'Accounts', table: 'cc_proforma_invoices', column: 'code', prefix: 'CCCPL/PI/{FY}/', suffix: '', pad: 3, startAt: 1 },
   { key: 'INV', label: 'Tax invoice', department: 'Accounts', table: 'cc_tax_invoices', column: 'code', prefix: 'CCCPL/INV/{FY}/', suffix: '', pad: 4, startAt: 1 },
   { key: 'CN', label: 'Credit note', department: 'Accounts', table: 'cc_tax_invoices', column: 'code', prefix: 'CCCPL/CN/{FY}/', suffix: '', pad: 4, startAt: 1 },

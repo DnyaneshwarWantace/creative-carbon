@@ -36,7 +36,9 @@ type Overview = {
     damaged: Array<{ id: string; entryDate: string; itemTitle: string; kg: number; reason: string }>
     bstageAtRisk: Array<{ lotId: string; lotNumber: string; clothTitle: string | null; kg: number; ageDays: number; band: string }>
     clashes: Array<{ id: string; screen: string; recordRef: string; detail: string | null; byName: string | null; at: string }>
+    belowReorder?: Array<{ productId: string; title: string; unit: string; onHand: number; reorderPoint: number; onOrder: number }>
   }
+  followUps?: Array<{ id: string; enquiryNo: string; partyName: string | null; subject: string; stage: string; ownerName: string | null; nextActionOn: string | null; nextActionNote: string | null }>
 }
 
 function Card({ title, children, tone }: { title: string; children: React.ReactNode; tone?: 'warning' }) {
@@ -162,6 +164,25 @@ export function OwnerOverviewPage() {
                 ) : null}
               </Card>
 
+              {data.followUps?.length ? (
+                <Card title={t('cc_production.owner.followUps', 'Enquiry follow-ups overdue: {count}', { count: data.followUps.length })} tone="warning">
+                  <ul className="space-y-1.5 text-sm">
+                    {data.followUps.map((row) => (
+                      <li key={row.id}>
+                        <Link className="underline-offset-2 hover:underline" href={`/backend/crm/enquiries/${row.id}`}>
+                          <span className="font-mono text-xs">{row.enquiryNo}</span> · {row.partyName ?? '—'} · {row.subject}
+                        </Link>
+                        <span className="block text-xs text-status-error-text">
+                          {day(row.nextActionOn ?? '')}
+                          {row.nextActionNote ? ` · ${row.nextActionNote}` : ''}
+                          {row.ownerName ? ` · ${row.ownerName}` : ''}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </Card>
+              ) : null}
+
               <Card title={t('cc_production.owner.breakdowns', '3 · Breakdowns and risks')} tone={data.breakdowns.failedBatches.length || data.breakdowns.damaged.length || data.breakdowns.bstageAtRisk.length ? 'warning' : undefined}>
                 <div className="space-y-3 text-sm">
                   <div>
@@ -198,6 +219,22 @@ export function OwnerOverviewPage() {
                       </p>
                     ))}
                   </div>
+                  {data.breakdowns.belowReorder?.length ? (
+                    <div>
+                      <p className="flex items-center gap-1 font-medium text-status-warning-text">
+                        <AlertTriangle className="h-4 w-4" aria-hidden="true" />
+                        <Link className="underline-offset-2 hover:underline" href="/backend/purchase/reorder">
+                          {t('cc_production.owner.reorder', 'Below reorder level: {count}', { count: data.breakdowns.belowReorder.length })}
+                        </Link>
+                      </p>
+                      {data.breakdowns.belowReorder.map((row) => (
+                        <p key={row.productId} className="text-xs text-muted-foreground">
+                          {row.title} · {kg(row.onHand)} / {kg(row.reorderPoint)} {row.unit}
+                          {row.onOrder ? ` · ${t('cc_production.owner.onOrder', '{qty} on order', { qty: kg(row.onOrder) })}` : ''}
+                        </p>
+                      ))}
+                    </div>
+                  ) : null}
                   {data.breakdowns.clashes.length ? (
                     <div>
                       <p className="font-medium">{t('cc_production.owner.clashes', 'Offline saves that overwrote a change')}</p>

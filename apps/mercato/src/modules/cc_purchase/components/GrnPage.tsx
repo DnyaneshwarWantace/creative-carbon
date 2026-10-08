@@ -224,6 +224,8 @@ export function GrnPage({ grnId }: { grnId: string }) {
                   <dd className="text-right font-mono">{grn.invoiceNo ?? '—'}</dd>
                   <dt className="text-muted-foreground">{t('cc_purchase.grn.invoiceDate', 'Invoice date')}</dt>
                   <dd className="text-right">{day(grn.invoiceDate)}</dd>
+                  <dt className="text-muted-foreground">{t('cc_purchase.grn.vehicle', 'Vehicle / container no.')}</dt>
+                  <dd className="text-right font-mono">{grn.vehicleNo ?? '—'}</dd>
                   <dt className="text-muted-foreground">{t('cc_purchase.grnDetail.receivedBy', 'Received by')}</dt>
                   <dd className="text-right">{grn.receivedByName ?? '—'}</dd>
                 </dl>

@@ -78,6 +78,7 @@ export type GrnView = {
   grnDate: string
   invoiceNo: string | null
   invoiceDate: string | null
+  vehicleNo?: string | null
   status: GrnStatus
   notes: string | null
   receivedByName: string | null

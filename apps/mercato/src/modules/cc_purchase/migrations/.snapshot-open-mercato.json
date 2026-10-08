@@ -679,6 +679,23 @@
           "enumItems": [],
           "mappedType": "datetime"
         },
+        "vehicle_no": {
+          "name": "vehicle_no",
+          "type": "text",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": true,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "text"
+        },
         "vendor_id": {
           "name": "vendor_id",
           "type": "uuid",

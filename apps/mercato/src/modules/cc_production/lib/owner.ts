@@ -9,6 +9,8 @@ import { allLots, findLot } from './finishing'
 import { pressFigures } from './pressFigures'
 import { PlantError } from './server'
 import { kg3, plantStock } from './plantStock'
+import { overdueEnquiries } from '../../cc_crm/lib/enquiries'
+import { reorderSuggestions } from '../../cc_purchase/lib/reorder'
 
 function scope(ctx: StoreContext) {
   return { tenantId: ctx.tenantId, organizationId: ctx.organizationId }
@@ -154,7 +156,9 @@ export async function ownerOverview(ctx: StoreContext, date: string) {
       damaged: damages.map((row) => ({ id: row.id, entryDate: row.entryDate, itemTitle: row.itemTitle, kg: Number(row.kg), reason: row.reason })),
       bstageAtRisk: atRisk,
       clashes: clashes.map((row) => ({ id: row.id, screen: row.screen, recordRef: row.recordRef, detail: row.detail ?? null, byName: row.byName ?? null, at: row.createdAt.toISOString() })),
+      belowReorder: (await reorderSuggestions(ctx)).items.filter((item) => item.stockBelow).slice(0, 12).map((item) => ({ productId: item.productId, title: item.title, unit: item.unit, onHand: item.onHand, reorderPoint: item.reorderPoint, onOrder: item.onOrder })),
     },
+    followUps: await overdueEnquiries(ctx, 12),
   }
 }
 

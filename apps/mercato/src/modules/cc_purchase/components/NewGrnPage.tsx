@@ -34,6 +34,7 @@ export function NewGrnPage() {
   const [grnDate, setGrnDate] = React.useState(todayIso())
   const [invoiceNo, setInvoiceNo] = React.useState('')
   const [invoiceDate, setInvoiceDate] = React.useState('')
+  const [vehicleNo, setVehicleNo] = React.useState('')
   const [notes, setNotes] = React.useState('')
   const [busy, setBusy] = React.useState(false)
 
@@ -77,6 +78,7 @@ export function NewGrnPage() {
       grnDate,
       invoiceNo: invoiceNo.trim() || null,
       invoiceDate: invoiceDate || null,
+      vehicleNo: vehicleNo.trim() || null,
       notes: notes.trim() || null,
       lines: chosen.map(([poLineId, draft]) => ({
         poLineId,
@@ -160,7 +162,7 @@ export function NewGrnPage() {
             <AlertDescription>{t('cc_purchase.grn.howBody', 'It is counted in the store but cannot be reserved or issued until QC approves the batch. A QC check is created for every line.')}</AlertDescription>
           </Alert>
 
-          <section className="grid grid-cols-1 gap-4 rounded-xl border border-border bg-card p-5 shadow-sm sm:grid-cols-3">
+          <section className="grid grid-cols-1 gap-4 rounded-xl border border-border bg-card p-5 shadow-sm sm:grid-cols-4">
             <div className="space-y-1.5">
               <Label htmlFor="grn-date">{t('cc_purchase.grn.date', 'Received on')}</Label>
               <Input id="grn-date" type="date" value={grnDate} onChange={(event) => setGrnDate(event.target.value)} />
@@ -172,6 +174,10 @@ export function NewGrnPage() {
             <div className="space-y-1.5">
               <Label htmlFor="grn-invoice-date">{t('cc_purchase.grn.invoiceDate', 'Invoice date')}</Label>
               <Input id="grn-invoice-date" type="date" value={invoiceDate} onChange={(event) => setInvoiceDate(event.target.value)} />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="grn-vehicle">{t('cc_purchase.grn.vehicle', 'Vehicle / container no.')}</Label>
+              <Input id="grn-vehicle" value={vehicleNo} onChange={(event) => setVehicleNo(event.target.value)} placeholder="GJ-07-AB-1234 / MSKU1234567" />
             </div>
           </section>
 
@@ -248,7 +254,7 @@ export function NewGrnPage() {
           </section>
 
           <section className="rounded-xl border border-border bg-card p-5 shadow-sm">
-            <Label htmlFor="grn-notes">{t('cc_purchase.grn.notes', 'Notes (damage, short, vehicle no.)')}</Label>
+            <Label htmlFor="grn-notes">{t('cc_purchase.grn.notes', 'Notes (damage, short)')}</Label>
             <Textarea id="grn-notes" className="mt-1.5" rows={2} value={notes} onChange={(event) => setNotes(event.target.value)} />
           </section>
 

@@ -56,6 +56,7 @@ export function DirectGrnPage() {
   const [grnDate, setGrnDate] = React.useState(todayIso())
   const [invoiceNo, setInvoiceNo] = React.useState('')
   const [invoiceDate, setInvoiceDate] = React.useState('')
+  const [vehicleNo, setVehicleNo] = React.useState('')
   const [reason, setReason] = React.useState('')
   const [notes, setNotes] = React.useState('')
   const [busy, setBusy] = React.useState(false)
@@ -92,6 +93,7 @@ export function DirectGrnPage() {
       grnDate,
       invoiceNo: invoiceNo.trim() || null,
       invoiceDate: invoiceDate || null,
+      vehicleNo: vehicleNo.trim() || null,
       reason: reason.trim(),
       notes: notes.trim() || null,
       lines: lines.map((line) => ({
@@ -191,7 +193,7 @@ export function DirectGrnPage() {
               <Label htmlFor="direct-reason">{t('cc_purchase.direct.reason', 'Why is there no PO?')} *</Label>
               <Input id="direct-reason" value={reason} onChange={(event) => setReason(event.target.value)} placeholder={t('cc_purchase.direct.reasonPlaceholder', 'e.g. Free sample from vendor, replacement for rejected batch')} />
             </div>
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3 md:col-span-2">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-4 md:col-span-2">
               <div className="space-y-1.5">
                 <Label htmlFor="direct-date">{t('cc_purchase.grn.date', 'Received on')}</Label>
                 <Input id="direct-date" type="date" value={grnDate} onChange={(event) => setGrnDate(event.target.value)} />
@@ -203,6 +205,10 @@ export function DirectGrnPage() {
               <div className="space-y-1.5">
                 <Label htmlFor="direct-invoice-date">{t('cc_purchase.grn.invoiceDate', 'Invoice date')}</Label>
                 <Input id="direct-invoice-date" type="date" value={invoiceDate} onChange={(event) => setInvoiceDate(event.target.value)} />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="direct-vehicle">{t('cc_purchase.grn.vehicle', 'Vehicle / container no.')}</Label>
+                <Input id="direct-vehicle" value={vehicleNo} onChange={(event) => setVehicleNo(event.target.value)} placeholder="GJ-07-AB-1234 / MSKU1234567" />
               </div>
             </div>
           </section>
@@ -286,7 +292,7 @@ export function DirectGrnPage() {
           </section>
 
           <section className="rounded-xl border border-border bg-card p-5 shadow-sm">
-            <Label htmlFor="direct-notes">{t('cc_purchase.grn.notes', 'Notes (damage, short, vehicle no.)')}</Label>
+            <Label htmlFor="direct-notes">{t('cc_purchase.grn.notes', 'Notes (damage, short)')}</Label>
             <Textarea id="direct-notes" className="mt-1.5" rows={2} value={notes} onChange={(event) => setNotes(event.target.value)} />
           </section>
 

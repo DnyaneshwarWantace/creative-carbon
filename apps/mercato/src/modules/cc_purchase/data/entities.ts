@@ -141,7 +141,7 @@ export class PurchaseOrderLine {
 @Index({ name: 'cc_grns_po_idx', properties: ['poId'] })
 @Unique({ name: 'cc_grns_code_uq', properties: ['organizationId', 'tenantId', 'code'] })
 export class GoodsReceipt {
-  [OptionalProps]?: 'status' | 'poId' | 'poCode' | 'invoiceNo' | 'invoiceDate' | 'notes' | 'receivedByName' | 'history' | 'createdAt' | 'updatedAt' | 'deletedAt'
+  [OptionalProps]?: 'status' | 'poId' | 'poCode' | 'invoiceNo' | 'invoiceDate' | 'vehicleNo' | 'notes' | 'receivedByName' | 'history' | 'createdAt' | 'updatedAt' | 'deletedAt'
 
   @PrimaryKey({ type: 'uuid', defaultRaw: 'gen_random_uuid()' })
   id!: string
@@ -175,6 +175,9 @@ export class GoodsReceipt {
 
   @Property({ name: 'invoice_date', type: 'text', nullable: true })
   invoiceDate?: string | null
+
+  @Property({ name: 'vehicle_no', type: 'text', nullable: true })
+  vehicleNo?: string | null
 
   @Property({ type: 'text', default: 'under_test' })
   status: GrnStatus = 'under_test'

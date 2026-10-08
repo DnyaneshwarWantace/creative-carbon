@@ -69,6 +69,7 @@ type Header = {
   billingAddress: string
   shippingAddress: string
   revisionNote: string
+  validUntil: string
 }
 
 const EMPTY_HEADER: Header = {
@@ -93,6 +94,7 @@ const EMPTY_HEADER: Header = {
   billingAddress: '',
   shippingAddress: '',
   revisionNote: '',
+  validUntil: '',
 }
 
 let lineCounter = 0
@@ -118,6 +120,53 @@ function linesFromOrder(order: Order, keepBatch: boolean): LineDraft[] {
     rdNumber: line.rdNumber ?? '',
     specs: line.specs ?? {},
   }))
+}
+
+function addDays(iso: string, days: number): string {
+  const date = new Date(`${iso}T00:00:00Z`)
+  date.setUTCDate(date.getUTCDate() + days)
+  return date.toISOString().slice(0, 10)
+}
+
+type RateOption = { id: string; sizeClass: string; grade: string; thicknessFrom: number | null; thicknessTo: number | null; ratePerKg: number; currency: string }
+
+function RateHint({ line, currency, onPick }: { line: LineDraft; currency: string; onPick: (rate: string) => void }) {
+  const t = useT()
+  const grade = line.specs.material?.grade?.trim() ?? ''
+  const thickness = line.specs.material?.thickness_mm?.trim() ?? ''
+  const [rates, setRates] = React.useState<RateOption[] | null>(null)
+  React.useEffect(() => {
+    if (!grade) {
+      setRates(null)
+      return
+    }
+    let cancelled = false
+    const params = new URLSearchParams({ grade, currency: currency || 'INR' })
+    if (thickness && Number.isFinite(Number(thickness))) params.set('thickness', thickness)
+    apiCall<{ items: RateOption[] }>(`/api/cc_crm/rates?${params.toString()}`).then((call) => {
+      if (!cancelled) setRates(call.ok ? (call.result?.items ?? []) : null)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [grade, thickness, currency])
+  if (!rates) return null
+  if (!rates.length) return <p className="mt-1 text-right text-xs text-muted-foreground">{t('cc_orders.form.noRate', 'No price-list rate')}</p>
+  return (
+    <div className="mt-1 flex flex-wrap justify-end gap-1">
+      {rates.slice(0, 2).map((rate) => (
+        <button
+          key={rate.id}
+          type="button"
+          className="rounded-sm bg-muted px-1.5 py-0.5 text-xs text-muted-foreground hover:bg-accent hover:text-foreground"
+          title={t('cc_orders.form.rateHint', 'Price list: {grade}, {size} size', { grade: rate.grade, size: rate.sizeClass })}
+          onClick={() => onPick(String(rate.ratePerKg))}
+        >
+          {rate.sizeClass === 'big' ? t('cc_orders.form.big', 'Big') : t('cc_orders.form.small', 'Small')} {rate.ratePerKg}
+        </button>
+      ))}
+    </div>
+  )
 }
 
 function toNumber(value: string): number | null {
@@ -161,16 +210,18 @@ function ListSelect({ listKey, value, onChange }: { listKey: string; value: stri
   )
 }
 
-export function OrderForm({ orderId, copyFrom, customerId }: { orderId?: string; copyFrom?: string; customerId?: string }) {
+export function OrderForm({ orderId, copyFrom, customerId, quotationId, quotation, enquiryId }: { orderId?: string; copyFrom?: string; customerId?: string; quotationId?: string; quotation?: boolean; enquiryId?: string }) {
   const t = useT()
   const router = useRouter()
-  const { runMutation } = useGuardedMutation({ contextId: `cc-order-${orderId ?? 'new'}` })
+  const isQuote = Boolean(quotation || quotationId)
+  const { runMutation } = useGuardedMutation({ contextId: isQuote ? `cc-quotation-${quotationId ?? 'new'}` : `cc-order-${orderId ?? 'new'}` })
   const [customer, setCustomer] = React.useState<Customer | null>(null)
   const [header, setHeader] = React.useState<Header>(EMPTY_HEADER)
   const termOptions = usePaymentTerms(header.paymentTerms)
   const [lines, setLines] = React.useState<LineDraft[]>([newLine()])
   const [existing, setExisting] = React.useState<Order | null>(null)
-  const [loading, setLoading] = React.useState(Boolean(orderId || copyFrom))
+  const [loading, setLoading] = React.useState(Boolean(orderId || copyFrom || quotationId))
+  const [linkedEnquiryId, setLinkedEnquiryId] = React.useState<string | null>(enquiryId ?? null)
   const [loadError, setLoadError] = React.useState<string | null>(null)
   const [saving, setSaving] = React.useState(false)
   const [errors, setErrors] = React.useState<{ customer?: string; rows: Record<string, string> }>({ rows: {} })
@@ -178,10 +229,11 @@ export function OrderForm({ orderId, copyFrom, customerId }: { orderId?: string;
   const [step, setStep] = React.useState(0)
 
   React.useEffect(() => {
-    const sourceId = orderId ?? copyFrom
+    const sourceId = quotationId ?? orderId ?? copyFrom
     if (!sourceId) return
     let cancelled = false
-    apiCall<Order>(`/api/cc_orders/orders?id=${encodeURIComponent(sourceId)}`).then(async (call) => {
+    const sourceUrl = quotationId ? `/api/cc_crm/quotations?id=${encodeURIComponent(sourceId)}` : `/api/cc_orders/orders?id=${encodeURIComponent(sourceId)}`
+    apiCall<Order & { validUntil?: string | null; enquiryId?: string | null }>(sourceUrl).then(async (call) => {
       if (cancelled) return
       if (!call.ok || !call.result) {
         setLoadError(t('cc_orders.errors.load', 'Could not load the order.'))
@@ -192,7 +244,8 @@ export function OrderForm({ orderId, copyFrom, customerId }: { orderId?: string;
       const fresh = order.customer ?? (await loadCustomer(order.customerId))
       if (cancelled) return
       setCustomer(fresh)
-      if (orderId) {
+      if (orderId || quotationId) {
+        if (quotationId) setLinkedEnquiryId(order.enquiryId ?? null)
         setExisting(order)
         setHeader({
           orderDate: order.orderDate,
@@ -216,6 +269,7 @@ export function OrderForm({ orderId, copyFrom, customerId }: { orderId?: string;
           billingAddress: order.billingAddress ?? '',
           shippingAddress: order.shippingAddress ?? '',
           revisionNote: '',
+          validUntil: order.validUntil ?? '',
         })
         setLines(linesFromOrder(order, true))
       } else {
@@ -240,7 +294,11 @@ export function OrderForm({ orderId, copyFrom, customerId }: { orderId?: string;
     return () => {
       cancelled = true
     }
-  }, [orderId, copyFrom, t])
+  }, [orderId, copyFrom, quotationId, t])
+
+  React.useEffect(() => {
+    if (isQuote && !quotationId) setHeader((prev) => (prev.validUntil ? prev : { ...prev, validUntil: addDays(prev.orderDate, 30) }))
+  }, [isQuote, quotationId])
 
   React.useEffect(() => {
     if (!customerId || orderId || copyFrom) return
@@ -261,7 +319,7 @@ export function OrderForm({ orderId, copyFrom, customerId }: { orderId?: string;
   }, [customerId, orderId, copyFrom])
 
   React.useEffect(() => {
-    if (!customer || orderId) {
+    if (!customer || orderId || isQuote) {
       setPrevious([])
       return
     }
@@ -272,7 +330,7 @@ export function OrderForm({ orderId, copyFrom, customerId }: { orderId?: string;
     return () => {
       cancelled = true
     }
-  }, [customer, orderId])
+  }, [customer, orderId, isQuote])
 
   const [addresses, setAddresses] = React.useState<CustomerAddress[]>([])
 
@@ -377,10 +435,11 @@ export function OrderForm({ orderId, copyFrom, customerId }: { orderId?: string;
       flash(t('cc_orders.errors.delivery', 'Delivery date is before the order date.'), 'error')
       return
     }
-    const { revisionNote, ...headerFields } = header
+    const { revisionNote, validUntil, ...headerFields } = header
     const body = {
       ...headerFields,
-      ...(existing ? { revisionNote: revisionNote || null } : {}),
+      ...(existing && !isQuote ? { revisionNote: revisionNote || null } : {}),
+      ...(isQuote ? { validUntil: validUntil || null, enquiryId: linkedEnquiryId } : {}),
       billingAddress: header.billingAddress || null,
       shippingAddress: header.shippingAddress || null,
       deliveryDate: header.deliveryDate || null,
@@ -408,7 +467,7 @@ export function OrderForm({ orderId, copyFrom, customerId }: { orderId?: string;
         mutationPayload: payload,
         operation: () => {
           const request = () =>
-            apiCall<{ id?: string; orderNo?: string; error?: string; rows?: Record<string, string> }>('/api/cc_orders/orders', {
+            apiCall<{ id?: string; orderNo?: string; quoteNo?: string; error?: string; rows?: Record<string, string> }>(isQuote ? '/api/cc_crm/quotations' : '/api/cc_orders/orders', {
               method: existing ? 'PUT' : 'POST',
               headers: { 'content-type': 'application/json' },
               body: JSON.stringify(payload),
@@ -424,6 +483,11 @@ export function OrderForm({ orderId, copyFrom, customerId }: { orderId?: string;
             : (call.result?.error ?? t('cc_orders.errors.save', 'Could not save the order.')),
           'error',
         )
+        return
+      }
+      if (isQuote) {
+        flash(existing ? t('cc_crm.flash.quoteSaved', 'Quotation saved') : t('cc_crm.flash.quoteCreated', 'Quotation {no} made', { no: call.result?.quoteNo ?? '' }), 'success')
+        router.push(`/backend/crm/quotations/${existing?.id ?? call.result?.id}`)
         return
       }
       flash(
@@ -458,12 +522,20 @@ export function OrderForm({ orderId, copyFrom, customerId }: { orderId?: string;
     )
   }
 
-  const backHref = existing ? `/backend/orders/${existing.id}` : '/backend/orders'
+  const backHref = isQuote
+    ? existing
+      ? `/backend/crm/quotations/${existing.id}`
+      : linkedEnquiryId
+        ? `/backend/crm/enquiries/${linkedEnquiryId}`
+        : '/backend/crm/quotations'
+    : existing
+      ? `/backend/orders/${existing.id}`
+      : '/backend/orders'
   const steps = [
     { id: 'customer', label: t('cc_orders.wizard.customer', '1. Customer & header'), description: t('cc_orders.wizard.customerHint', 'Who, when, terms') },
     { id: 'products', label: t('cc_orders.wizard.products', '2. Items'), description: t('cc_orders.wizard.productsHint', 'Item, kg, rate') },
     { id: 'specs', label: t('cc_orders.wizard.specs', '3. Production & packing specs'), description: t('cc_orders.wizard.specsHint', 'The client’s order form') },
-    { id: 'review', label: t('cc_orders.wizard.review', '4. Review & book'), description: t('cc_orders.wizard.reviewHint', 'Check and save') },
+    { id: 'review', label: isQuote ? t('cc_crm.wizard.review', '4. Review & save quotation') : t('cc_orders.wizard.review', '4. Review & book'), description: t('cc_orders.wizard.reviewHint', 'Check and save') },
   ]
   const filledLines = lines.filter((line) => line.product || line.quantity.trim())
 
@@ -551,14 +623,20 @@ export function OrderForm({ orderId, copyFrom, customerId }: { orderId?: string;
               </Button>
               <div>
                 <h1 className="text-xl font-bold">
-                  {existing
+                  {isQuote
+                    ? existing
+                      ? t('cc_crm.form.editTitle', 'Edit quotation {no}', { no: existing.orderNo })
+                      : t('cc_crm.form.newTitle', 'New quotation')
+                    : existing
                     ? t('cc_orders.form.editTitle', 'Edit order {no}', { no: existing.orderNo })
                     : header.orderType === 'repeat'
                       ? t('cc_orders.form.repeatTitle', 'Book a repeat order')
                       : t('cc_orders.form.newTitle', 'Book a new order')}
                 </h1>
                 <p className="text-xs text-muted-foreground">
-                  {t('cc_orders.form.subtitle', 'The order number is given when you save. It then waits at "Advance received" until Accounts verifies the advance.')}
+                  {isQuote
+                    ? t('cc_crm.form.subtitle', 'Lines as on an order. The quotation number is given when you save; "Convert to order" later carries everything across.')
+                    : t('cc_orders.form.subtitle', 'The order number is given when you save. It then waits at "Advance received" until Accounts verifies the advance.')}
                 </p>
               </div>
             </div>
@@ -568,7 +646,7 @@ export function OrderForm({ orderId, copyFrom, customerId }: { orderId?: string;
               </Button>
               {existing ? (
                 <Button type="button" onClick={() => save()} disabled={saving}>
-                  {saving ? t('cc_orders.form.saving', 'Saving…') : t('cc_orders.form.save', 'Save order')}
+                  {saving ? t('cc_orders.form.saving', 'Saving…') : isQuote ? t('cc_crm.form.save', 'Save quotation') : t('cc_orders.form.save', 'Save order')}
                 </Button>
               ) : null}
             </div>
@@ -599,7 +677,7 @@ export function OrderForm({ orderId, copyFrom, customerId }: { orderId?: string;
                     load={searchCustomers}
                     onSelect={selectCustomer}
                     invalid={Boolean(errors.customer)}
-                    disabled={Boolean(existing)}
+                    disabled={Boolean(existing) && !isQuote}
                     footer={
                       <Link href="/backend/customers/companies/create" target="_blank" className="inline-flex items-center gap-1 text-xs text-primary hover:underline">
                         <Plus className="h-3 w-3" />
@@ -617,12 +695,18 @@ export function OrderForm({ orderId, copyFrom, customerId }: { orderId?: string;
                     </p>
                   ) : null}
                 </Field>
-                <Field label={t('cc_orders.form.orderDate', 'Order date')} required className="md:col-span-3">
+                <Field label={isQuote ? t('cc_crm.form.quoteDate', 'Quotation date') : t('cc_orders.form.orderDate', 'Order date')} required className="md:col-span-3">
                   <Input type="date" value={header.orderDate} onChange={(event) => patchHeader({ orderDate: event.target.value })} />
                 </Field>
+                {isQuote ? (
+                  <Field label={t('cc_crm.form.validUntil', 'Valid until')} className="md:col-span-3">
+                    <Input type="date" value={header.validUntil} onChange={(event) => patchHeader({ validUntil: event.target.value })} />
+                  </Field>
+                ) : null}
                 <Field label={t('cc_orders.form.deliveryDate', 'Delivery date')} className="md:col-span-3">
                   <Input type="date" value={header.deliveryDate} onChange={(event) => patchHeader({ deliveryDate: event.target.value })} />
                 </Field>
+                {isQuote ? null : (
                 <Field label={t('cc_orders.form.orderType', 'Order type')} className="md:col-span-3">
                   <Select value={header.orderType} onValueChange={(value) => patchHeader({ orderType: value as Header['orderType'] })}>
                     <SelectTrigger>
@@ -635,6 +719,7 @@ export function OrderForm({ orderId, copyFrom, customerId }: { orderId?: string;
                     </SelectContent>
                   </Select>
                 </Field>
+                )}
                 <Field label={t('cc_orders.form.poRef', 'Customer PO / reference')} className="md:col-span-3">
                   <Input value={header.customerPoRef} onChange={(event) => patchHeader({ customerPoRef: event.target.value })} placeholder="e.g. PO-2291" />
                 </Field>
@@ -815,6 +900,7 @@ export function OrderForm({ orderId, copyFrom, customerId }: { orderId?: string;
                               </td>
                               <td className="px-2 py-2">
                                 <Input type="number" min={0} step="any" className="text-right" value={line.rate} onChange={(event) => patchLine(line.key, { rate: event.target.value })} />
+                                <RateHint line={line} currency={header.market === 'export' ? header.currency || 'USD' : 'INR'} onPick={(rate) => patchLine(line.key, { rate })} />
                               </td>
                               <td className="px-2 py-2">
                                 <Select value={line.gstPercent} onValueChange={(value) => patchLine(line.key, { gstPercent: value })}>
@@ -1021,7 +1107,7 @@ export function OrderForm({ orderId, copyFrom, customerId }: { orderId?: string;
                       </tbody>
                     </table>
                   </div>
-                  {existing ? (
+                  {existing && !isQuote ? (
                     <Field label={t('cc_orders.form.revisionNote', 'What changed and why (shown in the history)')}>
                       <Input value={header.revisionNote} onChange={(event) => patchHeader({ revisionNote: event.target.value })} placeholder={t('cc_orders.form.revisionPlaceholder', 'e.g. client increased quantity by phone')} />
                     </Field>
@@ -1051,6 +1137,7 @@ export function OrderForm({ orderId, copyFrom, customerId }: { orderId?: string;
                       <dd className="tabular-nums">₹{formatQty(orderTotals.total, 2)}</dd>
                     </div>
                   </dl>
+                  {isQuote ? null : (
                   <ol className="space-y-2 rounded-md bg-muted/30 p-3 text-xs">
                     <li>
                       <span className="font-semibold">1. {t('cc_orders.form.next1', 'Order booked')}</span>
@@ -1065,6 +1152,7 @@ export function OrderForm({ orderId, copyFrom, customerId }: { orderId?: string;
                       <span className="block text-muted-foreground">{t('cc_orders.form.next3Hint', 'Each stage appears as a task on its department page and on this order.')}</span>
                     </li>
                   </ol>
+                  )}
                 </CardContent>
               </Card>
             </div>
@@ -1090,7 +1178,7 @@ export function OrderForm({ orderId, copyFrom, customerId }: { orderId?: string;
               ) : (
                 <Button type="submit" disabled={saving}>
                   <CheckCircle2 className="mr-1.5 h-4 w-4" />
-                  {saving ? t('cc_orders.form.saving', 'Saving…') : existing ? t('cc_orders.form.save', 'Save order') : t('cc_orders.form.book', 'Book order')}
+                  {saving ? t('cc_orders.form.saving', 'Saving…') : isQuote ? t('cc_crm.form.save', 'Save quotation') : existing ? t('cc_orders.form.save', 'Save order') : t('cc_orders.form.book', 'Book order')}
                 </Button>
               )}
             </div>

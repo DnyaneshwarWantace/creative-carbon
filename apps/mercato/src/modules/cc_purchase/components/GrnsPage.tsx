@@ -18,7 +18,7 @@ import { useGranted } from '../../cc_departments/components/useGranted'
 import { downloadCsv, fetchAllPages, fetchDetails } from '../../cc_products/lib/csvExport'
 
 type View = 'under_test' | 'approved' | 'rejected' | 'all'
-type Row = { id: string; code: string; poId: string | null; poCode: string | null; vendorName: string; grnDate: string; invoiceNo: string | null; status: GrnStatus; lineCount: number; passed: number; failed: number; items: string[] }
+type Row = { id: string; code: string; poId: string | null; poCode: string | null; vendorName: string; grnDate: string; invoiceNo: string | null; vehicleNo?: string | null; status: GrnStatus; lineCount: number; passed: number; failed: number; items: string[] }
 
 export function GrnsPage() {
   const t = useT()
@@ -67,6 +67,7 @@ export function GrnsPage() {
       { header: 'Vendor', value: (row) => row.grn.vendorName },
       { header: 'Invoice no.', value: (row) => row.grn.invoiceNo ?? '' },
       { header: 'Invoice date', value: (row) => row.grn.invoiceDate ?? '' },
+      { header: 'Vehicle / container', value: (row) => row.grn.vehicleNo ?? '' },
       { header: 'Material ID', value: (row) => row.line.code ?? '' },
       { header: 'Material', value: (row) => row.line.title },
       { header: 'Store', value: (row) => row.line.store },

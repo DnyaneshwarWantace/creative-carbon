@@ -28,7 +28,7 @@ async function GET(req: Request) {
     if (query.poId) where.poId = query.poId
     if (query.search) {
       const term = `%${query.search.replace(/[%_]/g, '')}%`
-      where.$or = [{ code: { $ilike: term } }, { poCode: { $ilike: term } }, { vendorName: { $ilike: term } }, { invoiceNo: { $ilike: term } }]
+      where.$or = [{ code: { $ilike: term } }, { poCode: { $ilike: term } }, { vendorName: { $ilike: term } }, { invoiceNo: { $ilike: term } }, { vehicleNo: { $ilike: term } }]
     }
     const [grns, total] = await ctx.em.findAndCount(GoodsReceipt, where, { orderBy: { createdAt: 'desc' }, limit: query.pageSize, offset: (query.page - 1) * query.pageSize })
     const lines = grns.length ? await ctx.em.find(GoodsReceiptLine, { grnId: { $in: grns.map((grn) => grn.id) } }) : []
@@ -44,6 +44,7 @@ async function GET(req: Request) {
           vendorName: grn.vendorName,
           grnDate: grn.grnDate,
           invoiceNo: grn.invoiceNo ?? null,
+          vehicleNo: grn.vehicleNo ?? null,
           status: grn.status,
           lineCount: own.length,
           passed: own.filter((line) => line.qcStatus === 'passed').length,
