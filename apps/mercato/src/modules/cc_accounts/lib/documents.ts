@@ -120,6 +120,7 @@ export async function linesFromOrder(ctx: Scope, order: CcOrder): Promise<{ line
       packSize: line.packSize ?? null,
       hsn: hsn.get(line.productId) ?? null,
       quantity: priced[index].quantity,
+      unit: product?.unit === 'nos' ? 'pcs' : 'kg',
       rate: priced[index].rate,
       discountPercent: priced[index].discountPercent,
       gstPercent: priced[index].gstPercent,

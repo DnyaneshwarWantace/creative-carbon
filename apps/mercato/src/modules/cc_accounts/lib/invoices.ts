@@ -82,7 +82,7 @@ async function buildLines(
     const requested = wanted ? (wanted.find((entry) => entry.orderLineId === line.id)?.quantity ?? 0) : available
     if (requested <= 0) continue
     const product = products.get(line.productId)
-    if (requested > available + 1e-9) throw new AccountsError(`${product?.title ?? 'A product'}: only ${available} pcs are left to bill`)
+    if (requested > available + 1e-9) throw new AccountsError(`${product?.title ?? 'A product'}: only ${available} ${product?.unit === 'nos' ? 'pcs' : 'kg'} are left to bill`)
     const input = { quantity: requested, rate: line.rate == null ? null : Number(line.rate), gstPercent: Number(line.gstPercent ?? 18), discountPercent: Number(line.discountPercent ?? 0) }
     if (input.rate == null) throw new AccountsError(`${product?.title ?? 'A product'} has no rate on the order`)
     const price = priceLine(input, pricesIncludeGst)
@@ -97,6 +97,7 @@ async function buildLines(
           packSize: line.packSize ?? null,
           hsn: hsn.get(line.productId) ?? null,
           quantity: requested,
+          unit: product?.unit === 'nos' ? 'pcs' : 'kg',
           rate: input.rate,
           discountPercent: input.discountPercent,
           gstPercent: input.gstPercent,
@@ -210,7 +211,7 @@ export async function createCreditNote(
     if (wanted.quantity <= 0) continue
     const source = invoice.lines.find((line) => line.orderLineId === wanted.orderLineId)
     if (!source) throw new AccountsError('That product is not on the invoice')
-    if (wanted.quantity > (left.get(source.orderLineId) ?? 0) + 1e-9) throw new AccountsError(`${source.title}: only ${left.get(source.orderLineId) ?? 0} pcs can still be credited`)
+    if (wanted.quantity > (left.get(source.orderLineId) ?? 0) + 1e-9) throw new AccountsError(`${source.title}: only ${left.get(source.orderLineId) ?? 0} ${source.unit ?? ''} can still be credited`)
     const price = priceLine({ quantity: wanted.quantity, rate: source.rate, gstPercent: source.gstPercent, discountPercent: source.discountPercent }, invoice.pricesIncludeGst)
     lines.push(splitTax({ ...source, quantity: wanted.quantity, taxable: price.taxable, gst: price.gst, total: price.total }, invoice.interState))
   }
