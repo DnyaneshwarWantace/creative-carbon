@@ -206,7 +206,7 @@
       <a class="pchip partial" href="#s8"><div class="pn">Stage 8<span>Wk 5</span></div><div class="pv">Stock · Owner · Demo</div></a>
       <a class="pchip partial" href="#s9"><div class="pn">Stage 9<span>Wk 6–7</span></div><div class="pv">Order → Despatch</div></a>
       <a class="pchip partial" href="#s10"><div class="pn">Stage 10<span>Wk 7–8</span></div><div class="pv">CRM · Purchase</div></a>
-      <a class="pchip" href="#s11"><div class="pn">Stage 11<span>Wk 8</span></div><div class="pv">Documents · Tally</div></a>
+      <a class="pchip done" href="#s11"><div class="pn">Stage 11<span>Wk 8</span></div><div class="pv">Documents · Tally</div></a>
       <a class="pchip" href="#s12"><div class="pn">Stage 12<span>Wk 9–12</span></div><div class="pv">Go-live</div></a>
     </div>
     <div class="legend">
@@ -438,7 +438,7 @@
               <tr><td class="k">Tax / export invoice</td><td class="t">/backend/accounts/invoices/&lt;id&gt;</td><td>Order, packing</td><td>Payments, Tally push</td><td><span class="verdict done">Built</span></td></tr>
               <tr><td class="k">Payment</td><td class="t">/backend/accounts/payments/&lt;id&gt;</td><td>Customer, invoice</td><td>Dues</td><td><span class="verdict done">Built</span></td></tr>
               <tr><td class="k">Vendor bill</td><td class="t">/backend/accounts/vendor-bills/&lt;id&gt;</td><td>GRN, PO</td><td>Tally push</td><td><span class="verdict done">Built</span></td></tr>
-              <tr><td class="k">Tally push</td><td class="t">/backend/accounts/tally/&lt;id&gt;</td><td>Invoice or bill</td><td>—</td><td><span class="verdict planned">Missing</span></td></tr>
+              <tr><td class="k">Tally push</td><td class="t">/backend/accounts/tally/&lt;id&gt;</td><td>Invoice or bill</td><td>—</td><td><span class="verdict done">Built</span></td></tr>
             </tbody>
           </table>
         </div>
@@ -1207,18 +1207,23 @@
 
 <!-- ============ STAGE 11 ============ -->
       <section id="s11">
-        <div class="mod-head"><h2>Stage 11 · Documents and Tally</h2><span class="verdict planned">PLANNED</span><span class="when">Week 8</span></div>
+        <div class="mod-head"><h2>Stage 11 · Documents and Tally</h2><span class="verdict done">DONE</span><span class="when">Week 8 · finished 9 Oct 2026</span></div>
         <div class="grid2">
-          <div class="box"><h4>Documents</h4><p>Tax invoice, export invoice, packing list (with sheet weights), proforma, delivery challan, job-work challan, B-stage sale invoice, test certificate cover. Dermat's print layouts with Creative Carbon's name, GSTIN and bank. Made step by step on the order, generated once at the end (as discussed on the day).</p></div>
-          <div class="box"><h4>Tally</h4><p>One way: sales invoices, purchase bills, job work. Every push logged with what was sent and what came back; failures retry and are listed. Ledger mapping set with their accountant at the Ahmedabad office visit.</p></div>
+          <div class="box"><h4>Documents</h4><p>Tax invoice and credit note (already in place). <b>Export invoice</b>: an invoice from an export order is zero-rated under LUT (or with IGST paid, switchable on the draft), place of supply 96, amounts in the order currency with the exchange rate needed before issue, shipment details from the order (incoterm, ports, country, container, seal, shipping bill, LC), IEC and LUT ARN from Company details, amount in words in the currency. <b>B-stage sale</b>: the invoice lists the lots supplied with cloth, GSM, coating date and age; an expired lot can be sold only with a reason. <b>Packing list</b> with every sheet weight (3 decimals) and the lots. <b>Test certificate</b> TC-&lt;order&gt;: items and standard, lots with thickness and FG checks, every lab test, conformity statement. <b>Job-work challan</b> CCCPL/JW/&lt;FY&gt;/NNNN: lots go to a new store "At job worker", come back with process loss, overdue and GST one-year warnings, Section 143 / Rule 55 print. Delivery challan, packing list and test certificate also print from the order’s Documents tab.</p></div>
+          <div class="box"><h4>Tally (TallyPrime and Tally.ERP 9)</h4><p>Two-way over Tally’s XML gateway (port 9000). <b>Send</b>: sales, export invoices (in rupees), credit notes, receipts, purchase bills, vendor payments; missing customer / vendor ledgers are created. Before each send the ledgers are read from Tally and a missing tax / sales / bank ledger stops it. Every voucher carries <code>REMOTEID=CCCPL-&lt;type&gt;-&lt;number&gt;</code>, so a resend updates instead of copying; entries already in Tally are skipped. Every push logged (TP-NNNN) with the XML sent and Tally’s answer, retries listed. <b>Read back</b>: companies open, all ledgers (picked in the settings), and vouchers for any dates: "Check against Tally" shows matched, amount differs, not in Tally, only in Tally. <b>Connection</b>: direct (ERP on the office network) or the <b>Tally bridge</b> on the accounts PC when the ERP is on the internet (outgoing calls only, bridge key). Ledger names still to be confirmed with their accountant at the Ahmedabad visit.</p></div>
         </div>
               <h3 id="s11-detail">Detail pages (v14) <span class="tag new">NEW</span></h3>
         <div class="itemlist">
           <div class="item done"><span class="mark">✓</span><span class="txt"><b>Proforma</b> <span class="src">/backend/accounts/proformas/&lt;id&gt;</span> Shared layout.<span class="sub">Came from: Order · Went to: Advance payment</span></span></div>
-          <div class="item done"><span class="mark">✓</span><span class="txt"><b>Tax / export invoice</b> <span class="src">/backend/accounts/invoices/&lt;id&gt;</span> Shared layout.<span class="sub">Came from: Order, packing · Went to: Payments, Tally push</span></span></div>
+          <div class="item done"><span class="mark">✓</span><span class="txt"><b>Tax / export invoice</b> <span class="src">/backend/accounts/invoices/&lt;id&gt;</span> Shared layout; export section, B-stage lots.<span class="sub">Came from: Order, packing · Went to: Payments, Tally push</span></span></div>
           <div class="item done"><span class="mark">✓</span><span class="txt"><b>Payment</b> <span class="src">/backend/accounts/payments/&lt;id&gt;</span> New page.<span class="sub">Came from: Customer, invoice · Went to: Dues</span></span></div>
-          <div class="item planned"><span class="mark">○</span><span class="txt"><b>Vendor bill</b> <span class="src">/backend/accounts/vendor-bills/&lt;id&gt;</span> New page.<span class="sub">Came from: GRN, PO · Went to: Tally push</span></span></div>
-          <div class="item planned"><span class="mark">○</span><span class="txt"><b>Tally push</b> <span class="src">/backend/accounts/tally/&lt;id&gt;</span> New page with what was sent and what came back.<span class="sub">Came from: Invoice or bill · Went to: —</span></span></div>
+          <div class="item done"><span class="mark">✓</span><span class="txt"><b>Vendor bill</b> <span class="src">/backend/accounts/vendor-bills/&lt;id&gt;</span> New page.<span class="sub">Came from: GRN, PO · Went to: Tally push</span></span></div>
+          <div class="item done"><span class="mark">✓</span><span class="txt"><b>Tally push</b> <span class="src">/backend/accounts/tally/&lt;id&gt;</span> What was sent, Tally’s answer, refused lines, attempts, retry.<span class="sub">Came from: Invoices, payments, bills · Went to: Tally</span></span></div>
+          <div class="item done"><span class="mark">✓</span><span class="txt"><b>Job-work challan</b> <span class="src">/backend/purchase/job-work/&lt;id&gt;</span> New page.<span class="sub">Came from: Lots in the stores, job worker · Went to: Lots back in the store, process loss</span></span></div>
+        </div>
+        <div class="itemlist">
+          <div class="item done"><span class="mark">✓</span><span class="txt">Tested end to end with Stages 1–10: e2e stage-11 (Tally with a fake TallyPrime: unreachable, retry, refused, partial, never twice, ledger check, check against Tally, bridge round trip), stage-11b (export invoice), stage-11c (B-stage sale), stage-11d (job work); full suite 165 tests passing.</span></div>
+          <div class="item partial"><span class="mark">→</span><span class="txt">To do on site: one live send to their TallyPrime, ledger names with the accountant, their sample formats for the B-stage invoice and quotation.</span></div>
         </div>
       </section>
 
