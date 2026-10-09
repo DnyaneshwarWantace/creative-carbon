@@ -15,6 +15,7 @@ import { apiCall } from '@open-mercato/ui/backend/utils/apiCall'
 import { flash } from '@open-mercato/ui/backend/FlashMessages'
 import { paymentTermLabel } from '../../cc_lists/lib/paymentTerms'
 import { useGranted } from '../../cc_departments/components/useGranted'
+import { PhoneList } from '../../cc_ui/components/PhoneList'
 
 type CustomerRow = {
   id: string
@@ -90,6 +91,46 @@ export default function CustomersList() {
   return (
     <Page>
       <PageBody>
+        <PhoneList
+          title={t('cc_customers.list.title', 'Customers')}
+          total={total}
+          actions={
+            canManage ? (
+              <Button asChild size="sm" className="h-9">
+                <Link href="/backend/customers/companies/create">
+                  <Plus className="mr-1 h-4 w-4" />
+                  {t('cc_customers.list.createShort', 'New')}
+                </Link>
+              </Button>
+            ) : null
+          }
+          searchValue={search}
+          onSearchChange={(value) => {
+            setSearch(value)
+            setPage(1)
+          }}
+          searchPlaceholder={t('cc_customers.list.searchShort', 'Name, customer no., GSTIN or phone')}
+          loading={isLoading}
+          page={page}
+          totalPages={totalPages}
+          onPageChange={setPage}
+          empty={
+            <ListEmptyState
+              entityName={t('cc_customers.list.title', 'Customers')}
+              createHref={canManage ? '/backend/customers/companies/create' : undefined}
+              createLabel={t('cc_customers.list.create', 'New customer')}
+            />
+          }
+          cards={rows.map((row) => ({
+            key: row.id,
+            href: `/backend/customers/companies/${row.id}`,
+            overline: row.cf_customer_no || undefined,
+            title: row.display_name,
+            lines: [row.cf_gstin ? <span className="font-mono">{row.cf_gstin}</span> : null, row.cf_sales_manager ? t('cc_customers.list.managerLine', 'Sales: {name}', { name: row.cf_sales_manager }) : null],
+            footer: [row.primary_phone, paymentTermLabel(row.cf_payment_terms) || null],
+          }))}
+        />
+        <div className="hidden md:block">
         <DataTable
           perspective={{ tableId: 'cc_customers.list' }}
           title={t('cc_customers.list.title', 'Customers')}
@@ -137,6 +178,7 @@ export default function CustomersList() {
           pagination={{ page, pageSize: PAGE_SIZE, total, totalPages, onPageChange: setPage }}
           isLoading={isLoading}
         />
+        </div>
       </PageBody>
     </Page>
   )

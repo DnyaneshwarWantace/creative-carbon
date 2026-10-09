@@ -21,6 +21,8 @@ import { useConfirmDialog } from '@open-mercato/ui/backend/confirm-dialog'
 import type { FilterDef, FilterValues } from '@open-mercato/ui/backend/FilterBar'
 import { VENDOR_CATEGORIES } from '../../data/validators'
 import { VENDOR_CATEGORY_LABEL } from '../../lib/categories'
+import { PhoneList } from '../../../cc_ui/components/PhoneList'
+import { cn } from '@open-mercato/shared/lib/utils'
 
 type VendorRow = {
   id: string
@@ -227,7 +229,7 @@ export default function CcVendorsPage() {
         type: 'select',
         options: [
           { label: t('cc_vendors.list.filters.all', 'All'), value: '' },
-          ...VENDOR_CATEGORIES.map((category) => ({ label: category, value: category })),
+          ...VENDOR_CATEGORIES.map((category) => ({ label: t(`cc_vendors.category.${category}`, CATEGORY_TEXT[category]), value: category })),
         ],
       },
       {
@@ -247,6 +249,60 @@ export default function CcVendorsPage() {
   return (
     <Page>
       <PageBody>
+        <PhoneList
+          title={t('cc_vendors.list.title', 'Vendors')}
+          total={total}
+          actions={
+            <Button asChild size="sm" className="h-9">
+              <Link href="/backend/cc_vendors/create">
+                <Plus className="mr-1 h-4 w-4" />
+                {t('cc_vendors.list.actions.createShort', 'New')}
+              </Link>
+            </Button>
+          }
+          searchValue={search}
+          onSearchChange={(value) => {
+            setSearch(value)
+            setPage(1)
+          }}
+          searchPlaceholder={t('cc_vendors.list.searchShort', 'Name, code, GSTIN or phone')}
+          filters={
+            <div className="-mx-1 flex gap-1.5 overflow-x-auto px-1 pb-1">
+              {['', ...VENDOR_CATEGORIES].map((value) => {
+                const active = (filters.category ?? '') === value
+                return (
+                  <button
+                    key={value || 'all'}
+                    type="button"
+                    aria-pressed={active}
+                    onClick={() => {
+                      setFilters((prev) => ({ ...prev, category: value || undefined }))
+                      setPage(1)
+                    }}
+                    className={cn('h-8 shrink-0 rounded-full border px-3 text-xs font-medium', active ? 'border-primary bg-primary text-primary-foreground' : 'border-border bg-card text-muted-foreground')}
+                  >
+                    {value ? t(`cc_vendors.category.${value}`, CATEGORY_TEXT[value]) : t('cc_vendors.list.filters.all', 'All')}
+                  </button>
+                )
+              })}
+            </div>
+          }
+          loading={isLoading}
+          page={page}
+          totalPages={totalPages}
+          onPageChange={setPage}
+          empty={<ListEmptyState entityName={t('cc_vendors.list.title', 'Vendors')} createHref="/backend/cc_vendors/create" createLabel={t('cc_vendors.list.actions.create', 'New vendor')} />}
+          cards={rows.map((row) => ({
+            key: row.id,
+            href: `/backend/cc_vendors/${row.id}`,
+            overline: row.code || undefined,
+            title: row.name,
+            badge: row.is_active ? null : <span className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">{t('cc_vendors.list.filters.inactive', 'Inactive')}</span>,
+            lines: [row.category ? t(`cc_vendors.category.${row.category}`, CATEGORY_TEXT[row.category] ?? row.category) : null, row.gst_number ? <span className="font-mono">{row.gst_number}</span> : null],
+            footer: [row.contact_person, row.contact_phone, row.payment_terms],
+          }))}
+        />
+        <div className="hidden md:block">
         <DataTable
           perspective={{ tableId: 'cc_vendors.list' }}
           title={t('cc_vendors.list.title', 'Vendors')}
@@ -293,6 +349,11 @@ export default function CcVendorsPage() {
                   href: `/backend/cc_vendors/${row.id}`,
                 },
                 {
+                  id: 'edit',
+                  label: t('cc_vendors.list.actions.edit', 'Edit'),
+                  href: `/backend/cc_vendors/${row.id}/edit`,
+                },
+                {
                   id: 'delete',
                   label: t('common.delete', 'Delete'),
                   destructive: true,
@@ -311,6 +372,7 @@ export default function CcVendorsPage() {
           pagination={{ page, pageSize: 50, total, totalPages, onPageChange: setPage }}
           isLoading={isLoading}
         />
+        </div>
       </PageBody>
       {ConfirmDialogElement}
     </Page>
