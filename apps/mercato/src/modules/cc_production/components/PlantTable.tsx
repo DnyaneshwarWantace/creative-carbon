@@ -114,7 +114,59 @@ export function PlantTable<T>({
         </label>
         <ViewsButton tableId={tableId} columns={columns.map((column) => ({ key: column.key, label: column.label, group: column.group ?? 'Columns', alwaysVisible: column.alwaysVisible }))} visible={visible} onChange={changeColumns} builtIn={builtIn} />
       </div>
-      <section className="max-h-screen overflow-auto rounded-md border border-foreground/70 bg-card shadow-sm">
+      {rows.length ? (
+        <div className="space-y-2 md:hidden">
+          {slice.map((row) => {
+            const id = rowKey(row)
+            const clickable = Boolean(rowHref || renderExpanded)
+            const [head, ...rest] = shown
+            return (
+              <article
+                key={id}
+                className={cn('rounded-xl border bg-card p-3.5 shadow-xs', clickable && 'cursor-pointer active:bg-muted/60')}
+                onClick={(event) => {
+                  if ((event.target as HTMLElement).closest(INTERACTIVE)) return
+                  if (renderExpanded) setExpanded(expanded === id ? null : id)
+                  else if (rowHref) router.push(rowHref(row))
+                }}
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0 flex-1 text-sm font-semibold">{head ? head.render(row) : null}</div>
+                  {clickable ? <ChevronRight className={cn('mt-0.5 h-4 w-4 shrink-0 text-muted-foreground transition-transform', renderExpanded && expanded === id && 'rotate-90')} aria-hidden="true" /> : null}
+                </div>
+                {rest.length ? (
+                  <dl className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1.5">
+                    {rest.map((column) => (
+                      <div key={column.key} className="min-w-0">
+                        <dt className="truncate text-overline uppercase tracking-wider text-muted-foreground">{column.label}</dt>
+                        <dd className={cn('min-w-0 break-words text-sm', column.align === 'right' && 'font-mono tabular-nums')}>{column.render(row)}</dd>
+                      </div>
+                    ))}
+                  </dl>
+                ) : null}
+                {renderExpanded && expanded === id ? <div className="mt-3 border-t pt-3">{renderExpanded(row)}</div> : null}
+              </article>
+            )
+          })}
+          {shown.some((column) => column.total !== undefined) ? (
+            <div className="rounded-xl border-2 border-foreground/70 bg-muted p-3.5">
+              <dl className="grid grid-cols-2 gap-x-3 gap-y-1.5">
+                {shown
+                  .filter((column) => column.total !== undefined && column.total !== null)
+                  .map((column) => (
+                    <div key={column.key} className="min-w-0">
+                      <dt className="truncate text-overline uppercase tracking-wider text-muted-foreground">Σ {column.label}</dt>
+                      <dd className="font-mono text-sm font-semibold tabular-nums">{column.total}</dd>
+                    </div>
+                  ))}
+              </dl>
+            </div>
+          ) : null}
+        </div>
+      ) : (
+        <div className="md:hidden">{empty}</div>
+      )}
+      <section className="hidden max-h-screen overflow-auto rounded-md border border-foreground/70 bg-card shadow-sm md:block">
         {!rows.length ? (
           empty
         ) : (

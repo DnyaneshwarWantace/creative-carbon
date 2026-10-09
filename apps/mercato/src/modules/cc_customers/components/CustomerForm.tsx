@@ -147,7 +147,7 @@ export function CustomerForm({ customerId }: { customerId?: string }) {
   const [billing, setBilling] = React.useState<Address>({ ...EMPTY_ADDRESS })
   const [shipping, setShipping] = React.useState<Address>({ ...EMPTY_ADDRESS })
   const [separateShipping, setSeparateShipping] = React.useState(false)
-  const [contacts, setContacts] = React.useState<Contact[]>([newContact()])
+  const [contacts, setContacts] = React.useState<Contact[]>(() => [newContact({ key: 'c-first' })])
   const [errors, setErrors] = React.useState<Record<string, string>>({})
   const [duplicateName, setDuplicateName] = React.useState<string | null>(null)
   const termOptions = usePaymentTerms(form.paymentTerms)

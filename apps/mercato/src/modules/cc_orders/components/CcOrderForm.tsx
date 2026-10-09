@@ -265,7 +265,7 @@ export function CcOrderForm({ orderId, copyFrom, customerId, quotationId, quotat
   const { runMutation } = useGuardedMutation({ contextId: isQuote ? `cc-quotation-${quotationId ?? 'new'}` : `cc-order-${orderId ?? 'new'}` })
   const [customer, setCustomer] = React.useState<Customer | null>(null)
   const [header, setHeader] = React.useState<Header>(emptyHeader)
-  const [lines, setLines] = React.useState<LineDraft[]>(() => [newLine()])
+  const [lines, setLines] = React.useState<LineDraft[]>(() => [newLine({ key: 'l-first' })])
   const [existing, setExisting] = React.useState<SourceRecord | null>(null)
   const [linkedEnquiryId, setLinkedEnquiryId] = React.useState<string | null>(enquiryId ?? null)
   const [loading, setLoading] = React.useState(Boolean(orderId || copyFrom || quotationId))

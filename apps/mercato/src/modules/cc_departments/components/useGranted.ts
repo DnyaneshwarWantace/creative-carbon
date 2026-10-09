@@ -4,6 +4,7 @@ import * as React from 'react'
 import { apiCall } from '@open-mercato/ui/backend/utils/apiCall'
 
 const UI_FEATURES = [
+  'cc_dashboard.my_work',
   'cc_orders.manage',
   'cc_orders.stages',
   'cc_orders.reopen',

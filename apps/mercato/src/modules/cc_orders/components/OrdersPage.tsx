@@ -464,7 +464,51 @@ export function OrdersPage() {
           ) : view === 'board' ? (
             <BoardView orders={orders} onOpen={openStage} opening={opening} />
           ) : (
-            <div className={cn('isolate overflow-hidden rounded-lg border bg-card shadow-xs transition-opacity', loading && 'opacity-60')}>
+            <>
+            <div className={cn('space-y-2 md:hidden', loading && 'opacity-60')}>
+              {orders.map((order) => {
+                const now = order.current[0]
+                const pct = order.stageCount ? Math.round((order.doneCount / order.stageCount) * 100) : 0
+                const kg = order.lines.reduce((sum, line) => sum + line.quantity, 0)
+                return (
+                  <Link key={order.id} href={`/backend/orders/${order.id}`} className="block rounded-xl border bg-card p-3.5 shadow-xs active:bg-muted/60">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="font-mono text-xs text-muted-foreground">{order.orderNo}</p>
+                        <p className="truncate text-sm font-semibold">{order.customerName}</p>
+                      </div>
+                      {order.late ? (
+                        <span className="shrink-0 rounded-full bg-status-error-bg px-2 py-0.5 text-xs font-medium text-status-error-text">{t('cc_orders.book.late', 'Late')}</span>
+                      ) : null}
+                    </div>
+                    <p className="mt-1 truncate text-xs text-muted-foreground">{order.lines.map((line) => line.productTitle).join(', ')}</p>
+                    {now ? (
+                      <div className="mt-2.5 flex items-center gap-2 rounded-lg bg-muted/50 px-2.5 py-2">
+                        <span className={cn('h-2 w-2 shrink-0 rounded-full', now.status === 'on_hold' ? 'bg-status-error-icon' : 'bg-status-warning-icon')} aria-hidden="true" />
+                        <span className="min-w-0 flex-1 truncate text-xs">
+                          <span className="font-semibold">{now.label}</span>
+                          <span className="text-muted-foreground"> · {now.department}{now.days != null ? ` · ${now.days} d` : ''}</span>
+                        </span>
+                        <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+                      </div>
+                    ) : null}
+                    <div className="mt-2.5 h-1.5 overflow-hidden rounded-full bg-muted" aria-hidden="true">
+                      <div className="h-full rounded-full bg-primary" style={{ width: `${pct}%` }} />
+                    </div>
+                    <div className="mt-2 flex items-center justify-between text-xs text-muted-foreground">
+                      <span className="tabular-nums">
+                        {order.doneCount}/{order.stageCount} {t('cc_orders.book.stagesDone', 'stages')} · {formatQty(kg, 0)} kg
+                      </span>
+                      <span className="tabular-nums">
+                        {canMoney ? rupees(order.total) : null}
+                        {order.deliveryDate ? `${canMoney ? ' · ' : ''}${formatDate(order.deliveryDate)}` : ''}
+                      </span>
+                    </div>
+                  </Link>
+                )
+              })}
+            </div>
+            <div className={cn('isolate hidden overflow-hidden rounded-lg border bg-card shadow-xs transition-opacity md:block', loading && 'opacity-60')}>
               <div className="overflow-auto" style={{ maxHeight: 'calc(100dvh - 9rem)' }}>
                 <table data-own-grid className="w-full border-separate border-spacing-0 whitespace-nowrap text-left text-xs">
                   <thead className="sticky top-0 z-20 bg-muted">
@@ -562,6 +606,7 @@ export function OrdersPage() {
                 </span>
               </div>
             </div>
+            </>
           )}
         </div>
         {working ? (

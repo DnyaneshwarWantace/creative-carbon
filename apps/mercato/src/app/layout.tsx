@@ -1,4 +1,4 @@
-import type { Metadata } from 'next'
+import type { Metadata, Viewport } from 'next'
 import './globals.css'
 import '@/lib/i18n/register-dictionary-loader'
 import { AppProviders } from '@/components/AppProviders'
@@ -9,6 +9,21 @@ import { resolveForcedLocale } from '@open-mercato/shared/lib/i18n/locale'
 export const metadata: Metadata = {
   title: { default: 'Creative Carbon Composites ERP', template: '%s · Creative Carbon' },
   description: 'Plant, stock, orders and despatch for Creative Carbon Composites',
+  manifest: '/cc-manifest.webmanifest',
+  applicationName: 'Creative Carbon',
+  appleWebApp: { capable: true, title: 'Creative Carbon', statusBarStyle: 'default' },
+  icons: { icon: '/cc-icon-192.png', apple: '/cc-icon-192.png' },
+  formatDetection: { telephone: false },
+}
+
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  viewportFit: 'cover',
+  themeColor: [
+    { media: '(prefers-color-scheme: light)', color: '#ffffff' },
+    { media: '(prefers-color-scheme: dark)', color: '#0b0d10' },
+  ],
 }
 
 export default async function RootLayout({

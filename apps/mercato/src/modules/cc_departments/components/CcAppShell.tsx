@@ -7,6 +7,8 @@ import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { AppShell } from '@open-mercato/ui/backend/AppShell'
 import { CRM_HOME, ERP_HOME, allowedOn, homeFor, pathKind, workspaceOf, type Workspace, type WorkspaceAccess } from '../lib/workspace'
 import { WorkspaceDenied } from './WorkspaceDenied'
+import { MobileTabBar, hidesTabBar } from './MobileTabBar'
+import { usePlantPwa } from '../../cc_production/components/offline'
 
 type AppShellProps = React.ComponentProps<typeof AppShell>
 
@@ -20,11 +22,11 @@ function WorkspaceLink({ workspace, access }: { workspace: Workspace; access: Wo
       href={target}
       target="_blank"
       rel="noopener"
-      className="inline-flex h-8 items-center gap-1.5 rounded-md border border-border px-2.5 text-xs font-medium text-muted-foreground hover:bg-accent hover:text-foreground"
+      className="inline-flex h-8 items-center gap-1 rounded-md border border-border px-2 text-xs font-semibold text-muted-foreground hover:bg-accent hover:text-foreground sm:gap-1.5 sm:px-2.5"
       title={other === 'erp' ? t('cc_departments.workspace.erpHint', 'Open the ERP in a new tab') : t('cc_departments.workspace.crmHint', 'Open the CRM in a new tab')}
     >
       {other === 'erp' ? t('cc_departments.workspace.openErp', 'ERP') : t('cc_departments.workspace.openCrm', 'CRM')}
-      <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
+      <ExternalLink className="hidden h-3.5 w-3.5 sm:block" aria-hidden="true" />
     </a>
   )
 }
@@ -42,6 +44,8 @@ export function CcAppShell({ adminNavApi, rightHeaderSlot, productName, children
   React.useEffect(() => {
     if (redirectTo) router.replace(redirectTo)
   }, [redirectTo, router])
+  usePlantPwa()
+  const tabBar = allowed && !hidesTabBar(pathname)
 
   return (
     <AppShell
@@ -56,7 +60,8 @@ export function CcAppShell({ adminNavApi, rightHeaderSlot, productName, children
         </div>
       }
     >
-      {allowed ? children : redirectTo ? null : <WorkspaceDenied home={home} />}
+      {allowed ? <div className={tabBar ? 'pb-24 lg:pb-0' : undefined}>{children}</div> : redirectTo ? null : <WorkspaceDenied home={home} />}
+      {tabBar ? <MobileTabBar workspace={workspace} /> : null}
     </AppShell>
   )
 }
