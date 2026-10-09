@@ -12,3 +12,17 @@ export function stateFromGstin(gstin: string | null | undefined): { code: string
 }
 
 export const GSTIN_PATTERN = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/
+
+const GSTIN_CHARS = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ'
+
+export function gstinChecksumOk(gstin: string): boolean {
+  if (!GSTIN_PATTERN.test(gstin)) return false
+  let sum = 0
+  for (let index = 0; index < 14; index += 1) {
+    const value = GSTIN_CHARS.indexOf(gstin[index])
+    const product = value * (index % 2 === 0 ? 1 : 2)
+    sum += Math.floor(product / 36) + (product % 36)
+  }
+  const check = (36 - (sum % 36)) % 36
+  return GSTIN_CHARS[check] === gstin[14]
+}

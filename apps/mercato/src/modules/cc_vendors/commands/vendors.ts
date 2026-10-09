@@ -7,6 +7,7 @@ import { CrudHttpError, notFound } from '@open-mercato/shared/lib/crud/errors'
 import type { CrudIndexerConfig, CrudEventsConfig } from '@open-mercato/shared/lib/crud/types'
 import { E } from '@/.mercato/generated/entities.ids.generated'
 import { Vendor } from '../data/entities'
+import { checkVendor, nextVendorCode, type VendorValues } from '../lib/checkVendor'
 import {
   vendorCreateSchema,
   vendorUpdateSchema,
@@ -54,9 +55,8 @@ const createVendorCommand: CommandHandler<VendorCreateInput, { vendorId: string 
     ensureOrganizationScope(ctx, parsed.organizationId)
 
     const em = (ctx.container.resolve('em') as EntityManager).fork()
-    const vendor = em.create(Vendor, {
-      organizationId: parsed.organizationId,
-      tenantId: parsed.tenantId,
+    const scope = { tenantId: parsed.tenantId, organizationId: parsed.organizationId }
+    const checked = await checkVendor(em, scope, {
       name: parsed.name,
       code: parsed.code ?? null,
       gstNumber: parsed.gstNumber ?? null,
@@ -66,12 +66,28 @@ const createVendorCommand: CommandHandler<VendorCreateInput, { vendorId: string 
       address: parsed.address ?? null,
       paymentTerms: parsed.paymentTerms ?? null,
       category: parsed.category ?? null,
-      isActive: parsed.isActive ?? true,
-      createdAt: new Date(),
-      updatedAt: new Date(),
     })
-    em.persist(vendor)
-    await em.flush()
+    let vendor: Vendor | null = null
+    for (let attempt = 0; attempt < 3 && !vendor; attempt += 1) {
+      const candidate = em.create(Vendor, {
+        ...scope,
+        ...checked,
+        code: checked.code ?? (await nextVendorCode(em, scope)),
+        isActive: parsed.isActive ?? true,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      })
+      try {
+        await em.persist(candidate).flush()
+        vendor = candidate
+      } catch (error) {
+        em.clear()
+        const duplicate = /cc_vendors_org_tenant_code_uq/.test(String((error as Error).message))
+        if (!duplicate) throw error
+        if (checked.code) throw new CrudHttpError(409, { error: `Vendor code ${checked.code} is already used`, fieldErrors: { code: `Vendor code ${checked.code} is already used` } })
+      }
+    }
+    if (!vendor) throw new CrudHttpError(409, { error: '[internal] could not assign a vendor code' })
 
     const de = ctx.container.resolve('dataEngine') as DataEngine
     await emitCrudSideEffects({
@@ -101,15 +117,35 @@ const updateVendorCommand: CommandHandler<VendorUpdateInput, { vendorId: string 
     ensureTenantScope(ctx, vendor.tenantId)
     ensureOrganizationScope(ctx, vendor.organizationId)
 
-    if (parsed.name !== undefined) vendor.name = parsed.name
-    if (parsed.code !== undefined) vendor.code = parsed.code ?? null
-    if (parsed.gstNumber !== undefined) vendor.gstNumber = parsed.gstNumber ?? null
-    if (parsed.contactPerson !== undefined) vendor.contactPerson = parsed.contactPerson ?? null
-    if (parsed.contactPhone !== undefined) vendor.contactPhone = parsed.contactPhone ?? null
-    if (parsed.contactEmail !== undefined) vendor.contactEmail = parsed.contactEmail ?? null
-    if (parsed.address !== undefined) vendor.address = parsed.address ?? null
-    if (parsed.paymentTerms !== undefined) vendor.paymentTerms = parsed.paymentTerms ?? null
-    if (parsed.category !== undefined) vendor.category = parsed.category ?? null
+    const current: VendorValues = {
+      name: vendor.name,
+      code: vendor.code ?? null,
+      gstNumber: vendor.gstNumber ?? null,
+      contactPerson: vendor.contactPerson ?? null,
+      contactPhone: vendor.contactPhone ?? null,
+      contactEmail: vendor.contactEmail ?? null,
+      address: vendor.address ?? null,
+      paymentTerms: vendor.paymentTerms ?? null,
+      category: vendor.category ?? null,
+    }
+    const pick = <K extends keyof VendorValues>(field: K): VendorValues[K] => (parsed[field] !== undefined ? ((parsed[field] ?? null) as VendorValues[K]) : current[field])
+    const checked = await checkVendor(
+      em,
+      { tenantId: vendor.tenantId, organizationId: vendor.organizationId },
+      {
+        name: pick('name'),
+        code: pick('code'),
+        gstNumber: pick('gstNumber'),
+        contactPerson: pick('contactPerson'),
+        contactPhone: pick('contactPhone'),
+        contactEmail: pick('contactEmail'),
+        address: pick('address'),
+        paymentTerms: pick('paymentTerms'),
+        category: pick('category'),
+      },
+      { id: vendor.id, ...current },
+    )
+    Object.assign(vendor, checked)
     if (parsed.isActive !== undefined) vendor.isActive = parsed.isActive
 
     await em.flush()

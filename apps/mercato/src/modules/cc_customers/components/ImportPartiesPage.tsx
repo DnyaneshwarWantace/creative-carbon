@@ -13,7 +13,7 @@ import { useGuardedMutation } from '@open-mercato/ui/backend/injection/useGuarde
 import { flash } from '@open-mercato/ui/backend/FlashMessages'
 import { parseCsv, normalizeHeader } from '../../cc_products/lib/csv'
 import { downloadCsv } from '../../cc_products/lib/csvExport'
-import { GSTIN_PATTERN, GST_STATES } from '../../cc_accounts/lib/gstStates'
+import { GSTIN_PATTERN, GST_STATES, gstinChecksumOk } from '../../cc_accounts/lib/gstStates'
 import { usePaymentTerms } from '../../cc_lists/components/usePaymentTerms'
 import { paymentTermKey } from '../../cc_lists/lib/paymentTerms'
 
@@ -79,6 +79,7 @@ function validate(kind: Kind, values: Record<string, string>, terms: TermOption[
   if (!values.name?.trim()) errors.push('Name is missing')
   const gstin = values.gstin?.trim().toUpperCase()
   if (gstin && !GSTIN_PATTERN.test(gstin)) errors.push('GSTIN is not valid')
+  else if (gstin && !gstinChecksumOk(gstin)) errors.push('GSTIN check digit does not match (typing mistake?)')
   if (values.email?.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(values.email.trim())) errors.push('Email is not valid')
   if (values.payment_terms?.trim() && kind === 'customers' && !termValue(values.payment_terms, terms)) errors.push(`Payment terms not recognised (use ${terms.map((term) => term.label).join(', ')})`)
   if (kind === 'customers') {
@@ -91,7 +92,8 @@ function validate(kind: Kind, values: Record<string, string>, terms: TermOption[
       const state = values[`${prefix}_state`]?.trim().toLowerCase()
       if (state && !STATE_NAMES.has(state)) errors.push(`${prefix === 'billing' ? 'Billing' : 'Shipping'} state is not an Indian state name`)
     }
-  } else if (values.supplies?.trim() && !['rm', 'pm', 'both'].includes(values.supplies.trim().toLowerCase())) errors.push('Supplies must be RM, PM or Both')
+  } else if (gstin && !values.address?.trim()) errors.push('A vendor with a GSTIN needs the address')
+  if (kind === 'vendors' && values.supplies?.trim() && !['rm', 'pm', 'both'].includes(values.supplies.trim().toLowerCase())) errors.push('Supplies must be RM, PM or Both')
   return errors
 }
 

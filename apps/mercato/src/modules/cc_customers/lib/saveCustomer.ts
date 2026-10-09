@@ -4,7 +4,7 @@ import { isValidPhoneNumber } from '@open-mercato/shared/lib/phone'
 import { CustomerEntity } from '@open-mercato/core/modules/customers/data/entities'
 import type { StoreContext } from '../../cc_store/lib/server'
 import { runCommand } from '../../cc_store/lib/server'
-import { GSTIN_PATTERN, GST_STATES, stateFromGstin } from '../../cc_accounts/lib/gstStates'
+import { GSTIN_PATTERN, GST_STATES, gstinChecksumOk, stateFromGstin } from '../../cc_accounts/lib/gstStates'
 import { activeOptions } from '../../cc_lists/lib/service'
 import { paymentTermKey } from '../../cc_lists/lib/paymentTerms'
 import { ensureCustomerNumber, refreshCustomerIndex } from './customerNumber'
@@ -56,20 +56,9 @@ export const customerSaveSchema = z.object({
 
 export type CustomerSaveInput = z.infer<typeof customerSaveSchema>
 
-const GSTIN_CHARS = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ'
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
-export function gstinChecksumOk(gstin: string): boolean {
-  if (!GSTIN_PATTERN.test(gstin)) return false
-  let sum = 0
-  for (let index = 0; index < 14; index += 1) {
-    const value = GSTIN_CHARS.indexOf(gstin[index])
-    const product = value * (index % 2 === 0 ? 1 : 2)
-    sum += Math.floor(product / 36) + (product % 36)
-  }
-  const check = (36 - (sum % 36)) % 36
-  return GSTIN_CHARS[check] === gstin[14]
-}
+export { gstinChecksumOk }
 
 export function normalisePhone(raw: string, country: string): string | null {
   const value = raw.replace(/[\s\-().]/g, '')
