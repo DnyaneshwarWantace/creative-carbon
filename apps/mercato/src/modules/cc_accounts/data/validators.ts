@@ -220,6 +220,7 @@ export const tallyQuerySchema = z.object({
 }).passthrough()
 
 export const tallySettingsSchema = z.object({
+  mode: z.enum(['direct', 'bridge']).optional(),
   url: z.string().trim().max(300).nullable().optional(),
   company: z.string().trim().max(200).nullable().optional(),
   ledgers: z.record(z.string(), z.string().trim().max(120)).optional(),
@@ -238,4 +239,17 @@ export const tallyPushListSchema = z.object({
   status: z.enum(['sent', 'partial', 'failed']).optional(),
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
+})
+
+export const tallyCheckSchema = z.object({
+  from: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Pick the start date'),
+  to: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Pick the end date'),
+  kinds: z.string().max(200).optional(),
+})
+
+export const tallyBridgeResultSchema = z.object({
+  id: z.string().uuid(),
+  httpStatus: z.number().int().min(0).max(999).nullable().optional(),
+  responseText: z.string().max(4_000_000).nullable().optional(),
+  error: z.string().max(1000).nullable().optional(),
 })

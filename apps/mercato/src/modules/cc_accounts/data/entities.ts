@@ -20,7 +20,8 @@ export type ExportDetails = {
   vessel: string | null
 }
 
-export type TallySettings = { url: string | null; company: string | null; ledgers: Record<string, string> }
+export type TallyMode = 'direct' | 'bridge'
+export type TallySettings = { url: string | null; company: string | null; ledgers: Record<string, string>; mode?: TallyMode; bridgeTokenHash?: string | null; bridgeSeenAt?: string | null; bridgeTallyUrl?: string | null }
 
 @Entity({ tableName: 'cc_order_payments' })
 @Index({ name: 'cc_order_payments_order_idx', properties: ['organizationId', 'tenantId', 'orderId'] })
@@ -551,6 +552,53 @@ export class TallyPush {
 
   @Property({ name: 'pushed_by_name', type: 'text', nullable: true })
   pushedByName?: string | null
+
+  @Property({ name: 'created_at', type: Date, onCreate: () => new Date() })
+  createdAt: Date = new Date()
+
+  @Property({ name: 'updated_at', type: Date, onCreate: () => new Date(), onUpdate: () => new Date() })
+  updatedAt: Date = new Date()
+}
+
+export type TallyJobStatus = 'queued' | 'taken' | 'done' | 'failed'
+
+@Entity({ tableName: 'cc_tally_jobs' })
+@Index({ name: 'cc_tally_jobs_queue_idx', properties: ['organizationId', 'tenantId', 'status', 'createdAt'] })
+export class TallyJob {
+  [OptionalProps]?: 'createdAt' | 'updatedAt' | 'takenAt' | 'doneAt' | 'responseText' | 'httpStatus' | 'error'
+
+  @PrimaryKey({ type: 'uuid', defaultRaw: 'gen_random_uuid()' })
+  id!: string
+
+  @Property({ name: 'organization_id', type: 'uuid' })
+  organizationId!: string
+
+  @Property({ name: 'tenant_id', type: 'uuid' })
+  tenantId!: string
+
+  @Property({ type: 'text' })
+  purpose!: string
+
+  @Property({ name: 'request_xml', type: 'text' })
+  requestXml!: string
+
+  @Property({ type: 'text' })
+  status!: TallyJobStatus
+
+  @Property({ name: 'response_text', type: 'text', nullable: true })
+  responseText?: string | null
+
+  @Property({ name: 'http_status', type: 'integer', nullable: true })
+  httpStatus?: number | null
+
+  @Property({ type: 'text', nullable: true })
+  error?: string | null
+
+  @Property({ name: 'taken_at', type: Date, nullable: true })
+  takenAt?: Date | null
+
+  @Property({ name: 'done_at', type: Date, nullable: true })
+  doneAt?: Date | null
 
   @Property({ name: 'created_at', type: Date, onCreate: () => new Date() })
   createdAt: Date = new Date()

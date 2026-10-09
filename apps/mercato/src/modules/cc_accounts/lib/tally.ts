@@ -167,6 +167,14 @@ function xml(value: string | null | undefined): string {
   return (value ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&apos;')
 }
 
+export function remoteIdOf(voucher: Pick<TallyVoucher, 'type' | 'number'>): string {
+  return `CCCPL-${voucher.type.replace(/\s+/g, '')}-${voucher.number.replace(/[^A-Za-z0-9/_-]/g, '')}`
+}
+
+function ascii(value: string): string {
+  return value.replace(/₹/g, 'Rs. ').replace(/[\u2013\u2014]/g, '-').replace(/[\u2018\u2019]/g, "'").replace(/[\u201c\u201d]/g, '"')
+}
+
 function tallyAmount(value: number): string {
   return round2(value).toFixed(2)
 }
@@ -185,7 +193,7 @@ export function tallyXml(data: Awaited<ReturnType<typeof tallyData>>, withMaster
       .map((entry) => `<ALLLEDGERENTRIES.LIST><LEDGERNAME>${xml(entry.ledger)}</LEDGERNAME><ISDEEMEDPOSITIVE>${entry.amount < 0 ? 'Yes' : 'No'}</ISDEEMEDPOSITIVE><AMOUNT>${tallyAmount(entry.amount)}</AMOUNT></ALLLEDGERENTRIES.LIST>`)
       .join('')
     messages.push(
-      `<TALLYMESSAGE xmlns:UDF="TallyUDF"><VOUCHER VCHTYPE="${voucher.type}" ACTION="Create" OBJVIEW="Accounting Voucher View"><DATE>${voucher.date.replace(/-/g, '')}</DATE><VOUCHERTYPENAME>${voucher.type}</VOUCHERTYPENAME><VOUCHERNUMBER>${xml(voucher.number)}</VOUCHERNUMBER>${voucher.reference ? `<REFERENCE>${xml(voucher.reference)}</REFERENCE>` : ''}<PARTYLEDGERNAME>${xml(voucher.party)}</PARTYLEDGERNAME><NARRATION>${xml(voucher.narration)}</NARRATION><PERSISTEDVIEW>Accounting Voucher View</PERSISTEDVIEW>${lines}</VOUCHER></TALLYMESSAGE>`,
+      `<TALLYMESSAGE xmlns:UDF="TallyUDF"><VOUCHER REMOTEID="${xml(remoteIdOf(voucher))}" VCHTYPE="${voucher.type}" ACTION="Create" OBJVIEW="Accounting Voucher View"><DATE>${voucher.date.replace(/-/g, '')}</DATE><VOUCHERTYPENAME>${voucher.type}</VOUCHERTYPENAME><VOUCHERNUMBER>${xml(voucher.number)}</VOUCHERNUMBER>${voucher.reference ? `<REFERENCE>${xml(voucher.reference)}</REFERENCE>` : ''}<PARTYLEDGERNAME>${xml(voucher.party)}</PARTYLEDGERNAME><NARRATION>${xml(ascii(voucher.narration))}</NARRATION><PERSISTEDVIEW>Accounting Voucher View</PERSISTEDVIEW>${lines}</VOUCHER></TALLYMESSAGE>`,
     )
   }
   return `<?xml version="1.0" encoding="UTF-8"?>\n<ENVELOPE><HEADER><TALLYREQUEST>Import Data</TALLYREQUEST></HEADER><BODY><IMPORTDATA><REQUESTDESC><REPORTNAME>All Masters</REPORTNAME><STATICVARIABLES><SVCURRENTCOMPANY>${xml(data.companyName)}</SVCURRENTCOMPANY></STATICVARIABLES></REQUESTDESC><REQUESTDATA>\n${messages.join('\n')}\n</REQUESTDATA></IMPORTDATA></BODY></ENVELOPE>\n`

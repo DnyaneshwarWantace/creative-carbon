@@ -1,18 +1,56 @@
 import type { OrderContext } from '../../cc_orders/lib/server'
 import { CompanyProfile, TallyPush, type TallyPushAttempt, type TallyPushDocument, type TallyPushStatus, type TallySettings } from '../data/entities'
-import { DEFAULT_LEDGERS, tallyData, tallyXml, type TallyKind, type TallyLedgers, type TallyVoucher } from './tally'
+import { DEFAULT_LEDGERS, remoteIdOf, tallyData, tallyXml, type TallyKind, type TallyLedgers, type TallyVoucher } from './tally'
 import { AccountsError } from './service'
+import { bridgeAlive, callTally, companiesRequest, ledgersRequest, parseCompanies, parseLedgers, parseVouchers, readFromTally, vouchersRequest, type TallyAnswer, type TallyLedger } from './tallyClient'
 
-const TIMEOUT_MS = 15000
-const RESPONSE_LIMIT = 20000
-
-export function settingsView(profile: CompanyProfile | null): TallySettings & { ledgers: TallyLedgers } {
+export function settingsView(profile: CompanyProfile | null): TallySettings & { ledgers: TallyLedgers; mode: 'direct' | 'bridge' } {
   const saved = profile?.tallySettings ?? null
   return {
     url: saved?.url ?? null,
     company: saved?.company ?? null,
     ledgers: { ...DEFAULT_LEDGERS, ...(saved?.ledgers ?? {}) },
+    mode: saved?.mode ?? 'direct',
+    bridgeTokenHash: saved?.bridgeTokenHash ?? null,
+    bridgeSeenAt: saved?.bridgeSeenAt ?? null,
+    bridgeTallyUrl: saved?.bridgeTallyUrl ?? null,
   }
+}
+
+export function connectionLabel(settings: TallySettings): string {
+  return settings.mode === 'bridge' ? `Bridge${settings.bridgeTallyUrl ? ` → ${settings.bridgeTallyUrl}` : ''}` : (settings.url ?? '—')
+}
+
+export function assertConnection(settings: TallySettings): void {
+  if (settings.mode === 'bridge') {
+    if (!settings.bridgeTokenHash) throw new AccountsError('Make a bridge key and start the Tally bridge on the accounts PC first')
+    return
+  }
+  if (!settings.url) throw new AccountsError('Set the Tally address first (Tally settings on this page)')
+}
+
+function same(a: string, b: string): boolean {
+  return a.trim().toLowerCase() === b.trim().toLowerCase()
+}
+
+export function missingLedgers(vouchers: TallyVoucher[], tallyLedgers: TallyLedger[], includeParties: boolean): string[] {
+  const names = new Set(tallyLedgers.map((ledger) => ledger.name.trim().toLowerCase()))
+  const wanted = new Set<string>()
+  for (const voucher of vouchers) {
+    for (const entry of voucher.entries) {
+      if (!includeParties && same(entry.ledger, voucher.party)) continue
+      wanted.add(entry.ledger)
+    }
+  }
+  return [...wanted].filter((name) => !names.has(name.trim().toLowerCase())).sort()
+}
+
+export function pruneExistingLedgers(xml: string, tallyLedgers: TallyLedger[]): string {
+  const names = new Set(tallyLedgers.map((ledger) => ledger.name.trim().toLowerCase()))
+  return xml.replace(/<TALLYMESSAGE[^>]*><LEDGER NAME="([^"]*)"[\s\S]*?<\/TALLYMESSAGE>\n?/g, (block, name: string) => {
+    const plain = name.replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&apos;/g, "'")
+    return names.has(plain.trim().toLowerCase()) ? '' : block
+  })
 }
 
 export function cleanTallyUrl(raw: string | null | undefined): string | null {
@@ -74,38 +112,42 @@ function lineErrors(text: string): string[] {
   return [...text.matchAll(/<LINEERROR>([\s\S]*?)<\/LINEERROR>/gi)].map((match) => match[1].trim()).filter(Boolean).slice(0, 50)
 }
 
-export async function sendToTally(url: string, body: string, by: string | null): Promise<{ attempt: TallyPushAttempt; responseText: string | null }> {
+function attemptFrom(answer: TallyAnswer, by: string | null): TallyPushAttempt {
   const at = new Date().toISOString()
-  const controller = new AbortController()
-  const timer = setTimeout(() => controller.abort(), TIMEOUT_MS)
-  try {
-    const response = await fetch(url, { method: 'POST', headers: { 'content-type': 'text/xml; charset=utf-8' }, body, signal: controller.signal })
-    const text = (await response.text()).slice(0, RESPONSE_LIMIT)
-    const created = count(text, 'CREATED')
-    const altered = count(text, 'ALTERED')
-    const errors = count(text, 'ERRORS') + count(text, 'EXCEPTIONS')
-    const problems = lineErrors(text)
-    const recognised = /<RESPONSE|<ENVELOPE|<CREATED>/i.test(text)
-    let status: TallyPushStatus = 'sent'
-    let error: string | null = null
-    if (!response.ok) {
-      status = 'failed'
-      error = `Tally answered ${response.status}`
-    } else if (!recognised) {
-      status = 'failed'
-      error = 'The answer did not come from Tally (check the address and that Tally is open with the gateway on)'
-    } else if (errors || problems.length) {
-      status = created + altered > 0 ? 'partial' : 'failed'
-      error = problems[0] ?? `${errors} entr${errors === 1 ? 'y was' : 'ies were'} refused by Tally`
-    }
-    return { attempt: { at, by, status, httpStatus: response.status, created, altered, errors: Math.max(errors, problems.length), lineErrors: problems, error }, responseText: text }
-  } catch (cause) {
-    const aborted = cause instanceof Error && cause.name === 'AbortError'
-    const message = aborted ? `Tally did not answer within ${TIMEOUT_MS / 1000} seconds` : `Could not reach Tally at ${url} (is Tally open with the gateway on?)`
-    return { attempt: { at, by, status: 'failed', httpStatus: null, created: 0, altered: 0, errors: 0, lineErrors: [], error: message }, responseText: null }
-  } finally {
-    clearTimeout(timer)
+  const text = answer.text ?? ''
+  if (!answer.text) return { at, by, status: 'failed', httpStatus: answer.httpStatus, created: 0, altered: 0, errors: 0, lineErrors: [], error: answer.error ?? 'Tally sent nothing back' }
+  const created = count(text, 'CREATED')
+  const altered = count(text, 'ALTERED')
+  const errors = count(text, 'ERRORS') + count(text, 'EXCEPTIONS')
+  const problems = lineErrors(text)
+  const recognised = /<RESPONSE|<ENVELOPE|<CREATED>/i.test(text)
+  let status: TallyPushStatus = 'sent'
+  let error: string | null = null
+  if (!answer.ok) {
+    status = 'failed'
+    error = answer.error ?? `Tally answered ${answer.httpStatus}`
+  } else if (!recognised) {
+    status = 'failed'
+    error = 'The answer did not come from Tally (check the address and that Tally is open with the gateway on)'
+  } else if (errors || problems.length) {
+    status = created + altered > 0 ? 'partial' : 'failed'
+    error = problems[0] ?? `${errors} entr${errors === 1 ? 'y was' : 'ies were'} refused by Tally`
   }
+  return { at, by, status, httpStatus: answer.httpStatus, created, altered, errors: Math.max(errors, problems.length), lineErrors: problems, error }
+}
+
+function failedAttempt(error: string, by: string | null): TallyPushAttempt {
+  return { at: new Date().toISOString(), by, status: 'failed', httpStatus: null, created: 0, altered: 0, errors: 0, lineErrors: [], error }
+}
+
+async function loadSettings(ctx: OrderContext) {
+  const profile = await ctx.em.findOne(CompanyProfile, { tenantId: ctx.tenantId, organizationId: ctx.organizationId })
+  return settingsView(profile)
+}
+
+export async function tallyLedgers(ctx: OrderContext, settings: TallySettings): Promise<{ data: TallyLedger[] | null; error: string | null }> {
+  const result = await readFromTally(ctx, settings, ledgersRequest(settings.company), 'ledgers', parseLedgers)
+  return { data: result.data, error: result.error }
 }
 
 export async function pushRange(
@@ -113,9 +155,8 @@ export async function pushRange(
   input: { from: string; to: string; kinds: TallyKind[]; masters: boolean; again: string[] },
   by: string | null,
 ): Promise<TallyPush> {
-  const profile = await ctx.em.findOne(CompanyProfile, { tenantId: ctx.tenantId, organizationId: ctx.organizationId })
-  const settings = settingsView(profile)
-  if (!settings.url) throw new AccountsError('Set the Tally address first (Tally settings on this page)')
+  const settings = await loadSettings(ctx)
+  assertConnection(settings)
   const data = await tallyData(ctx, { from: input.from, to: input.to }, input.kinds, settings.ledgers)
   const already = await pushedKeys(ctx)
   const again = new Set(input.again)
@@ -127,8 +168,21 @@ export async function pushRange(
   if (unbalanced.length) throw new AccountsError(`These entries do not balance, fix them before sending: ${unbalanced.map((voucher) => voucher.number).join(', ')}`)
   const usedParties = new Set(vouchers.map((voucher) => voucher.party))
   const parties = data.parties.filter((party) => usedParties.has(party.name))
-  const requestXml = tallyXml({ companyName: settings.company || data.companyName, vouchers, parties }, input.masters)
-  const sent = await sendToTally(settings.url, requestXml, by)
+  const companyName = settings.company || data.companyName
+  let requestXml = tallyXml({ companyName, vouchers, parties }, input.masters)
+  const inTally = await tallyLedgers(ctx, settings)
+  let attempt: TallyPushAttempt
+  let responseText: string | null = null
+  if (!inTally.data) {
+    attempt = failedAttempt(inTally.error ?? 'Could not read the ledgers from Tally', by)
+  } else {
+    const missing = missingLedgers(vouchers, inTally.data, !input.masters)
+    if (missing.length) throw new AccountsError(`These ledgers are not in Tally${companyName ? ` (${companyName})` : ''}: ${missing.join(', ')}. Create them in Tally, or correct the ledger names in the Tally settings.`)
+    requestXml = pruneExistingLedgers(requestXml, inTally.data)
+    const answer = await callTally(ctx, settings, requestXml, 'push')
+    attempt = attemptFrom(answer, by)
+    responseText = answer.text
+  }
   const push = ctx.em.create(TallyPush, {
     organizationId: ctx.organizationId,
     tenantId: ctx.tenantId,
@@ -137,14 +191,14 @@ export async function pushRange(
     rangeTo: input.to,
     kinds: input.kinds,
     withMasters: input.masters,
-    tallyUrl: settings.url,
-    tallyCompany: settings.company || data.companyName,
+    tallyUrl: connectionLabel(settings),
+    tallyCompany: companyName,
     documents: vouchers.map(documentOf),
-    partyCount: input.masters ? parties.length : 0,
+    partyCount: input.masters ? (requestXml.match(/<LEDGER NAME=/g) ?? []).length : 0,
     requestXml,
-    responseText: sent.responseText,
-    status: sent.attempt.status,
-    attempts: [sent.attempt],
+    responseText: responseText ? responseText.slice(0, 20000) : null,
+    status: attempt.status,
+    attempts: [attempt],
     pushedByName: by,
   })
   await ctx.em.persist(push).flush()
@@ -153,22 +207,27 @@ export async function pushRange(
 
 export async function retryPush(ctx: OrderContext, push: TallyPush, by: string | null): Promise<TallyPush> {
   if (push.status === 'sent') throw new AccountsError('This push already went through', 409)
-  if (push.attempts.some((attempt) => attempt.created + attempt.altered > 0)) {
-    throw new AccountsError('Tally already took part of this push, so sending it again would double those entries. Fix the refused ones in Tally, or start a new push and tick only those entries.', 409)
-  }
   const already = await pushedKeys(ctx)
   already.forEach((code, key) => {
     if (code === push.code) already.delete(key)
   })
   const clash = push.documents.filter((doc) => already.has(doc.key))
   if (clash.length) throw new AccountsError(`Some of these entries were sent since in another push (${[...new Set(clash.map((doc) => already.get(doc.key)))].join(', ')}). Start a new push instead.`, 409)
-  const profile = await ctx.em.findOne(CompanyProfile, { tenantId: ctx.tenantId, organizationId: ctx.organizationId })
-  const url = settingsView(profile).url ?? push.tallyUrl
-  const sent = await sendToTally(url, push.requestXml, by)
-  push.tallyUrl = url
-  push.status = sent.attempt.status
-  push.responseText = sent.responseText
-  push.attempts = [...push.attempts, sent.attempt]
+  const settings = await loadSettings(ctx)
+  assertConnection(settings)
+  const inTally = await tallyLedgers(ctx, settings)
+  let attempt: TallyPushAttempt
+  if (!inTally.data) {
+    attempt = failedAttempt(inTally.error ?? 'Could not read the ledgers from Tally', by)
+  } else {
+    push.requestXml = pruneExistingLedgers(push.requestXml, inTally.data)
+    const answer = await callTally(ctx, settings, push.requestXml, 'push')
+    attempt = attemptFrom(answer, by)
+    push.responseText = answer.text ? answer.text.slice(0, 20000) : null
+  }
+  push.tallyUrl = connectionLabel(settings)
+  push.status = attempt.status
+  push.attempts = [...push.attempts, attempt]
   await ctx.em.flush()
   return push
 }
@@ -202,4 +261,74 @@ export async function findPush(ctx: OrderContext, id: string): Promise<TallyPush
   const push = await ctx.em.findOne(TallyPush, { id, tenantId: ctx.tenantId, organizationId: ctx.organizationId })
   if (!push) throw new AccountsError('Tally push not found', 404)
   return push
+}
+
+export function publicSettings(profile: CompanyProfile | null) {
+  const settings = settingsView(profile)
+  return {
+    mode: settings.mode,
+    url: settings.url,
+    company: settings.company,
+    ledgers: settings.ledgers,
+    bridgeKeySet: Boolean(settings.bridgeTokenHash),
+    bridgeSeenAt: settings.bridgeSeenAt ?? null,
+    bridgeAlive: bridgeAlive(settings),
+    bridgeTallyUrl: settings.bridgeTallyUrl ?? null,
+    hasCompany: Boolean(profile),
+    defaults: DEFAULT_LEDGERS,
+  }
+}
+
+
+export async function testConnection(ctx: OrderContext) {
+  const settings = await loadSettings(ctx)
+  assertConnection(settings)
+  const companies = await readFromTally(ctx, settings, companiesRequest(), 'companies', parseCompanies)
+  if (!companies.data) return { ok: false, via: companies.via, error: companies.error, companies: [] as string[], companyFound: false, ledgers: [] as string[], missing: [] as string[] }
+  const names = companies.data.map((company) => company.name)
+  const companyFound = settings.company ? names.some((name) => same(name, settings.company ?? '')) : names.length > 0
+  if (settings.company && !companyFound) {
+    return { ok: false, via: companies.via, error: `Company "${settings.company}" is not open in Tally. Open it in Tally, or pick one of: ${names.join(', ') || 'none loaded'}`, companies: names, companyFound, ledgers: [], missing: [] }
+  }
+  const ledgers = await tallyLedgers(ctx, settings)
+  if (!ledgers.data) return { ok: false, via: companies.via, error: ledgers.error, companies: names, companyFound, ledgers: [], missing: [] }
+  const have = new Set(ledgers.data.map((ledger) => ledger.name.trim().toLowerCase()))
+  const missing = [...new Set(Object.values(settings.ledgers))].filter((name) => !have.has(name.trim().toLowerCase())).sort()
+  return { ok: true, via: companies.via, error: null, companies: names, companyFound, ledgers: ledgers.data.map((ledger) => ledger.name).sort((a, b) => a.localeCompare(b)).slice(0, 3000), missing }
+}
+
+export type CheckRow = { key: string; date: string; type: string; number: string; party: string; erpAmount: number | null; tallyAmount: number | null; status: 'matched' | 'amount_differs' | 'not_in_tally' | 'only_in_tally' | 'cancelled_in_tally'; recordId: string | null; pushCode: string | null }
+
+export async function checkAgainstTally(ctx: OrderContext, range: { from: string; to: string }, kinds: TallyKind[]) {
+  const settings = await loadSettings(ctx)
+  assertConnection(settings)
+  const [data, pushed, fromTally] = await Promise.all([
+    tallyData(ctx, range, kinds, settings.ledgers),
+    pushedKeys(ctx),
+    readFromTally(ctx, settings, vouchersRequest(settings.company, range.from, range.to), 'vouchers', parseVouchers),
+  ])
+  if (!fromTally.data) throw new AccountsError(fromTally.error ?? 'Could not read the vouchers from Tally', 502)
+  const wantedTypes = new Set<string>(data.vouchers.map((voucher) => voucher.type))
+  const kindTypes: Record<string, string> = { sales: 'Sales', credit_notes: 'Credit Note', receipts: 'Receipt', purchases: 'Purchase', payments: 'Payment' }
+  for (const kind of kinds) wantedTypes.add(kindTypes[kind])
+  const tallyRows = fromTally.data.filter((row) => row.date >= range.from && row.date <= range.to && wantedTypes.has(row.type))
+  const byRemote = new Map(tallyRows.filter((row) => row.remoteId).map((row) => [row.remoteId!, row]))
+  const byNumber = new Map(tallyRows.map((row) => [`${row.type}:${row.number}`, row]))
+  const used = new Set<typeof tallyRows[number]>()
+  const rows: CheckRow[] = []
+  for (const voucher of data.vouchers) {
+    const key = voucherKey(voucher)
+    const match = byRemote.get(remoteIdOf(voucher)) ?? byNumber.get(key) ?? null
+    const erpAmount = documentOf(voucher).amount
+    if (match) used.add(match)
+    const status: CheckRow['status'] = !match ? 'not_in_tally' : match.cancelled ? 'cancelled_in_tally' : Math.abs(match.amount - erpAmount) > 1 ? 'amount_differs' : 'matched'
+    rows.push({ key, date: voucher.date, type: voucher.type, number: voucher.number, party: voucher.party, erpAmount, tallyAmount: match ? match.amount : null, status, recordId: voucher.recordId ?? null, pushCode: pushed.get(key) ?? null })
+  }
+  for (const row of tallyRows) {
+    if (used.has(row)) continue
+    rows.push({ key: `tally:${row.type}:${row.number}:${row.date}`, date: row.date, type: row.type, number: row.number, party: row.party ?? '', erpAmount: null, tallyAmount: row.amount, status: 'only_in_tally', recordId: null, pushCode: null })
+  }
+  rows.sort((a, b) => a.date.localeCompare(b.date) || a.type.localeCompare(b.type) || a.number.localeCompare(b.number))
+  const counts = rows.reduce<Record<string, number>>((acc, row) => ({ ...acc, [row.status]: (acc[row.status] ?? 0) + 1 }), {})
+  return { via: fromTally.via, counts, rows }
 }

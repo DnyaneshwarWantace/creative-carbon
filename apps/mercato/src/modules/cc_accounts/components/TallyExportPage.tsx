@@ -3,6 +3,7 @@
 import * as React from 'react'
 import Link from 'next/link'
 import { CheckCircle2, Download, FileSpreadsheet, PlugZap, RefreshCw, Send } from 'lucide-react'
+import { cn } from '@open-mercato/shared/lib/utils'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { Page, PageBody } from '@open-mercato/ui/backend/Page'
 import { Button } from '@open-mercato/ui/primitives/button'
@@ -16,11 +17,13 @@ import { useGuardedMutation } from '@open-mercato/ui/backend/injection/useGuarde
 import { StatusBadge } from '@open-mercato/ui/primitives/status-badge'
 import { useGranted } from '../../cc_departments/components/useGranted'
 import { PUSH_STATUS, type PushView } from './TallyPushPage'
+import { TallyConnectionPanel, type TallySettingsView } from './TallyConnectionPanel'
+import { TallyCheckPanel } from './TallyCheckPanel'
 
 type Kind = 'sales' | 'credit_notes' | 'receipts' | 'purchases' | 'payments'
 type Voucher = { type: string; date: string; number: string; reference: string | null; party: string; narration: string; entries: Array<{ ledger: string; amount: number }> }
 type Summary = { counts: Record<string, number>; amounts: Record<string, number>; parties: number; vouchers: number; unbalanced: string[]; preview?: Voucher[]; fileName?: string; content?: string; inTally?: Record<string, string>; newCount?: number }
-type Settings = { url: string | null; company: string | null; ledgers: Record<string, string>; hasCompany: boolean }
+type Tab = 'send' | 'check' | 'connection'
 
 const KINDS: Array<{ key: Kind; label: string; hint: string }> = [
   { key: 'sales', label: 'Sales invoices', hint: 'Issued tax invoices' },
@@ -28,26 +31,6 @@ const KINDS: Array<{ key: Kind; label: string; hint: string }> = [
   { key: 'receipts', label: 'Receipts', hint: 'Advance and balance received' },
   { key: 'purchases', label: 'Purchases', hint: 'Vendor bills' },
   { key: 'payments', label: 'Vendor payments', hint: 'Payments against vendor bills' },
-]
-
-const LEDGER_FIELDS: Array<{ key: string; label: string; fallback: string }> = [
-  { key: 'sales', label: 'Sales ledger', fallback: 'Sales @ GST' },
-  { key: 'exportSales', label: 'Export sales ledger', fallback: 'Export Sales' },
-  { key: 'purchase', label: 'Purchase ledger', fallback: 'Purchase @ GST' },
-  { key: 'outputCgst', label: 'Output CGST', fallback: 'Output CGST' },
-  { key: 'outputSgst', label: 'Output SGST', fallback: 'Output SGST' },
-  { key: 'outputIgst', label: 'Output IGST', fallback: 'Output IGST' },
-  { key: 'inputCgst', label: 'Input CGST', fallback: 'Input CGST' },
-  { key: 'inputSgst', label: 'Input SGST', fallback: 'Input SGST' },
-  { key: 'inputIgst', label: 'Input IGST', fallback: 'Input IGST' },
-  { key: 'bank', label: 'Bank ledger', fallback: 'Bank Account' },
-  { key: 'roundOff', label: 'Round off ledger', fallback: 'Round Off' },
-]
-
-const LEDGER_GROUPS = [
-  { key: 'sales', title: 'Sales', keys: ['sales', 'exportSales', 'outputCgst', 'outputSgst', 'outputIgst'] },
-  { key: 'purchase', title: 'Purchase', keys: ['purchase', 'inputCgst', 'inputSgst', 'inputIgst'] },
-  { key: 'other', title: 'Bank & other', keys: ['bank', 'roundOff'] },
 ]
 
 function monthStart(): string {
@@ -81,15 +64,13 @@ export function TallyExportPage() {
   const [to, setTo] = React.useState(today())
   const [kinds, setKinds] = React.useState<Kind[]>(KINDS.map((kind) => kind.key))
   const [masters, setMasters] = React.useState(true)
-  const [ledgers, setLedgers] = React.useState<Record<string, string>>(() => Object.fromEntries(LEDGER_FIELDS.map((field) => [field.key, field.fallback])))
   const [summary, setSummary] = React.useState<Summary | null>(null)
   const [busy, setBusy] = React.useState<string | null>(null)
   const granted = useGranted()
   const canPush = granted.has('cc_accounts.tally')
   const { runMutation, retryLastMutation } = useGuardedMutation({ contextId: 'cc-tally-page' })
-  const [settings, setSettings] = React.useState<Settings | null>(null)
-  const [tallyUrl, setTallyUrl] = React.useState('')
-  const [tallyCompany, setTallyCompany] = React.useState('')
+  const [settings, setSettings] = React.useState<TallySettingsView | null>(null)
+  const [tab, setTab] = React.useState<Tab>('send')
   const [pushes, setPushes] = React.useState<PushView[] | null>(null)
 
   const loadPushes = React.useCallback(async () => {
@@ -98,37 +79,11 @@ export function TallyExportPage() {
   }, [])
 
   React.useEffect(() => {
-    void apiCall<Settings>('/api/cc_accounts/tally/settings').then((call) => {
-      if (!call.ok || !call.result) return
-      setSettings(call.result)
-      setTallyUrl(call.result.url ?? '')
-      setTallyCompany(call.result.company ?? '')
-      setLedgers((prev) => ({ ...prev, ...call.result!.ledgers }))
+    void apiCall<TallySettingsView>('/api/cc_accounts/tally/settings').then((call) => {
+      if (call.ok && call.result) setSettings(call.result)
     })
     void loadPushes()
   }, [loadPushes])
-
-  const saveSettings = async (): Promise<boolean> => {
-    setBusy('settings')
-    try {
-      const body = { url: tallyUrl.trim() || null, company: tallyCompany.trim() || null, ledgers }
-      const call = await runMutation({
-        context: { formId: 'cc-tally-settings', resourceKind: 'cc_accounts.tally_settings', resourceId: 'tally-settings', retryLastMutation },
-        mutationPayload: body,
-        operation: () => apiCall<Settings & { error?: string }>('/api/cc_accounts/tally/settings', { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) }),
-      })
-      if (!call.ok || !call.result) {
-        flash(call.result?.error ?? t('cc_accounts.tally.settingsError', 'Could not save the Tally settings.'), 'error')
-        return false
-      }
-      setSettings(call.result)
-      setTallyUrl(call.result.url ?? '')
-      flash(t('cc_accounts.tally.settingsSaved', 'Tally settings saved'), 'success')
-      return true
-    } finally {
-      setBusy(null)
-    }
-  }
 
   const sendToTally = async () => {
     if (!kinds.length) {
@@ -158,7 +113,6 @@ export function TallyExportPage() {
 
   const query = (format: 'summary' | 'xml' | 'csv') => {
     const params = new URLSearchParams({ from, to, kinds: kinds.join(','), format, masters: String(masters) })
-    for (const [key, value] of Object.entries(ledgers)) if (value.trim()) params.set(`ledger_${key}`, value.trim())
     return `/api/cc_accounts/tally?${params.toString()}`
   }
 
@@ -187,12 +141,14 @@ export function TallyExportPage() {
       setBusy(null)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [from, to, kinds, masters, ledgers, t])
+  }, [from, to, kinds, masters, t])
 
   React.useEffect(() => {
     void run('summary')
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  const connected = settings ? (settings.mode === 'bridge' ? settings.bridgeKeySet : Boolean(settings.url)) : false
 
   return (
     <Page>
@@ -203,6 +159,7 @@ export function TallyExportPage() {
               <h1 className="text-2xl font-bold tracking-tight">{t('cc_accounts.tally.title', 'Tally')}</h1>
               <p className="max-w-3xl text-sm text-muted-foreground">{t('cc_accounts.tally.lede2', 'Send sales, credit notes, receipts, purchases and vendor payments to Tally. Entries already in Tally are skipped, and every send is logged with what Tally answered. No connection? Download the XML and import it in Tally (Gateway → Import → Transactions).')}</p>
             </div>
+            {tab === 'send' ? (
             <div className="flex shrink-0 flex-wrap gap-2 xl:flex-nowrap">
               <Button type="button" variant="outline" onClick={() => void run('summary')} disabled={Boolean(busy)}>
                 <RefreshCw className="mr-1.5 h-4 w-4" aria-hidden="true" />
@@ -212,19 +169,47 @@ export function TallyExportPage() {
                 <FileSpreadsheet className="mr-1.5 h-4 w-4" aria-hidden="true" />
                 {t('cc_accounts.tally.csv', 'Day book (CSV)')}
               </Button>
-              <Button type="button" variant={canPush && settings?.url ? 'outline' : 'default'} onClick={() => void run('xml')} disabled={Boolean(busy)}>
+              <Button type="button" variant={canPush && connected ? 'outline' : 'default'} onClick={() => void run('xml')} disabled={Boolean(busy)}>
                 <Download className="mr-1.5 h-4 w-4" aria-hidden="true" />
                 {busy === 'xml' ? t('cc_accounts.tally.preparing', 'Preparing…') : t('cc_accounts.tally.xml', 'Download Tally XML')}
               </Button>
               {canPush ? (
-                <Button type="button" onClick={() => void sendToTally()} disabled={Boolean(busy) || !settings?.url || summary?.newCount === 0} title={settings?.url ? undefined : t('cc_accounts.tally.needUrl', 'Set the Tally address below first')}>
+                <Button type="button" onClick={() => void sendToTally()} disabled={Boolean(busy) || !connected || summary?.newCount === 0} title={connected ? undefined : t('cc_accounts.tally.needConnection', 'Set up the connection first (Connection tab)')}>
                   <Send className="mr-1.5 h-4 w-4" aria-hidden="true" />
                   {busy === 'push' ? t('cc_accounts.tally.sending', 'Sending…') : summary?.newCount === 0 ? t('cc_accounts.tally.nothingNew', 'Nothing new to send') : summary?.newCount != null ? t('cc_accounts.tally.sendCount', 'Send {count} to Tally', { count: summary.newCount }) : t('cc_accounts.tally.send', 'Send to Tally')}
                 </Button>
               ) : null}
             </div>
+            ) : null}
           </header>
 
+          <div className="flex flex-wrap gap-1 border-b" role="tablist" aria-label={t('cc_accounts.tally.tabs', 'Tally')}>
+            {(
+              [
+                ['send', t('cc_accounts.tally.tabSend', 'Send to Tally')],
+                ['check', t('cc_accounts.tally.tabCheck', 'Check against Tally')],
+                ['connection', t('cc_accounts.tally.tabConnection', 'Connection')],
+              ] as Array<[Tab, string]>
+            ).map(([value, label]) => (
+              <button
+                key={value}
+                type="button"
+                role="tab"
+                aria-selected={tab === value}
+                onClick={() => setTab(value)}
+                className={cn('-mb-px border-b-2 px-3 py-2 text-sm', tab === value ? 'border-primary font-semibold text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground')}
+              >
+                {label}
+                {value === 'connection' && settings && !connected ? <span className="ml-1.5 inline-block h-2 w-2 rounded-full bg-status-warning-icon" aria-hidden="true" /> : null}
+              </button>
+            ))}
+          </div>
+
+          {tab === 'connection' && settings ? <TallyConnectionPanel settings={settings} canEdit={canPush} onChanged={setSettings} /> : null}
+          {tab === 'check' ? <TallyCheckPanel from={from} to={to} kinds={kinds} /> : null}
+
+          {tab === 'send' ? (
+          <>
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
             <section className="space-y-4 rounded-lg border bg-card p-5">
               <h2 className="text-sm font-semibold">{t('cc_accounts.tally.what', 'What to export')}</h2>
@@ -258,47 +243,35 @@ export function TallyExportPage() {
               </div>
             </section>
 
-            <section className="rounded-lg border bg-card p-5 lg:col-span-2">
-              <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+            <section className="space-y-3 rounded-lg border bg-card p-5 lg:col-span-2">
+              <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
                   <h2 className="flex items-center gap-2 text-sm font-semibold">
                     <PlugZap className="h-4 w-4 text-primary" aria-hidden="true" />
-                    {t('cc_accounts.tally.connection', 'Tally connection and ledger names')}
+                    {t('cc_accounts.tally.connectionTitle', 'Connection')}
                   </h2>
-                  <p className="text-xs text-muted-foreground">{t('cc_accounts.tally.ledgersHint2', 'Saved for everyone. Write ledger names exactly as they are in Tally.')}</p>
+                  <p className="text-sm text-muted-foreground">
+                    {!settings
+                      ? '…'
+                      : settings.mode === 'bridge'
+                        ? settings.bridgeAlive
+                          ? t('cc_accounts.tally.statusBridgeOn', 'Through the bridge on the accounts PC (running){url}', { url: settings.bridgeTallyUrl ? ` → ${settings.bridgeTallyUrl}` : '' })
+                          : t('cc_accounts.tally.statusBridgeOff', 'Through the bridge on the accounts PC (not running now)')
+                        : settings.url
+                          ? t('cc_accounts.tally.statusDirect', 'Direct to {url}', { url: settings.url })
+                          : t('cc_accounts.tally.statusNone', 'Not set up yet. You can still download the XML and import it in Tally.')}
+                  </p>
+                  {settings?.company ? <p className="text-xs text-muted-foreground">{t('cc_accounts.tally.statusCompany', 'Company in Tally: {name}', { name: settings.company })}</p> : null}
                 </div>
-                {canPush ? (
-                  <Button type="button" variant="outline" size="sm" className="h-9" disabled={Boolean(busy) || settings?.hasCompany === false} onClick={() => void saveSettings()} title={settings?.hasCompany === false ? t('cc_accounts.tally.needCompany', 'Save the company details first') : undefined}>
-                    {busy === 'settings' ? t('cc_accounts.tally.saving', 'Saving…') : t('cc_accounts.tally.saveSettings', 'Save settings')}
-                  </Button>
-                ) : null}
+                <Button type="button" variant="outline" size="sm" className="h-9" onClick={() => setTab('connection')}>
+                  {connected ? t('cc_accounts.tally.change', 'Change / test') : t('cc_accounts.tally.setUp', 'Set up')}
+                </Button>
               </div>
-              <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
-                <div className="space-y-1">
-                  <Label htmlFor="tally-url" className="text-xs text-muted-foreground">{t('cc_accounts.tally.url', 'Tally address (gateway)')}</Label>
-                  <Input id="tally-url" className="font-mono" placeholder="http://192.168.1.20:9000" value={tallyUrl} disabled={!canPush} onChange={(event) => setTallyUrl(event.target.value)} />
-                  <p className="text-xs text-muted-foreground">{t('cc_accounts.tally.urlHint', 'In Tally: F1 Help → Settings → Connectivity, Tally acts as Server, port 9000')}</p>
-                </div>
-                <div className="space-y-1">
-                  <Label htmlFor="tally-company" className="text-xs text-muted-foreground">{t('cc_accounts.tally.company', 'Company name in Tally')}</Label>
-                  <Input id="tally-company" placeholder={t('cc_accounts.tally.companyHint', 'As loaded in Tally')} value={tallyCompany} disabled={!canPush} onChange={(event) => setTallyCompany(event.target.value)} />
-                </div>
-              </div>
-              <div className="space-y-4">
-                {LEDGER_GROUPS.map((group) => (
-                  <fieldset key={group.title} className="space-y-2">
-                    <legend className="text-xs font-semibold text-muted-foreground">{t(`cc_accounts.tally.group.${group.key}`, group.title)}</legend>
-                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                      {LEDGER_FIELDS.filter((field) => group.keys.includes(field.key)).map((field) => (
-                        <div key={field.key} className="space-y-1">
-                          <Label htmlFor={`tally-ledger-${field.key}`} className="text-xs text-muted-foreground">{field.label}</Label>
-                          <Input id={`tally-ledger-${field.key}`} disabled={!canPush} placeholder={field.fallback} value={ledgers[field.key] ?? ''} onChange={(event) => setLedgers((prev) => ({ ...prev, [field.key]: event.target.value }))} />
-                        </div>
-                      ))}
-                    </div>
-                  </fieldset>
-                ))}
-              </div>
+              <ul className="space-y-1 text-xs text-muted-foreground">
+                <li>{t('cc_accounts.tally.rule1', 'Before sending, the ledgers are read from Tally: missing tax, sales or bank ledgers stop the send; missing customers and vendors are created.')}</li>
+                <li>{t('cc_accounts.tally.rule2', 'Every voucher carries its own ERP id, so sending again updates it in Tally instead of making a copy.')}</li>
+                <li>{t('cc_accounts.tally.rule3', 'Use “Check against Tally” any time to see what reached Tally and what was entered only in Tally.')}</li>
+              </ul>
             </section>
           </div>
 
@@ -407,6 +380,8 @@ export function TallyExportPage() {
               </div>
             )}
           </section>
+          </>
+          ) : null}
         </div>
       </PageBody>
     </Page>
