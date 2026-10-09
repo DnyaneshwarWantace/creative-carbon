@@ -12,6 +12,43 @@ import { usePlantPwa } from '../../cc_production/components/offline'
 
 type AppShellProps = React.ComponentProps<typeof AppShell>
 
+const SEEDED_KEY = 'cc:sidebarFolded'
+
+function useFoldSidebarOnFirstVisit(pathname: string | null) {
+  React.useEffect(() => {
+    let seeded = true
+    try {
+      seeded = Boolean(window.localStorage.getItem(SEEDED_KEY))
+    } catch {
+      return
+    }
+    if (seeded) return
+    let attempts = 0
+    const timer = window.setInterval(() => {
+      attempts += 1
+      const nav = document.querySelector('nav[data-testid="sidebar"]')
+      const headers = nav ? Array.from(nav.querySelectorAll<HTMLButtonElement>(':scope > div > button[aria-expanded="true"]')) : []
+      if (headers.length < 3 && attempts < 40) return
+      window.clearInterval(timer)
+      for (const header of headers) {
+        const section = header.parentElement
+        const links = section ? Array.from(section.querySelectorAll<HTMLAnchorElement>('a[href]')) : []
+        const current = links.some((link) => {
+          const href = link.getAttribute('href') ?? ''
+          return href !== '/backend' && (pathname === href || (pathname ?? '').startsWith(`${href}/`))
+        })
+        if (!current) header.click()
+      }
+      try {
+        window.localStorage.setItem(SEEDED_KEY, '1')
+      } catch {
+        return
+      }
+    }, 250)
+    return () => window.clearInterval(timer)
+  }, [pathname])
+}
+
 function WorkspaceLink({ workspace, access }: { workspace: Workspace; access: WorkspaceAccess }) {
   const t = useT()
   const other: Workspace = workspace === 'crm' ? 'erp' : 'crm'
@@ -34,6 +71,7 @@ function WorkspaceLink({ workspace, access }: { workspace: Workspace; access: Wo
 export function CcAppShell({ adminNavApi, rightHeaderSlot, productName, children, workspaceAccess, ...props }: AppShellProps & { workspaceAccess: WorkspaceAccess }) {
   const pathname = usePathname()
   const router = useRouter()
+  useFoldSidebarOnFirstVisit(pathname)
   const access = workspaceAccess
   const workspace = workspaceOf(pathname, access)
   const kind = pathKind(pathname)

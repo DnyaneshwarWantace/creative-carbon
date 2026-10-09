@@ -12,7 +12,7 @@ for (const [index, path] of paths.entries()) {
   if (await dismiss.isVisible().catch(() => false)) await dismiss.click()
   const scroll = Number(process.env.SCROLL ?? 0)
   if (scroll) await page.mouse.wheel(0, scroll)
-  await page.waitForTimeout(500)
+  await page.waitForTimeout(Number(process.env.WAIT ?? 500))
   await page.screenshot({ path: `${out}-${index}.png`, fullPage: Boolean(process.env.FULL) })
   console.log('shot', path)
 }

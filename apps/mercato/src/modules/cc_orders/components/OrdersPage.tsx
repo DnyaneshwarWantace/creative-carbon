@@ -13,7 +13,6 @@ import { Button } from '@open-mercato/ui/primitives/button'
 import { Input } from '@open-mercato/ui/primitives/input'
 import { Checkbox } from '@open-mercato/ui/primitives/checkbox'
 import { Spinner } from '@open-mercato/ui/primitives/spinner'
-import { EmptyState } from '@open-mercato/ui/primitives/empty-state'
 import { Popover, PopoverContent, PopoverTrigger } from '@open-mercato/ui/primitives/popover'
 import { SegmentedControl, SegmentedControlItem } from '@open-mercato/ui/primitives/segmented-control'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@open-mercato/ui/primitives/select'
@@ -363,12 +362,12 @@ export function OrdersPage() {
               </p>
             </div>
             <div className="flex shrink-0 flex-wrap items-center gap-2 xl:justify-end">
-              <SegmentedControl value={view} onValueChange={(value) => setView(value as typeof view)} aria-label={t('cc_orders.book.viewMode', 'View')}>
-                <SegmentedControlItem value="table">
+              <SegmentedControl className="h-9" value={view} onValueChange={(value) => setView(value as typeof view)} aria-label={t('cc_orders.book.viewMode', 'View')}>
+                <SegmentedControlItem value="table" className="h-8">
                   <List className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
                   {t('cc_orders.book.table', 'Table')}
                 </SegmentedControlItem>
-                <SegmentedControlItem value="board">
+                <SegmentedControlItem value="board" className="h-8">
                   <LayoutGrid className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
                   {t('cc_orders.book.board', 'Board')}
                 </SegmentedControlItem>
@@ -412,7 +411,7 @@ export function OrdersPage() {
                 <span className="min-w-0">
                   <span className="block text-xl font-bold leading-tight tabular-nums">{tile.value}</span>
                   <span className="block text-sm font-medium">{tile.label}</span>
-                  <span className="block truncate text-xs text-muted-foreground">{tile.hint}</span>
+                  <span className="block text-xs leading-snug text-muted-foreground">{tile.hint}</span>
                 </span>
               </div>
             ))}
@@ -420,9 +419,9 @@ export function OrdersPage() {
 
           <div className="space-y-3 rounded-lg border bg-card p-3 shadow-xs">
             <div className="flex flex-wrap items-center gap-2">
-              <div className="relative min-w-60 flex-1">
+              <div className="relative w-full sm:max-w-md sm:flex-1">
                 <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
-                <Input id="order-book-search" value={search} onChange={(event) => setSearch(event.target.value)} className="h-9 pl-9" placeholder={t('cc_orders.list.search', 'Search order no., customer, product ID or batch no.')} />
+                <Input id="order-book-search" value={search} onChange={(event) => setSearch(event.target.value)} className="h-9 pl-9" placeholder={t('cc_orders.list.searchOrders', 'Search these orders: no., customer, item or batch')} aria-label={t('cc_orders.list.searchOrdersLabel', 'Search orders')} />
               </div>
               <Select value={statusTab} onValueChange={(value) => router.replace(`/backend/orders?tab=${value}`)}>
                 <SelectTrigger className="h-9 w-44">
@@ -438,13 +437,13 @@ export function OrdersPage() {
               </Select>
             </div>
             <div className="flex flex-wrap gap-1.5 border-t pt-3">
-              <Button type="button" size="sm" variant={stageFilter === 'all' ? 'default' : 'outline'} className="h-7 px-2.5 text-xs" onClick={() => setStageFilter('all')}>
+              <Button type="button" size="sm" variant={stageFilter === 'all' ? 'default' : 'outline'} className="h-8 px-3 text-xs" aria-pressed={stageFilter === 'all'} onClick={() => setStageFilter('all')}>
                 {t('cc_orders.book.allStages', 'All stages')}
               </Button>
               {STAGES.filter((def) => def.key !== 'order').map((def) => (
-                <Button key={def.key} type="button" size="sm" variant={stageFilter === def.key ? 'default' : 'outline'} className="h-7 px-2.5 text-xs" onClick={() => setStageFilter(def.key)}>
+                <Button key={def.key} type="button" size="sm" variant={stageFilter === def.key ? 'default' : 'outline'} className="h-8 gap-1.5 px-3 text-xs" aria-pressed={stageFilter === def.key} onClick={() => setStageFilter(def.key)}>
                   {def.label}
-                  <span className="ml-1.5 tabular-nums opacity-70">{summary?.stageCounts[def.key] ?? 0}</span>
+                  <span className={cn('min-w-5 rounded-full px-1.5 py-0.5 text-center text-overline font-semibold tabular-nums', stageFilter === def.key ? 'bg-primary-foreground/20' : 'bg-muted text-muted-foreground')}>{summary?.stageCounts[def.key] ?? 0}</span>
                 </Button>
               ))}
             </div>
@@ -455,12 +454,30 @@ export function OrdersPage() {
               <Spinner />
             </div>
           ) : !orders.length ? (
-            <EmptyState
-              className="py-20"
-              icon={<FileSpreadsheet className="h-5 w-5" aria-hidden="true" />}
-              title={t('cc_orders.book.empty', 'No orders here')}
-              description={t('cc_orders.book.emptyHint', 'Change the filters, or book a new order.')}
-            />
+            <div className="flex flex-col items-center gap-3 rounded-xl border border-dashed bg-card px-6 py-16 text-center">
+              <span className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary">
+                <FileSpreadsheet className="h-6 w-6" aria-hidden="true" />
+              </span>
+              <div className="space-y-1">
+                <p className="text-base font-semibold">{t('cc_orders.book.empty', 'No orders here')}</p>
+                <p className="max-w-sm text-sm text-muted-foreground">{search.trim() || stageFilter !== 'all' || statusTab !== 'open' ? t('cc_orders.book.emptyFiltered', 'Nothing matches these filters. Clear them to see every order.') : t('cc_orders.book.emptyHint', 'Orders booked from the CRM or here appear in this list.')}</p>
+              </div>
+              <div className="flex flex-wrap justify-center gap-2">
+                {search.trim() || stageFilter !== 'all' || statusTab !== 'open' ? (
+                  <Button type="button" variant="outline" onClick={() => { setSearch(''); setStageFilter('all'); router.replace('/backend/orders') }}>
+                    {t('cc_orders.book.clearFilters', 'Clear filters')}
+                  </Button>
+                ) : null}
+                {granted.has('cc_orders.manage') ? (
+                  <Button asChild>
+                    <Link href="/backend/orders/new">
+                      <Plus className="mr-1.5 h-4 w-4" aria-hidden="true" />
+                      {t('cc_orders.book.new', 'Book new order')}
+                    </Link>
+                  </Button>
+                ) : null}
+              </div>
+            </div>
           ) : view === 'board' ? (
             <BoardView orders={orders} onOpen={openStage} opening={opening} />
           ) : (
@@ -524,7 +541,7 @@ export function OrdersPage() {
                     </tr>
                     <tr className="text-muted-foreground">
                       <th className={cn('sticky left-0 z-30 border-b bg-muted px-3 py-2 font-semibold', PIN_LEFT_LINE)}>{t('cc_orders.book.order', 'Order')}</th>
-                      <th className="border-b bg-muted px-3 py-2 font-semibold text-foreground">{t('cc_orders.book.brand', 'Brand / product name')}</th>
+                      <th className="border-b bg-muted px-3 py-2 font-semibold text-foreground">{t('cc_orders.book.item', 'Item')}</th>
                       {columns.map((column) => (
                         <th key={column.key} className={cn('border-b bg-muted px-3 py-2 font-semibold', columnLine(column.key), column.align === 'right' && 'text-right', column.align === 'center' && 'text-center')}>
                           {column.label}
