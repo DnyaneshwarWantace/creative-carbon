@@ -33,7 +33,7 @@ type Item = { productId: string; code: string | null; title: string; kind: strin
 type Book = { place: Place; label: string; summary: { items: number; lots: number; underTest: number; onHold: number; expiringSoon: number; expired: number }; items: Item[]; expiryWarningDays: number }
 type ProductOption = { id: string; title: string; code: string | null; unit: string | null }
 
-const PLACE_KINDS: Record<Place, string> = { wh_a: 'chemical,reinforcement,chindi,bought_in', wh_b: 'chemical,reinforcement,chindi,bought_in', tank: 'resin', floor: 'resin,reinforcement,chindi,bstage', fg: 'laminate,moulded,bstage,bought_in' }
+const PLACE_KINDS: Record<Place, string> = { wh_a: 'chemical,reinforcement,chindi,bought_in', wh_b: 'chemical,reinforcement,chindi,bought_in', tank: 'resin', floor: 'resin,reinforcement,chindi,bstage', fg: 'laminate,moulded,bstage,bought_in', jobwork: 'chemical,reinforcement,chindi,resin,bstage,laminate,moulded,bought_in' }
 
 const PLACES: Array<{ value: Place; label: string; kinds: string }> = STORES.map((store) => ({ value: store.key, label: store.label, kinds: PLACE_KINDS[store.key] }))
 
@@ -264,7 +264,7 @@ function StockDialog({ state, place, onClose, onDone }: { state: DialogState; pl
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {PLACES.filter((entry) => entry.value !== place).map((entry) => (
+                    {PLACES.filter((entry) => entry.value !== place && entry.value !== 'jobwork').map((entry) => (
                       <SelectItem key={entry.value} value={entry.value}>
                         {entry.label}
                       </SelectItem>
@@ -333,7 +333,8 @@ export function StockPage({ fixedPlace, title }: { fixedPlace?: Place; title?: s
   const [error, setError] = React.useState<string | null>(null)
   const [open, setOpen] = React.useState<Set<string>>(new Set())
   const [dialog, setDialog] = React.useState<DialogState>(null)
-  const [canAdjust, setCanAdjust] = React.useState(false)
+  const [mayAdjust, setCanAdjust] = React.useState(false)
+  const canAdjust = mayAdjust && place !== 'jobwork'
   const [columnKeys, setColumnKeys] = React.useState<string[]>(DEFAULT_STOCK_COLUMNS)
   const allColumns = React.useMemo(() => stockColumns(book?.expiryWarningDays ?? 90), [book?.expiryWarningDays])
   const shownColumns = columnKeys.map((key) => allColumns.find((column) => column.key === key)).filter((column): column is StockColumn => Boolean(column))

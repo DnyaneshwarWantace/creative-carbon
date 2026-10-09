@@ -131,3 +131,44 @@ export const poEmailSchema = z.object({
   cc: emailList.default([]),
   message: z.string().trim().max(2000).optional().nullable(),
 })
+
+const jobWorkDay = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Pick the date')
+const jobWorkPlace = z.enum(['wh_a', 'wh_b', 'floor', 'fg'])
+const optionalText = (max: number) => z.preprocess((value) => (typeof value === 'string' && value.trim() ? value.trim() : null), z.string().max(max).nullable().optional())
+
+export const jobWorkCreateSchema = z.object({
+  vendorId: z.string().uuid('Pick the job worker'),
+  challanDate: jobWorkDay,
+  process: z.string().trim().min(2, 'Write the process, e.g. Machining').max(120),
+  expectedReturn: jobWorkDay.nullable().optional(),
+  vehicleNo: optionalText(30),
+  notes: optionalText(1000),
+  lines: z.array(z.object({ lotId: z.string().uuid(), qty: z.coerce.number().positive('Enter the quantity').max(10_000_000), value: z.coerce.number().min(0).max(1_000_000_000).optional() })).min(1, 'Add at least one lot').max(40),
+})
+
+export const jobWorkReceiveSchema = z.object({
+  id: z.string().uuid(),
+  action: z.literal('receive'),
+  date: jobWorkDay,
+  note: optionalText(500),
+  lines: z.array(z.object({ lineId: z.string().uuid(), qty: z.coerce.number().min(0).max(10_000_000).default(0), lossQty: z.coerce.number().min(0).max(10_000_000).default(0), toPlace: jobWorkPlace.optional() })).min(1).max(40),
+})
+
+export const jobWorkCancelSchema = z.object({
+  id: z.string().uuid(),
+  action: z.literal('cancel'),
+  reason: z.string().trim().min(3, 'Write why it is cancelled').max(300),
+})
+
+export const jobWorkActionSchema = z.discriminatedUnion('action', [jobWorkReceiveSchema, jobWorkCancelSchema])
+
+export const jobWorkListSchema = z.object({
+  id: z.string().uuid().optional(),
+  status: z.enum(['open', 'part_returned', 'returned', 'cancelled']).optional(),
+  vendorId: z.string().uuid().optional(),
+  q: z.string().trim().max(120).optional(),
+  lots: z.enum(['1']).optional(),
+})
+
+export type JobWorkCreateInput = z.infer<typeof jobWorkCreateSchema>
+export type JobWorkReceiveInput = z.infer<typeof jobWorkReceiveSchema>

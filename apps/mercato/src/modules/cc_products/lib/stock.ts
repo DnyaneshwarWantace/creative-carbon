@@ -8,7 +8,10 @@ export const STORES = [
   { key: 'tank', code: 'RESIN-TANK', label: 'Resin tank', receives: false },
   { key: 'floor', code: 'SHOP-FLOOR', label: 'Shop floor', receives: false },
   { key: 'fg', code: 'FG-STORE', label: 'FG store', receives: true },
+  { key: 'jobwork', code: 'JOB-WORK', label: 'At job worker', receives: false },
 ] as const
+
+export const MANUAL_PLACES = ['wh_a', 'wh_b', 'tank', 'floor', 'fg'] as const
 
 export type StockPlace = (typeof STORES)[number]['key']
 

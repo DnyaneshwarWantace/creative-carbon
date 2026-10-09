@@ -71,7 +71,8 @@ test.describe.serial('Stage 8 · stock, owner overview, offline, demo', () => {
     const added = await request.post('/api/cc_store/stock/adjust', { data: { place: 'wh_b', productId: methanol, direction: 'in', quantity: 10, newLot: { lotNumber: `E2E8-ME-${stamp}` }, reason: 'Opening stock', note: 'e2e stage 8' } })
     expect(added.ok(), await added.text()).toBeTruthy()
     const grid = (await (await request.get('/api/cc_production/stock?kind=chemical&place=wh_b')).json()) as { items: Array<{ productId: string; title: string; place: string; qty: number; lots: number; oldestDays: number | null; reorder: boolean }>; places: unknown[] }
-    expect(grid.places).toHaveLength(5)
+    expect(grid.places).toHaveLength(6)
+    expect(grid.places.map((place: { key: string }) => place.key)).toContain('jobwork')
     const row = grid.items.find((item) => item.productId === methanol)!
     expect(row.place).toBe('wh_b')
     expect(row.qty).toBeGreaterThanOrEqual(10)

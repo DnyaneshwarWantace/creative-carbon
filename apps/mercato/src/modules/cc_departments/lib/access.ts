@@ -104,6 +104,7 @@ export const ACCESS_AREAS: AccessArea[] = [
       { feature: 'cc_purchase.manage', label: 'Raise and edit purchase orders', short: 'Raise' },
       { feature: 'cc_purchase.approve', label: 'Approve purchase orders', short: 'Approve' },
       { feature: 'cc_purchase.receive', label: 'Receive goods and return to vendor', short: 'Receive' },
+      { feature: 'cc_purchase.jobwork', label: 'Send material to job workers and receive it back', short: 'Job work' },
     ],
   },
   {
@@ -137,6 +138,7 @@ export const ACCESS_AREAS: AccessArea[] = [
       { feature: 'cc_departments.manage', label: 'Add and edit departments', short: 'Edit depts' },
       { feature: 'cc_lists.manage', label: 'Change dropdown lists', short: 'Dropdowns' },
       { feature: 'cc_accounts.series', label: 'Change document number series', short: 'Numbering' },
+      { feature: 'cc_accounts.tally', label: 'Send to Tally and change the Tally connection', short: 'Tally' },
       { feature: 'cc_orders.settings', label: 'Change workflow stages', short: 'Stages' },
     ],
   },

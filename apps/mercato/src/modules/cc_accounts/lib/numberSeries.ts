@@ -1,6 +1,6 @@
 import type { EntityManager } from '@mikro-orm/postgresql'
 
-export type SeriesKey = 'SO' | 'ENQ' | 'QT' | 'PI' | 'INV' | 'CN' | 'VB' | 'IND' | 'PO' | 'GR' | 'SKU' | 'RB' | 'PB' | 'LOT_BS' | 'LOT_PR' | 'LOT_MO' | 'LOT_CUT' | 'LOT_FG' | 'LOT_BI'
+export type SeriesKey = 'SO' | 'ENQ' | 'QT' | 'PI' | 'INV' | 'CN' | 'VB' | 'IND' | 'PO' | 'GR' | 'JW' | 'SKU' | 'RB' | 'PB' | 'LOT_BS' | 'LOT_PR' | 'LOT_MO' | 'LOT_CUT' | 'LOT_FG' | 'LOT_BI'
 
 export type SeriesSetting = { prefix: string; suffix: string; pad: number; startAt: number }
 
@@ -17,6 +17,7 @@ export const SERIES_DEFS: SeriesDef[] = [
   { key: 'IND', label: 'Purchase indent', department: 'Purchase', table: 'cc_purchase_indents', column: 'code', prefix: 'CCCPL/IND/{FY}/', suffix: '', pad: 4, startAt: 1 },
   { key: 'PO', label: 'Purchase order', department: 'Purchase', table: 'cc_pos', column: 'code', prefix: 'CCCPL/PO/{FY}/', suffix: '', pad: 4, startAt: 1 },
   { key: 'GR', label: 'Goods receiving note', department: 'Store', table: 'cc_grns', column: 'code', prefix: 'CCCPL/GR/{FY}/', suffix: '', pad: 4, startAt: 1 },
+  { key: 'JW', label: 'Job-work challan', department: 'Purchase', table: 'cc_job_work_challans', column: 'code', prefix: 'CCCPL/JW/{FY}/', suffix: '', pad: 4, startAt: 1 },
   { key: 'SKU', label: 'Product SKU', department: 'Masters', table: 'catalog_products', column: 'sku', prefix: 'SKU', suffix: '', pad: 1, startAt: 1 },
   { key: 'RB', label: 'Resin batch No.', department: 'Resin plant', table: 'cc_resin_batches', column: 'batch_no', prefix: 'CCCPL/{DD}{MM}{YY}/', suffix: '', pad: 2, startAt: 1 },
   { key: 'PB', label: 'Press batch No. (gap-free in the month)', department: 'Press & moulding', table: 'cc_press_batches', column: 'batch_no', prefix: 'F/', suffix: '/{MM}/{YYYY}', pad: 2, startAt: 1 },

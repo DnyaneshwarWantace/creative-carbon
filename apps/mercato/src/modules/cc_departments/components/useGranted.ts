@@ -25,6 +25,7 @@ const UI_FEATURES = [
   'cc_purchase.indent',
   'cc_purchase.approve',
   'cc_purchase.receive',
+  'cc_purchase.jobwork',
   'cc_vendors.manage',
   'cc_store.adjust',
   'cc_lists.manage',

@@ -30,11 +30,12 @@ export const recordHref = {
   payment: (id: string) => `/backend/accounts/payments/${id}`,
   vendorBill: (id: string) => `/backend/accounts/vendor-bills/${id}`,
   tallyPush: (id: string) => `/backend/accounts/tally/${id}`,
+  jobWork: (id: string) => `/backend/purchase/job-work/${id}`,
 }
 
 export type MachineKind = 'reactor' | 'dryer' | 'press'
 
-export type DocumentKind = 'grn' | 'resin' | 'press' | 'coating' | 'moulding' | 'chemical_issue' | 'cutting' | 'fg_inspection' | 'direct_in' | 'damage' | 'order' | 'stocktake' | 'scrap' | 'adjustment' | 'transfer'
+export type DocumentKind = 'grn' | 'resin' | 'press' | 'coating' | 'moulding' | 'chemical_issue' | 'cutting' | 'fg_inspection' | 'direct_in' | 'damage' | 'order' | 'stocktake' | 'scrap' | 'adjustment' | 'transfer' | 'job_work'
 
 export const DOCUMENT_KIND_LABEL: Record<DocumentKind, string> = {
   grn: 'GRN',
@@ -52,6 +53,7 @@ export const DOCUMENT_KIND_LABEL: Record<DocumentKind, string> = {
   scrap: 'B-stage scrapped',
   adjustment: 'Stock adjustment',
   transfer: 'Store transfer',
+  job_work: 'Job-work challan',
 }
 
 export type DocumentLink = { kind: DocumentKind; label: string | null; href: string | null }
@@ -90,6 +92,8 @@ export function movementDocument(metadata: Record<string, unknown> | null | unde
     const damageId = str(metadata.damageId)
     if (damageId) return { kind: 'damage', label: null, href: recordHref.damage(damageId) }
   }
+  const challanId = str(metadata.challanId)
+  if (source === 'cc_purchase.job_work' && challanId) return { kind: 'job_work', label: str(metadata.challanCode), href: recordHref.jobWork(challanId) }
   const orderId = str(metadata.orderId)
   if (orderId) return { kind: 'order', label: str(metadata.orderNo), href: recordHref.order(orderId) }
   if (source === 'cc_production.stocktake') return { kind: 'stocktake', label: str(metadata.countDate), href: recordHref.stocktake() }

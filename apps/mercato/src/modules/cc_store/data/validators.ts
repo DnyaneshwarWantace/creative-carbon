@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { STOCK_PLACES } from '../../cc_products/lib/stock'
+import { MANUAL_PLACES, STOCK_PLACES } from '../../cc_products/lib/stock'
 
 export { STOCK_PLACES }
 
@@ -19,7 +19,7 @@ export const ledgerQuerySchema = z.object({
 const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/)
 
 export const adjustSchema = z.object({
-  place: z.enum(STOCK_PLACES),
+  place: z.enum(MANUAL_PLACES),
   productId: z.string().uuid(),
   direction: z.enum(['in', 'out']),
   quantity: z.coerce.number().positive().max(100000000),
@@ -32,8 +32,8 @@ export const adjustSchema = z.object({
 export const transferSchema = z.object({
   productId: z.string().uuid(),
   lotId: z.string().uuid().nullable(),
-  from: z.enum(STOCK_PLACES),
-  to: z.enum(STOCK_PLACES),
+  from: z.enum(MANUAL_PLACES),
+  to: z.enum(MANUAL_PLACES),
   quantity: z.coerce.number().positive().max(100000000),
   note: z.string().trim().max(500).nullable().optional(),
 })

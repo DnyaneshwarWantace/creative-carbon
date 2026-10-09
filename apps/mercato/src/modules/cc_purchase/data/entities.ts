@@ -341,3 +341,88 @@ export class PurchaseIndent {
   @Property({ name: 'deleted_at', type: Date, nullable: true })
   deletedAt?: Date | null
 }
+
+export type JobWorkStatus = 'open' | 'part_returned' | 'returned' | 'cancelled'
+export type JobWorkLine = {
+  lineId: string
+  productId: string
+  title: string
+  code: string | null
+  hsn: string | null
+  unit: string
+  lotId: string
+  lotNumber: string
+  fromPlace: string
+  qty: number
+  value: number
+  returnedQty: number
+  lossQty: number
+}
+export type JobWorkReturn = { id: string; date: string; by: string | null; at: string; note: string | null; lines: Array<{ lineId: string; qty: number; lossQty: number; toPlace: string }> }
+
+@Entity({ tableName: 'cc_job_work_challans' })
+@Index({ name: 'cc_job_work_challans_scope_idx', properties: ['organizationId', 'tenantId', 'status'] })
+@Unique({ name: 'cc_job_work_challans_code_uq', properties: ['organizationId', 'tenantId', 'code'] })
+export class JobWorkChallan {
+  [OptionalProps]?: 'createdAt' | 'updatedAt' | 'deletedAt' | 'status' | 'returns' | 'history' | 'vendorGstin' | 'expectedReturn' | 'vehicleNo' | 'notes' | 'createdByName'
+
+  @PrimaryKey({ type: 'uuid', defaultRaw: 'gen_random_uuid()' })
+  id!: string
+
+  @Property({ name: 'organization_id', type: 'uuid' })
+  organizationId!: string
+
+  @Property({ name: 'tenant_id', type: 'uuid' })
+  tenantId!: string
+
+  @Property({ type: 'text' })
+  code!: string
+
+  @Property({ name: 'vendor_id', type: 'uuid' })
+  vendorId!: string
+
+  @Property({ name: 'vendor_name', type: 'text' })
+  vendorName!: string
+
+  @Property({ name: 'vendor_gstin', type: 'text', nullable: true })
+  vendorGstin?: string | null
+
+  @Property({ name: 'challan_date', type: 'text' })
+  challanDate!: string
+
+  @Property({ type: 'text' })
+  process!: string
+
+  @Property({ name: 'expected_return', type: 'text', nullable: true })
+  expectedReturn?: string | null
+
+  @Property({ name: 'vehicle_no', type: 'text', nullable: true })
+  vehicleNo?: string | null
+
+  @Property({ type: 'text', nullable: true })
+  notes?: string | null
+
+  @Property({ type: 'text', default: 'open' })
+  status: JobWorkStatus = 'open'
+
+  @Property({ type: 'json' })
+  lines!: JobWorkLine[]
+
+  @Property({ type: 'json' })
+  returns: JobWorkReturn[] = []
+
+  @Property({ type: 'json' })
+  history: Array<{ action: string; by: string | null; at: string; note: string | null }> = []
+
+  @Property({ name: 'created_by_name', type: 'text', nullable: true })
+  createdByName?: string | null
+
+  @Property({ name: 'created_at', type: Date, onCreate: () => new Date() })
+  createdAt: Date = new Date()
+
+  @Property({ name: 'updated_at', type: Date, onCreate: () => new Date(), onUpdate: () => new Date() })
+  updatedAt: Date = new Date()
+
+  @Property({ name: 'deleted_at', type: Date, nullable: true })
+  deletedAt?: Date | null
+}
