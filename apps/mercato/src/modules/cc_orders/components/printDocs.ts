@@ -2,6 +2,14 @@ import type { Order } from './types'
 
 export type DocKind = 'proforma' | 'invoice' | 'challan' | 'packing_list'
 
+export type PrintFulfilment = {
+  lines: Array<{ lineId: string; title: string; unit: string; material: Record<string, string>; weights: number[]; packed: number | null; allocations: Array<{ lotNumber: string; qty: number; status: string }> }>
+  qc?: {
+    lots: Array<{ lotNumber: string; fgInspected: boolean; thickness: { result: string; date: string } | null; boughtIn: boolean }>
+    labTests?: Array<{ testDate: string; testType: string; standard: string | null; result: string; reportNo: string | null; lotRefs: string | null }>
+  }
+}
+
 export type DocCompany = { name: string; legalName?: string | null; gstin?: string | null; address?: string | null; phone?: string | null; email?: string | null; signatory?: string | null }
 
 export function companyHeader(company: DocCompany | null | undefined, subtitle: string): string {
@@ -35,7 +43,7 @@ function stageData(order: Order, key: string): Record<string, unknown> {
   return order.stages.find((stage) => stage.key === key)?.data ?? {}
 }
 
-export function buildDocHtml(order: Order, kind: DocKind, company?: DocCompany | null): string {
+export function buildDocHtml(order: Order, kind: DocKind, company?: DocCompany | null, fulfilment?: PrintFulfilment | null): string {
   const advance = stageData(order, 'advance')
   const invoice = stageData(order, 'invoice')
   const dispatch = stageData(order, 'dispatch')
@@ -99,6 +107,7 @@ export function buildDocHtml(order: Order, kind: DocKind, company?: DocCompany |
     td{padding:7px 6px;border-bottom:1px solid #e7e5e4;vertical-align:top} .r{text-align:right;white-space:nowrap} .n{width:24px;color:#78716c}
     .totals{margin-left:auto;width:300px;margin-top:10px} .totals div{display:flex;justify-content:space-between;padding:3px 0}
     .totals .grand{border-top:1px solid #1c1917;font-weight:700;font-size:14px;padding-top:6px} .totals .due{font-weight:700}
+    .weights{display:grid;grid-template-columns:repeat(8,1fr);gap:2px 10px;margin-top:6px;font-family:ui-monospace,Menlo,monospace;font-size:10.5px} .weights span{display:flex;gap:6px;border-bottom:1px dotted #d6d3d1} .weights b{color:#a8a29e;font-weight:400;width:18px;text-align:right}
     .sign{display:flex;justify-content:space-between;margin-top:56px} .sign div{width:40%;border-top:1px solid #a8a29e;padding-top:4px;text-align:center;color:#78716c}
     @media print{body{padding:14mm}}
   </style></head><body>
@@ -113,17 +122,86 @@ export function buildDocHtml(order: Order, kind: DocKind, company?: DocCompany |
   <table><thead>${head}</thead><tbody>${rows}</tbody></table>
   ${totals}
   ${kind === 'invoice' && order.billingRemarks ? `<p class="muted" style="margin-top:16px">${esc(order.billingRemarks)}</p>` : ''}
+  ${kind === 'packing_list' && fulfilment ? weightsSection(fulfilment) : ''}
   ${shipping && order.packingRemarks ? `<p class="muted" style="margin-top:16px">${esc(order.packingRemarks)}</p>` : ''}
   <div class="sign"><div>${shipping ? 'Received by (name, stamp)' : 'Customer signature'}</div><div>For ${signName(company)}${company?.signatory ? `<br>${esc(company.signatory)}` : ''}</div></div>
   <script>window.addEventListener('load', function () { setTimeout(function () { window.print() }, 200) })</script>
   </body></html>`
 }
 
-export function printDoc(order: Order, kind: DocKind, company?: DocCompany | null): boolean {
+function weightsSection(fulfilment: PrintFulfilment): string {
+  return fulfilment.lines
+    .filter((line) => line.weights.length || line.allocations.length)
+    .map((line) => {
+      const lots = line.allocations.filter((entry) => entry.status !== 'released').map((entry) => `${esc(entry.lotNumber)} (${num(entry.qty)} ${esc(line.unit)})`).join(', ')
+      const total = line.weights.reduce((sum, weight) => sum + weight, 0)
+      const cells = line.weights.map((weight, index) => `<span><b>${index + 1}</b>${new Intl.NumberFormat('en-IN', { minimumFractionDigits: 3, maximumFractionDigits: 3 }).format(weight)}</span>`).join('')
+      return `<div class="box" style="margin-top:14px"><h3>${esc(line.title)}${line.weights.length ? ` · ${line.weights.length} sheets weighed · ${num(total)} kg` : ''}</h3>${lots ? `<div class="code">Lots: ${lots}</div>` : ''}${cells ? `<div class="weights">${cells}</div>` : '<div class="muted">Not weighed yet</div>'}</div>`
+    })
+    .join('')
+}
+
+export function buildTcCoverHtml(order: Order, fulfilment: PrintFulfilment, company?: DocCompany | null): string {
+  const invoice = stageData(order, 'invoice')
+  const qcStage = stageData(order, 'qc')
+  const standards = [...new Set([...order.lines.map((line) => line.specs?.material?.test_standard), qcStage.standard].filter((value): value is string => typeof value === 'string' && value.trim().length > 0))]
+  const tests = fulfilment.qc?.labTests ?? []
+  const lots = fulfilment.qc?.lots ?? []
+  const number = `TC-${order.orderNo}`
+  const items = order.lines
+    .map((line, index) => {
+      const spec = line.specs?.material ?? {}
+      const detail = [spec.grade, spec.weave, spec.sheet_size, spec.thickness_mm ? `${spec.thickness_mm} mm` : null].filter(Boolean).join(' · ')
+      return `<tr><td class="n">${index + 1}</td><td><strong>${esc(line.product?.title ?? '—')}</strong>${detail ? `<div class="muted">${esc(detail)}</div>` : ''}</td><td>${esc(spec.test_standard ?? '—')}</td><td class="r">${num(line.quantity)}</td></tr>`
+    })
+    .join('')
+  const lotRows = lots.length
+    ? lots.map((lot) => `<tr><td class="mono">${esc(lot.lotNumber)}</td><td>${lot.boughtIn ? 'Bought-in' : lot.thickness ? `${esc(lot.thickness.result === 'pass' ? 'Passed' : lot.thickness.result)} · ${day(lot.thickness.date)}` : '—'}</td><td>${lot.fgInspected ? 'Passed' : '—'}</td></tr>`).join('')
+    : '<tr><td colspan="3" class="muted">No lots allocated yet</td></tr>'
+  const testRows = tests.length
+    ? tests.map((test) => `<tr><td>${day(test.testDate)}</td><td><strong>${esc(test.testType)}</strong></td><td>${esc(test.standard ?? '—')}</td><td class="mono">${esc(test.reportNo ?? '—')}</td><td class="mono">${esc(test.lotRefs ?? '—')}</td><td><strong>${test.result === 'pass' ? 'Pass' : test.result === 'fail' ? 'Fail' : 'Pending'}</strong></td></tr>`).join('')
+    : '<tr><td colspan="6" class="muted">No lab test linked to this order</td></tr>'
+  const allPass = tests.length > 0 && lots.length > 0 && tests.every((test) => test.result === 'pass')
+  return `<!doctype html><html><head><meta charset="utf-8"><title>Test certificate ${esc(number)}</title>
+  <style>
+    *{box-sizing:border-box} body{font-family:-apple-system,Segoe UI,Helvetica,Arial,sans-serif;color:#1c1917;margin:0;padding:32px;font-size:12px}
+    .top{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #1c1917;padding-bottom:14px}
+    h1{font-size:20px;margin:0} h2{font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:#78716c;margin:18px 0 4px}
+    .muted{color:#78716c;font-size:11px} .code,.mono{font-family:ui-monospace,Menlo,monospace;font-size:10.5px}
+    .doc{text-align:right} .doc .kind{font-size:11px;text-transform:uppercase;letter-spacing:.1em;color:#78716c} .doc .no{font-family:ui-monospace,Menlo,monospace;font-size:15px;font-weight:700}
+    .grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:18px 0} .box{border:1px solid #d6d3d1;border-radius:6px;padding:10px 12px} .box h3{margin:0 0 4px;font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:#78716c}
+    table{width:100%;border-collapse:collapse} th{font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:#78716c;text-align:left;border-bottom:1px solid #1c1917;padding:6px}
+    td{padding:6px;border-bottom:1px solid #e7e5e4;vertical-align:top} .r{text-align:right} .n{width:24px;color:#78716c}
+    .decl{margin-top:18px;border:1px solid #1c1917;border-radius:6px;padding:12px;font-size:12.5px}
+    .sign{display:flex;justify-content:space-between;margin-top:56px} .sign div{width:40%;border-top:1px solid #a8a29e;padding-top:4px;text-align:center;color:#78716c}
+    @media print{body{padding:14mm}}
+  </style></head><body>
+  <div class="top">
+    ${companyHeader(company, 'Phenolic laminates, tubes, rods and moulded components')}
+    <div class="doc"><div class="kind">Test certificate</div><div class="no">${esc(number)}</div><div class="muted">${day(new Date().toISOString().slice(0, 10))} · Order ${esc(order.orderNo)}</div></div>
+  </div>
+  <div class="grid">
+    <div class="box"><h3>Customer</h3><strong>${esc(order.customer?.name ?? '—')}</strong>${order.customerPoRef ? `<div class="code">Your PO ${esc(order.customerPoRef)}</div>` : ''}</div>
+    <div class="box"><h3>Reference</h3><div>Invoice ${esc(invoice.invoice_number ?? '—')}${invoice.invoice_date ? ` · ${day(invoice.invoice_date)}` : ''}</div>${qcStage.report_no ? `<div class="code">Test report ${esc(qcStage.report_no)}</div>` : ''}${standards.length ? `<div class="muted">Standard ${esc(standards.join(', '))}</div>` : ''}</div>
+  </div>
+  <h2>Material supplied</h2>
+  <table><thead><tr><th>#</th><th>Item</th><th>Test standard</th><th class="r">Qty</th></tr></thead><tbody>${items}</tbody></table>
+  <h2>Lots and in-house checks</h2>
+  <table><thead><tr><th>Lot no.</th><th>Thickness inspection</th><th>Finished goods inspection</th></tr></thead><tbody>${lotRows}</tbody></table>
+  <h2>Laboratory tests</h2>
+  <table><thead><tr><th>Date</th><th>Test</th><th>Standard</th><th>Report no.</th><th>Lots</th><th>Result</th></tr></thead><tbody>${testRows}</tbody></table>
+  <div class="decl">${allPass ? `We certify that the material supplied against the above order has been inspected and tested${standards.length ? ` to ${esc(standards.join(', '))}` : ''} and conforms to the requirements. The detailed laboratory reports are attached.` : 'Results above are as tested. The detailed laboratory reports are attached.'}</div>
+  <div class="sign"><div>Checked by (QC)</div><div>For ${signName(company)}${company?.signatory ? `<br>${esc(company.signatory)}` : ''}</div></div>
+  <script>window.addEventListener('load', function () { setTimeout(function () { window.print() }, 200) })</script>
+  </body></html>`
+}
+
+
+export function printDoc(order: Order, kind: DocKind, company?: DocCompany | null, fulfilment?: PrintFulfilment | null): boolean {
   const popup = window.open('', '_blank', 'width=960,height=1100')
   if (!popup) return false
   popup.document.open()
-  popup.document.write(buildDocHtml(order, kind, company))
+  popup.document.write(buildDocHtml(order, kind, company, fulfilment))
   popup.document.close()
   return true
 }

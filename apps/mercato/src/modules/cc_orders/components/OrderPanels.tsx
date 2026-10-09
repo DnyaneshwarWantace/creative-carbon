@@ -6,6 +6,7 @@ import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { cn } from '@open-mercato/shared/lib/utils'
 import { daysUntil, formatDate } from './format'
 import type { Order } from './types'
+import { OrderPrintButtons } from './OrderPrintButtons'
 import { stageDayLimit } from '../lib/stages'
 
 export type OrderTab = 'work' | 'products' | 'documents' | 'money' | 'history'
@@ -109,6 +110,13 @@ export function DocumentsOverview({ order, onStage }: { order: Order; onStage: (
     .map((stage) => ({ stage, docs: order.documents?.[stage.key] ?? [] }))
     .filter((row) => row.docs.length)
   return (
+    <div className="space-y-3">
+    <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border bg-card px-3 py-2">
+      <p className="text-sm font-semibold">{t('cc_orders.docsTab.print', 'Print for this order')}</p>
+      <div className="flex flex-wrap gap-2">
+        <OrderPrintButtons order={order} />
+      </div>
+    </div>
     <div className="overflow-x-auto rounded-lg border bg-card">
       <table className="w-full text-sm">
         <thead className="bg-muted/40 text-xs text-muted-foreground">
@@ -152,6 +160,7 @@ export function DocumentsOverview({ order, onStage }: { order: Order; onStage: (
           )}
         </tbody>
       </table>
+    </div>
     </div>
   )
 }

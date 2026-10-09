@@ -3,7 +3,7 @@
 import * as React from 'react'
 import { useGranted } from '../../cc_departments/components/useGranted'
 import { ListSelectItems } from '../../cc_lists/components/ListSelectItems'
-import { FileText, IndianRupee, Package, Plus, Printer, Truck, X } from 'lucide-react'
+import { FileText, IndianRupee, Plus, Printer, X } from 'lucide-react'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { cn } from '@open-mercato/shared/lib/utils'
 import { Button } from '@open-mercato/ui/primitives/button'
@@ -18,6 +18,7 @@ import { useGuardedMutation } from '@open-mercato/ui/backend/injection/useGuarde
 import { flash } from '@open-mercato/ui/backend/FlashMessages'
 import { formatDate, todayIso } from './format'
 import { printDoc, type DocCompany } from './printDocs'
+import { OrderPrintButtons } from './OrderPrintButtons'
 import type { Order, OrderPayment } from './types'
 
 const KIND_LABEL: Record<OrderPayment['kind'], string> = { advance: 'Advance', balance: 'Balance', other: 'Other' }
@@ -128,14 +129,7 @@ export function OrderMoneyCard({ order, onChanged }: { order: Order; onChanged: 
             <Printer className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
             {t('cc_orders.money.invoice', 'Tax invoice')}
           </Button>
-          <Button type="button" variant="outline" size="sm" onClick={() => printDoc(order, 'challan', company)}>
-            <Truck className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
-            {t('cc_orders.money.challan', 'Delivery challan')}
-          </Button>
-          <Button type="button" variant="outline" size="sm" onClick={() => printDoc(order, 'packing_list', company)}>
-            <Package className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
-            {t('cc_orders.money.packingList', 'Packing list')}
-          </Button>
+          <OrderPrintButtons order={order} />
           {order.status !== 'cancelled' && granted.has('cc_accounts.record') ? (
             <Button type="button" size="sm" onClick={() => setOpen(true)}>
               <Plus className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
