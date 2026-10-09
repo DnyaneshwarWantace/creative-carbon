@@ -6,7 +6,6 @@ import { Search } from 'lucide-react'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { cn } from '@open-mercato/shared/lib/utils'
 import { Page, PageBody } from '@open-mercato/ui/backend/Page'
-import { ErrorMessage } from '@open-mercato/ui/backend/detail'
 import { Input } from '@open-mercato/ui/primitives/input'
 import { Label } from '@open-mercato/ui/primitives/label'
 import { SegmentedControl, SegmentedControlItem } from '@open-mercato/ui/primitives/segmented-control'
@@ -16,6 +15,7 @@ import { downloadCsv } from '../../cc_products/lib/csvExport'
 import { STORES } from '../../cc_products/lib/stock'
 import { PRODUCT_KINDS } from '../../cc_products/lib/kinds'
 import { PageLoading } from '../../cc_ui/components/PageLoading'
+import { Dropdown } from '../../cc_lists/components/Dropdown'
 
 type Report = 'overview' | 'ageing' | 'consumption'
 type Base = { productId: string; code: string | null; title: string; kind: string | null; unit: string | null }
@@ -69,7 +69,8 @@ export function InventoryReports() {
         {row.title}
       </Link>
       <span className="block text-xs text-muted-foreground">
-        <span className="font-mono">{row.code ?? '—'}</span> · {KIND[row.kind ?? ''] ?? row.kind} · {row.unit ?? ''}
+        {row.code ? <><span className="font-mono">{row.code}</span> · </> : null}
+        {KIND[row.kind ?? ''] ?? row.kind} · {row.unit ?? ''}
       </span>
     </td>
   )
@@ -121,13 +122,22 @@ export function InventoryReports() {
               <h1 className="text-2xl font-bold tracking-tight">{t('cc_store.reports.title', 'Inventory reports')}</h1>
               <p className="max-w-3xl text-sm text-muted-foreground">{t('cc_store.reports.lede', 'Where every material sits, how long it has been in store, and how much production used.')}</p>
             </div>
-            <ExportButton size="sm" disabled={!rows.length} onExport={exportCsv} />
+            <ExportButton disabled={!rows.length} onExport={exportCsv} />
           </header>
-          <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
-            <SegmentedControl value={report} onValueChange={(value) => setReport(value as Report)} aria-label={t('cc_store.reports.which', 'Report')}>
-              <SegmentedControlItem value="overview">{t('cc_store.reports.overview', 'Stock overview')}</SegmentedControlItem>
-              <SegmentedControlItem value="ageing">{t('cc_store.reports.ageing', 'Stock ageing')}</SegmentedControlItem>
-              <SegmentedControlItem value="consumption">{t('cc_store.reports.consumption', 'Consumption')}</SegmentedControlItem>
+          {error ? (
+            <div role="alert" className="rounded-lg border border-status-error-border bg-status-error-bg px-4 py-3 text-sm text-status-error-text">
+              <p className="font-semibold">{t('cc_store.reports.errorTitle', 'This report could not load')}</p>
+              <p className="mt-0.5">{error}</p>
+              {/warehouse/i.test(error) ? (
+                <p className="mt-1 text-xs">{t('cc_store.reports.warehouseHint', 'The stores (Warehouse A/B, resin tank, shop floor, FG) were not found for the company selected at the top. Check you are signed in with your Creative Carbon login and the right company is selected.')}</p>
+              ) : null}
+            </div>
+          ) : null}
+          <div className="flex flex-col gap-3 rounded-lg border bg-card p-3 shadow-xs lg:flex-row lg:items-end lg:justify-between">
+            <SegmentedControl className="h-9 self-start" value={report} onValueChange={(value) => setReport(value as Report)} aria-label={t('cc_store.reports.which', 'Report')}>
+              <SegmentedControlItem className="h-8" value="overview">{t('cc_store.reports.overview', 'Stock overview')}</SegmentedControlItem>
+              <SegmentedControlItem className="h-8" value="ageing">{t('cc_store.reports.ageing', 'Stock ageing')}</SegmentedControlItem>
+              <SegmentedControlItem className="h-8" value="consumption">{t('cc_store.reports.consumption', 'Consumption')}</SegmentedControlItem>
             </SegmentedControl>
             <div className="flex flex-wrap items-end gap-2">
               {report === 'consumption' ? (
@@ -142,12 +152,16 @@ export function InventoryReports() {
                   </div>
                 </>
               ) : null}
-              <SegmentedControl value={kind} onValueChange={setKind} aria-label={t('cc_store.reports.kind', 'Material type')}>
-                <SegmentedControlItem value="all">{t('cc_store.reports.all', 'All')}</SegmentedControlItem>
-                {PRODUCT_KINDS.map((entry) => (
-                  <SegmentedControlItem key={entry.code} value={entry.code}>{entry.label}</SegmentedControlItem>
-                ))}
-              </SegmentedControl>
+              <div className="w-56">
+                <Dropdown value={kind} onChange={(event) => setKind(event.target.value)} aria-label={t('cc_store.reports.kind', 'Material type')}>
+                  <option value="all">{t('cc_store.reports.allTypes', 'All material types')}</option>
+                  {PRODUCT_KINDS.map((entry) => (
+                    <option key={entry.code} value={entry.code}>
+                      {entry.label}
+                    </option>
+                  ))}
+                </Dropdown>
+              </div>
               <div className="relative w-64">
                 <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
                 <Input value={search} onChange={(event) => setSearch(event.target.value)} placeholder={t('cc_store.reports.search', 'Code or name')} className="pl-9" aria-label={t('cc_store.reports.search', 'Code or name')} />
@@ -155,7 +169,6 @@ export function InventoryReports() {
             </div>
           </div>
 
-          {error ? <ErrorMessage label={error} /> : null}
           {!data && !error ? <PageLoading label={t('cc_store.reports.loading', 'Loading…')} /> : null}
           {data ? (
             <div className="overflow-x-auto rounded-lg border bg-card">
