@@ -29,6 +29,7 @@ export const recordHref = {
   invoice: (id: string) => `/backend/accounts/invoices/${id}`,
   payment: (id: string) => `/backend/accounts/payments/${id}`,
   vendorBill: (id: string) => `/backend/accounts/vendor-bills/${id}`,
+  tallyPush: (id: string) => `/backend/accounts/tally/${id}`,
 }
 
 export type MachineKind = 'reactor' | 'dryer' | 'press'

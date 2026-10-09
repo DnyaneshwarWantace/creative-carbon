@@ -198,3 +198,24 @@ export const tallyQuerySchema = z.object({
   format: z.enum(['summary', 'xml', 'csv']).default('summary'),
   masters: z.enum(['true', 'false']).optional(),
 }).passthrough()
+
+export const tallySettingsSchema = z.object({
+  url: z.string().trim().max(300).nullable().optional(),
+  company: z.string().trim().max(200).nullable().optional(),
+  ledgers: z.record(z.string(), z.string().trim().max(120)).optional(),
+})
+
+export const tallyPushSchema = z.object({
+  from: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Pick the start date'),
+  to: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Pick the end date'),
+  kinds: z.array(z.enum(['sales', 'credit_notes', 'receipts', 'purchases', 'payments'])).min(1, 'Pick at least one kind of entry'),
+  masters: z.boolean().default(true),
+  again: z.array(z.string().max(200)).max(500).default([]),
+})
+
+export const tallyPushListSchema = z.object({
+  id: z.string().uuid().optional(),
+  status: z.enum(['sent', 'partial', 'failed']).optional(),
+  page: z.coerce.number().int().min(1).default(1),
+  pageSize: z.coerce.number().int().min(1).max(100).default(20),
+})

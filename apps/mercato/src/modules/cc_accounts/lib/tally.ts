@@ -34,6 +34,7 @@ export type TallyVoucher = {
   party: string
   narration: string
   entries: Entry[]
+  recordId?: string | null
 }
 
 export type TallyParty = { name: string; group: 'Sundry Debtors' | 'Sundry Creditors'; gstin: string | null; state: string | null }
@@ -76,7 +77,7 @@ export async function tallyData(ctx: OrderContext, range: { from: string; to: st
       if (totals.sgst) entries.push({ ledger: ledgers.outputSgst, amount: sign * round2(totals.sgst) })
       if (totals.igst) entries.push({ ledger: ledgers.outputIgst, amount: sign * round2(totals.igst) })
       if (totals.roundOff) entries.push({ ledger: ledgers.roundOff, amount: sign * round2(totals.roundOff) })
-      vouchers.push({ type: credit ? 'Credit Note' : 'Sales', date: invoice.invoiceDate, number: invoice.code, reference: invoice.againstCode ?? invoice.orderNo, party: invoice.customerName, narration: `${credit ? 'Credit note' : 'Invoice'} ${invoice.code} for order ${invoice.orderNo}`, entries })
+      vouchers.push({ type: credit ? 'Credit Note' : 'Sales', date: invoice.invoiceDate, number: invoice.code, reference: invoice.againstCode ?? invoice.orderNo, party: invoice.customerName, narration: `${credit ? 'Credit note' : 'Invoice'} ${invoice.code} for order ${invoice.orderNo}`, entries, recordId: invoice.id })
       parties.set(invoice.customerName, { name: invoice.customerName, group: 'Sundry Debtors', gstin: invoice.customerGstin ?? null, state: stateFromGstin(invoice.customerGstin)?.name ?? invoice.placeOfSupply ?? null })
     }
   }
@@ -102,6 +103,7 @@ export async function tallyData(ctx: OrderContext, range: { from: string; to: st
           { ledger: ledgers.bank, amount: -amount },
           { ledger: party, amount },
         ],
+        recordId: payment.id,
       })
       if (!parties.has(party)) parties.set(party, { name: party, group: 'Sundry Debtors', gstin: customer?.gstin ?? null, state: stateFromGstin(customer?.gstin)?.name ?? null })
     }
@@ -126,7 +128,7 @@ export async function tallyData(ctx: OrderContext, range: { from: string; to: st
         const difference = round2(total - taxable - gst.cgst - gst.sgst - gst.igst)
         if (difference) entries.push({ ledger: ledgers.roundOff, amount: -difference })
         entries.push({ ledger: party, amount: total })
-        vouchers.push({ type: 'Purchase', date: bill.billDate, number: bill.code, reference: bill.billNo, party, narration: [`Bill ${bill.billNo}`, bill.grnCodes?.length ? `GRN ${bill.grnCodes.join(', ')}` : null, bill.poCode ? `PO ${bill.poCode}` : null].filter(Boolean).join(' · '), entries })
+        vouchers.push({ type: 'Purchase', date: bill.billDate, number: bill.code, reference: bill.billNo, party, narration: [`Bill ${bill.billNo}`, bill.grnCodes?.length ? `GRN ${bill.grnCodes.join(', ')}` : null, bill.poCode ? `PO ${bill.poCode}` : null].filter(Boolean).join(' · '), entries, recordId: bill.id })
       }
       let paidInRange = false
       if (want.has('payments')) {
@@ -145,6 +147,7 @@ export async function tallyData(ctx: OrderContext, range: { from: string; to: st
               { ledger: party, amount: -amount },
               { ledger: ledgers.bank, amount },
             ],
+            recordId: bill.id,
           })
         }
       }

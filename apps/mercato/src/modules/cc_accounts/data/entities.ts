@@ -3,6 +3,8 @@ import { OptionalProps } from '@mikro-orm/core'
 
 export type PaymentKind = 'advance' | 'balance' | 'other'
 
+export type TallySettings = { url: string | null; company: string | null; ledgers: Record<string, string> }
+
 @Entity({ tableName: 'cc_order_payments' })
 @Index({ name: 'cc_order_payments_order_idx', properties: ['organizationId', 'tenantId', 'orderId'] })
 export class OrderPayment {
@@ -136,6 +138,9 @@ export class CompanyProfile {
 
   @Property({ name: 'number_series', type: 'json', nullable: true })
   numberSeries?: Record<string, { prefix: string; suffix: string; pad: number; startAt: number }> | null
+
+  @Property({ name: 'tally_settings', type: 'json', nullable: true })
+  tallySettings?: TallySettings | null
 
   @Property({ name: 'created_at', type: Date, onCreate: () => new Date() })
   createdAt: Date = new Date()
@@ -454,4 +459,72 @@ export class VendorBill {
 
   @Property({ name: 'deleted_at', type: Date, nullable: true })
   deletedAt?: Date | null
+}
+
+export type TallyPushStatus = 'sent' | 'partial' | 'failed'
+export type TallyPushDocument = { key: string; type: string; number: string; date: string; reference: string | null; party: string; amount: number; recordId: string | null }
+export type TallyPushAttempt = { at: string; by: string | null; status: TallyPushStatus; httpStatus: number | null; created: number; altered: number; errors: number; lineErrors: string[]; error: string | null }
+
+@Entity({ tableName: 'cc_tally_pushes' })
+@Index({ name: 'cc_tally_pushes_scope_idx', properties: ['organizationId', 'tenantId', 'createdAt'] })
+@Unique({ name: 'cc_tally_pushes_code_uq', properties: ['organizationId', 'tenantId', 'code'] })
+export class TallyPush {
+  [OptionalProps]?: 'createdAt' | 'updatedAt'
+
+  @PrimaryKey({ type: 'uuid', defaultRaw: 'gen_random_uuid()' })
+  id!: string
+
+  @Property({ name: 'organization_id', type: 'uuid' })
+  organizationId!: string
+
+  @Property({ name: 'tenant_id', type: 'uuid' })
+  tenantId!: string
+
+  @Property({ type: 'text' })
+  code!: string
+
+  @Property({ name: 'range_from', type: 'text' })
+  rangeFrom!: string
+
+  @Property({ name: 'range_to', type: 'text' })
+  rangeTo!: string
+
+  @Property({ type: 'json' })
+  kinds!: string[]
+
+  @Property({ name: 'with_masters', type: 'boolean', default: true })
+  withMasters: boolean = true
+
+  @Property({ name: 'tally_url', type: 'text' })
+  tallyUrl!: string
+
+  @Property({ name: 'tally_company', type: 'text', nullable: true })
+  tallyCompany?: string | null
+
+  @Property({ type: 'json' })
+  documents!: TallyPushDocument[]
+
+  @Property({ name: 'party_count', type: 'integer', default: 0 })
+  partyCount: number = 0
+
+  @Property({ name: 'request_xml', type: 'text' })
+  requestXml!: string
+
+  @Property({ name: 'response_text', type: 'text', nullable: true })
+  responseText?: string | null
+
+  @Property({ type: 'text' })
+  status!: TallyPushStatus
+
+  @Property({ type: 'json' })
+  attempts!: TallyPushAttempt[]
+
+  @Property({ name: 'pushed_by_name', type: 'text', nullable: true })
+  pushedByName?: string | null
+
+  @Property({ name: 'created_at', type: Date, onCreate: () => new Date() })
+  createdAt: Date = new Date()
+
+  @Property({ name: 'updated_at', type: Date, onCreate: () => new Date(), onUpdate: () => new Date() })
+  updatedAt: Date = new Date()
 }

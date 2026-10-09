@@ -130,6 +130,7 @@ export const CC_DEPARTMENTS: DepartmentSeed[] = [
       'cc_accounts.view',
       'cc_accounts.record',
       'cc_accounts.series',
+      'cc_accounts.tally',
       'cc_orders.view',
       'cc_orders.money',
       'cc_orders.stages',

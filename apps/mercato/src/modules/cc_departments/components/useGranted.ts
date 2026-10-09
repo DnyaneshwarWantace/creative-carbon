@@ -19,6 +19,7 @@ const UI_FEATURES = [
   'cc_orders.work.qc',
   'cc_orders.work.dispatch',
   'cc_accounts.record',
+  'cc_accounts.tally',
   'customers.companies.manage',
   'cc_purchase.manage',
   'cc_purchase.indent',
