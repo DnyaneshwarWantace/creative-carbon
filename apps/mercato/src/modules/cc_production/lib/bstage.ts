@@ -4,6 +4,7 @@ import { performerId, runCommand, type StoreContext } from '../../cc_store/lib/s
 import { DEFAULT_MAX_USE, DEFAULT_SHELF_LIFE } from './coating'
 import { PlantError } from './server'
 import { kg3, plantStock } from './plantStock'
+import { movementDocument } from '../../cc_ui/lib/links'
 
 export type BstageAge = 'fresh' | 'soon' | 'expired' | 'blocked'
 
@@ -128,6 +129,7 @@ export async function bstageLot(ctx: StoreContext, lotId: string) {
       reason: row.reason,
       reasonCode: row.reason_code,
       source: typeof row.metadata?.source === 'string' ? row.metadata.source : null,
+      document: movementDocument(row.metadata),
     })),
   }
 }

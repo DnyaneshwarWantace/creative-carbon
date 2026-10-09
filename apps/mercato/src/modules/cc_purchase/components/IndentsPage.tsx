@@ -376,7 +376,9 @@ export function IndentsPage() {
                       ) : null}
                       <div className="min-w-0">
                         <div className="flex flex-wrap items-center gap-2">
-                          <span className="font-mono font-semibold">{indent.code}</span>
+                          <Link className="font-mono font-semibold underline-offset-2 hover:underline" href={`/backend/purchase/indents/${indent.id}`}>
+                            {indent.code}
+                          </Link>
                           <StatusBadge variant={STATUS[indent.status].variant}>{STATUS[indent.status].label}</StatusBadge>
                           <span className="text-xs text-muted-foreground">{SOURCE[indent.source] ?? indent.source}</span>
                         </div>

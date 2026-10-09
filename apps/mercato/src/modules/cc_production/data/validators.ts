@@ -150,6 +150,7 @@ export const chemicalIssueInputSchema = z.object({
 export const chemicalIssueListSchema = z.object({
   month: z.string().regex(/^\d{4}-\d{2}$/).optional(),
   productId: z.string().uuid().optional(),
+  id: z.string().uuid().optional(),
 })
 
 export const chemicalIssueCancelSchema = z.object({ id: z.string().uuid(), reason: z.string().trim().min(2).max(500) })

@@ -40,6 +40,7 @@ import { useStageSettings } from './useStageSettings'
 import { PRODUCT_KINDS } from '../../cc_products/lib/kinds'
 import { LineProgress, useOrderChanged } from './FulfilmentPanel'
 import { PageLoading } from '../../cc_ui/components/PageLoading'
+import { recordHref } from '../../cc_ui/lib/links'
 
 const KIND_LABEL: Record<string, string> = Object.fromEntries(PRODUCT_KINDS.map((kind) => [kind.code, kind.label]))
 
@@ -147,6 +148,16 @@ export function OrderView({ orderId }: { orderId: string }) {
   const [cancelOpen, setCancelOpen] = React.useState(false)
   const [cancelReason, setCancelReason] = React.useState('')
   const [tab, setTab] = React.useState<OrderTab>('work')
+  const [sources, setSources] = React.useState<Array<{ id: string; quoteNo: string; quoteDate: string; enquiryId: string | null; enquiryNo: string | null }> | null>(null)
+
+  React.useEffect(() => {
+    if (!granted.ready) return
+    if (!granted.has('cc_crm.view')) {
+      setSources([])
+      return
+    }
+    void apiCall<{ items?: Array<{ id: string; quoteNo: string; quoteDate: string; enquiryId: string | null; enquiryNo: string | null }> }>(`/api/cc_crm/quotations?orderId=${encodeURIComponent(orderId)}`, undefined, { fallback: { items: [] } }).then((call) => setSources(call.result?.items ?? []))
+  }, [granted, orderId])
 
   const load = React.useCallback(async () => {
     const call = await apiCall<Order>(`/api/cc_orders/orders?id=${encodeURIComponent(orderId)}`)
@@ -260,7 +271,9 @@ export function OrderView({ orderId }: { orderId: string }) {
   const current = order.stages.filter((stage) => stage.status === 'open' || stage.status === 'on_hold')
   const done = order.stages.filter((stage) => stage.status === 'done' || stage.status === 'skipped').length
   const deliveryIn = daysUntil(order.deliveryDate)
-  const totalPieces = order.lines.reduce((sum, line) => sum + line.quantity, 0)
+  const isCounted = (unit: string | null | undefined) => ['nos', 'pcs', 'pc'].includes(String(unit ?? '').toLowerCase())
+  const totalKg = order.lines.filter((line) => !isCounted(line.product?.unit)).reduce((sum, line) => sum + line.quantity, 0)
+  const totalPieces = order.lines.filter((line) => isCounted(line.product?.unit)).reduce((sum, line) => sum + line.quantity, 0)
   const statusLabel = t(`cc_orders.status.${order.status}`, order.status)
   const limited = Boolean(order.access && !order.access.full)
   const attention = orderAttention(order, t).filter((item) => !limited || (item.action?.stageKey ? !stagesByKey.get(item.action.stageKey)?.locked : false))
@@ -505,6 +518,33 @@ export function OrderView({ orderId }: { orderId: string }) {
               </section>
                 )
               })() : null}
+              {sources && sources.length ? (
+                <section className="space-y-2 rounded-lg border bg-card p-4" aria-labelledby="order-came-from">
+                  <h2 id="order-came-from" className="text-sm font-semibold">
+                    {t('cc_orders.view.cameFrom', 'Came from')}
+                  </h2>
+                  <ul className="space-y-1 text-sm">
+                    {sources.map((quote) => (
+                      <li key={quote.id} className="flex flex-wrap items-baseline justify-between gap-2">
+                        <Link className="font-mono underline-offset-2 hover:underline" href={recordHref.quotation(quote.id)}>
+                          {quote.quoteNo}
+                        </Link>
+                        <span className="text-xs text-muted-foreground">
+                          {formatDate(quote.quoteDate)}
+                          {quote.enquiryId ? (
+                            <>
+                              {' · '}
+                              <Link className="font-mono underline-offset-2 hover:underline" href={recordHref.enquiry(quote.enquiryId)}>
+                                {quote.enquiryNo ?? t('cc_orders.view.enquiry', 'Enquiry')}
+                              </Link>
+                            </>
+                          ) : null}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </section>
+              ) : null}
               <section className="grid grid-cols-2 gap-4 rounded-lg border bg-card p-4" aria-label={t('cc_orders.view.summary', 'Order summary')}>
             <Info label={t('cc_orders.view.orderDate', 'Order date')}>{formatDate(order.orderDate)}</Info>
             <Info label={t('cc_orders.view.delivery', 'Delivery')}>
@@ -515,7 +555,9 @@ export function OrderView({ orderId }: { orderId: string }) {
                   : ''}
               </span>
             </Info>
-            <Info label={t('cc_orders.view.pieces', 'Total pieces')}>{formatQty(totalPieces, 0)}</Info>
+            <Info label={t('cc_orders.view.quantity', 'Quantity')}>
+              {[totalKg ? `${formatQty(totalKg, 3)} kg` : null, totalPieces ? `${formatQty(totalPieces, 0)} ${t('cc_ui.pcs', 'pcs')}` : null].filter(Boolean).join(' + ') || '—'}
+            </Info>
             <Info label={t('cc_orders.view.salesManager', 'Sales manager')}>{order.salesManager ?? '—'}</Info>
             {order.paymentTerms || order.paymentRemarks ? (
               <Info label={t('cc_orders.view.payment', 'Payment')}>

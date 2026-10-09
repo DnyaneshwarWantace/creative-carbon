@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 import Link from 'next/link'
-import { Download, FileSpreadsheet, History, Upload } from 'lucide-react'
+import { Download, ExternalLink, FileSpreadsheet, History, TriangleAlert, Upload } from 'lucide-react'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { cn } from '@open-mercato/shared/lib/utils'
 import { Page, PageBody } from '@open-mercato/ui/backend/Page'
@@ -14,6 +14,7 @@ import { apiCall } from '@open-mercato/ui/backend/utils/apiCall'
 import { useGuardedMutation } from '@open-mercato/ui/backend/injection/useGuardedMutation'
 import { flash } from '@open-mercato/ui/backend/FlashMessages'
 import { PageLoading } from '../../cc_ui/components/PageLoading'
+import { Panel, RecordColumns, RecordPage, RecordState, RegisterGrid, FieldList, type Fact } from '../../cc_ui/components/RecordPage'
 
 export type RegisterTile = {
   key: string
@@ -43,6 +44,19 @@ type Report = {
 }
 
 type HistoryRow = { id: string; register: string; fileName: string; registerDate: string | null; total: number; created: number; updated: number; failed: number; byName: string | null; at: string }
+type UploadView = HistoryRow & { registerLabel: string; department: string | null; paperRef: string | null; fileHash: string; errors: Array<{ row: number; error: string }> }
+
+function registerHref(register: string, date: string | null): string {
+  const dated = (path: string) => (date ? `${path}?date=${encodeURIComponent(date)}` : path)
+  if (register === 'resin_batches') return '/backend/resin/batches'
+  if (register === 'dryer_sheets' || register === 'dryer_slots') return '/backend/coating'
+  if (register === 'press_loading') return dated('/backend/press/loading')
+  if (register === 'moulding') return dated('/backend/moulding')
+  if (register === 'moulds') return '/backend/masters/moulds'
+  if (register === 'tolerances') return '/backend/masters/tolerance'
+  if (register === 'prices') return '/backend/masters/prices'
+  return '/backend/upload'
+}
 
 function when(value: string): string {
   return new Date(value).toLocaleString('en-IN', { day: '2-digit', month: 'short', hour: 'numeric', minute: '2-digit' })
@@ -304,7 +318,7 @@ export function UploadHistory() {
   return (
     <Page>
       <PageBody>
-        <div className="mx-auto max-w-6xl space-y-4 pb-16">
+        <div className="mx-auto max-w-7xl space-y-4 pb-16">
           <div>
             <Link href="/backend/upload" className="text-xs text-muted-foreground hover:text-foreground">
               {t('cc_production.upload.back', '← Upload centre')}
@@ -314,43 +328,105 @@ export function UploadHistory() {
           {!items ? (
             <PageLoading label={t('cc_production.upload.loading', 'Loading…')} />
           ) : (
-            <div className="overflow-x-auto rounded-lg border bg-card">
-              <table className="w-full text-sm">
-                <thead className="bg-muted/50 text-xs text-muted-foreground">
-                  <tr>
-                    {[t('cc_production.upload.colWhen', 'When'), t('cc_production.upload.colRegister', 'Register'), t('cc_production.upload.colFile', 'File'), t('cc_production.upload.colRows', 'Rows'), t('cc_production.upload.colNew', 'New'), t('cc_production.upload.colUpdated', 'Updated'), t('cc_production.upload.colFix', 'To fix'), t('cc_production.upload.colBy', 'By')].map((label) => (
-                      <th key={label} className="px-3 py-2 text-left font-semibold">
-                        {label}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {items.map((row, index) => (
-                    <tr key={row.id} className={cn('border-t', index % 2 === 1 && 'bg-muted/20')}>
-                      <td className="px-3 py-2 whitespace-nowrap">{when(row.at)}</td>
-                      <td className="px-3 py-2">{row.register}</td>
-                      <td className="px-3 py-2">{row.fileName}</td>
-                      <td className="px-3 py-2 text-right tabular-nums">{row.total}</td>
-                      <td className="px-3 py-2 text-right tabular-nums">{row.created}</td>
-                      <td className="px-3 py-2 text-right tabular-nums">{row.updated}</td>
-                      <td className={cn('px-3 py-2 text-right tabular-nums', row.failed && 'text-status-error-text')}>{row.failed}</td>
-                      <td className="px-3 py-2">{row.byName ?? '—'}</td>
-                    </tr>
-                  ))}
-                  {!items.length ? (
-                    <tr>
-                      <td colSpan={8} className="px-3 py-6 text-center text-muted-foreground">
-                        {t('cc_production.upload.noHistory', 'Nothing uploaded yet.')}
-                      </td>
-                    </tr>
-                  ) : null}
-                </tbody>
-              </table>
-            </div>
+            <Panel title={t('cc_production.upload.history', 'Upload history')} icon={History} count={items.length} flush>
+              <RegisterGrid
+                rows={items}
+                rowKey={(row) => row.id}
+                rowHref={(row) => `/backend/upload/history/${row.id}`}
+                empty={t('cc_production.upload.noHistory', 'Nothing uploaded yet.')}
+                columns={[
+                  { key: 'at', label: t('cc_production.upload.colWhen', 'When'), render: (row) => when(row.at) },
+                  { key: 'register', label: t('cc_production.upload.colRegister', 'Register'), render: (row) => row.register },
+                  { key: 'file', label: t('cc_production.upload.colFile', 'File'), render: (row) => row.fileName },
+                  { key: 'by', label: t('cc_production.upload.colBy', 'By'), render: (row) => row.byName ?? '—' },
+                  { key: 'rows', label: t('cc_production.upload.colRows', 'Rows'), align: 'right', render: (row) => row.total },
+                  { key: 'new', label: t('cc_production.upload.colNew', 'New'), align: 'right', render: (row) => row.created },
+                  { key: 'updated', label: t('cc_production.upload.colUpdated', 'Updated'), align: 'right', render: (row) => row.updated },
+                  { key: 'fix', label: t('cc_production.upload.colFix', 'To fix'), align: 'right', render: (row) => <span className={cn(row.failed && 'font-semibold text-status-error-text')}>{row.failed}</span> },
+                ]}
+              />
+            </Panel>
           )}
         </div>
       </PageBody>
     </Page>
+  )
+}
+
+export function UploadDetail({ uploadId }: { uploadId: string }) {
+  const t = useT()
+  const [upload, setUpload] = React.useState<UploadView | null>(null)
+  const [error, setError] = React.useState<string | null>(null)
+  React.useEffect(() => {
+    void apiCall<UploadView>(`/api/cc_production/upload/history?id=${encodeURIComponent(uploadId)}`).then((call) => {
+      if (!call.ok || !call.result) setError(t('cc_production.upload.loadOneError', 'Could not load this upload.'))
+      else setUpload(call.result)
+    })
+  }, [t, uploadId])
+  if (error || !upload) return <RecordState error={error} loadingLabel={t('cc_production.upload.loading', 'Loading…')} />
+  const facts: Fact[] = [
+    { label: t('cc_production.upload.colRows', 'Rows'), value: String(upload.total) },
+    { label: t('cc_production.upload.colNew', 'New'), value: String(upload.created), tone: upload.created ? 'good' : undefined },
+    { label: t('cc_production.upload.colUpdated', 'Updated'), value: String(upload.updated) },
+    { label: t('cc_production.upload.colFix', 'To fix'), value: String(upload.failed), tone: upload.failed ? 'bad' : undefined },
+    { label: t('cc_production.upload.registerDate', 'Register date'), value: upload.registerDate ?? '—' },
+    { label: t('cc_production.upload.colBy', 'By'), value: upload.byName ?? '—' },
+  ]
+  return (
+    <RecordPage
+      back={{ href: '/backend/upload/history', label: t('cc_production.upload.history', 'Upload history') }}
+      overline={[upload.paperRef, upload.registerLabel].filter(Boolean).join(' · ')}
+      title={upload.fileName}
+      badges={upload.failed ? <StatusBadge variant="warning">{t('cc_production.upload.someFailed', '{count} rows to fix', { count: upload.failed })}</StatusBadge> : <StatusBadge variant="success">{t('cc_production.upload.allIn', 'All rows in')}</StatusBadge>}
+      meta={when(upload.at)}
+      actions={
+        <>
+          <Button asChild variant="outline" size="sm">
+            <Link href={registerHref(upload.register, upload.registerDate)}>
+              <ExternalLink className="mr-1.5 h-4 w-4" aria-hidden="true" />
+              {t('cc_production.upload.openRegister', 'Open the register')}
+            </Link>
+          </Button>
+          <Button asChild size="sm">
+            <Link href={`/backend/upload/${upload.register}`}>
+              <Upload className="mr-1.5 h-4 w-4" aria-hidden="true" />
+              {t('cc_production.upload.again', 'Upload again')}
+            </Link>
+          </Button>
+        </>
+      }
+      facts={facts}
+    >
+      <RecordColumns
+        main={
+          <Panel title={t('cc_production.upload.toFix', 'Rows to fix')} icon={TriangleAlert} count={upload.errors.length} flush>
+            <RegisterGrid
+              rows={upload.errors}
+              rowKey={(entry) => `${entry.row}-${entry.error}`}
+              empty={t('cc_production.upload.nothingToFix', 'Every row went in. Nothing to fix.')}
+              columns={[
+                { key: 'row', label: t('cc_production.upload.sheetRow', 'Sheet row'), align: 'right', render: (entry) => entry.row },
+                { key: 'error', label: t('cc_production.upload.why', 'Why it did not go in'), render: (entry) => <span className="whitespace-normal">{entry.error}</span> },
+              ]}
+            />
+          </Panel>
+        }
+        side={
+          <Panel title={t('cc_production.upload.file', 'File')} icon={FileSpreadsheet}>
+            <FieldList
+              columns={1}
+              fields={[
+                [t('cc_production.upload.colRegister', 'Register'), upload.registerLabel],
+                [t('cc_production.upload.department', 'Department'), upload.department],
+                [t('cc_production.upload.paper', 'Paper form'), upload.paperRef],
+                [t('cc_production.upload.colFile', 'File'), upload.fileName],
+                [t('cc_production.upload.fingerprint', 'File fingerprint'), <span key="hash" className="text-xs">{upload.fileHash.slice(0, 12)}</span>],
+              ]}
+            />
+            <p className="mt-3 text-xs text-muted-foreground">{t('cc_production.upload.sameFile', 'The fingerprint is kept, so uploading this same file again shows a warning that it was already uploaded.')}</p>
+          </Panel>
+        }
+      />
+    </RecordPage>
   )
 }

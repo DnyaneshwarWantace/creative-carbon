@@ -255,7 +255,9 @@ export function VendorBillsPage() {
                   {bills.map((bill) => (
                     <tr key={bill.id} className="align-top hover:bg-muted/30">
                       <td className="px-3 py-2">
-                        <span className="font-mono text-xs text-muted-foreground">{bill.code}</span>
+                        <Link href={`/backend/accounts/vendor-bills/${bill.id}`} className="font-mono text-xs text-primary hover:underline">
+                          {bill.code}
+                        </Link>
                         <span className="block font-medium">
                           <Link href={`/backend/cc_vendors/${bill.vendorId}`} className="hover:underline">
                             {bill.vendorName}

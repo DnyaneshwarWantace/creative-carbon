@@ -3,7 +3,7 @@
 import * as React from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { ArrowLeft, CalendarClock, FileText, MessageSquare, Pencil, Plus } from 'lucide-react'
+import { ArrowLeft, CalendarClock, FileText, Flag, MessageSquare, Pencil, Plus } from 'lucide-react'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { cn } from '@open-mercato/shared/lib/utils'
 import { Page, PageBody } from '@open-mercato/ui/backend/Page'
@@ -24,6 +24,8 @@ import { useSend, selectClass } from '../../cc_production/components/finishing/s
 import { QUOTE_LABEL, QUOTE_VARIANT, STAGE_LABEL, STAGE_VARIANT, type Enquiry, type EnquiryStage } from './types'
 import { Dropdown } from '../../cc_lists/components/Dropdown'
 import { PageLoading } from '../../cc_ui/components/PageLoading'
+import { FieldList, HistoryPanel, Panel, RecordColumns, RecordPage, RecordState, RegisterGrid, type Fact } from '../../cc_ui/components/RecordPage'
+import { recordHref } from '../../cc_ui/lib/links'
 
 function localNow(): string {
   const now = new Date(Date.now() - new Date().getTimezoneOffset() * 60_000)
@@ -266,229 +268,185 @@ export function EnquiryPage({ enquiryId }: { enquiryId: string }) {
     flash(done, 'success')
   }
 
-  if (error) return <Page><PageBody><ErrorMessage label={error} /></PageBody></Page>
-  if (!enquiry) return <Page><PageBody><PageLoading label={t('cc_crm.loading', 'Loading…')} /></PageBody></Page>
+  if (error || !enquiry) return <RecordState error={error} loadingLabel={t('cc_crm.loading', 'Loading…')} />
 
   const quoteHref = `/backend/crm/quotations/new?enquiryId=${enquiry.id}${enquiry.customerId ? `&customerId=${enquiry.customerId}` : ''}`
   const closed = enquiry.stage === 'won' || enquiry.stage === 'lost'
+  const quotes = enquiry.quotations ?? []
+  const ageDays = Math.max(0, Math.round((Date.now() - new Date(enquiry.receivedAt).getTime()) / 86_400_000))
+  const facts: Fact[] = [
+    { label: t('cc_crm.enquiries.received', 'Came in'), value: formatDate(enquiry.receivedAt), hint: t('cc_crm.enquiries.daysAgo', '{days} days ago', { days: ageDays }) },
+    { label: t('cc_crm.enquiries.source', 'Source'), value: enquiry.source },
+    { label: t('cc_crm.enquiries.owner', 'Owner'), value: enquiry.ownerName ?? '—' },
+    { label: t('cc_crm.enquiries.next', 'Next follow-up'), value: enquiry.nextActionOn ? formatDate(enquiry.nextActionOn) : '—', tone: enquiry.overdue ? 'bad' : undefined },
+    { label: t('cc_crm.quotations.title', 'Quotations'), value: String(quotes.length) },
+    { label: t('cc_crm.enquiries.order', 'Order'), value: quotes.find((quote) => quote.orderNo)?.orderNo ?? '—', tone: enquiry.stage === 'won' ? 'good' : undefined },
+  ]
 
   return (
-    <Page>
-      <PageBody>
-        <div className="mx-auto max-w-6xl space-y-5 pb-16">
-          <div className="flex flex-col gap-3 border-b pb-4 sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex items-center gap-3">
-              <Button asChild variant="ghost" size="icon" aria-label={t('common.back', 'Back')}>
-                <Link href="/backend/crm/enquiries">
-                  <ArrowLeft className="h-4 w-4" />
+    <RecordPage
+      back={{ href: '/backend/crm/enquiries', label: t('cc_crm.nav.enquiries', 'Enquiries') }}
+      overline={[t('cc_crm.enquiries.overline', 'Enquiry'), enquiry.partyName].filter(Boolean).join(' · ')}
+      title={enquiry.enquiryNo}
+      badges={
+        <>
+          <StatusBadge variant={STAGE_VARIANT[enquiry.stage]}>{t(`cc_crm.stage.${enquiry.stage}`, STAGE_LABEL[enquiry.stage])}</StatusBadge>
+          {enquiry.overdue ? <StatusBadge variant="error">{t('cc_crm.enquiries.overdue', 'Follow-up overdue')}</StatusBadge> : null}
+        </>
+      }
+      meta={`${enquiry.source} · ${formatDateTime(enquiry.receivedAt)}`}
+      actions={
+        canManage ? (
+          <>
+            <Button asChild variant="outline" size="sm">
+              <Link href={`/backend/crm/enquiries/${enquiry.id}/edit`}>
+                <Pencil className="mr-1.5 h-4 w-4" />
+                {t('cc_crm.actions.edit', 'Edit')}
+              </Link>
+            </Button>
+            {closed ? null : (
+              <Button asChild size="sm">
+                <Link href={quoteHref}>
+                  <Plus className="mr-1.5 h-4 w-4" />
+                  {t('cc_crm.actions.quote', 'Make quotation')}
                 </Link>
               </Button>
-              <div>
-                <h1 className="flex flex-wrap items-center gap-2 text-xl font-bold">
-                  <span className="font-mono">{enquiry.enquiryNo}</span>
-                  <StatusBadge variant={STAGE_VARIANT[enquiry.stage]}>{t(`cc_crm.stage.${enquiry.stage}`, STAGE_LABEL[enquiry.stage])}</StatusBadge>
-                  {enquiry.overdue ? <StatusBadge variant="error">{t('cc_crm.enquiries.overdue', 'Follow-up overdue')}</StatusBadge> : null}
-                </h1>
-                <p className="text-sm text-muted-foreground">
-                  {enquiry.partyName ?? '—'} · {enquiry.source} · {formatDateTime(enquiry.receivedAt)}
-                </p>
-              </div>
-            </div>
-            {canManage ? (
-              <div className="flex flex-wrap gap-2">
-                <Button asChild variant="outline">
-                  <Link href={`/backend/crm/enquiries/${enquiry.id}/edit`}>
-                    <Pencil className="mr-1.5 h-4 w-4" />
-                    {t('cc_crm.actions.edit', 'Edit')}
-                  </Link>
-                </Button>
-                {closed ? null : (
-                  <Button asChild>
-                    <Link href={quoteHref}>
-                      <Plus className="mr-1.5 h-4 w-4" />
-                      {t('cc_crm.actions.quote', 'Make quotation')}
-                    </Link>
-                  </Button>
-                )}
-              </div>
-            ) : null}
-          </div>
+            )}
+          </>
+        ) : undefined
+      }
+      alert={enquiry.stage === 'lost' ? <p className="rounded-md border border-status-error-border bg-status-error-bg px-3 py-2 text-sm text-status-error-text">{t('cc_crm.enquiries.lostBecause', 'Lost: {reason}', { reason: enquiry.lostReason ?? '—' })}</p> : null}
+      facts={facts}
+    >
+      <RecordColumns
+        main={
+          <>
+            <Panel title={enquiry.subject} icon={MessageSquare}>
+              {enquiry.details ? <p className="mb-3 whitespace-pre-wrap text-sm text-muted-foreground">{enquiry.details}</p> : null}
+              <FieldList
+                fields={[
+                  [t('cc_crm.form.contactName', 'Person'), enquiry.contactName],
+                  [t('cc_crm.form.phone', 'Phone / WhatsApp'), enquiry.phone],
+                  [t('cc_crm.form.email', 'Email'), enquiry.email],
+                  [t('cc_crm.form.place', 'City / country'), enquiry.place],
+                  [
+                    t('cc_crm.form.customer', 'Customer'),
+                    enquiry.customerId ? (
+                      <Link key="customer" className="underline-offset-2 hover:underline" href={recordHref.customer(enquiry.customerId)}>
+                        {enquiry.customerName}
+                      </Link>
+                    ) : (
+                      t('cc_crm.enquiries.notCustomer', 'Not a customer yet')
+                    ),
+                  ],
+                  [t('cc_crm.enquiries.owner', 'Owner'), enquiry.ownerName],
+                ]}
+              />
+            </Panel>
 
-          <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
-            <div className="space-y-5 lg:col-span-2">
-              <section className="rounded-xl border bg-card p-5 shadow-xs">
-                <h2 className="mb-2 text-sm font-semibold">{enquiry.subject}</h2>
-                {enquiry.details ? <p className="whitespace-pre-wrap text-sm text-muted-foreground">{enquiry.details}</p> : null}
-                <dl className="mt-4 grid grid-cols-2 gap-x-4 gap-y-2 text-sm sm:grid-cols-3">
-                  <div>
-                    <dt className="text-xs text-muted-foreground">{t('cc_crm.form.contactName', 'Person')}</dt>
-                    <dd>{enquiry.contactName ?? '—'}</dd>
-                  </div>
-                  <div>
-                    <dt className="text-xs text-muted-foreground">{t('cc_crm.form.phone', 'Phone / WhatsApp')}</dt>
-                    <dd>{enquiry.phone ?? '—'}</dd>
-                  </div>
-                  <div>
-                    <dt className="text-xs text-muted-foreground">{t('cc_crm.form.email', 'Email')}</dt>
-                    <dd className="break-all">{enquiry.email ?? '—'}</dd>
-                  </div>
-                  <div>
-                    <dt className="text-xs text-muted-foreground">{t('cc_crm.form.place', 'City / country')}</dt>
-                    <dd>{enquiry.place ?? '—'}</dd>
-                  </div>
-                  <div>
-                    <dt className="text-xs text-muted-foreground">{t('cc_crm.enquiries.owner', 'Owner')}</dt>
-                    <dd>{enquiry.ownerName ?? '—'}</dd>
-                  </div>
-                  <div>
-                    <dt className="text-xs text-muted-foreground">{t('cc_crm.form.customer', 'Customer')}</dt>
-                    <dd>
-                      {enquiry.customerId ? (
-                        <Link className="text-primary hover:underline" href={`/backend/customers/companies/${enquiry.customerId}`}>
-                          {enquiry.customerName}
+            <Panel title={t('cc_crm.quotations.title', 'Quotations')} icon={FileText} count={quotes.length} flush>
+              <RegisterGrid
+                rows={quotes}
+                rowKey={(quote) => quote.id}
+                rowHref={(quote) => recordHref.quotation(quote.id)}
+                empty={t('cc_crm.quotations.none', 'No quotation yet.')}
+                columns={[
+                  { key: 'no', label: t('cc_crm.quotations.no', 'Quotation'), mono: true, render: (quote) => quote.quoteNo },
+                  { key: 'date', label: t('cc_crm.quotations.date', 'Date'), render: (quote) => formatDate(quote.quoteDate) },
+                  { key: 'status', label: t('cc_crm.quotations.status', 'Status'), render: (quote) => <StatusBadge variant={QUOTE_VARIANT[quote.status]}>{t(`cc_crm.quote.${quote.status}`, QUOTE_LABEL[quote.status])}</StatusBadge> },
+                  {
+                    key: 'order',
+                    label: t('cc_crm.enquiries.order', 'Order'),
+                    render: (quote) =>
+                      quote.orderId ? (
+                        <Link className="font-mono text-xs underline-offset-2 hover:underline" href={recordHref.order(quote.orderId)}>
+                          {quote.orderNo}
                         </Link>
                       ) : (
-                        <span className="text-muted-foreground">{t('cc_crm.enquiries.notCustomer', 'Not a customer yet')}</span>
-                      )}
-                    </dd>
-                  </div>
-                </dl>
-              </section>
-
-              <section className="rounded-xl border bg-card shadow-xs">
-                <div className="flex items-center justify-between border-b px-5 py-3">
-                  <h2 className="flex items-center gap-2 text-sm font-semibold">
-                    <FileText className="h-4 w-4 text-primary" />
-                    {t('cc_crm.quotations.title', 'Quotations')}
-                  </h2>
+                        '—'
+                      ),
+                  },
+                  { key: 'value', label: t('cc_crm.quotations.total', 'Value'), align: 'right', render: (quote) => `${quote.currency} ${formatQty(quote.totalAmount, 2)}` },
+                ]}
+              />
+            </Panel>
+          </>
+        }
+        side={
+          canManage ? (
+            <>
+              <Panel title={t('cc_crm.enquiries.next', 'Next follow-up')} icon={CalendarClock}>
+                <div className="space-y-3">
+                  <p className={cn('text-sm', enquiry.overdue && 'font-semibold text-status-error-text')}>
+                    {enquiry.nextActionOn ? formatDate(enquiry.nextActionOn) : '—'}
+                    {enquiry.nextActionNote ? <span className="block text-xs font-normal text-muted-foreground">{enquiry.nextActionNote}</span> : null}
+                  </p>
+                  {closed ? null : (
+                    <>
+                      <Input type="date" value={followUp.on} onChange={(event) => setFollowUp((prev) => ({ ...prev, on: event.target.value }))} aria-label={t('cc_crm.enquiries.next', 'Next follow-up')} />
+                      <Input value={followUp.note} onChange={(event) => setFollowUp((prev) => ({ ...prev, note: event.target.value }))} placeholder={t('cc_crm.form.nextNoteHint', 'e.g. send rates, call back')} />
+                      <Button type="button" size="sm" variant="outline" disabled={busy} onClick={() => act({ action: 'follow_up', nextActionOn: followUp.on, nextActionNote: followUp.note }, t('cc_crm.flash.followUp', 'Follow-up set'))}>
+                        {t('cc_crm.actions.followUp', 'Set follow-up')}
+                      </Button>
+                    </>
+                  )}
                 </div>
-                {enquiry.quotations?.length ? (
-                  <table className="w-full text-sm">
-                    <tbody>
-                      {enquiry.quotations.map((quote) => (
-                        <tr key={quote.id} className="border-b last:border-0">
-                          <td className="px-5 py-2">
-                            <Link className="font-mono text-xs text-primary hover:underline" href={`/backend/crm/quotations/${quote.id}`}>
-                              {quote.quoteNo}
-                            </Link>
-                          </td>
-                          <td className="px-3 py-2">{formatDate(quote.quoteDate)}</td>
-                          <td className="px-3 py-2 text-right tabular-nums">
-                            {quote.currency} {formatQty(quote.totalAmount, 2)}
-                          </td>
-                          <td className="px-3 py-2">
-                            <StatusBadge variant={QUOTE_VARIANT[quote.status]}>{t(`cc_crm.quote.${quote.status}`, QUOTE_LABEL[quote.status])}</StatusBadge>
-                          </td>
-                          <td className="px-5 py-2 text-right">
-                            {quote.orderId ? (
-                              <Link className="font-mono text-xs text-primary hover:underline" href={`/backend/orders/${quote.orderId}`}>
-                                {quote.orderNo}
-                              </Link>
-                            ) : null}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                ) : (
-                  <p className="px-5 py-4 text-sm text-muted-foreground">{t('cc_crm.quotations.none', 'No quotation yet.')}</p>
-                )}
-              </section>
+              </Panel>
 
-              <section className="rounded-xl border bg-card p-5 shadow-xs">
-                <h2 className="mb-3 text-sm font-semibold">{t('cc_crm.history', 'History')}</h2>
-                <ol className="space-y-2 text-sm">
-                  {[...enquiry.history].reverse().map((item, index) => (
-                    <li key={`${item.at}-${index}`} className="flex gap-3">
-                      <span className="w-32 shrink-0 text-xs text-muted-foreground">{formatDateTime(item.at)}</span>
-                      <span>
-                        <span className="font-medium">{item.action.replace('_', ' ')}</span>
-                        {item.note ? <span className="text-muted-foreground"> · {item.note}</span> : null}
-                        {item.by ? <span className="text-xs text-muted-foreground"> — {item.by}</span> : null}
-                      </span>
-                    </li>
-                  ))}
-                </ol>
-              </section>
-            </div>
-
-            <aside className="space-y-5">
-              {canManage ? (
-                <>
-                  <section className="space-y-3 rounded-xl border bg-card p-5 shadow-xs">
-                    <h2 className="flex items-center gap-2 text-sm font-semibold">
-                      <CalendarClock className="h-4 w-4 text-primary" />
-                      {t('cc_crm.enquiries.next', 'Next follow-up')}
-                    </h2>
-                    <p className={cn('text-sm', enquiry.overdue && 'font-semibold text-status-error-text')}>
-                      {enquiry.nextActionOn ? formatDate(enquiry.nextActionOn) : '—'}
-                      {enquiry.nextActionNote ? <span className="block text-xs font-normal text-muted-foreground">{enquiry.nextActionNote}</span> : null}
-                    </p>
-                    {closed ? null : (
-                      <>
-                        <Input type="date" value={followUp.on} onChange={(event) => setFollowUp((prev) => ({ ...prev, on: event.target.value }))} aria-label={t('cc_crm.enquiries.next', 'Next follow-up')} />
-                        <Input value={followUp.note} onChange={(event) => setFollowUp((prev) => ({ ...prev, note: event.target.value }))} placeholder={t('cc_crm.form.nextNoteHint', 'e.g. send rates, call back')} />
-                        <Button type="button" size="sm" variant="outline" disabled={busy} onClick={() => act({ action: 'follow_up', nextActionOn: followUp.on, nextActionNote: followUp.note }, t('cc_crm.flash.followUp', 'Follow-up set'))}>
-                          {t('cc_crm.actions.followUp', 'Set follow-up')}
-                        </Button>
-                      </>
-                    )}
-                  </section>
-
-                  <section className="space-y-3 rounded-xl border bg-card p-5 shadow-xs">
-                    <h2 className="text-sm font-semibold">{t('cc_crm.enquiries.stage', 'Stage')}</h2>
-                    <div className="flex flex-wrap gap-1.5">
-                      {NEXT_STAGES.filter((stage) => stage !== enquiry.stage && stage !== 'lost').map((stage) => (
-                        <Button key={stage} type="button" size="sm" variant="outline" disabled={busy} onClick={() => act({ action: 'stage', stage }, t('cc_crm.flash.stage', 'Stage changed'))}>
-                          {t(`cc_crm.stage.${stage}`, STAGE_LABEL[stage])}
-                        </Button>
-                      ))}
+              <Panel title={t('cc_crm.enquiries.stage', 'Stage')} icon={Flag}>
+                <div className="space-y-3">
+                  <div className="flex flex-wrap gap-1.5">
+                    {NEXT_STAGES.filter((stage) => stage !== enquiry.stage && stage !== 'lost').map((stage) => (
+                      <Button key={stage} type="button" size="sm" variant="outline" disabled={busy} onClick={() => act({ action: 'stage', stage }, t('cc_crm.flash.stage', 'Stage changed'))}>
+                        {t(`cc_crm.stage.${stage}`, STAGE_LABEL[stage])}
+                      </Button>
+                    ))}
+                  </div>
+                  {enquiry.stage === 'lost' ? null : (
+                    <div className="flex gap-2">
+                      <Dropdown value={lostReason} onChange={(event) => setLostReason(event.target.value)} aria-label={t('cc_crm.enquiries.lostReason', 'Lost reason')}>
+                        <option value="">{t('cc_crm.enquiries.lostPick', 'Lost because…')}</option>
+                        {lostReasons.map((option) => (
+                          <option key={option} value={option}>
+                            {option}
+                          </option>
+                        ))}
+                      </Dropdown>
+                      <Button type="button" size="sm" variant="outline" disabled={busy || !lostReason} onClick={() => act({ action: 'stage', stage: 'lost', lostReason }, t('cc_crm.flash.lost', 'Marked lost'))}>
+                        {t('cc_crm.actions.lost', 'Mark lost')}
+                      </Button>
                     </div>
-                    {enquiry.stage === 'lost' ? (
-                      <p className="text-sm text-muted-foreground">{t('cc_crm.enquiries.lostBecause', 'Lost: {reason}', { reason: enquiry.lostReason ?? '—' })}</p>
-                    ) : (
-                      <div className="flex gap-2">
-                        <Dropdown value={lostReason} onChange={(event) => setLostReason(event.target.value)} aria-label={t('cc_crm.enquiries.lostReason', 'Lost reason')}>
-                          <option value="">{t('cc_crm.enquiries.lostPick', 'Lost because…')}</option>
-                          {lostReasons.map((option) => (
-                            <option key={option} value={option}>
-                              {option}
-                            </option>
-                          ))}
-                        </Dropdown>
-                        <Button type="button" size="sm" variant="outline" disabled={busy || !lostReason} onClick={() => act({ action: 'stage', stage: 'lost', lostReason }, t('cc_crm.flash.lost', 'Marked lost'))}>
-                          {t('cc_crm.actions.lost', 'Mark lost')}
-                        </Button>
-                      </div>
-                    )}
-                  </section>
+                  )}
+                </div>
+              </Panel>
 
-                  <section className="space-y-3 rounded-xl border bg-card p-5 shadow-xs">
-                    <h2 className="flex items-center gap-2 text-sm font-semibold">
-                      <MessageSquare className="h-4 w-4 text-primary" />
-                      {t('cc_crm.actions.note', 'Add a note')}
-                    </h2>
-                    <Textarea rows={3} value={note} onChange={(event) => setNote(event.target.value)} placeholder={t('cc_crm.form.noteHint', 'What the customer said')} />
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="outline"
-                      disabled={busy || !note.trim()}
-                      onClick={async () => {
-                        await act({ action: 'note', note }, t('cc_crm.flash.note', 'Note added'))
-                        setNote('')
-                      }}
-                    >
-                      {t('cc_crm.actions.saveNote', 'Save note')}
-                    </Button>
-                  </section>
-                </>
-              ) : null}
-            </aside>
-          </div>
-        </div>
-      </PageBody>
-    </Page>
+              <Panel title={t('cc_crm.actions.note', 'Add a note')} icon={MessageSquare}>
+                <div className="space-y-3">
+                  <Textarea rows={3} value={note} onChange={(event) => setNote(event.target.value)} placeholder={t('cc_crm.form.noteHint', 'What the customer said')} />
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    disabled={busy || !note.trim()}
+                    onClick={async () => {
+                      await act({ action: 'note', note }, t('cc_crm.flash.note', 'Note added'))
+                      setNote('')
+                    }}
+                  >
+                    {t('cc_crm.actions.saveNote', 'Save note')}
+                  </Button>
+                </div>
+              </Panel>
+            </>
+          ) : (
+            <Panel title={t('cc_crm.enquiries.next', 'Next follow-up')} icon={CalendarClock}>
+              <p className={cn('text-sm', enquiry.overdue && 'font-semibold text-status-error-text')}>{enquiry.nextActionOn ? formatDate(enquiry.nextActionOn) : '—'}</p>
+            </Panel>
+          )
+        }
+      />
+      <HistoryPanel entries={[...enquiry.history].reverse().map((item, index) => ({ key: `${item.at}-${index}`, label: <span className="first-letter:uppercase">{item.action.replace(/_/g, ' ')}</span>, note: item.note, by: item.by, at: item.at }))} />
+    </RecordPage>
   )
 }
 

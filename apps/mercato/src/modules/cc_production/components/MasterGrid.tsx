@@ -1,7 +1,8 @@
 "use client"
 
 import * as React from 'react'
-import { Check, Plus, Search, Trash2, Upload } from 'lucide-react'
+import Link from 'next/link'
+import { ArrowUpRight, Check, Plus, Search, Trash2, Upload } from 'lucide-react'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { cn } from '@open-mercato/shared/lib/utils'
 import { Page, PageBody } from '@open-mercato/ui/backend/Page'
@@ -20,6 +21,14 @@ import { searchCustomers } from '../../cc_orders/components/loaders'
 import { MASTER_DEFS, type MasterColumn, type MasterDef, type MasterType } from '../lib/masterDefs'
 import { Dropdown } from '../../cc_lists/components/Dropdown'
 import { PageLoading } from '../../cc_ui/components/PageLoading'
+import { recordHref } from '../../cc_ui/lib/links'
+
+const DETAIL_HREF: Partial<Record<MasterType, (id: string) => string>> = {
+  moulds: (id) => recordHref.die(id),
+  reactors: (id) => recordHref.machine('reactor', id),
+  dryers: (id) => recordHref.machine('dryer', id),
+  presses: (id) => recordHref.machine('press', id),
+}
 
 type Row = Record<string, string | number | boolean | null> & { id: string; updatedAt: string; updatedByName: string | null; customerName?: string | null }
 type Draft = Record<string, string | boolean | null>
@@ -127,6 +136,12 @@ function MasterTable({ def }: { def: MasterDef }) {
   const [importText, setImportText] = React.useState('')
   const [report, setReport] = React.useState<ImportReport | null>(null)
   const [showImport, setShowImport] = React.useState(false)
+  const detailHref = DETAIL_HREF[def.type]
+
+  React.useEffect(() => {
+    const preset = new URLSearchParams(window.location.search).get('search')
+    if (preset) setSearch(preset)
+  }, [])
 
   const load = React.useCallback(async () => {
     const call = await apiCall<{ items?: Row[]; canManage?: boolean; error?: string }>(`/api/cc_production/masters?type=${def.type}`)
@@ -303,6 +318,14 @@ function MasterTable({ def }: { def: MasterDef }) {
                     </td>
                   ))}
                   <td className="whitespace-nowrap border-b px-2 py-1 text-right">
+                    <div className="flex justify-end gap-1">
+                      {detailHref ? (
+                        <Button asChild size="sm" variant="ghost" aria-label={t('cc_production.masters.open', 'Open')}>
+                          <Link href={detailHref(row.id)}>
+                            <ArrowUpRight className="h-4 w-4" aria-hidden="true" />
+                          </Link>
+                        </Button>
+                      ) : null}
                     {canManage ? (
                       <div className="flex justify-end gap-1">
                         <Button type="button" size="sm" variant={dirty ? 'default' : 'ghost'} disabled={!dirty || busy === row.id} onClick={() => void save(row)} aria-label={t('cc_production.masters.save', 'Save')}>
@@ -313,6 +336,7 @@ function MasterTable({ def }: { def: MasterDef }) {
                         </Button>
                       </div>
                     ) : null}
+                    </div>
                   </td>
                 </tr>
               )

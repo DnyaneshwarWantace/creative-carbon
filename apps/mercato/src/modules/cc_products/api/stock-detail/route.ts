@@ -5,6 +5,7 @@ import type { OpenApiRouteDoc } from '@open-mercato/shared/lib/openapi'
 import { createRequestContainer } from '@open-mercato/shared/lib/di/container'
 import { getAuthFromRequest } from '@open-mercato/shared/lib/auth/server'
 import { resolveOrganizationScopeForRequest } from '@open-mercato/core/modules/directory/utils/organizationScope'
+import { movementDocument } from '../../../cc_ui/lib/links'
 
 export const metadata = {
   GET: { requireAuth: true, requireFeatures: ['catalog.products.view'] },
@@ -15,11 +16,21 @@ const querySchema = z.object({ productId: z.string().uuid() })
 const responseSchema = z.object({
   stores: z.array(z.object({ code: z.string(), onHand: z.number(), reserved: z.number(), available: z.number() })),
   batches: z.array(
-    z.object({ lotNumber: z.string(), store: z.string().nullable(), onHand: z.number(), expiresAt: z.string().nullable(), manufacturedAt: z.string().nullable(), status: z.string().nullable() }),
+    z.object({ lotId: z.string(), lotNumber: z.string(), store: z.string().nullable(), onHand: z.number(), expiresAt: z.string().nullable(), manufacturedAt: z.string().nullable(), status: z.string().nullable() }),
   ),
   reservations: z.array(z.object({ orderId: z.string(), orderNo: z.string(), quantity: z.number(), since: z.string(), byName: z.string().nullable() })),
   movements: z.array(
-    z.object({ at: z.string(), type: z.string(), quantity: z.number(), from: z.string().nullable(), to: z.string().nullable(), lotNumber: z.string().nullable(), reason: z.string().nullable() }),
+    z.object({
+      at: z.string(),
+      type: z.string(),
+      quantity: z.number(),
+      from: z.string().nullable(),
+      to: z.string().nullable(),
+      lotId: z.string().nullable(),
+      lotNumber: z.string().nullable(),
+      reason: z.string().nullable(),
+      document: z.object({ kind: z.string(), label: z.string().nullable(), href: z.string().nullable() }).nullable(),
+    }),
   ),
 })
 
@@ -43,19 +54,19 @@ async function GET(req: Request) {
         group by l.code order by l.code`,
       params,
     ),
-    connection.execute<Array<{ lot_number: string; store: string | null; on_hand: string; expires_at: Date | null; manufactured_at: Date | null; status: string | null }>>(
-      `select lot.lot_number, l.code as store, sum(b.quantity_on_hand) as on_hand, lot.expires_at, lot.manufactured_at, lot.status
+    connection.execute<Array<{ lot_id: string; lot_number: string; store: string | null; on_hand: string; expires_at: Date | null; manufactured_at: Date | null; status: string | null }>>(
+      `select lot.id as lot_id, lot.lot_number, l.code as store, sum(b.quantity_on_hand) as on_hand, lot.expires_at, lot.manufactured_at, lot.status
          from wms_inventory_balances b
          join wms_inventory_lots lot on lot.id = b.lot_id
          left join wms_warehouse_locations l on l.id = b.location_id
         where b.catalog_variant_id in (${variantFilter}) and b.tenant_id = ? and b.organization_id = ? and b.deleted_at is null
-        group by lot.lot_number, l.code, lot.expires_at, lot.manufactured_at, lot.status
+        group by lot.id, lot.lot_number, l.code, lot.expires_at, lot.manufactured_at, lot.status
         having sum(b.quantity_on_hand) <> 0
         order by lot.expires_at nulls last, lot.lot_number`,
       params,
     ),
-    connection.execute<Array<{ at: Date; type: string; quantity: string; from_code: string | null; to_code: string | null; lot_number: string | null; reason: string | null }>>(
-      `select coalesce(m.performed_at, m.created_at) as at, m.type, m.quantity, lf.code as from_code, lt.code as to_code, lot.lot_number, m.reason
+    connection.execute<Array<{ at: Date; type: string; quantity: string; from_code: string | null; to_code: string | null; lot_id: string | null; lot_number: string | null; reason: string | null; metadata: Record<string, unknown> | null }>>(
+      `select coalesce(m.performed_at, m.created_at) as at, m.type, m.quantity, lf.code as from_code, lt.code as to_code, m.lot_id, lot.lot_number, m.reason, m.metadata
          from wms_inventory_movements m
          left join wms_warehouse_locations lf on lf.id = m.location_from_id
          left join wms_warehouse_locations lt on lt.id = m.location_to_id
@@ -69,6 +80,7 @@ async function GET(req: Request) {
   return NextResponse.json({
     stores: stores.map((row) => ({ code: row.code, onHand: Number(row.on_hand), reserved: Number(row.reserved), available: Number(row.available) })),
     batches: batches.map((row) => ({
+      lotId: row.lot_id,
       lotNumber: row.lot_number,
       store: row.store,
       onHand: Number(row.on_hand),
@@ -82,8 +94,10 @@ async function GET(req: Request) {
       quantity: Number(row.quantity),
       from: row.from_code,
       to: row.to_code,
+      lotId: row.lot_id,
       lotNumber: row.lot_number,
       reason: row.reason,
+      document: movementDocument(row.metadata),
     })),
   })
 }

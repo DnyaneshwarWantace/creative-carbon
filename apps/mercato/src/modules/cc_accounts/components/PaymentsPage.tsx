@@ -196,7 +196,11 @@ export function PaymentsPage() {
                 <tbody className="divide-y">
                   {data.items.map((row) => (
                     <tr key={row.id} className={cn('align-top', row.voided && 'opacity-50')}>
-                      <td className="px-4 py-3 text-xs tabular-nums">{day(row.paidOn)}</td>
+                      <td className="px-4 py-3 text-xs tabular-nums">
+                        <Link href={`/backend/accounts/payments/${row.id}`} className="text-primary hover:underline">
+                          {day(row.paidOn)}
+                        </Link>
+                      </td>
                       <td className="px-4 py-3">
                         <span className="block font-medium">{row.customerName}</span>
                         <Link href={`/backend/orders/${row.orderId}`} className="font-mono text-xs text-primary hover:underline">

@@ -18,6 +18,7 @@ import { lotLabel, selectClass, useSend, useSetup } from './shared'
 import { OfflineBadge, isOffline, queueSave } from '../offline'
 import { PlantTable } from '../PlantTable'
 import { Dropdown } from '../../../cc_lists/components/Dropdown'
+import { recordHref } from '../../../cc_ui/lib/links'
 
 type Cutting = { id: string; entryDate: string; sourceLotNumber: string | null; sheetsIn: number; sourceKgUsed: number; cutSize: string; trimmedKg: number; trimKg: number; trimPct: number; outputLotNumber: string | null; status: string; warnings: string[]; updatedAt: string }
 
@@ -151,6 +152,7 @@ export function CuttingPage() {
             tableId="cc_production.cutting"
             rows={items}
             rowKey={(cut) => cut.id}
+            rowHref={(cut) => recordHref.cutting(cut.id)}
             empty={<EmptyState className="py-12" variant="subtle" icon={<Scissors className="h-5 w-5" aria-hidden="true" />} title={t('cc_production.cutting.empty', 'No cutting this month')} />}
             columns={[
               { key: 'date', label: t('cc_production.resin.date', 'Date'), alwaysVisible: true, render: (cut) => <span className={cut.status === 'reversed' ? 'text-muted-foreground line-through' : undefined}>{day(cut.entryDate)}</span> },
@@ -316,6 +318,7 @@ export function ThicknessPage() {
             tableId="cc_production.thickness"
             rows={items}
             rowKey={(item) => item.id}
+            rowHref={(item) => recordHref.thickness(item.id)}
             columns={[
               { key: 'date', label: t('cc_production.resin.date', 'Date'), alwaysVisible: true, render: (item) => day(item.inspectDate) },
               { key: 'lot', label: t('cc_production.thickness.ref', 'Lot ref'), render: (item) => <span className="font-mono text-xs">{item.lotRef}</span> },

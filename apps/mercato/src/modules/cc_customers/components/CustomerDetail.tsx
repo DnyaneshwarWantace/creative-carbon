@@ -4,12 +4,10 @@ import * as React from 'react'
 import { useGranted } from '../../cc_departments/components/useGranted'
 import { useListOptions } from '../../cc_lists/components/useListOptions'
 import Link from 'next/link'
-import { ArrowLeft, Building2, ClipboardList, Copy, MapPin, Package, Pencil, Plus } from 'lucide-react'
+import { Building2, ClipboardList, Copy, FileText, FlaskConical, MapPin, MessageSquare, Package, Pencil, Plus, Receipt, Shapes, Wallet } from 'lucide-react'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { cn } from '@open-mercato/shared/lib/utils'
-import { Page, PageBody } from '@open-mercato/ui/backend/Page'
 import { Button } from '@open-mercato/ui/primitives/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@open-mercato/ui/primitives/card'
 import { Input } from '@open-mercato/ui/primitives/input'
 import { Label } from '@open-mercato/ui/primitives/label'
 import { Tabs, TabsList, TabsTrigger } from '@open-mercato/ui/primitives/tabs'
@@ -20,11 +18,11 @@ import { apiCall, withScopedApiRequestHeaders } from '@open-mercato/ui/backend/u
 import { buildOptimisticLockHeader } from '@open-mercato/ui/backend/utils/optimisticLock'
 import { useGuardedMutation } from '@open-mercato/ui/backend/injection/useGuardedMutation'
 import { flash } from '@open-mercato/ui/backend/FlashMessages'
-import { ErrorMessage } from '@open-mercato/ui/backend/detail'
 import { CustomerStatement } from '../../cc_accounts/components/CustomerStatement'
 import { usePaymentTerms } from '../../cc_lists/components/usePaymentTerms'
 import { paymentTermLabel } from '../../cc_lists/lib/paymentTerms'
-import { PageLoading } from '../../cc_ui/components/PageLoading'
+import { FieldList, LinkRows, Panel, PanelEmpty, RecordColumns, RecordPage, RecordState, formatCount, formatDay, formatKg, type Fact } from '../../cc_ui/components/RecordPage'
+import { recordHref } from '../../cc_ui/lib/links'
 
 type Row = Record<string, unknown> & { id: string }
 type Address = { id: string; name: string | null; purpose: string | null; address_line1: string | null; address_line2: string | null; city: string | null; region: string | null; postal_code: string | null; country: string | null; is_primary: boolean | null }
@@ -35,13 +33,31 @@ type OrderRow = {
   deliveryDate: string | null
   status: 'booked' | 'confirmed' | 'completed' | 'cancelled'
   orderType: string
-  products: Array<{ id: string; title: string; code: string | null; quantity: number }>
+  products: Array<{ id: string; title: string; code: string | null; quantity: number; unit?: string | null }>
   current: Array<{ key: string; label: string; status: string; responsibleName: string | null; days: number | null; holdParty: string | null }>
   doneCount: number
   stageCount: number
 }
 
 type OrderTab = 'open' | 'on_hold' | 'completed' | 'cancelled' | 'all'
+
+type Connections = {
+  enquiries: Array<{ id: string; no: string; date: string | null; subject: string | null; stage: string; nextActionOn: string | null; ownerName: string | null }> | null
+  quotations: Array<{ id: string; no: string; date: string; status: string; total: number; orderId: string | null; orderNo: string | null }> | null
+  proformas: Array<{ id: string; no: string; date: string; status: string; total: number; orderId: string | null; orderNo: string | null }> | null
+  invoices: Array<{ id: string; no: string; kind: string; date: string; dueDate: string | null; status: string; total: number; orderId: string | null; orderNo: string | null }> | null
+  dies: Array<{ id: string; dieNo: string; description: string | null; customerMouldNo: string | null; isActive: boolean }> | null
+  labTests: Array<{ id: string; date: string; reportNo: string | null; itemTitle: string | null; testType: string | null; result: string; orderId: string | null; orderNo: string | null }> | null
+}
+
+const EMPTY_CONNECTIONS: Connections = { enquiries: null, quotations: null, proformas: null, invoices: null, dies: null, labTests: null }
+const DOC_VARIANT: Record<string, StatusBadgeVariant> = { draft: 'neutral', sent: 'info', issued: 'success', accepted: 'success', converted: 'success', rejected: 'error', cancelled: 'neutral', expired: 'warning', won: 'success', lost: 'error', new: 'info', quoted: 'info', negotiating: 'warning', pass: 'success', fail: 'error', pending: 'warning' }
+const COUNTED_UNITS = new Set(['nos', 'pcs', 'pc'])
+const isCounted = (unit: string | null | undefined) => COUNTED_UNITS.has(String(unit ?? '').toLowerCase())
+
+function money(value: number): string {
+  return `₹ ${new Intl.NumberFormat('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(value)}`
+}
 
 const UNREADABLE_RE = /^[A-Za-z0-9+/=]{8,}:[A-Za-z0-9+/=]+:[A-Za-z0-9+/=]+:v\d+$/
 const ORDER_VARIANT: Record<string, StatusBadgeVariant> = { booked: 'info', confirmed: 'warning', completed: 'success', cancelled: 'neutral' }
@@ -60,30 +76,12 @@ function field(row: Row | null, key: string): string | null {
   return typeof value === 'string' && value.trim() ? value.trim() : null
 }
 
-function qty(value: number): string {
-  return new Intl.NumberFormat('en-IN', { maximumFractionDigits: 0 }).format(value)
-}
-
-function date(value: string | null): string {
-  if (!value) return '—'
-  return new Date(value.length === 10 ? `${value}T00:00:00` : value).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
-}
-
 function daysUntil(value: string | null): number | null {
   if (!value) return null
   const target = new Date(`${value}T00:00:00`).getTime()
   const today = new Date()
   today.setHours(0, 0, 0, 0)
   return Math.round((target - today.getTime()) / 86400000)
-}
-
-function Tile({ label, value, tone }: { label: string; value: string; tone?: 'bad' }) {
-  return (
-    <div className="rounded-lg border bg-card p-3">
-      <div className="text-xs text-muted-foreground">{label}</div>
-      <div className={cn('text-lg font-semibold', tone === 'bad' && 'text-status-error-text')}>{value}</div>
-    </div>
-  )
 }
 
 type EditValues = {
@@ -264,12 +262,14 @@ export function CustomerDetail({ customerId }: { customerId: string }) {
   const [orders, setOrders] = React.useState<OrderRow[] | null>(null)
   const [tab, setTab] = React.useState<OrderTab>('open')
   const [editOpen, setEditOpen] = React.useState(false)
+  const [links, setLinks] = React.useState<Connections>(EMPTY_CONNECTIONS)
 
   const load = React.useCallback(async () => {
-    const [companyCall, addressCall, orderCall] = await Promise.all([
+    const [companyCall, addressCall, orderCall, linksCall] = await Promise.all([
       apiCall<{ items?: Row[] }>(`/api/customers/companies?id=${encodeURIComponent(customerId)}&pageSize=1`, undefined, { fallback: { items: [] } }),
       apiCall<{ items?: Address[] }>(`/api/customers/addresses?entityId=${encodeURIComponent(customerId)}&pageSize=20`, undefined, { fallback: { items: [] } }),
       apiCall<{ items?: OrderRow[] }>(`/api/cc_orders/orders?customerId=${encodeURIComponent(customerId)}&pageSize=100`, undefined, { fallback: { items: [] } }),
+      apiCall<Connections>(`/api/cc_customers/connections?id=${encodeURIComponent(customerId)}`, undefined, { fallback: EMPTY_CONNECTIONS }),
     ])
     const row = companyCall.result?.items?.[0]
     if (!row) {
@@ -279,29 +279,15 @@ export function CustomerDetail({ customerId }: { customerId: string }) {
     setCompany(row)
     setAddresses(addressCall.result?.items ?? [])
     setOrders(orderCall.result?.items ?? [])
+    setLinks(linksCall.result ?? EMPTY_CONNECTIONS)
   }, [customerId, t])
 
   React.useEffect(() => {
     load()
   }, [load])
 
-  if (loadError) {
-    return (
-      <Page>
-        <PageBody>
-          <ErrorMessage label={loadError} />
-        </PageBody>
-      </Page>
-    )
-  }
-  if (!company || !orders) {
-    return (
-      <Page>
-        <PageBody>
-          <PageLoading label={t('cc_customers.loading', 'Loading customer…')} />
-        </PageBody>
-      </Page>
-    )
+  if (loadError || !company || !orders) {
+    return <RecordState error={loadError} loadingLabel={t('cc_customers.loading', 'Loading customer…')} />
   }
 
   const name = readable(company.display_name) ?? field(company, 'legal_trade_name') ?? t('cc_customers.noName', '(no name)')
@@ -310,10 +296,12 @@ export function CustomerDetail({ customerId }: { customerId: string }) {
   const open = orders.filter((order) => order.status === 'booked' || order.status === 'confirmed')
   const onHold = orders.filter((order) => order.current.some((stage) => stage.status === 'on_hold'))
   const late = open.filter((order) => (daysUntil(order.deliveryDate) ?? 0) < 0)
-  const pieces = live.reduce((sum, order) => sum + order.products.reduce((inner, product) => inner + product.quantity, 0), 0)
+  const orderedKg = live.reduce((sum, order) => sum + order.products.filter((product) => !isCounted(product.unit)).reduce((inner, product) => inner + product.quantity, 0), 0)
+  const orderedPcs = live.reduce((sum, order) => sum + order.products.filter((product) => isCounted(product.unit)).reduce((inner, product) => inner + product.quantity, 0), 0)
   const lastOrder = orders.length ? orders.reduce((latest, order) => (order.orderDate > latest.orderDate ? order : latest)) : null
+  const amountOf = (quantity: number, unit: string | null | undefined) => (isCounted(unit) ? `${formatCount(quantity)} ${t('cc_ui.pcs', 'pcs')}` : `${formatKg(quantity)} kg`)
 
-  const products = new Map<string, { id: string; title: string; code: string | null; pieces: number; orders: number; last: string }>()
+  const products = new Map<string, { id: string; title: string; code: string | null; quantity: number; unit: string | null; orders: number; last: string }>()
   for (const order of live) {
     for (const product of order.products) {
       const current = products.get(product.id)
@@ -321,7 +309,8 @@ export function CustomerDetail({ customerId }: { customerId: string }) {
         id: product.id,
         title: product.title,
         code: product.code,
-        pieces: (current?.pieces ?? 0) + product.quantity,
+        quantity: (current?.quantity ?? 0) + product.quantity,
+        unit: product.unit ?? null,
         orders: (current?.orders ?? 0) + 1,
         last: current && current.last > order.orderDate ? current.last : order.orderDate,
       })
@@ -335,118 +324,103 @@ export function CustomerDetail({ customerId }: { customerId: string }) {
     return order.status === tab
   })
 
-  const details: Array<[string, string]> = [
-    [t('cc_customers.detail.legal', 'Legal / trade name'), field(company, 'legal_trade_name') ?? '—'],
-    [t('cc_customers.detail.category', 'Category'), field(company, 'customer_type_category') ?? '—'],
-    [t('cc_customers.detail.gstType', 'GST type'), field(company, 'gst_registration_type') ?? '—'],
-    [t('cc_customers.detail.gstin', 'GSTIN'), field(company, 'gstin') ?? field(company, 'gst_number') ?? '—'],
-    [t('cc_customers.detail.terms', 'Payment terms'), paymentTermLabel(field(company, 'payment_terms')) || '—'],
-    [t('cc_customers.detail.remarks', 'Payment remarks'), field(company, 'payment_remarks') ?? '—'],
-    [t('cc_customers.detail.manager', 'Sales manager'), field(company, 'sales_manager') ?? '—'],
-    [t('cc_customers.detail.phone', 'Phone'), readable(company.primary_phone) ?? '—'],
-    [t('cc_customers.detail.email', 'Email'), readable(company.primary_email) ?? '—'],
+  const details: Array<[string, React.ReactNode]> = [
+    [t('cc_customers.detail.legal', 'Legal / trade name'), field(company, 'legal_trade_name')],
+    [t('cc_customers.detail.category', 'Category'), field(company, 'customer_type_category')],
+    [t('cc_customers.detail.gstType', 'GST type'), field(company, 'gst_registration_type')],
+    [t('cc_customers.detail.gstin', 'GSTIN'), field(company, 'gstin') ?? field(company, 'gst_number')],
+    [t('cc_customers.detail.terms', 'Payment terms'), paymentTermLabel(field(company, 'payment_terms')) || null],
+    [t('cc_customers.detail.remarks', 'Payment remarks'), field(company, 'payment_remarks')],
+    [t('cc_customers.detail.manager', 'Sales manager'), field(company, 'sales_manager')],
+    [t('cc_customers.detail.phone', 'Phone'), readable(company.primary_phone)],
+    [t('cc_customers.detail.email', 'Email'), readable(company.primary_email)],
   ]
 
+  const facts: Fact[] = [
+    { label: t('cc_customers.detail.orders', 'Orders'), value: formatCount(live.length) },
+    { label: t('cc_customers.detail.open', 'Open'), value: formatCount(open.length) },
+    { label: t('cc_customers.detail.hold', 'On hold'), value: formatCount(onHold.length), tone: onHold.length ? 'bad' : undefined },
+    { label: t('cc_customers.detail.late', 'Late'), value: formatCount(late.length), tone: late.length ? 'bad' : undefined },
+    { label: t('cc_customers.detail.orderedKg', 'Ordered (kg)'), value: formatKg(orderedKg), hint: orderedPcs ? `+ ${formatCount(orderedPcs)} ${t('cc_ui.pcs', 'pcs')}` : undefined },
+    { label: t('cc_customers.detail.last', 'Last order'), value: lastOrder ? formatDay(lastOrder.orderDate) : '—' },
+  ]
+
+  const docBadge = (status: string) => <StatusBadge variant={DOC_VARIANT[status] ?? 'neutral'}>{t(`cc_customers.docStatus.${status}`, status.replace(/_/g, ' '))}</StatusBadge>
+
   return (
-    <Page>
-      <PageBody>
-        <div className="mx-auto max-w-7xl space-y-5 pb-16">
-          <div className="flex flex-col gap-4 border-b pb-4 lg:flex-row lg:items-start lg:justify-between">
-            <div className="min-w-0 space-y-1">
-              <Link href="/backend/customers/companies" className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground">
-                <ArrowLeft className="h-3 w-3" />
-                {t('cc_customers.nav.customer', 'Customer')}
-              </Link>
-              <div className="flex flex-wrap items-center gap-2">
-                <Building2 className="h-5 w-5 text-primary" />
-                <h1 className="text-xl font-bold">{name}</h1>
-                {field(company, 'gst_registration_type') ? <StatusBadge variant="info">{field(company, 'gst_registration_type')}</StatusBadge> : null}
-              </div>
-              <p className="text-xs text-muted-foreground">
-                {[field(company, 'gstin') ? `GSTIN ${field(company, 'gstin')}` : null, field(company, 'sales_manager') ? `Sales manager ${field(company, 'sales_manager')}` : null]
-                  .filter(Boolean)
-                  .join(' · ')}
-              </p>
-              {nameBroken ? (
-                <p className="text-xs text-status-warning-text">
-                  {t('cc_customers.detail.broken', 'The saved name could not be read. Open "Edit details" and save once to store it again.')}
-                </p>
-              ) : null}
-            </div>
-            <div className="flex flex-wrap gap-2">
-              {lastOrder && granted.has('cc_orders.manage') ? (
-                <Button asChild variant="outline" size="sm">
-                  <Link href={`/backend/orders/new?copyFrom=${lastOrder.id}`}>
-                    <Copy className="mr-1.5 h-4 w-4" />
-                    {t('cc_customers.detail.repeat', 'Repeat last order')}
-                  </Link>
-                </Button>
-              ) : null}
-              {granted.has('customers.companies.manage') ? (
+    <>
+      <RecordPage
+        back={{ href: '/backend/customers/companies', label: t('cc_customers.nav.customer', 'Customer') }}
+        overline={[t('cc_customers.detail.overline', 'Customer'), field(company, 'gstin') ? `GSTIN ${field(company, 'gstin')}` : null].filter(Boolean).join(' · ')}
+        title={name}
+        mono={false}
+        badges={field(company, 'gst_registration_type') ? <StatusBadge variant="info">{field(company, 'gst_registration_type')}</StatusBadge> : null}
+        meta={field(company, 'sales_manager') ? t('cc_customers.detail.managedBy', 'Sales manager {name}', { name: field(company, 'sales_manager') ?? '' }) : undefined}
+        alert={nameBroken ? <p className="rounded-md border border-status-warning-border bg-status-warning-bg px-3 py-2 text-sm text-status-warning-text">{t('cc_customers.detail.broken', 'The saved name could not be read. Open "Edit details" and save once to store it again.')}</p> : null}
+        actions={
+          <>
+            {lastOrder && granted.has('cc_orders.manage') ? (
+              <Button asChild variant="outline" size="sm">
+                <Link href={`/backend/orders/new?copyFrom=${lastOrder.id}`}>
+                  <Copy className="mr-1.5 h-4 w-4" aria-hidden="true" />
+                  {t('cc_customers.detail.repeat', 'Repeat last order')}
+                </Link>
+              </Button>
+            ) : null}
+            {granted.has('customers.companies.manage') ? (
               <Button asChild variant="outline" size="sm">
                 <Link href={`/backend/customers/edit/${customerId}`}>
-                  <Pencil className="mr-1.5 h-4 w-4" />
+                  <Pencil className="mr-1.5 h-4 w-4" aria-hidden="true" />
                   {t('cc_customers.detail.edit', 'Edit details')}
                 </Link>
               </Button>
-              ) : null}
-              {granted.has('cc_orders.manage') ? (
+            ) : null}
+            {granted.has('cc_orders.manage') ? (
               <Button asChild size="sm">
                 <Link href={`/backend/orders/new?customerId=${customerId}`}>
-                  <Plus className="mr-1.5 h-4 w-4" />
+                  <Plus className="mr-1.5 h-4 w-4" aria-hidden="true" />
                   {t('cc_customers.detail.newOrder', 'New order')}
                 </Link>
               </Button>
-              ) : null}
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-6">
-            <Tile label={t('cc_customers.detail.orders', 'Orders')} value={qty(live.length)} />
-            <Tile label={t('cc_customers.detail.open', 'Open')} value={qty(open.length)} />
-            <Tile label={t('cc_customers.detail.hold', 'On hold')} value={qty(onHold.length)} tone={onHold.length ? 'bad' : undefined} />
-            <Tile label={t('cc_customers.detail.late', 'Late')} value={qty(late.length)} tone={late.length ? 'bad' : undefined} />
-            <Tile label={t('cc_customers.detail.pieces', 'Pieces ordered')} value={qty(pieces)} />
-            <Tile label={t('cc_customers.detail.last', 'Last order')} value={lastOrder ? date(lastOrder.orderDate) : '—'} />
-          </div>
-
-          <div className="grid grid-cols-1 items-start gap-5 lg:grid-cols-12">
-            <Card className="overflow-hidden lg:col-span-8">
-              <CardHeader className="border-b bg-muted/20 pb-0">
-                <CardTitle className="flex items-center gap-2 pb-2 text-sm font-bold">
-                  <ClipboardList className="h-4 w-4 text-primary" />
-                  {t('cc_customers.detail.ordersTitle', 'Orders')}
-                </CardTitle>
-                <Tabs value={tab} onValueChange={(value) => setTab(value as OrderTab)} variant="underline">
-                  <TabsList aria-label={t('cc_customers.detail.orderTabs', 'Order status')}>
-                    <TabsTrigger value="open">{t('cc_orders.list.tab.open', 'Open')} ({open.length})</TabsTrigger>
-                    <TabsTrigger value="on_hold">{t('cc_orders.list.tab.hold', 'On hold')} ({onHold.length})</TabsTrigger>
-                    <TabsTrigger value="completed">{t('cc_orders.list.tab.completed', 'Completed')}</TabsTrigger>
-                    <TabsTrigger value="cancelled">{t('cc_orders.list.tab.cancelled', 'Cancelled')}</TabsTrigger>
-                    <TabsTrigger value="all">{t('cc_orders.list.tab.all', 'All')}</TabsTrigger>
-                  </TabsList>
-                </Tabs>
-              </CardHeader>
-              <CardContent className="p-0">
+            ) : null}
+          </>
+        }
+        facts={facts}
+      >
+        <RecordColumns
+          main={
+            <>
+              <Panel title={t('cc_customers.detail.ordersTitle', 'Orders')} icon={ClipboardList} count={live.length} flush>
+                <div className="border-b border-border px-3 pt-1">
+                  <Tabs value={tab} onValueChange={(value) => setTab(value as OrderTab)} variant="underline">
+                    <TabsList aria-label={t('cc_customers.detail.orderTabs', 'Order status')}>
+                      <TabsTrigger value="open">{t('cc_orders.list.tab.open', 'Open')} ({open.length})</TabsTrigger>
+                      <TabsTrigger value="on_hold">{t('cc_orders.list.tab.hold', 'On hold')} ({onHold.length})</TabsTrigger>
+                      <TabsTrigger value="completed">{t('cc_orders.list.tab.completed', 'Completed')}</TabsTrigger>
+                      <TabsTrigger value="cancelled">{t('cc_orders.list.tab.cancelled', 'Cancelled')}</TabsTrigger>
+                      <TabsTrigger value="all">{t('cc_orders.list.tab.all', 'All')}</TabsTrigger>
+                    </TabsList>
+                  </Tabs>
+                </div>
                 {visible.length ? (
-                  <ul className="divide-y">
+                  <ul className="divide-y divide-border">
                     {visible.map((order) => {
                       const left = daysUntil(order.deliveryDate)
                       const isLate = left !== null && left < 0 && (order.status === 'booked' || order.status === 'confirmed')
                       return (
-                        <li key={order.id}>
-                          <Link href={`/backend/orders/${order.id}`} className="grid grid-cols-1 gap-2 px-4 py-3 hover:bg-muted/30 md:grid-cols-12 md:items-center">
+                        <li key={order.id} className="even:bg-muted/30">
+                          <Link href={recordHref.order(order.id)} className="grid grid-cols-1 gap-2 px-3 py-2.5 hover:bg-muted/60 md:grid-cols-12 md:items-center">
                             <span className="md:col-span-3">
                               <span className="font-mono text-xs font-semibold">{order.orderNo}</span>
                               <span className="block text-xs text-muted-foreground">
-                                {date(order.orderDate)}
+                                {formatDay(order.orderDate)}
                                 {order.orderType !== 'new' ? ` · ${order.orderType}` : ''}
                               </span>
                             </span>
                             <span className="min-w-0 text-sm md:col-span-4">
                               {order.products.map((product) => (
                                 <span key={product.id} className="block truncate">
-                                  {product.title} <span className="text-muted-foreground">× {qty(product.quantity)}</span>
+                                  {product.title} <span className="font-mono text-muted-foreground">{amountOf(product.quantity, product.unit)}</span>
                                 </span>
                               ))}
                             </span>
@@ -469,7 +443,7 @@ export function CustomerDetail({ customerId }: { customerId: string }) {
                             <span className="flex items-center justify-between gap-2 md:col-span-2 md:flex-col md:items-end">
                               <StatusBadge variant={ORDER_VARIANT[order.status] ?? 'neutral'}>{t(`cc_orders.status.${order.status}`, order.status)}</StatusBadge>
                               <span className={cn('text-xs', isLate ? 'font-semibold text-status-error-text' : 'text-muted-foreground')}>
-                                {order.deliveryDate ? `${t('cc_customers.detail.due', 'Due')} ${date(order.deliveryDate)}` : ''}
+                                {order.deliveryDate ? `${t('cc_customers.detail.due', 'Due')} ${formatDay(order.deliveryDate)}` : ''}
                               </span>
                             </span>
                           </Link>
@@ -478,106 +452,175 @@ export function CustomerDetail({ customerId }: { customerId: string }) {
                     })}
                   </ul>
                 ) : (
-                  <p className="p-6 text-center text-sm text-muted-foreground">{t('cc_customers.detail.noOrders', 'No orders here.')}</p>
+                  <PanelEmpty>{t('cc_customers.detail.noOrders', 'No orders here.')}</PanelEmpty>
                 )}
-              </CardContent>
-            </Card>
+              </Panel>
 
-            <Card className="lg:col-span-8 lg:row-start-2">
-              <CardContent className="pt-4">
-                <CustomerStatement customerId={customerId} customerName={name} />
-              </CardContent>
-            </Card>
+              {links.invoices || links.proformas ? (
+                <Panel title={t('cc_customers.detail.documents', 'Proformas and invoices')} icon={Receipt} count={(links.invoices?.length ?? 0) + (links.proformas?.length ?? 0)} flush>
+                  <LinkRows
+                    empty={t('cc_customers.detail.noDocuments', 'No proforma or invoice yet.')}
+                    rows={[
+                      ...(links.invoices ?? []).map((doc) => ({
+                        sortKey: doc.date,
+                        row: {
+                        key: `inv-${doc.id}`,
+                        href: recordHref.invoice(doc.id),
+                        primary: <span className="font-mono">{doc.no}</span>,
+                        secondary: [doc.kind === 'credit_note' ? t('cc_customers.detail.creditNote', 'Credit note') : t('cc_customers.detail.taxInvoice', 'Tax invoice'), doc.orderNo, doc.dueDate ? `${t('cc_customers.detail.due', 'Due')} ${formatDay(doc.dueDate)}` : null].filter(Boolean).join(' · '),
+                        value: money(doc.total),
+                        valueHint: formatDay(doc.date),
+                        badge: docBadge(doc.status),
+                        },
+                      })),
+                      ...(links.proformas ?? []).map((doc) => ({
+                        sortKey: doc.date,
+                        row: {
+                        key: `pi-${doc.id}`,
+                        href: recordHref.proforma(doc.id),
+                        primary: <span className="font-mono">{doc.no}</span>,
+                        secondary: [t('cc_customers.detail.proforma', 'Proforma'), doc.orderNo].filter(Boolean).join(' · '),
+                        value: money(doc.total),
+                        valueHint: formatDay(doc.date),
+                        badge: docBadge(doc.status),
+                        },
+                      })),
+                    ]
+                      .sort((left, right) => right.sortKey.localeCompare(left.sortKey))
+                      .map((entry) => entry.row)}
+                  />
+                </Panel>
+              ) : null}
 
-            <div className="space-y-5 lg:col-span-4">
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between border-b bg-muted/20 pb-3">
-                  <CardTitle className="flex items-center gap-2 text-sm font-bold">
-                    <Building2 className="h-4 w-4 text-primary" />
-                    {t('cc_customers.detail.details', 'Details')}
-                  </CardTitle>
-                  <button type="button" className="text-xs text-primary hover:underline" onClick={() => setEditOpen(true)}>
-                    {t('cc_customers.detail.editShort', 'Edit')}
-                  </button>
-                </CardHeader>
-                <CardContent className="pt-2">
-                  <dl>
-                    {details.map(([label, value]) => (
-                      <div key={label} className="flex justify-between gap-3 border-b py-1.5 text-sm last:border-b-0">
-                        <dt className="text-muted-foreground">{label}</dt>
-                        <dd className="text-right">{value}</dd>
-                      </div>
+              {granted.has('cc_accounts.view') ? (
+                <Panel title={t('cc_customers.detail.statement', 'Account statement')} icon={Wallet}>
+                  <CustomerStatement customerId={customerId} customerName={name} />
+                </Panel>
+              ) : null}
+            </>
+          }
+          side={
+            <>
+              <Panel
+                title={t('cc_customers.detail.details', 'Details')}
+                icon={Building2}
+                action={
+                  granted.has('customers.companies.manage') ? (
+                    <button type="button" className="text-primary hover:underline" onClick={() => setEditOpen(true)}>
+                      {t('cc_customers.detail.editShort', 'Edit')}
+                    </button>
+                  ) : null
+                }
+              >
+                <FieldList columns={1} fields={details} />
+              </Panel>
+
+              <Panel title={t('cc_customers.detail.addresses', 'Addresses')} icon={MapPin} count={addresses.length}>
+                {addresses.length ? (
+                  <ul className="space-y-3 text-sm">
+                    {addresses.map((address) => (
+                      <li key={address.id}>
+                        <span className="font-mono text-overline font-semibold uppercase tracking-widest text-muted-foreground">
+                          {address.purpose || address.name || t('cc_customers.detail.address', 'Address')}
+                          {address.is_primary ? ` · ${t('cc_customers.detail.primary', 'primary')}` : ''}
+                        </span>
+                        <span className="block">{[address.address_line1, address.address_line2, address.city, address.region, address.postal_code, address.country].filter(Boolean).join(', ')}</span>
+                      </li>
                     ))}
-                  </dl>
-                </CardContent>
-              </Card>
+                  </ul>
+                ) : (
+                  <p className="text-sm text-muted-foreground">{t('cc_customers.detail.noAddress', 'No address saved.')}</p>
+                )}
+              </Panel>
 
-              <Card>
-                <CardHeader className="border-b bg-muted/20 pb-3">
-                  <CardTitle className="flex items-center gap-2 text-sm font-bold">
-                    <MapPin className="h-4 w-4 text-primary" />
-                    {t('cc_customers.detail.addresses', 'Addresses')}
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="pt-3">
-                  {addresses.length ? (
-                    <ul className="space-y-3 text-sm">
-                      {addresses.map((address) => (
-                        <li key={address.id}>
-                          <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                            {address.purpose || address.name || t('cc_customers.detail.address', 'Address')}
-                            {address.is_primary ? ` · ${t('cc_customers.detail.primary', 'primary')}` : ''}
-                          </span>
-                          <span className="block">
-                            {[address.address_line1, address.address_line2, address.city, address.region, address.postal_code, address.country].filter(Boolean).join(', ')}
-                          </span>
-                        </li>
-                      ))}
-                    </ul>
-                  ) : (
-                    <p className="text-sm text-muted-foreground">{t('cc_customers.detail.noAddress', 'No address saved.')}</p>
-                  )}
-                </CardContent>
-              </Card>
+              <Panel title={t('cc_customers.detail.products', 'Products made for this customer')} icon={Package} count={products.size} flush>
+                <LinkRows
+                  empty={t('cc_customers.detail.noProducts', 'No products ordered yet.')}
+                  rows={Array.from(products.values()).map((product) => ({
+                    key: product.id,
+                    href: recordHref.product(product.id),
+                    primary: (
+                      <>
+                        {product.code ? <span className="mr-1 font-mono text-xs text-muted-foreground">{product.code}</span> : null}
+                        {product.title}
+                      </>
+                    ),
+                    secondary: t('cc_customers.detail.productOrders', '{count} orders · last {date}', { count: product.orders, date: formatDay(product.last) }),
+                    value: amountOf(product.quantity, product.unit),
+                  }))}
+                />
+              </Panel>
 
-              <Card>
-                <CardHeader className="border-b bg-muted/20 pb-3">
-                  <CardTitle className="flex items-center gap-2 text-sm font-bold">
-                    <Package className="h-4 w-4 text-primary" />
-                    {t('cc_customers.detail.products', 'Products made for this customer')}
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="p-0">
-                  {products.size ? (
-                    <ul className="divide-y text-sm">
-                      {Array.from(products.values()).map((product) => (
-                        <li key={product.id}>
-                          <Link href={`/backend/products/${product.id}`} className="flex items-center justify-between gap-3 px-4 py-2 hover:bg-muted/30">
-                            <span className="min-w-0">
-                              <span className="block truncate">
-                                {product.code ? <span className="mr-1 font-mono text-xs text-muted-foreground">{product.code}</span> : null}
-                                {product.title}
-                              </span>
-                              <span className="text-xs text-muted-foreground">
-                                {qty(product.pieces)} pcs · {product.orders} {t('cc_customers.detail.ordersWord', 'orders')}
-                              </span>
-                            </span>
-                            <span className="shrink-0 text-xs text-muted-foreground">{date(product.last)}</span>
-                          </Link>
-                        </li>
-                      ))}
-                    </ul>
-                  ) : (
-                    <p className="p-4 text-sm text-muted-foreground">{t('cc_customers.detail.noProducts', 'No products ordered yet.')}</p>
-                  )}
-                </CardContent>
-              </Card>
-            </div>
-          </div>
-        </div>
-        <EditSheet open={editOpen} onOpenChange={setEditOpen} company={company} onSaved={load} />
-      </PageBody>
-    </Page>
+              {links.enquiries ? (
+                <Panel title={t('cc_customers.detail.enquiries', 'Enquiries')} icon={MessageSquare} count={links.enquiries.length} flush>
+                  <LinkRows
+                    empty={t('cc_customers.detail.noEnquiries', 'No enquiry logged for this customer.')}
+                    rows={links.enquiries.map((row) => ({
+                      key: row.id,
+                      href: recordHref.enquiry(row.id),
+                      primary: <span className="font-mono">{row.no}</span>,
+                      secondary: [row.subject, row.ownerName].filter(Boolean).join(' · '),
+                      valueHint: row.nextActionOn ? t('cc_customers.detail.followUp', 'follow up {date}', { date: formatDay(row.nextActionOn) }) : formatDay(row.date),
+                      value: '',
+                      badge: docBadge(row.stage),
+                    }))}
+                  />
+                </Panel>
+              ) : null}
+
+              {links.quotations ? (
+                <Panel title={t('cc_customers.detail.quotations', 'Quotations')} icon={FileText} count={links.quotations.length} flush>
+                  <LinkRows
+                    empty={t('cc_customers.detail.noQuotations', 'No quotation yet.')}
+                    rows={links.quotations.map((row) => ({
+                      key: row.id,
+                      href: recordHref.quotation(row.id),
+                      primary: <span className="font-mono">{row.no}</span>,
+                      secondary: [formatDay(row.date), row.orderNo ? t('cc_customers.detail.becameOrder', 'order {no}', { no: row.orderNo }) : null].filter(Boolean).join(' · '),
+                      value: money(row.total),
+                      badge: docBadge(row.status),
+                    }))}
+                  />
+                </Panel>
+              ) : null}
+
+              {links.dies ? (
+                <Panel title={t('cc_customers.detail.dies', 'Dies owned')} icon={Shapes} count={links.dies.length} flush>
+                  <LinkRows
+                    empty={t('cc_customers.detail.noDies', 'No die is marked as this customer’s.')}
+                    rows={links.dies.map((row) => ({
+                      key: row.id,
+                      href: recordHref.die(row.id),
+                      primary: <span className="font-mono">{row.dieNo}</span>,
+                      secondary: [row.description, row.customerMouldNo ? t('cc_customers.detail.theirNo', 'their No. {no}', { no: row.customerMouldNo }) : null].filter(Boolean).join(' · '),
+                      badge: row.isActive ? null : <StatusBadge variant="neutral">{t('cc_customers.detail.dieInactive', 'Not in use')}</StatusBadge>,
+                    }))}
+                  />
+                </Panel>
+              ) : null}
+
+              {links.labTests ? (
+                <Panel title={t('cc_customers.detail.labTests', 'Lab test reports')} icon={FlaskConical} count={links.labTests.length} flush>
+                  <LinkRows
+                    empty={t('cc_customers.detail.noLab', 'No lab report for this customer.')}
+                    rows={links.labTests.map((row) => ({
+                      key: row.id,
+                      href: recordHref.labTest(row.id),
+                      primary: <span className="font-mono">{row.reportNo ?? formatDay(row.date)}</span>,
+                      secondary: [row.itemTitle, row.testType, row.orderNo].filter(Boolean).join(' · '),
+                      valueHint: formatDay(row.date),
+                      value: '',
+                      badge: docBadge(row.result),
+                    }))}
+                  />
+                </Panel>
+              ) : null}
+            </>
+          }
+        />
+      </RecordPage>
+      <EditSheet open={editOpen} onOpenChange={setEditOpen} company={company} onSaved={load} />
+    </>
   )
 }
 

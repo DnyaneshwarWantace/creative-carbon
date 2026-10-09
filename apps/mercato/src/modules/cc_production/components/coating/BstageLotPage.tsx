@@ -2,25 +2,25 @@
 
 import * as React from 'react'
 import Link from 'next/link'
-import { ArrowLeft, Printer, Trash2 } from 'lucide-react'
+import { History, Layers, Printer, Trash2 } from 'lucide-react'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { cn } from '@open-mercato/shared/lib/utils'
-import { Page, PageBody } from '@open-mercato/ui/backend/Page'
 import { Button } from '@open-mercato/ui/primitives/button'
 import { Input } from '@open-mercato/ui/primitives/input'
 import { Label } from '@open-mercato/ui/primitives/label'
 import { Textarea } from '@open-mercato/ui/primitives/textarea'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@open-mercato/ui/primitives/dialog'
-import { ErrorMessage } from '@open-mercato/ui/backend/detail'
 import { apiCall } from '@open-mercato/ui/backend/utils/apiCall'
 import { useGuardedMutation } from '@open-mercato/ui/backend/injection/useGuardedMutation'
 import { flash } from '@open-mercato/ui/backend/FlashMessages'
 import { useGranted } from '../../../cc_departments/components/useGranted'
 import { day, kg, when } from '../resin/shared'
 import { BAND_STYLE, type BstageCard } from './BstageBoardPage'
-import { PageLoading } from '../../../cc_ui/components/PageLoading'
+import { DocLink, FieldList, Panel, RecordColumns, RecordPage, RecordState, RegisterGrid, type Fact } from '../../../cc_ui/components/RecordPage'
+import { PlantChain } from '../../../cc_ui/components/PlantChain'
+import { recordHref, type DocumentLink } from '../../../cc_ui/lib/links'
 
-type LotView = BstageCard & { movements: Array<{ id: string; at: string; kg: number; reason: string | null; reasonCode: string | null; source: string | null }> }
+type LotView = BstageCard & { movements: Array<{ id: string; at: string; kg: number; reason: string | null; reasonCode: string | null; source: string | null; document: DocumentLink | null }> }
 
 export function BstageLotPage({ lotId }: { lotId: string }) {
   const t = useT()
@@ -72,86 +72,91 @@ export function BstageLotPage({ lotId }: { lotId: string }) {
     }
   }
 
-  if (error) return <Page><PageBody><ErrorMessage label={error} /></PageBody></Page>
-  if (!lot) return <Page><PageBody><PageLoading label={t('cc_production.resin.loading', 'Loading…')} /></PageBody></Page>
+  if (error || !lot) return <RecordState error={error} loadingLabel={t('cc_production.resin.loading', 'Loading…')} />
 
   const band = BAND_STYLE[lot.band]
+  const facts: Fact[] = [
+    { label: t('cc_production.bstage.left', 'Left'), value: `${kg(lot.onHandKg)} kg`, hint: lot.nosLeft !== null ? `${lot.nosLeft} nos` : undefined },
+    { label: t('cc_production.bstage.made', 'Made'), value: `${kg(lot.madeKg)} kg`, hint: lot.nosMade !== null ? `${lot.nosMade} nos` : undefined },
+    { label: t('cc_production.bstage.ageShort', 'Age'), value: t('cc_production.bstage.age', 'day {days}', { days: lot.ageDays }), tone: lot.band === 'fresh' ? 'good' : lot.band === 'soon' ? 'warn' : 'bad' },
+    { label: t('cc_production.bstage.useBy', 'Use by'), value: day(lot.expiresOn), hint: t('cc_production.bstage.shelf', '{days}-day shelf life', { days: lot.shelfLife }) },
+    { label: t('cc_production.bstage.blockedAfter', 'Blocked after'), value: t('cc_production.bstage.days', '{days} days', { days: lot.maxUse }) },
+    { label: t('cc_production.bstage.where', 'Where'), value: lot.placeLabel ?? '—' },
+  ]
+
   return (
-    <Page>
-      <PageBody>
-        <div className="mx-auto flex max-w-4xl flex-col gap-5 pb-12">
-          <Link href="/backend/bstage" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground print:hidden">
-            <ArrowLeft className="h-4 w-4" aria-hidden="true" />
-            {t('cc_production.bstage.title', 'B-stage board')}
-          </Link>
-          <header className="flex flex-wrap items-start justify-between gap-4">
-            <div className="space-y-1">
-              <p className="text-overline font-semibold uppercase tracking-widest text-muted-foreground">{lot.title}</p>
-              <h1 className="font-mono text-2xl font-bold tracking-tight">{lot.lotNumber}</h1>
-              <span className={cn('inline-block rounded-full px-2.5 py-0.5 text-xs font-semibold', band.head)}>
-                {band.label} · {t('cc_production.bstage.age', 'day {days}', { days: lot.ageDays })}
-              </span>
-            </div>
-            <div className="flex gap-2 print:hidden">
-              <Button type="button" variant="outline" onClick={() => window.print()}>
-                <Printer className="mr-1.5 h-4 w-4" aria-hidden="true" />
-                {t('cc_production.bstage.label', 'Print label')}
+    <>
+      <RecordPage
+        back={{ href: '/backend/bstage', label: t('cc_production.bstage.title', 'B-stage board') }}
+        overline={lot.title}
+        title={lot.lotNumber}
+        badges={<span className={cn('inline-block rounded-full px-2.5 py-0.5 text-xs font-semibold', band.head)}>{t(`cc_production.bstage.band.${lot.band}`, band.label)}</span>}
+        meta={t('cc_production.bstage.coatedOn', 'Coated {date} on {dryer}', { date: day(lot.madeOn), dryer: lot.dryerCode ?? '—' })}
+        actions={
+          <>
+            <Button type="button" variant="outline" size="sm" onClick={() => window.print()}>
+              <Printer className="mr-1.5 h-4 w-4" aria-hidden="true" />
+              {t('cc_production.bstage.label', 'Print label')}
+            </Button>
+            {granted.has('cc_production.bstage.manage') && lot.freeKg > 0 ? (
+              <Button type="button" variant="outline" size="sm" onClick={() => setScrapping(true)}>
+                <Trash2 className="mr-1.5 h-4 w-4" aria-hidden="true" />
+                {t('cc_production.bstage.scrap', 'Scrap')}
               </Button>
-              {granted.has('cc_production.bstage.manage') && lot.freeKg > 0 ? (
-                <Button type="button" variant="outline" onClick={() => setScrapping(true)}>
-                  <Trash2 className="mr-1.5 h-4 w-4" aria-hidden="true" />
-                  {t('cc_production.bstage.scrap', 'Scrap')}
-                </Button>
-              ) : null}
-            </div>
-          </header>
-
-          <section className="grid grid-cols-2 gap-4 rounded-xl border border-border bg-card p-5 shadow-sm md:grid-cols-4">
-            {(
-              [
-                [t('cc_production.coating.cloth', 'Cloth name'), `${lot.clothTitle ?? '—'}${lot.gsm ? ` · ${lot.gsm} GSM` : ''}`],
-                [t('cc_production.bstage.left', 'Left'), `${kg(lot.onHandKg)} kg${lot.nosLeft !== null ? ` · ${lot.nosLeft} nos` : ''}`],
-                [t('cc_production.bstage.made', 'Made'), `${kg(lot.madeKg)} kg${lot.nosMade !== null ? ` · ${lot.nosMade} nos` : ''}`],
-                [t('cc_production.bstage.where', 'Where'), lot.placeLabel ?? '—'],
-                [t('cc_production.bstage.coated', 'Coated'), `${day(lot.madeOn)} · ${lot.dryerCode ?? '—'}`],
-                [t('cc_production.bstage.useBy', 'Use by'), `${day(lot.expiresOn)} (${lot.shelfLife} days)`],
-                [t('cc_production.bstage.blockedAfter', 'Blocked after'), `${lot.maxUse} days`],
-                [t('cc_production.bstage.resin', 'Resin batch'), lot.resinBatchNo ?? '—'],
-              ] as Array<[string, string]>
-            ).map(([label, value]) => (
-              <div key={label}>
-                <p className="text-xs uppercase tracking-wide text-muted-foreground">{label}</p>
-                <p className="mt-0.5 text-sm font-semibold">{value}</p>
-              </div>
-            ))}
-          </section>
-
-          <section className="rounded-xl border border-border bg-card shadow-sm">
-            <header className="flex items-center justify-between border-b border-border px-5 py-3">
-              <h2 className="text-sm font-semibold uppercase tracking-wide">{t('cc_production.bstage.movements', 'Came from and went to')}</h2>
-              {lot.sheetId ? (
-                <Link className="text-sm underline-offset-2 hover:underline" href={`/backend/coating/${lot.sheetId}`}>
-                  {t('cc_production.bstage.sheet', 'Dryer sheet')}
-                </Link>
-              ) : null}
-            </header>
-            <ul className="divide-y divide-border">
-              {lot.movements.map((movement) => (
-                <li key={movement.id} className="flex flex-wrap items-baseline justify-between gap-2 px-5 py-2.5 text-sm">
-                  <span>{movement.reason ?? movement.reasonCode ?? '—'}</span>
-                  <span className="flex gap-4 tabular-nums">
-                    <span className={movement.kg < 0 ? 'text-muted-foreground' : 'font-semibold'}>
-                      {movement.kg > 0 ? '+' : ''}
-                      {kg(movement.kg)} kg
-                    </span>
-                    <span className="text-xs text-muted-foreground">{when(movement.at)}</span>
-                  </span>
-                </li>
-              ))}
-            </ul>
-            <p className="px-5 py-3 text-xs text-muted-foreground">{t('cc_production.bstage.next', 'Press batches (Stage 5) and order despatch (Stage 9) take from this lot and show here.')}</p>
-          </section>
-        </div>
+            ) : null}
+          </>
+        }
+        chain={<PlantChain current="coating" hrefs={{ coating: lot.sheetId ? recordHref.coatingSheet(lot.sheetId) : null }} />}
+        facts={facts}
+      >
+        <RecordColumns
+          main={
+            <Panel title={t('cc_production.bstage.movements', 'Came from and went to')} icon={History} count={lot.movements.length} flush>
+              <RegisterGrid
+                rows={lot.movements}
+                rowKey={(movement) => movement.id}
+                empty={t('cc_production.bstage.noMoves', 'No movements on this lot.')}
+                columns={[
+                  { key: 'at', label: t('cc_production.bstage.when', 'When'), render: (movement) => when(movement.at) },
+                  { key: 'doc', label: t('cc_production.bstage.document', 'Document'), render: (movement) => (movement.document ? <DocLink doc={movement.document} /> : movement.reasonCode ?? '—') },
+                  { key: 'reason', label: t('cc_production.bstage.detail', 'Detail'), render: (movement) => <span className="whitespace-normal text-xs text-muted-foreground">{movement.reason ?? '—'}</span> },
+                  {
+                    key: 'kg',
+                    label: 'kg',
+                    align: 'right',
+                    render: (movement) => (
+                      <span className={movement.kg < 0 ? 'text-muted-foreground' : 'font-semibold'}>
+                        {movement.kg > 0 ? '+' : ''}
+                        {kg(movement.kg)}
+                      </span>
+                    ),
+                    total: kg(lot.onHandKg),
+                  },
+                ]}
+              />
+            </Panel>
+          }
+          side={
+            <Panel title={t('cc_production.bstage.cameFrom', 'Came from')} icon={Layers}>
+              <FieldList
+                columns={1}
+                fields={[
+                  [t('cc_production.coating.cloth', 'Cloth name'), `${lot.clothTitle ?? '—'}${lot.gsm ? ` · ${lot.gsm} GSM` : ''}`],
+                  [
+                    t('cc_production.bstage.sheet', 'Dryer sheet'),
+                    lot.sheetId ? (
+                      <Link key="sheet" className="underline-offset-2 hover:underline" href={recordHref.coatingSheet(lot.sheetId)}>
+                        {lot.dryerCode ?? '—'} · {day(lot.madeOn)}
+                      </Link>
+                    ) : null,
+                  ],
+                  [t('cc_production.bstage.resin', 'Resin batch'), lot.resinBatchNo],
+                ]}
+              />
+            </Panel>
+          }
+        />
+      </RecordPage>
 
         <Dialog open={scrapping} onOpenChange={(open) => !open && setScrapping(false)}>
           <DialogContent
@@ -190,8 +195,7 @@ export function BstageLotPage({ lotId }: { lotId: string }) {
             </DialogFooter>
           </DialogContent>
         </Dialog>
-      </PageBody>
-    </Page>
+    </>
   )
 }
 
