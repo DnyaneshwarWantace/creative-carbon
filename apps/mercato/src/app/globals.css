@@ -858,8 +858,6 @@ aside a[data-menu-item-id] > span.bg-foreground {
   }
 }
 
-@media (max-width: 1023px) {
-  footer.backdrop-blur.justify-end {
-    display: none;
-  }
+footer.backdrop-blur.justify-end {
+  display: none;
 }

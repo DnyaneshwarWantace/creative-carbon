@@ -104,7 +104,7 @@ export function PlantTable<T>({
         {toolbar}
         <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
           {t('cc_production.table.rows', 'Rows')}
-          <Dropdown className="h-8 rounded-md border border-input bg-background px-1.5 text-xs" value={pageSize} onChange={(event) => changePageSize(Number(event.target.value))} aria-label={t('cc_production.table.rows', 'Rows')}>
+          <Dropdown className="w-20" value={pageSize} onChange={(event) => changePageSize(Number(event.target.value))} aria-label={t('cc_production.table.rows', 'Rows')}>
             {PAGE_SIZES.map((size) => (
               <option key={size} value={size}>
                 {size || t('cc_production.table.all', 'All')}

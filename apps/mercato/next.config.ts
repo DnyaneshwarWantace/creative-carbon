@@ -27,6 +27,7 @@ const nextConfig: NextConfig & { agentRules?: boolean } = {
   // chain with a ratcheted byte budget (yarn agents:check-budget), so the
   // generated files would be untracked churn outside that system.
   agentRules: false,
+  devIndicators: false,
   experimental: {
     serverMinification: false,
     turbopackMinify: false,

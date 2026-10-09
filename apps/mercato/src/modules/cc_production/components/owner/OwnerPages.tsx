@@ -92,7 +92,7 @@ export function OwnerOverviewPage() {
           <header className="flex flex-wrap items-end justify-between gap-3">
             <div>
               <p className="text-overline font-semibold uppercase tracking-widest text-muted-foreground">Creative Carbon · Kanera</p>
-              <h1 className="text-2xl font-bold tracking-tight">{t('cc_production.owner.title', 'Owner overview')}</h1>
+              <h1 className="text-2xl font-bold tracking-tight">{t('cc_production.owner.title', 'Plant today')}</h1>
             </div>
             <div className="flex items-center gap-2">
               <OfflineBadge />
@@ -303,7 +303,7 @@ export function PlanPage() {
         <div className="mx-auto flex max-w-3xl flex-col gap-5 pb-12">
           <Link href={`/backend/owner?date=${date}`} className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
             <ArrowLeft className="h-4 w-4" aria-hidden="true" />
-            {t('cc_production.owner.title', 'Owner overview')}
+            {t('cc_production.owner.title', 'Plant today')}
           </Link>
           <header className="flex flex-wrap items-end justify-between gap-3">
             <div>
