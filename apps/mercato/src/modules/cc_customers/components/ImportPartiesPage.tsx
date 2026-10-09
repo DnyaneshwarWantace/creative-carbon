@@ -13,7 +13,7 @@ import { useGuardedMutation } from '@open-mercato/ui/backend/injection/useGuarde
 import { flash } from '@open-mercato/ui/backend/FlashMessages'
 import { parseCsv, normalizeHeader } from '../../cc_products/lib/csv'
 import { downloadCsv } from '../../cc_products/lib/csvExport'
-import { GSTIN_PATTERN, GST_STATES, stateFromGstin } from '../../cc_accounts/lib/gstStates'
+import { GSTIN_PATTERN, GST_STATES } from '../../cc_accounts/lib/gstStates'
 import { usePaymentTerms } from '../../cc_lists/components/usePaymentTerms'
 import { paymentTermKey } from '../../cc_lists/lib/paymentTerms'
 
@@ -27,7 +27,7 @@ const CUSTOMER_COLUMNS: Column[] = [
   { key: 'legal_name', header: 'Legal name', example: 'Sample Switchgear Pvt Ltd' },
   { key: 'type', header: 'Business or Individual', example: 'Business' },
   { key: 'gst_treatment', header: 'GST treatment', example: 'Registered' },
-  { key: 'gstin', header: 'GSTIN', example: '27AAACR1234A1Z5' },
+  { key: 'gstin', header: 'GSTIN', example: '27AAACR1234A1Z3' },
   { key: 'sales_manager', header: 'Sales manager', example: 'Priya' },
   { key: 'payment_terms', header: 'Payment terms', example: '30 days' },
   { key: 'payment_remarks', header: 'Payment remarks', example: '40% advance 60% before dispatch' },
@@ -158,30 +158,35 @@ export function ImportPartiesPage({ kind }: { kind: Kind }) {
   }
 
   const importCustomer = async (values: Record<string, string>) => {
-    const gstin = values.gstin?.trim().toUpperCase() || null
-    const body: Record<string, unknown> = {
-      displayName: values.name.trim(),
-      primaryPhone: values.phone || null,
-      primaryEmail: values.email || null,
-      cf_customer_type_category: values.type?.toLowerCase().startsWith('ind') ? 'individual' : 'business',
-      cf_legal_trade_name: values.legal_name || values.name.trim(),
-      cf_gst_registration_type: values.gst_treatment?.trim().toLowerCase() || (gstin ? 'registered' : 'unregistered'),
-      cf_gstin: gstin,
-      cf_sales_manager: values.sales_manager || null,
-      cf_payment_terms: termValue(values.payment_terms ?? '', terms) ?? 'due_on_delivery',
-      cf_payment_remarks: values.payment_remarks || null,
-      cf_default_currency: 'INR',
+    const gstin = values.gstin?.trim().toUpperCase() || ''
+    const treatment = values.gst_treatment?.trim().toLowerCase() || (gstin ? 'registered' : 'unregistered')
+    const address = (prefix: 'billing' | 'shipping') => ({
+      street: values[`${prefix}_street`] || '',
+      district: values[`${prefix}_city`] || '',
+      state: values[`${prefix}_state`] || '',
+      pin: values[`${prefix}_pin`] || '',
+      country: treatment === 'overseas' ? values[`${prefix}_country`] || '' : 'India',
+    })
+    const body = {
+      name: values.name.trim(),
+      legalName: values.legal_name || '',
+      category: values.type?.toLowerCase().startsWith('ind') ? 'individual' : 'business',
+      gstType: ['registered', 'unregistered', 'composition', 'overseas'].includes(treatment) ? treatment : gstin ? 'registered' : 'unregistered',
+      gstin,
+      phone: values.phone || '',
+      email: values.email || '',
+      salesManager: values.sales_manager || '',
+      paymentTerms: termValue(values.payment_terms ?? '', terms) ?? 'due_on_delivery',
+      paymentRemarks: values.payment_remarks || '',
+      billing: address('billing'),
+      shipping: values.shipping_street ? address('shipping') : null,
+      contacts: values.contact_name ? [{ name: values.contact_name, phone: values.contact_phone || '', email: values.contact_email || '' }] : [],
     }
-    const call = await apiCall<{ id?: string; error?: string }>('/api/customers/companies', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) })
-    if (!call.ok || !call.result?.id) throw new Error(call.result?.error ?? 'not saved')
-    const id = call.result.id
-    for (const prefix of ['billing', 'shipping'] as const) {
-      if (!values[`${prefix}_street`]) continue
-      const state = values[`${prefix}_state`] || (prefix === 'billing' ? stateFromGstin(gstin)?.name : '') || undefined
-      await apiCall('/api/customers/addresses', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ entityId: id, purpose: prefix, name: prefix === 'billing' ? 'Billing' : 'Shipping', addressLine1: values[`${prefix}_street`], city: values[`${prefix}_city`] || undefined, region: state, postalCode: values[`${prefix}_pin`] || undefined, country: 'India', isPrimary: prefix === 'billing' }) })
+    const call = await apiCall<{ id?: string; error?: string; fields?: Record<string, string> }>('/api/cc_customers/customers', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) })
+    if (!call.ok || !call.result?.id) {
+      const fields = Object.values(call.result?.fields ?? {})
+      throw new Error(fields.length ? fields.join('; ') : (call.result?.error ?? 'not saved'))
     }
-    if (values.contact_name) await apiCall('/api/customers/contacts', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ entityId: id, name: values.contact_name, phone: values.contact_phone || undefined, email: values.contact_email || undefined }) })
-    await apiCall('/api/cc_customers/number', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ customerId: id }) })
   }
 
   const importVendor = async (values: Record<string, string>) => {

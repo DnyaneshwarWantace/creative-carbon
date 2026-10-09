@@ -23,9 +23,11 @@ export function WorkspaceDenied({ home }: { home: string | null }) {
             <Link href={home}>{t('cc_departments.workspace.goHome', 'Go to my start page')}</Link>
           </Button>
         ) : null}
-        <Button asChild variant="outline">
-          <a href="/api/auth/logout">{t('cc_departments.workspace.signOut', 'Sign out')}</a>
-        </Button>
+        <form method="post" action="/api/auth/logout">
+          <Button type="submit" variant="outline">
+            {t('cc_departments.workspace.signOut', 'Sign out')}
+          </Button>
+        </form>
       </div>
     </div>
   )
