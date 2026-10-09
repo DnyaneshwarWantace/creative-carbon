@@ -1,9 +1,9 @@
-import { CcOrderLine, CcOrderStage } from '../../cc_orders/data/entities'
+import { CcOrderAllocation, CcOrderLine, CcOrderStage } from '../../cc_orders/data/entities'
 import { logEvent } from '../../cc_orders/lib/engine'
 import { priceLine } from '../../cc_orders/lib/pricing'
 import { findOrder, loadCustomers, loadProducts, type OrderContext } from '../../cc_orders/lib/server'
 import { stepStates } from '../../cc_orders/lib/stages'
-import { TaxInvoice, type ExportDetails, type ExportSupply, type InvoiceLine, type InvoiceTotals } from '../data/entities'
+import { TaxInvoice, type BstageLotLine, type ExportDetails, type ExportSupply, type InvoiceLine, type InvoiceTotals } from '../data/entities'
 import { bankText, companyView, loadCompany } from './documents'
 import { AccountsError } from './service'
 import { GST_STATES } from './gstStates'
@@ -77,6 +77,8 @@ async function buildLines(
       )
     : []
   const hsn = new Map(hsnRows.map((row) => [row.record_id, row.value_text]))
+  const bstageLines = orderLines.filter((line) => products.get(line.productId)?.kind === 'bstage')
+  const bstageLots = await bstageLotsFor(ctx, orderId, bstageLines.map((line) => line.id))
   const result: InvoiceLine[] = []
   for (const line of orderLines) {
     const available = limit.get(line.id) ?? 0
@@ -105,6 +107,7 @@ async function buildLines(
           taxable: price.taxable,
           gst: price.gst,
           total: price.total,
+          ...(bstageLots.has(line.id) ? { bstageLots: bstageLots.get(line.id) } : {}),
         },
         interState,
       ),
@@ -341,4 +344,31 @@ export async function updateExportDetails(ctx: Scope, invoice: TaxInvoice, patch
     await updateInvoiceLines(ctx, invoice, invoice.lines.map((line) => ({ orderLineId: line.orderLineId, quantity: line.quantity })), byName)
   }
   invoice.history = [...(invoice.history ?? []), { action: 'export', by: byName, at: new Date().toISOString(), note: changed.join(', ') }]
+}
+
+async function bstageLotsFor(ctx: Scope, orderId: string, lineIds: string[]): Promise<Map<string, BstageLotLine[]>> {
+  const result = new Map<string, BstageLotLine[]>()
+  if (!lineIds.length) return result
+  const allocations = await ctx.em.find(CcOrderAllocation, { orderId, lineId: { $in: lineIds }, tenantId: ctx.tenantId, organizationId: ctx.organizationId, status: { $in: ['reserved', 'shipped'] } })
+  if (!allocations.length) return result
+  const lots = await ctx.em.getConnection().execute<Array<{ id: string; manufactured_at: Date | null; metadata: Record<string, unknown> | null }>>(
+    'select id, manufactured_at, metadata from wms_inventory_lots where id = any(?::uuid[]) and tenant_id = ? and organization_id = ?',
+    [`{${[...new Set(allocations.map((entry) => entry.lotId))].join(',')}}`, ctx.tenantId, ctx.organizationId],
+  )
+  const byId = new Map(lots.map((lot) => [lot.id, lot]))
+  for (const allocation of allocations) {
+    const lot = byId.get(allocation.lotId)
+    const meta = lot?.metadata ?? {}
+    const gsm = Number(meta.gsm)
+    const list = result.get(allocation.lineId) ?? []
+    list.push({
+      lotNumber: allocation.lotNumber,
+      kg: Math.round(Number(allocation.qty) * 1000) / 1000,
+      cloth: typeof meta.clothTitle === 'string' ? meta.clothTitle : null,
+      gsm: Number.isFinite(gsm) && gsm > 0 ? gsm : null,
+      madeOn: lot?.manufactured_at ? new Date(lot.manufactured_at).toISOString().slice(0, 10) : null,
+    })
+    result.set(allocation.lineId, list)
+  }
+  return result
 }

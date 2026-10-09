@@ -86,6 +86,8 @@ export function FulfilmentPanel({ orderId, stageKey, stageStatus, editable }: { 
   const open = stageStatus === 'open' || stageStatus === 'on_hold'
   const can = (feature: string) => editable && open && granted.has(feature)
 
+  const [overAge, setOverAge] = React.useState<{ lotId: string; message: string; reason: string } | null>(null)
+
   const post = async (body: Record<string, unknown>, success: string) => {
     setBusy(true)
     try {
@@ -95,9 +97,15 @@ export function FulfilmentPanel({ orderId, stageKey, stageStatus, editable }: { 
         operation: () => apiCall<Fulfilment & { error?: string; overAllocated?: boolean }>('/api/cc_orders/orders/fulfilment', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ orderId, ...body }) }),
       })
       if (!call.ok || !call.result || call.result.error) {
-        flash(call.result?.error ?? t('cc_orders.fulfilment.error', 'Could not do that.'), 'error')
+        const message = call.result?.error ?? t('cc_orders.fulfilment.error', 'Could not do that.')
+        if (body.action === 'allocate' && typeof body.lotId === 'string' && /Give a reason to sell it/.test(message)) {
+          setOverAge({ lotId: body.lotId, message, reason: '' })
+          return false
+        }
+        flash(message, 'error')
         return false
       }
+      setOverAge(null)
       flash(call.result.overAllocated ? t('cc_orders.fulfilment.over', 'Saved. The packed weight is more than the allocated stock; allocate more before despatch.') : success, call.result.overAllocated ? 'error' : 'success')
       notifyOrderChanged(orderId)
       return true
@@ -212,7 +220,9 @@ export function FulfilmentPanel({ orderId, stageKey, stageStatus, editable }: { 
                                 variant="ghost"
                                 disabled={busy || !Number(qty[candidate.lotId]) || candidate.status !== 'available'}
                                 onClick={async () => {
-                                  if (await post({ action: 'allocate', lineId: line.lineId, lotId: candidate.lotId, qty: Number(qty[candidate.lotId]) }, t('cc_orders.fulfilment.allocated', 'Allocated and held for this order.'))) setPicking(null)
+                                  const reason = overAge?.lotId === candidate.lotId ? overAge.reason.trim() : ''
+                                  if (overAge?.lotId === candidate.lotId && !reason) return
+                                  if (await post({ action: 'allocate', lineId: line.lineId, lotId: candidate.lotId, qty: Number(qty[candidate.lotId]), ...(reason ? { reason } : {}) }, t('cc_orders.fulfilment.allocated', 'Allocated and held for this order.'))) setPicking(null)
                                 }}
                                 aria-label={t('cc_orders.fulfilment.allocate', 'Allocate')}
                               >
@@ -221,6 +231,23 @@ export function FulfilmentPanel({ orderId, stageKey, stageStatus, editable }: { 
                             </td>
                           </tr>
                         ))}
+                        {overAge && candidates.some((candidate) => candidate.lotId === overAge.lotId) ? (
+                          <tr>
+                            <td colSpan={5} className="py-2">
+                              <div className="space-y-1.5 rounded-md border border-status-warning-border bg-status-warning-bg p-2 text-status-warning-text">
+                                <p className="text-xs font-medium">{overAge.message}</p>
+                                <input
+                                  className="h-8 w-full rounded border border-input bg-background px-2 text-sm text-foreground"
+                                  placeholder={t('cc_orders.fulfilment.overAgeHint', 'e.g. Customer agreed after a press trial; priced lower')}
+                                  aria-label={t('cc_orders.fulfilment.overAgeReason', 'Reason to sell an old B-stage lot')}
+                                  value={overAge.reason}
+                                  onChange={(event) => setOverAge({ ...overAge, reason: event.target.value })}
+                                />
+                                <p className="text-xs">{t('cc_orders.fulfilment.overAgeThen', 'Then press + again. The reason is kept on the order.')}</p>
+                              </div>
+                            </td>
+                          </tr>
+                        ) : null}
                       </tbody>
                     </table>
                     </div>

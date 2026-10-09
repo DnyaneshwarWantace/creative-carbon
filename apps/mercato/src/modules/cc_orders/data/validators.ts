@@ -112,7 +112,7 @@ export type StageSettingInput = z.infer<typeof stageSettingSchema>
 export const fulfilmentQuerySchema = z.object({ id: z.string().uuid(), lineId: z.string().uuid().optional() })
 
 export const fulfilmentActionSchema = z.discriminatedUnion('action', [
-  z.object({ action: z.literal('allocate'), orderId: z.string().uuid(), lineId: z.string().uuid(), lotId: z.string().uuid(), qty: z.coerce.number().positive().max(10_000_000) }),
+  z.object({ action: z.literal('allocate'), orderId: z.string().uuid(), lineId: z.string().uuid(), lotId: z.string().uuid(), qty: z.coerce.number().positive().max(10_000_000), reason: z.string().trim().max(300).optional() }),
   z.object({ action: z.literal('release'), orderId: z.string().uuid(), allocationId: z.string().uuid() }),
   z.object({
     action: z.literal('pack'),

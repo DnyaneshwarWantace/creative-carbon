@@ -24,6 +24,18 @@ export function buildInvoiceHtml(doc: InvoiceView, company: CompanyView, forPrin
   const cur = exp ? exp.currency : '₹'
   const title = credit ? 'Credit note' : exp ? 'Export invoice' : 'Tax invoice'
   const zeroRated = Boolean(exp && exp.supply === 'lut')
+  const bstage = doc.lines.filter((line) => line.bstageLots?.length)
+  const ageOn = (madeOn: string | null) => (madeOn ? Math.max(0, Math.round((new Date(`${doc.invoiceDate}T00:00:00Z`).getTime() - new Date(`${madeOn}T00:00:00Z`).getTime()) / 86400000)) : null)
+  const bstageTable = bstage.length
+    ? `<div class="box" style="margin-top:12px"><h3>B-stage lots supplied (priced per kg)</h3><table><thead><tr><th>Lot no.</th><th>Item</th><th>Cloth / paper</th><th class="r">GSM</th><th>Coated on</th><th class="r">Age (days)</th><th class="r">Kg</th></tr></thead><tbody>${bstage
+        .flatMap((line) =>
+          (line.bstageLots ?? []).map((lot) => {
+            const age = ageOn(lot.madeOn)
+            return `<tr><td class="mono">${esc(lot.lotNumber)}</td><td>${esc(line.title)}</td><td>${esc(lot.cloth ?? '—')}</td><td class="r">${lot.gsm ?? '—'}</td><td>${day(lot.madeOn)}</td><td class="r">${age ?? '—'}</td><td class="r">${new Intl.NumberFormat('en-IN', { minimumFractionDigits: 3, maximumFractionDigits: 3 }).format(lot.kg)}</td></tr>`
+          }),
+        )
+        .join('')}</tbody></table><div class="muted" style="margin-top:6px">B-stage is resin-impregnated cloth / paper. Store cool and dry, away from sunlight; press within the shelf life counted from the coating date.</div></div>`
+    : ''
   const taxHead = zeroRated ? '' : doc.interState ? `<th class="r">IGST ${cur}</th>` : `<th class="r">CGST ${cur}</th><th class="r">SGST ${cur}</th>`
   const rows = doc.lines
     .map((line, index) => {
@@ -87,7 +99,7 @@ export function buildInvoiceHtml(doc: InvoiceView, company: CompanyView, forPrin
       ${company.gstin ? `<div class="code">GSTIN ${esc(company.gstin)}${company.pan ? ` · PAN ${esc(company.pan)}` : ''}</div>` : ''}
     </div>
     <div class="doc">
-      <div class="kind">${title}</div>
+      <div class="kind">${title}${bstage.length && !exp ? ' · B-stage sale' : ''}</div>
       <div class="no">${esc(doc.code)}</div>
       ${declaration ? `<div class="decl">${declaration}</div>` : ''}
       <div class="muted">Date ${day(doc.invoiceDate)}${!credit && doc.dueDate ? `<br>Due ${day(doc.dueDate)}` : ''}<br>Order ${esc(doc.orderNo)}${credit && doc.againstCode ? `<br>Against invoice ${esc(doc.againstCode)}` : ''}</div>
@@ -105,6 +117,7 @@ export function buildInvoiceHtml(doc: InvoiceView, company: CompanyView, forPrin
     <thead><tr><th>#</th><th>Product</th><th>HSN</th><th class="r">Qty</th><th class="r">Rate ${cur}</th><th class="r">Disc.</th><th class="r">Taxable ${cur}</th>${taxHead}<th class="r">Amount ${cur}</th></tr></thead>
     <tbody>${rows}</tbody>
   </table>
+  ${bstageTable}
   <div class="sum">
     <div>
       <div class="muted">Amount in words</div><div class="words">${esc(amountInWords(doc.totals.payable, exp?.currency ?? 'INR'))}</div>

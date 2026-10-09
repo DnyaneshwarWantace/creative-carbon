@@ -91,7 +91,7 @@ export const PI_STATUS: Record<PiView['status'], { label: string; variant: 'neut
   cancelled: { label: 'Cancelled', variant: 'neutral' },
 }
 
-export type InvoiceLine = PiLine & { orderLineId: string; cgst: number; sgst: number; igst: number }
+export type InvoiceLine = PiLine & { orderLineId: string; cgst: number; sgst: number; igst: number; bstageLots?: Array<{ lotNumber: string; kg: number; cloth: string | null; gsm: number | null; madeOn: string | null }> | null }
 
 export type InvoiceView = {
   id: string

@@ -284,7 +284,8 @@ export class ProformaInvoice {
 
 export type InvoiceStatus = 'draft' | 'issued' | 'cancelled'
 export type InvoiceKind = 'invoice' | 'credit_note'
-export type InvoiceLine = PiLine & { orderLineId: string; cgst: number; sgst: number; igst: number }
+export type BstageLotLine = { lotNumber: string; kg: number; cloth: string | null; gsm: number | null; madeOn: string | null }
+export type InvoiceLine = PiLine & { orderLineId: string; cgst: number; sgst: number; igst: number; bstageLots?: BstageLotLine[] | null }
 export type InvoiceTotals = PiTotals & { cgst: number; sgst: number; igst: number; roundOff: number; payable: number }
 
 @Entity({ tableName: 'cc_tax_invoices' })

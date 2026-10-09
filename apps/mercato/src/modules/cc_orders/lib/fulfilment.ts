@@ -2,6 +2,7 @@ import type { StoreContext } from '../../cc_store/lib/server'
 import { runCommand } from '../../cc_store/lib/server'
 import type { StockPlace } from '../../cc_products/lib/stock'
 import { lotsWithDetails, type LotInfo } from '../../cc_production/lib/finishing'
+import { bstageLot } from '../../cc_production/lib/bstage'
 import { kg3, movementTime, plantStock, returnLots, consumeLots } from '../../cc_production/lib/plantStock'
 import { MouldingEntry } from '../../cc_production/data/entities'
 import { CcOrder, CcOrderAllocation, CcOrderLine, CcOrderPacking, CcOrderStage } from '../data/entities'
@@ -173,7 +174,7 @@ async function refreshAllocationSteps(ctx: OrderContext, order: CcOrder, stage: 
   setSteps(stage, { checked: any || Boolean(stepStates(stage.data).checked?.done), allocated: full }, byName)
 }
 
-export async function allocateLot(ctx: OrderContext, order: CcOrder, input: { lineId: string; lotId: string; qty: number }, byName: string | null) {
+export async function allocateLot(ctx: OrderContext, order: CcOrder, input: { lineId: string; lotId: string; qty: number; reason?: string }, byName: string | null) {
   const stage = await stageOf(ctx, order.id, 'allocation')
   requireOpen(stage, 'Stock allocation')
   const info = (await orderLines(ctx, order.id)).find((entry) => entry.line.id === input.lineId)
@@ -183,24 +184,38 @@ export async function allocateLot(ctx: OrderContext, order: CcOrder, input: { li
   if (!lot || lot.productId !== info.line.productId) throw new OrderError('That lot is not this item', 400)
   if (!placesFor(info.kind).includes(lot.place)) throw new OrderError(`That lot is in the ${lot.placeLabel}; ${info.kind === 'laminate' || info.kind === 'moulded' ? 'only finished stock in the FG store' : 'it'} can be allocated`, 409)
   if (lot.status !== 'available') throw new OrderError(`${lot.lotNumber} is on hold`, 409)
+  let overAge: string | null = null
+  if (info.kind === 'bstage') {
+    const age = await bstageLot(store, lot.lotId)
+    if (age.band === 'expired' || age.band === 'blocked') {
+      if (!input.reason?.trim()) throw new OrderError(`${lot.lotNumber} is ${age.ageDays} days old (past ${age.shelfLife} days). Give a reason to sell it.`, 409)
+      overAge = `${age.ageDays} days old, sold with reason: ${input.reason.trim()}`
+    }
+  }
   const already = sumQty(await ctx.em.find(CcOrderAllocation, { ...scope(ctx), orderId: order.id, lineId: info.line.id, status: { $in: ['reserved', 'shipped'] } }), 'qty')
   const qty = kg3(input.qty)
-  if (qty > lot.free + EPSILON) throw new OrderError(`Only ${lot.free} ${lot.unit} of ${lot.lotNumber} is free`, 409)
+  const heldOutsideStock = overAge ? sumQty(await ctx.em.find(CcOrderAllocation, { ...scope(ctx), lotId: lot.lotId, status: 'reserved', reservationId: null }), 'qty') : 0
+  const free = kg3(lot.free - heldOutsideStock)
+  if (qty > free + EPSILON) throw new OrderError(`Only ${free} ${lot.unit} of ${lot.lotNumber} is free`, 409)
   if (already + qty > info.qty + EPSILON) throw new OrderError(`The line needs only ${kg3(info.qty - already)} ${info.unit} more`, 400)
-  const stock = await plantStock(store, [info.line.productId])
-  const reservation = await runCommand<{ reservationId: string }>(store, 'wms.inventory.reserve', {
-    warehouseId: stock.warehouseId,
-    catalogVariantId: stock.variants.get(info.line.productId),
-    lotId: lot.lotId,
-    quantity: qty,
-    sourceType: 'order',
-    sourceId: order.id,
-    metadata: { orderNo: order.orderNo, lineId: info.line.id },
-  })
-  ctx.em.persist(ctx.em.create(CcOrderAllocation, { ...scope(ctx), orderId: order.id, lineId: info.line.id, productId: info.line.productId, lotId: lot.lotId, lotNumber: lot.lotNumber, place: lot.place, qty: String(qty), unit: lot.unit, reservationId: reservation.reservationId, byName }))
+  let reservationId: string | null = null
+  if (!overAge) {
+    const stock = await plantStock(store, [info.line.productId])
+    const reservation = await runCommand<{ reservationId: string }>(store, 'wms.inventory.reserve', {
+      warehouseId: stock.warehouseId,
+      catalogVariantId: stock.variants.get(info.line.productId),
+      lotId: lot.lotId,
+      quantity: qty,
+      sourceType: 'order',
+      sourceId: order.id,
+      metadata: { orderNo: order.orderNo, lineId: info.line.id },
+    })
+    reservationId = reservation.reservationId
+  }
+  ctx.em.persist(ctx.em.create(CcOrderAllocation, { ...scope(ctx), orderId: order.id, lineId: info.line.id, productId: info.line.productId, lotId: lot.lotId, lotNumber: lot.lotNumber, place: lot.place, qty: String(qty), unit: lot.unit, reservationId, byName }))
   await ctx.em.flush()
   await refreshAllocationSteps(ctx, order, stage, byName)
-  logEvent(ctx, order, 'allocated', 'allocation', `${info.title}: ${qty} ${lot.unit} from ${lot.lotNumber}`, byName)
+  logEvent(ctx, order, 'allocated', 'allocation', `${info.title}: ${qty} ${lot.unit} from ${lot.lotNumber}${overAge ? ` (${overAge})` : ''}`, byName)
   await ctx.em.flush()
 }
 
