@@ -37,6 +37,12 @@ const LEDGER_FIELDS: Array<{ key: string; label: string; fallback: string }> = [
   { key: 'roundOff', label: 'Round off ledger', fallback: 'Round Off' },
 ]
 
+const LEDGER_GROUPS = [
+  { key: 'sales', title: 'Sales', keys: ['sales', 'outputCgst', 'outputSgst', 'outputIgst'] },
+  { key: 'purchase', title: 'Purchase', keys: ['purchase', 'inputCgst', 'inputSgst', 'inputIgst'] },
+  { key: 'other', title: 'Bank & other', keys: ['bank', 'roundOff'] },
+]
+
 const STORAGE_KEY = 'cc-tally-ledgers'
 
 function monthStart(): string {
@@ -130,12 +136,12 @@ export function TallyExportPage() {
     <Page>
       <PageBody>
         <div className="flex flex-col gap-5">
-          <header className="flex flex-col gap-3 border-b pb-4 lg:flex-row lg:items-end lg:justify-between">
-            <div className="space-y-1">
+          <header className="flex flex-col gap-4 border-b pb-4 xl:flex-row xl:items-end xl:justify-between">
+            <div className="min-w-0 flex-1 space-y-1">
               <h1 className="text-2xl font-bold tracking-tight">{t('cc_accounts.tally.title', 'Tally export')}</h1>
               <p className="max-w-3xl text-sm text-muted-foreground">{t('cc_accounts.tally.lede', 'Take sales, receipts, purchases and vendor payments into Tally. In Tally: Gateway → Import → Transactions, pick the XML file. Customer and vendor ledgers are created too when "Include ledgers" is on.')}</p>
             </div>
-            <div className="flex flex-wrap gap-2">
+            <div className="flex shrink-0 flex-wrap gap-2 xl:flex-nowrap">
               <Button type="button" variant="outline" onClick={() => void run('summary')} disabled={Boolean(busy)}>
                 <RefreshCw className="mr-1.5 h-4 w-4" aria-hidden="true" />
                 {t('cc_accounts.tally.preview', 'Preview')}
@@ -152,7 +158,8 @@ export function TallyExportPage() {
           </header>
 
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-            <section className="space-y-4 rounded-lg border bg-card p-4">
+            <section className="space-y-4 rounded-lg border bg-card p-5">
+              <h2 className="text-sm font-semibold">{t('cc_accounts.tally.what', 'What to export')}</h2>
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">
                   <Label htmlFor="tally-from">{t('cc_accounts.tally.from', 'From')}</Label>
@@ -183,15 +190,22 @@ export function TallyExportPage() {
               </div>
             </section>
 
-            <section className="rounded-lg border bg-card p-4 lg:col-span-2">
+            <section className="rounded-lg border bg-card p-5 lg:col-span-2">
               <h2 className="text-sm font-semibold">{t('cc_accounts.tally.ledgers', 'Ledger names in your Tally')}</h2>
-              <p className="mb-3 text-xs text-muted-foreground">{t('cc_accounts.tally.ledgersHint', 'Write them exactly as they are in Tally. They are remembered on this computer.')}</p>
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
-                {LEDGER_FIELDS.map((field) => (
-                  <div key={field.key} className="space-y-1">
-                    <Label htmlFor={`tally-ledger-${field.key}`} className="text-xs text-muted-foreground">{field.label}</Label>
-                    <Input id={`tally-ledger-${field.key}`} value={ledgers[field.key] ?? ''} onChange={(event) => setLedgers((prev) => ({ ...prev, [field.key]: event.target.value }))} />
-                  </div>
+              <p className="mb-4 text-xs text-muted-foreground">{t('cc_accounts.tally.ledgersHint', 'Write them exactly as they are in Tally. They are remembered on this computer.')}</p>
+              <div className="space-y-4">
+                {LEDGER_GROUPS.map((group) => (
+                  <fieldset key={group.title} className="space-y-2">
+                    <legend className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{t(`cc_accounts.tally.group.${group.key}`, group.title)}</legend>
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                      {LEDGER_FIELDS.filter((field) => group.keys.includes(field.key)).map((field) => (
+                        <div key={field.key} className="space-y-1">
+                          <Label htmlFor={`tally-ledger-${field.key}`} className="text-xs text-muted-foreground">{field.label}</Label>
+                          <Input id={`tally-ledger-${field.key}`} placeholder={field.fallback} value={ledgers[field.key] ?? ''} onChange={(event) => setLedgers((prev) => ({ ...prev, [field.key]: event.target.value }))} />
+                        </div>
+                      ))}
+                    </div>
+                  </fieldset>
                 ))}
               </div>
             </section>
