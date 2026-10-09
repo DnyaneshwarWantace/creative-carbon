@@ -163,8 +163,8 @@ export function StockLedgerPage() {
                           row.title
                         )}
                         <span className="block text-xs text-muted-foreground">
-                          <span className="font-mono">{row.code ?? '—'}</span>
-                          {row.lotNumber ? ` · ${t('cc_store.ledger.batch', 'batch {lot}', { lot: row.lotNumber })}` : ''}
+                          {row.code ? <span className="font-mono">{row.code}</span> : null}
+                          {row.lotNumber ? `${row.code ? ' · ' : ''}${t('cc_store.ledger.batch', 'batch {lot}', { lot: row.lotNumber })}` : ''}
                         </span>
                       </td>
                       <td className={cn('whitespace-nowrap px-3 py-2 text-right font-semibold tabular-nums', place !== 'all' && (row.quantity < 0 ? 'text-status-error-text' : 'text-status-success-text'))}>

@@ -74,13 +74,13 @@ export function ReorderPage() {
                 {t('cc_purchase.reorder.subtitle', 'Raw material is bought by reorder level, not from orders. Stock + open POs + open indents below the item’s reorder level is suggested back up to reorder level + safety stock. Set the level on the item (Minimum stock).')}
               </p>
             </div>
-            <div className="flex items-center gap-3">
-              <label className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
+            <div className="flex shrink-0 flex-wrap items-center gap-3">
+              <label className="inline-flex items-center gap-2 whitespace-nowrap text-sm text-muted-foreground">
                 <input type="checkbox" className="h-3.5 w-3.5 rounded-sm border-input" checked={all} onChange={(event) => setAll(event.target.checked)} />
                 {t('cc_purchase.reorder.all', 'Show every item with a reorder level')}
               </label>
               {granted.has('cc_purchase.indent') ? (
-                <Button type="button" disabled={saving || !chosen.length} onClick={raise}>
+                <Button type="button" disabled={saving || !chosen.length} onClick={raise} title={chosen.length ? undefined : t('cc_purchase.reorder.pickFirst', 'Tick the items to put on the indent first')}>
                   <ClipboardPlus className="mr-1.5 h-4 w-4" />
                   {t('cc_purchase.reorder.raise', 'Raise indent ({count})', { count: chosen.length })}
                 </Button>

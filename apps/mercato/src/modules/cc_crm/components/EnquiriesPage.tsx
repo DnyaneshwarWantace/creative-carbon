@@ -78,9 +78,10 @@ export function EnquiriesPage() {
                 key={key}
                 type="button"
                 onClick={() => setTab(key)}
-                className={cn('rounded-full border px-3 py-1 text-xs', tab === key ? 'border-primary bg-primary text-primary-foreground' : 'border-border bg-card text-muted-foreground hover:text-foreground', key === 'overdue' && tabCount(key) > 0 && tab !== key && 'border-status-error-border text-status-error-text')}
+                aria-pressed={tab === key}
+                className={cn('inline-flex h-8 items-center gap-1.5 rounded-full border px-3 text-xs font-medium', tab === key ? 'border-primary bg-primary text-primary-foreground' : 'border-border bg-card text-muted-foreground hover:text-foreground', key === 'overdue' && tabCount(key) > 0 && tab !== key && 'border-status-error-border text-status-error-text')}
               >
-                {tabLabel[key] ?? t(`cc_crm.stage.${key}`, STAGE_LABEL[key as keyof typeof STAGE_LABEL])} <span className="tabular-nums">{tabCount(key)}</span>
+                {tabLabel[key] ?? t(`cc_crm.stage.${key}`, STAGE_LABEL[key as keyof typeof STAGE_LABEL])} <span className={cn('rounded-full px-1.5 text-overline tabular-nums', tab === key ? 'bg-primary-foreground/20' : 'bg-muted')}>{tabCount(key)}</span>
               </button>
             ))}
             <div className="relative ml-auto w-full sm:w-72">

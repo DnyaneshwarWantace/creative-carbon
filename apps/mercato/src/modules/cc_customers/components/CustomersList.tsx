@@ -75,13 +75,14 @@ export default function CustomersList() {
             {row.original.display_name}
           </Link>
         ),
+        meta: { maxWidth: '320px' },
       },
-      { accessorKey: 'cf_customer_no', header: t('cc_customers.list.code', 'Customer no.'), cell: ({ row }) => <span className="font-mono text-sm">{row.original.cf_customer_no || '—'}</span> },
-      { accessorKey: 'cf_gstin', header: t('cc_customers.list.gstin', 'GSTIN'), cell: ({ row }) => <span className="font-mono text-sm">{row.original.cf_gstin || '—'}</span> },
-      { accessorKey: 'cf_sales_manager', header: t('cc_customers.list.salesManager', 'Sales manager'), cell: ({ row }) => <span className="text-sm">{row.original.cf_sales_manager || '—'}</span> },
-      { accessorKey: 'cf_payment_terms', header: t('cc_customers.list.terms', 'Payment terms'), cell: ({ row }) => <span className="text-sm">{paymentTermLabel(row.original.cf_payment_terms) || '—'}</span> },
+      { accessorKey: 'cf_customer_no', header: t('cc_customers.list.code', 'Customer no.'), cell: ({ row }) => <span className="font-mono text-sm">{row.original.cf_customer_no || '—'}</span>, meta: { maxWidth: '140px' } },
+      { accessorKey: 'cf_gstin', header: t('cc_customers.list.gstin', 'GSTIN'), cell: ({ row }) => <span className="font-mono text-sm">{row.original.cf_gstin || '—'}</span>, meta: { maxWidth: '180px' } },
+      { accessorKey: 'cf_sales_manager', header: t('cc_customers.list.salesManager', 'Sales manager'), cell: ({ row }) => <span className="text-sm">{row.original.cf_sales_manager || '—'}</span>, meta: { maxWidth: '180px' } },
+      { accessorKey: 'cf_payment_terms', header: t('cc_customers.list.terms', 'Payment terms'), cell: ({ row }) => <span className="text-sm">{paymentTermLabel(row.original.cf_payment_terms) || '—'}</span>, meta: { maxWidth: '220px' } },
       { accessorKey: 'primary_phone', header: t('cc_customers.list.phone', 'Phone'), cell: ({ row }) => <span className="text-sm tabular-nums">{row.original.primary_phone || '—'}</span> },
-      { accessorKey: 'primary_email', header: t('cc_customers.list.email', 'Email'), cell: ({ row }) => <span className="text-sm">{row.original.primary_email || '—'}</span> },
+      { accessorKey: 'primary_email', header: t('cc_customers.list.email', 'Email'), cell: ({ row }) => <span className="text-sm">{row.original.primary_email || '—'}</span>, meta: { maxWidth: '240px' } },
     ],
     [t],
   )

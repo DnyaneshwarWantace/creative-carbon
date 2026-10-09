@@ -211,14 +211,24 @@ export function OwnerOverviewPage() {
                         {lot.band === 'blocked' ? ' · blocked' : lot.band === 'expired' ? ' · past 7 days' : ''}
                       </Link>
                     ))}
+                    {data.breakdowns.bstageAtRisk.length > 8 ? (
+                      <Link className="block text-xs font-medium text-primary underline-offset-2 hover:underline" href="/backend/bstage">
+                        {t('cc_production.owner.more', '+ {count} more', { count: data.breakdowns.bstageAtRisk.length - 8 })}
+                      </Link>
+                    ) : null}
                   </div>
                   <div>
                     <p className="font-medium">{t('cc_production.owner.damaged', 'Damaged this week: {count}', { count: data.breakdowns.damaged.length })}</p>
-                    {data.breakdowns.damaged.map((row) => (
+                    {data.breakdowns.damaged.slice(0, 8).map((row) => (
                       <p key={row.id} className="text-xs text-muted-foreground">
                         {day(row.entryDate)} · {row.itemTitle} · {kg(row.kg)} · {row.reason}
                       </p>
                     ))}
+                    {data.breakdowns.damaged.length > 8 ? (
+                      <Link className="block text-xs font-medium text-primary underline-offset-2 hover:underline" href="/backend/fg/direct-in">
+                        {t('cc_production.owner.more', '+ {count} more', { count: data.breakdowns.damaged.length - 8 })}
+                      </Link>
+                    ) : null}
                   </div>
                   {data.breakdowns.belowReorder?.length ? (
                     <div>
@@ -228,7 +238,7 @@ export function OwnerOverviewPage() {
                           {t('cc_production.owner.reorder', 'Below reorder level: {count}', { count: data.breakdowns.belowReorder.length })}
                         </Link>
                       </p>
-                      {data.breakdowns.belowReorder.map((row) => (
+                      {data.breakdowns.belowReorder.slice(0, 8).map((row) => (
                         <p key={row.productId} className="text-xs text-muted-foreground">
                           {row.title} · {kg(row.onHand)} / {kg(row.reorderPoint)} {row.unit}
                           {row.onOrder ? ` · ${t('cc_production.owner.onOrder', '{qty} on order', { qty: kg(row.onOrder) })}` : ''}
@@ -338,7 +348,7 @@ export function PlanPage() {
               <Plus className="mr-1 h-4 w-4" aria-hidden="true" />
               {t('cc_production.plan.add', 'Add a line')}
             </Button>
-            <Input placeholder={t('cc_production.resin.notes', 'Remarks')} value={notes} onChange={(event) => setNotes(event.target.value)} />
+            <Input aria-label={t('cc_production.resin.notes', 'Remarks')} placeholder={t('cc_production.resin.notes', 'Remarks')} value={notes} onChange={(event) => setNotes(event.target.value)} />
             <div className="flex justify-end">
               <Button type="button" onClick={() => void save()}>
                 {t('cc_production.resin.save', 'Save')}

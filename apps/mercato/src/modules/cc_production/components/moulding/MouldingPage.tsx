@@ -69,8 +69,8 @@ const ROWS: Row[] = [
   { field: 'articleWeightKg', label: 'Weight of Article', kind: 'number' },
   { field: 'chindiKg', label: 'Weight of Chindi', kind: 'number' },
   { field: 'clothKg', label: 'Weight of Cloth', kind: 'number' },
-  { field: 'clothProductId', label: '· cloth item', kind: 'select-cloth' },
-  { field: 'clothNote', label: '· as written', kind: 'text' },
+  { field: 'clothProductId', label: 'Cloth item', kind: 'select-cloth' },
+  { field: 'clothNote', label: 'Cloth as written', kind: 'text' },
   { field: 'bstageGrade', label: 'B-stage grade', kind: 'text' },
   { field: 'bstageKg', label: 'B-stage kg', kind: 'number' },
   { field: 'productionNos', label: 'Shift Prod.', kind: 'number' },
@@ -439,6 +439,7 @@ export function MouldingPage() {
                   </span>
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
+                  {canSign && !current?.entries.length ? <span className="text-xs text-muted-foreground">{t('cc_production.moulding.signHint', 'Sign once the shift has entries')}</span> : null}
                   {(
                     [
                       ['sign_shift', t('cc_production.moulding.signShift', 'Shift in-charge'), current?.signoff.shiftIncharge],

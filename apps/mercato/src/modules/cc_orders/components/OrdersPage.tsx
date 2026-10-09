@@ -614,10 +614,10 @@ export function OrdersPage() {
                 </span>
                 <span className="flex items-center gap-2">
                   <span className="tabular-nums">{t('cc_orders.book.pageOf', 'Page {page} of {pages}', { page, pages: data?.totalPages ?? 1 })}</span>
-                  <Button type="button" variant="outline" size="sm" className="h-7 w-7 p-0" disabled={page <= 1} onClick={() => setPage((value) => value - 1)} aria-label={t('cc_orders.book.prev', 'Previous page')}>
+                  <Button type="button" variant="outline" size="sm" className="h-8 w-8 p-0" disabled={page <= 1} onClick={() => setPage((value) => value - 1)} aria-label={t('cc_orders.book.prev', 'Previous page')}>
                     <ChevronLeft className="h-4 w-4" />
                   </Button>
-                  <Button type="button" variant="outline" size="sm" className="h-7 w-7 p-0" disabled={page >= (data?.totalPages ?? 1)} onClick={() => setPage((value) => value + 1)} aria-label={t('cc_orders.book.next', 'Next page')}>
+                  <Button type="button" variant="outline" size="sm" className="h-8 w-8 p-0" disabled={page >= (data?.totalPages ?? 1)} onClick={() => setPage((value) => value + 1)} aria-label={t('cc_orders.book.next', 'Next page')}>
                     <ChevronRight className="h-4 w-4" />
                   </Button>
                 </span>

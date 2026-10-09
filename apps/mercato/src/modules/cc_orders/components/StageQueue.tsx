@@ -3,11 +3,12 @@
 import * as React from 'react'
 import Link from 'next/link'
 import type { LegacyColumnDef as ColumnDef } from '@tanstack/react-table/legacy'
-import { ExternalLink } from 'lucide-react'
+import { CheckCircle2, ExternalLink } from 'lucide-react'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { cn } from '@open-mercato/shared/lib/utils'
 import { Page, PageBody } from '@open-mercato/ui/backend/Page'
 import { DataTable } from '@open-mercato/ui/backend/DataTable'
+import { EmptyState } from '@open-mercato/ui/backend/EmptyState'
 import { Tabs, TabsList, TabsTrigger } from '@open-mercato/ui/primitives/tabs'
 import { apiCall } from '@open-mercato/ui/backend/utils/apiCall'
 import { flash } from '@open-mercato/ui/backend/FlashMessages'
@@ -280,7 +281,7 @@ export function StageQueue({ stageKey }: { stageKey: string }) {
             setSearch(value)
             setPage(1)
           }}
-          searchPlaceholder={t('cc_orders.list.search', 'Search order no., customer, product ID or batch no.')}
+          searchPlaceholder={t('cc_orders.queue.search', 'Order no., customer or batch')}
           actions={
             <span className="flex flex-wrap items-center gap-2">
               {tab === 'active' ? (
@@ -288,6 +289,24 @@ export function StageQueue({ stageKey }: { stageKey: string }) {
               ) : null}
               <ExportButton onExport={exportStage} />
             </span>
+          }
+          emptyState={
+            <EmptyState
+              variant="subtle"
+              icon={<CheckCircle2 className="size-6" aria-hidden />}
+              title={
+                tab === 'active'
+                  ? t('cc_orders.queue.emptyTodo', 'Nothing waiting at this stage')
+                  : tab === 'waiting'
+                    ? t('cc_orders.queue.emptyComing', 'No orders on the way to this stage')
+                    : t('cc_orders.queue.emptyDone', 'No orders finished here yet')
+              }
+              description={
+                tab === 'active'
+                  ? t('cc_orders.queue.emptyTodoHint', 'Orders show up here when the step before this one is done.')
+                  : undefined
+              }
+            />
           }
           pagination={{ page, pageSize: PAGE_SIZE, total, totalPages, onPageChange: setPage }}
           isLoading={isLoading}

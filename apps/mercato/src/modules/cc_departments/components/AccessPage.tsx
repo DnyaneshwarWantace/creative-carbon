@@ -409,7 +409,7 @@ export function AccessPage() {
               <table className="w-full text-sm">
                 <thead className="bg-muted/40 text-xs text-muted-foreground">
                   <tr>
-                    <th className="sticky left-0 bg-muted/40 px-3 py-2 text-left font-semibold">{t('cc_departments.access.area', 'Area')}</th>
+                    <th className="sticky left-0 min-w-48 bg-muted/40 px-3 py-2 text-left font-semibold">{t('cc_departments.access.area', 'Area')}</th>
                     {roles.map((role) => (
                       <th key={role.id} className="px-2 py-2 text-left font-semibold">
                         <button type="button" className="text-left hover:underline" onClick={() => { pickRole(role.id); setTab('roles') }}>
@@ -423,7 +423,7 @@ export function AccessPage() {
                 <tbody className="divide-y">
                   {ACCESS_AREAS.map((area) => (
                     <tr key={area.key} className="align-top">
-                      <th scope="row" className="sticky left-0 bg-card px-3 py-2 text-left font-medium">
+                      <th scope="row" className="sticky left-0 min-w-48 bg-card px-3 py-2 text-left font-medium">
                         {area.label}
                         <span className="block text-xs font-normal text-muted-foreground">{area.pages}</span>
                       </th>

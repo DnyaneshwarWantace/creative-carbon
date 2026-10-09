@@ -175,7 +175,7 @@ export function OverviewPage() {
                     </span>
                     <span className="min-w-0">
                       <span className="block text-2xl font-bold leading-none tabular-nums">{tile.value}</span>
-                      <span className="mt-1 block truncate text-xs text-muted-foreground">{tile.label}</span>
+                      <span className="mt-1 block text-xs leading-snug text-muted-foreground">{tile.label}</span>
                     </span>
                   </Link>
                 ))}

@@ -105,9 +105,12 @@ export function NumberSeriesPage() {
                 {t('cc_accounts.series.lede', 'How each document, batch and lot is numbered. {FY} becomes the financial year (2627), {YYYY} the year, {YY} two digits, {MM} the month, {DD} the day. A new prefix starts again from "Next number from". Lot formats use their own codes (shown under each); the codes that keep two lots apart cannot be removed.')}
               </p>
             </div>
-            <Button type="button" onClick={() => void save()} disabled={saving || !changed.length || !data.hasCompany}>
-              {saving ? t('cc_accounts.series.saving', 'Saving…') : changed.length ? t('cc_accounts.series.saveCount', 'Save {count} changes', { count: changed.length }) : t('cc_accounts.series.save', 'Save')}
-            </Button>
+            <div className="flex shrink-0 items-center gap-3">
+              {!changed.length && data.hasCompany ? <span className="text-xs text-muted-foreground">{t('cc_accounts.series.noChanges', 'Change a row to save')}</span> : null}
+              <Button type="button" onClick={() => void save()} disabled={saving || !changed.length || !data.hasCompany}>
+                {saving ? t('cc_accounts.series.saving', 'Saving…') : changed.length ? t('cc_accounts.series.saveCount', 'Save {count} changes', { count: changed.length }) : t('cc_accounts.series.save', 'Save')}
+              </Button>
+            </div>
           </header>
           {!data.hasCompany ? <p className="rounded-md border bg-muted/40 p-3 text-sm">{t('cc_accounts.series.noCompany', 'Save the company details first (Masters → Company details), then set the number series.')}</p> : null}
           <div className="overflow-x-auto rounded-lg border bg-card">

@@ -108,7 +108,7 @@ function Section({ no, title, children }: { no: string; title: string; children:
     <section className="rounded-xl border border-border bg-card shadow-sm">
       <header className="flex items-baseline gap-3 border-b border-border px-5 py-3">
         <span className="font-mono text-xs text-muted-foreground">{no}</span>
-        <h2 className="text-sm font-semibold uppercase tracking-wide">{title}</h2>
+        <h2 className="text-sm font-semibold">{title}</h2>
       </header>
       <div className="p-5">{children}</div>
     </section>

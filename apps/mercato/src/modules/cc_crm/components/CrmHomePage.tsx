@@ -27,12 +27,13 @@ type Dashboard = {
 
 const PIPELINE: EnquiryStage[] = ['new', 'quoted', 'negotiating', 'won', 'lost']
 
-function Panel({ title, icon, tone, children }: { title: string; icon: React.ReactNode; tone?: 'error'; children: React.ReactNode }) {
+function Panel({ title, count, icon, tone, children }: { title: string; count: number; icon: React.ReactNode; tone?: 'error'; children: React.ReactNode }) {
   return (
     <section className={cn('rounded-xl border bg-card p-4 shadow-xs', tone === 'error' ? 'border-status-error-border' : 'border-border')}>
-      <h2 className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-        {icon}
+      <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold">
+        <span className="text-muted-foreground">{icon}</span>
         {title}
+        <span className={cn('ml-auto rounded-full px-2 py-0.5 text-xs font-medium tabular-nums', count && tone === 'error' ? 'bg-status-error-bg text-status-error-text' : 'bg-muted text-muted-foreground')}>{count}</span>
       </h2>
       {children}
     </section>
@@ -115,13 +116,13 @@ export function CrmHomePage() {
                 </Link>
               </div>
               <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
-                <Panel title={t('cc_crm.home.overdue', 'Follow-ups overdue ({count})', { count: data.overdue.length })} icon={<AlarmClock className="h-4 w-4" aria-hidden="true" />} tone={data.overdue.length ? 'error' : undefined}>
+                <Panel title={t('cc_crm.home.overdueTitle', 'Follow-ups overdue')} count={data.overdue.length} icon={<AlarmClock className="h-4 w-4" aria-hidden="true" />} tone={data.overdue.length ? 'error' : undefined}>
                   <FollowUpList rows={data.overdue} overdue empty={t('cc_crm.home.noOverdue', 'Nothing overdue.')} />
                 </Panel>
-                <Panel title={t('cc_crm.home.today', 'Follow-ups today ({count})', { count: data.dueToday.length })} icon={<CalendarCheck className="h-4 w-4" aria-hidden="true" />}>
+                <Panel title={t('cc_crm.home.todayTitle', 'Follow-ups today')} count={data.dueToday.length} icon={<CalendarCheck className="h-4 w-4" aria-hidden="true" />}>
                   <FollowUpList rows={data.dueToday} empty={t('cc_crm.home.noToday', 'No follow-ups today.')} />
                 </Panel>
-                <Panel title={t('cc_crm.home.expiring', 'Quotations expiring in 7 days ({count})', { count: data.expiring.length })} icon={<FileClock className="h-4 w-4" aria-hidden="true" />}>
+                <Panel title={t('cc_crm.home.expiringTitle', 'Quotations expiring in 7 days')} count={data.expiring.length} icon={<FileClock className="h-4 w-4" aria-hidden="true" />}>
                   {data.expiring.length ? (
                     <ul className="space-y-2 text-sm">
                       {data.expiring.map((row) => (

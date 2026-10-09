@@ -300,7 +300,7 @@ export function PressBatchForm({ batch }: { batch: PressBatchView | null }) {
           </section>
 
           <section className="rounded-xl border border-border bg-card p-5 shadow-sm">
-            <h2 className="mb-1 text-sm font-semibold uppercase tracking-wide">{t('cc_production.press.bstage', 'B-stage used')}</h2>
+            <h2 className="mb-1 text-sm font-semibold">{t('cc_production.press.bstage', 'B-stage used')}</h2>
             <p className="mb-3 text-xs text-muted-foreground">{t('cc_production.press.bstageHint', 'Taken oldest first for each grade when posted. Pick another lot only with a reason. Lots past 10 days cannot be used.')}</p>
             {Object.keys(figures.kgByGrade).length ? (
               <div className="space-y-3">
@@ -326,7 +326,7 @@ export function PressBatchForm({ batch }: { batch: PressBatchView | null }) {
                         ))}
                       </Dropdown>
                       {needsReason ? (
-                        <Input className="md:col-span-4" placeholder={t('cc_production.press.why', 'Why not the oldest?')} value={choice.reason} onChange={(event) => update({ choices: { ...draft.choices, [grade]: { ...choice, reason: event.target.value } } })} />
+                        <Input aria-label={t('cc_production.press.why', 'Why not the oldest?')} className="md:col-span-4" placeholder={t('cc_production.press.why', 'Why not the oldest?')} value={choice.reason} onChange={(event) => update({ choices: { ...draft.choices, [grade]: { ...choice, reason: event.target.value } } })} />
                       ) : null}
                     </div>
                   )

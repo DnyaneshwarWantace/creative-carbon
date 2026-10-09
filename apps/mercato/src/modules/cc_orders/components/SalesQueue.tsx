@@ -53,7 +53,7 @@ export function SalesQueue() {
             </div>
             <div className="relative lg:w-72">
               <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
-              <Input value={mine} onChange={(event) => setMine(event.target.value)} placeholder={t('cc_orders.salesQueue.mine', 'Only orders of sales POC…')} className="pl-9" aria-label={t('cc_orders.salesQueue.mine', 'Only orders of sales POC…')} />
+              <Input value={mine} onChange={(event) => setMine(event.target.value)} placeholder={t('cc_orders.salesQueue.mine', 'Filter by sales person')} className="pl-9" aria-label={t('cc_orders.salesQueue.mine', 'Filter by sales person')} />
             </div>
           </header>
           {error ? <ErrorMessage label={error} /> : null}

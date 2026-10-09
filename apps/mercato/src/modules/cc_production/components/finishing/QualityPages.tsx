@@ -131,7 +131,7 @@ export function FgInspectionPage() {
           {canEnter ? (
             <section className="rounded-xl border border-border bg-card shadow-sm">
               <header className="flex flex-wrap items-center gap-3 border-b border-border px-5 py-3">
-                <h2 className="text-sm font-semibold uppercase tracking-wide">{editing ? t('cc_production.fg.editing', 'Report of {date}', { date: day(editing.reportDate) }) : t('cc_production.fg.new', 'New report')}</h2>
+                <h2 className="text-sm font-semibold">{editing ? t('cc_production.fg.editing', 'Report of {date}', { date: day(editing.reportDate) }) : t('cc_production.fg.new', 'New report')}</h2>
                 <Input type="date" className="ml-auto w-44" value={reportDate} onChange={(event) => setReportDate(event.target.value)} aria-label={t('cc_production.resin.date', 'Date')} />
               </header>
               <div className="overflow-x-auto">
@@ -506,7 +506,7 @@ export function DirectInPage() {
               rows={lists.directIns}
               rowKey={(row) => row.id}
               rowHref={(row) => recordHref.directIn(row.id)}
-              empty={<p className="px-5 py-6 text-sm text-muted-foreground">—</p>}
+              empty={<p className="px-5 py-8 text-center text-sm text-muted-foreground">{t('cc_production.direct.emptyList', 'Nothing bought in this month. Use the form above when goods arrive from another maker.')}</p>}
               columns={[
                 { key: 'date', label: t('cc_production.resin.date', 'Date'), alwaysVisible: true, render: (row) => day(row.inDate) },
                 { key: 'supplier', label: t('cc_production.direct.supplier', 'Supplier'), render: (row) => row.supplier },
@@ -527,7 +527,7 @@ export function DirectInPage() {
               rows={lists.damages}
               rowKey={(row) => row.id}
               rowHref={(row) => recordHref.damage(row.id)}
-              empty={<p className="px-5 py-6 text-sm text-muted-foreground">—</p>}
+              empty={<p className="px-5 py-8 text-center text-sm text-muted-foreground">{t('cc_production.damage.emptyList', 'No damage written off this month.')}</p>}
               columns={[
                 { key: 'date', label: t('cc_production.resin.date', 'Date'), alwaysVisible: true, render: (row) => day(row.entryDate) },
                 { key: 'item', label: t('cc_production.direct.item', 'Item'), render: (row) => row.itemTitle },

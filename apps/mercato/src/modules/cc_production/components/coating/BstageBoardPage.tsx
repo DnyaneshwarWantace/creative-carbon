@@ -43,7 +43,7 @@ export const BAND_STYLE: Record<BstageBand, { label: string; head: string; card:
   fresh: { label: 'Day 0–4', head: 'bg-status-success-bg text-status-success-text', card: 'border-border' },
   soon: { label: 'Day 5–7', head: 'bg-status-warning-bg text-status-warning-text', card: 'border-status-warning-border' },
   expired: { label: 'Past 7 days', head: 'bg-status-error-bg text-status-error-text', card: 'border-status-error-border' },
-  blocked: { label: 'Past 10 · blocked from pressing', head: 'bg-muted text-muted-foreground', card: 'border-border opacity-80' },
+  blocked: { label: 'Blocked · 10+ days', head: 'bg-muted text-muted-foreground', card: 'border-border opacity-80' },
 }
 
 export function BstageBoardPage() {
@@ -101,9 +101,9 @@ export function BstageBoardPage() {
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
               {board.columns.map((column) => (
                 <section key={column.band} className="flex flex-col rounded-xl border border-border bg-card shadow-sm">
-                  <header className={cn('flex items-baseline justify-between rounded-t-xl px-4 py-2.5', BAND_STYLE[column.band].head)}>
+                  <header className={cn('flex flex-wrap items-baseline justify-between gap-x-2 rounded-t-xl px-4 py-2.5', BAND_STYLE[column.band].head)}>
                     <h2 className="text-sm font-semibold">{BAND_STYLE[column.band].label}</h2>
-                    <span className="text-xs tabular-nums">
+                    <span className="shrink-0 whitespace-nowrap text-xs tabular-nums">
                       {column.lots.length} · {kg(column.kg)} kg
                     </span>
                   </header>

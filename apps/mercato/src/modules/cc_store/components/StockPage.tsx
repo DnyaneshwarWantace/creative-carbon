@@ -507,7 +507,7 @@ export function StockPage({ fixedPlace, title }: { fixedPlace?: Place; title?: s
                             <Link href={`/backend/products/${item.productId}`} className="font-medium hover:underline">
                               {item.title}
                             </Link>
-                            <span className="block font-mono text-xs text-muted-foreground">{item.code ?? '—'}</span>
+                            {item.code ? <span className="block font-mono text-xs text-muted-foreground">{item.code}</span> : null}
                           </td>
                           {shownColumns.map((column) => (
                             <td key={column.key} className={cn('px-3 py-2 tabular-nums', column.align === 'right' && 'text-right', column.itemClass?.(item))}>
