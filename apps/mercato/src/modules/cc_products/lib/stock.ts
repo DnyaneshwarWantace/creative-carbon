@@ -37,6 +37,14 @@ function run<T extends Array<Record<string, unknown>>>(scope: StockScope, sql: s
 }
 
 export async function ccWarehouse(scope: StockScope): Promise<{ warehouseId: string; locations: Map<string, string> } | null> {
+  const found = await findCcWarehouse(scope)
+  if (found && found.locations.size >= Object.keys(LOCATION_CODES).length) return found
+  const { seedCcStores } = await import('./seeds')
+  await scope.em.transactional((em) => seedCcStores(em as EntityManager, { tenantId: scope.tenantId, organizationId: scope.organizationId }))
+  return findCcWarehouse(scope)
+}
+
+async function findCcWarehouse(scope: StockScope): Promise<{ warehouseId: string; locations: Map<string, string> } | null> {
   const rows = await run<Array<{ warehouse_id: string; id: string; code: string }>>(
     scope,
     `select l.warehouse_id, l.id, l.code from wms_warehouse_locations l

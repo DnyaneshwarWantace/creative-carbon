@@ -4,6 +4,7 @@ import * as React from 'react'
 import Link from 'next/link'
 import { ClipboardCheck, Copy, FlaskConical, PackagePlus, Plus, RotateCcw, Send, Trash2, TriangleAlert } from 'lucide-react'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
+import { cn } from '@open-mercato/shared/lib/utils'
 import { Page, PageBody } from '@open-mercato/ui/backend/Page'
 import { Button } from '@open-mercato/ui/primitives/button'
 import { Input } from '@open-mercato/ui/primitives/input'
@@ -17,7 +18,7 @@ import { SearchPicker } from '../../../cc_orders/components/SearchPicker'
 import { searchCustomers } from '../../../cc_orders/components/loaders'
 import { useGranted } from '../../../cc_departments/components/useGranted'
 import { day, kg, thisMonth, todayIso } from '../resin/shared'
-import { lotLabel, selectClass, useSend, useSetup, type FloorLot } from './shared'
+import { lotLabel, useSend, useSetup, type FloorLot } from './shared'
 import { PlantTable } from '../PlantTable'
 import { Dropdown } from '../../../cc_lists/components/Dropdown'
 import { recordHref } from '../../../cc_ui/lib/links'
@@ -321,6 +322,18 @@ type DirectIn = { id: string; inDate: string; supplier: string; invoiceNo: strin
 type Damage = { id: string; entryDate: string; itemTitle: string; lotNumber: string | null; place: string; kg: number; reason: string; byName: string | null }
 type ProductOption = { id: string; title: string; kind: string; unit: string }
 
+function FormField({ id, label, hint, className, children }: { id: string; label: string; hint?: string; className?: string; children: React.ReactNode }) {
+  return (
+    <div className={cn('min-w-0 space-y-1.5', className)}>
+      <Label htmlFor={id} className="text-xs font-medium text-muted-foreground">
+        {label}
+      </Label>
+      {children}
+      {hint ? <p className="text-xs text-muted-foreground">{hint}</p> : null}
+    </div>
+  )
+}
+
 export function DirectInPage() {
   const t = useT()
   const granted = useGranted()
@@ -397,58 +410,97 @@ export function DirectInPage() {
           </header>
           {canEnter ? (
             <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
-              <section className="grid grid-cols-2 gap-3 rounded-xl border border-border bg-card p-5 shadow-sm">
-                <h2 className="col-span-2 text-sm font-semibold uppercase tracking-wide">{t('cc_production.direct.in', 'FG direct in')}</h2>
-                <Input type="date" value={form.inDate} onChange={(event) => setForm({ ...form, inDate: event.target.value })} aria-label="Date" />
-                <Input placeholder={t('cc_production.direct.supplier', 'Supplier')} value={form.supplier} onChange={(event) => setForm({ ...form, supplier: event.target.value })} />
-                <Input placeholder={t('cc_production.direct.invoice', 'Invoice no.')} value={form.invoiceNo} onChange={(event) => setForm({ ...form, invoiceNo: event.target.value })} />
-                <Dropdown value={form.productId} onChange={(event) => setForm({ ...form, productId: event.target.value })} aria-label="Item">
-                  <option value="">{t('cc_production.direct.item', 'Item')}</option>
-                  {products.map((product) => (
-                    <option key={product.id} value={product.id}>
-                      {product.title}
-                    </option>
-                  ))}
-                </Dropdown>
-                <Input placeholder={t('cc_production.fg.size', 'Sheet size')} value={form.sheetSize} onChange={(event) => setForm({ ...form, sheetSize: event.target.value })} />
-                <Input placeholder={t('cc_production.thickness.target', 'Thickness mm')} inputMode="decimal" value={form.thicknessMm} onChange={(event) => setForm({ ...form, thicknessMm: event.target.value })} />
-                <Input placeholder="Nos" inputMode="numeric" value={form.nos} onChange={(event) => setForm({ ...form, nos: event.target.value })} />
-                <Input placeholder="kg" inputMode="decimal" value={form.kg} onChange={(event) => setForm({ ...form, kg: event.target.value })} />
-                <div className="col-span-2 flex justify-end">
+              <section className="flex flex-col rounded-xl border bg-card shadow-sm" aria-labelledby="direct-in-title">
+                <header className="flex items-center gap-2 border-b px-5 py-3">
+                  <PackagePlus className="h-4 w-4 text-primary" aria-hidden="true" />
+                  <h2 id="direct-in-title" className="text-sm font-semibold">{t('cc_production.direct.inTitle', 'Bought-in goods into FG')}</h2>
+                </header>
+                <div className="grid flex-1 grid-cols-2 content-start gap-x-3 gap-y-4 p-5">
+                  <FormField id="di-date" label={t('cc_production.resin.date', 'Date')}>
+                    <Input id="di-date" type="date" value={form.inDate} onChange={(event) => setForm({ ...form, inDate: event.target.value })} />
+                  </FormField>
+                  <FormField id="di-invoice" label={t('cc_production.direct.invoice', 'Invoice no.')}>
+                    <Input id="di-invoice" value={form.invoiceNo} onChange={(event) => setForm({ ...form, invoiceNo: event.target.value })} />
+                  </FormField>
+                  <FormField id="di-supplier" label={t('cc_production.direct.supplier', 'Supplier')} className="col-span-2">
+                    <Input id="di-supplier" value={form.supplier} onChange={(event) => setForm({ ...form, supplier: event.target.value })} />
+                  </FormField>
+                  <FormField id="di-item" label={t('cc_production.direct.item', 'Item')} className="col-span-2">
+                    <Dropdown id="di-item" value={form.productId} onChange={(event) => setForm({ ...form, productId: event.target.value })} placeholder={t('cc_production.direct.pickItem', 'Pick the item')}>
+                      <option value="">—</option>
+                      {products.map((product) => (
+                        <option key={product.id} value={product.id}>
+                          {product.title}
+                        </option>
+                      ))}
+                    </Dropdown>
+                  </FormField>
+                  <FormField id="di-size" label={t('cc_production.fg.size', 'Sheet size')}>
+                    <Input id="di-size" placeholder="8x4" value={form.sheetSize} onChange={(event) => setForm({ ...form, sheetSize: event.target.value })} />
+                  </FormField>
+                  <FormField id="di-thick" label={t('cc_production.direct.thickness', 'Thickness (mm)')}>
+                    <Input id="di-thick" inputMode="decimal" value={form.thicknessMm} onChange={(event) => setForm({ ...form, thicknessMm: event.target.value })} />
+                  </FormField>
+                  <FormField id="di-nos" label={t('cc_production.direct.nos', 'Pieces (nos)')}>
+                    <Input id="di-nos" inputMode="numeric" value={form.nos} onChange={(event) => setForm({ ...form, nos: event.target.value })} />
+                  </FormField>
+                  <FormField id="di-kg" label={t('cc_production.direct.kg', 'Weight (kg)')}>
+                    <Input id="di-kg" inputMode="decimal" value={form.kg} onChange={(event) => setForm({ ...form, kg: event.target.value })} />
+                  </FormField>
+                </div>
+                <footer className="flex items-center justify-between gap-3 border-t px-5 py-3">
+                  <p className="text-xs text-muted-foreground">{t('cc_production.direct.inHint', 'Becomes a lot in the FG store with no parent lot.')}</p>
                   <Button type="button" disabled={busy} onClick={() => void receive()}>
                     <PackagePlus className="mr-1.5 h-4 w-4" aria-hidden="true" />
                     {t('cc_production.direct.receive', 'Receive into FG store')}
                   </Button>
-                </div>
+                </footer>
               </section>
-              <section className="grid grid-cols-2 gap-3 rounded-xl border border-border bg-card p-5 shadow-sm">
-                <h2 className="col-span-2 text-sm font-semibold uppercase tracking-wide">{t('cc_production.damage.title', 'Damaged material')}</h2>
-                <Input type="date" value={damage.entryDate} onChange={(event) => setDamage({ ...damage, entryDate: event.target.value })} aria-label="Date" />
-                <Input placeholder={damageLot ? `${damageLot.unit} (${damageLot.free} free)` : 'kg'} inputMode="decimal" value={damage.kg} onChange={(event) => setDamage({ ...damage, kg: event.target.value })} />
-                <Dropdown className={`${selectClass} col-span-2`} value={damage.lotId} onChange={(event) => setDamage({ ...damage, lotId: event.target.value })} aria-label="Lot">
-                  <option value="">{t('cc_production.damage.lot', 'Lot')}</option>
-                  {lots.map((lot) => (
-                    <option key={`${lot.lotId}-${lot.place}`} value={lot.lotId}>
-                      {lotLabel(lot)} · {lot.placeLabel}
-                    </option>
-                  ))}
-                </Dropdown>
-                <Input className="col-span-2" list="damage-reasons" placeholder={t('cc_production.damage.reason', 'What happened')} value={damage.reason} onChange={(event) => setDamage({ ...damage, reason: event.target.value })} />
-                <datalist id="damage-reasons">
-                  {(finishingSetup?.damageReasons ?? []).map((option) => (
-                    <option key={option} value={option} />
-                  ))}
-                </datalist>
-                <div className="col-span-2 flex justify-end">
-                  <Button type="button" variant="destructive" disabled={busy || !damage.lotId || !damage.reason.trim()} onClick={() => void writeOff()}>
+              <section className="flex flex-col rounded-xl border bg-card shadow-sm" aria-labelledby="damage-title">
+                <header className="flex items-center gap-2 border-b px-5 py-3">
+                  <TriangleAlert className="h-4 w-4 text-status-error-icon" aria-hidden="true" />
+                  <h2 id="damage-title" className="text-sm font-semibold">{t('cc_production.damage.title', 'Damaged material')}</h2>
+                </header>
+                <div className="grid flex-1 grid-cols-2 content-start gap-x-3 gap-y-4 p-5">
+                  <FormField id="dm-date" label={t('cc_production.resin.date', 'Date')}>
+                    <Input id="dm-date" type="date" value={damage.entryDate} onChange={(event) => setDamage({ ...damage, entryDate: event.target.value })} />
+                  </FormField>
+                  <FormField id="dm-qty" label={damageLot ? t('cc_production.damage.qtyIn', 'Quantity ({unit})', { unit: damageLot.unit }) : t('cc_production.damage.qty', 'Quantity')} hint={damageLot ? t('cc_production.damage.free', '{free} free in this lot', { free: damageLot.free }) : undefined}>
+                    <Input id="dm-qty" inputMode="decimal" value={damage.kg} onChange={(event) => setDamage({ ...damage, kg: event.target.value })} />
+                  </FormField>
+                  <FormField id="dm-lot" label={t('cc_production.damage.lot', 'Lot')} className="col-span-2">
+                    <Dropdown id="dm-lot" value={damage.lotId} onChange={(event) => setDamage({ ...damage, lotId: event.target.value })} placeholder={t('cc_production.damage.pickLot', 'Pick the damaged lot')}>
+                      <option value="">—</option>
+                      {lots.map((lot) => (
+                        <option key={`${lot.lotId}-${lot.place}`} value={lot.lotId}>
+                          {lotLabel(lot)} · {lot.placeLabel}
+                        </option>
+                      ))}
+                    </Dropdown>
+                  </FormField>
+                  <FormField id="dm-reason" label={t('cc_production.damage.reason', 'What happened')} className="col-span-2">
+                    <Input id="dm-reason" list="damage-reasons" value={damage.reason} onChange={(event) => setDamage({ ...damage, reason: event.target.value })} placeholder={t('cc_production.damage.reasonHint', 'Pick or type, e.g. Broken in handling')} />
+                    <datalist id="damage-reasons">
+                      {(finishingSetup?.damageReasons ?? []).map((option) => (
+                        <option key={option} value={option} />
+                      ))}
+                    </datalist>
+                  </FormField>
+                </div>
+                <footer className="flex items-center justify-between gap-3 border-t px-5 py-3">
+                  <p className="text-xs text-muted-foreground">
+                    {!damage.lotId || !damage.reason.trim() ? t('cc_production.damage.needs', 'Pick the lot and say what happened to write off.') : t('cc_production.damage.effect', 'Taken out of stock and shown on Plant today.')}
+                  </p>
+                  <Button type="button" variant="outline" className="border-status-error-border text-status-error-text hover:bg-status-error-bg" disabled={busy || !damage.lotId || !damage.reason.trim()} onClick={() => void writeOff()}>
+                    <TriangleAlert className="mr-1.5 h-4 w-4" aria-hidden="true" />
                     {t('cc_production.damage.writeOff', 'Write off')}
                   </Button>
-                </div>
+                </footer>
               </section>
             </div>
           ) : null}
           <div className="space-y-2">
-            <h2 className="text-sm font-semibold uppercase tracking-wide">{t('cc_production.direct.list', 'Bought-in this month')}</h2>
+            <h2 className="text-sm font-semibold">{t('cc_production.direct.list', 'Bought-in this month')}</h2>
             <PlantTable
               tableId="cc_production.direct_in"
               rows={lists.directIns}
@@ -469,7 +521,7 @@ export function DirectInPage() {
             />
           </div>
           <div className="space-y-2">
-            <h2 className="text-sm font-semibold uppercase tracking-wide">{t('cc_production.damage.list', 'Damaged this month')}</h2>
+            <h2 className="text-sm font-semibold">{t('cc_production.damage.list', 'Damaged this month')}</h2>
             <PlantTable
               tableId="cc_production.damage"
               rows={lists.damages}
