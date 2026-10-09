@@ -247,3 +247,5 @@ export function listDef(key: string): ListDef | undefined {
 export function listDefaults(key: string): string[] {
   return listDef(key)?.defaults ?? []
 }
+
+export const CRM_LIST_KEYS = ['enquiry_sources', 'lost_reasons', 'incoterms', 'currencies', 'ports', 'payment_remarks', 'product_forms', 'hold_parties']

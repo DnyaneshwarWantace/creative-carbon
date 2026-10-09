@@ -35,7 +35,7 @@ function sameDrafts(drafts: Draft[], options: Option[]): boolean {
   return drafts.length === options.length && drafts.every((draft, index) => draft.value.trim() === options[index].value && draft.active === options[index].active)
 }
 
-export function DropdownManager() {
+export function DropdownManager({ only, title, lede }: { only?: string[]; title?: string; lede?: string } = {}) {
   const t = useT()
   const { runMutation } = useGuardedMutation({ contextId: 'cc-dropdown-manager' })
   const [lists, setLists] = React.useState<ListView[] | null>(null)
@@ -53,8 +53,9 @@ export function DropdownManager() {
       setLoadError(call.result?.error ?? t('cc_lists.loadError', 'Could not load the dropdown lists.'))
       return
     }
-    setLists(call.result?.items ?? [])
-  }, [t])
+    const items = call.result?.items ?? []
+    setLists(only ? items.filter((item) => only.includes(item.key)) : items)
+  }, [t, only])
 
   React.useEffect(() => {
     void load()
@@ -168,9 +169,9 @@ export function DropdownManager() {
       <PageBody>
         <div className="flex flex-col gap-5">
           <header className="space-y-1 border-b pb-4">
-            <h1 className="text-2xl font-bold tracking-tight">{t('cc_lists.title', 'Dropdown lists')}</h1>
+            <h1 className="text-2xl font-bold tracking-tight">{title ?? t('cc_lists.title', 'Dropdown lists')}</h1>
             <p className="max-w-3xl text-sm text-muted-foreground">
-              {t('cc_lists.lede', 'Every choice list used across the ERP, by department. Add, rename, reorder or switch off choices here and every form picks them up. Old records keep the value they were saved with.')}
+              {lede ?? t('cc_lists.lede', 'Every choice list used across the ERP, by department. Add, rename, reorder or switch off choices here and every form picks them up. Old records keep the value they were saved with.')}
             </p>
           </header>
 

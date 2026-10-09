@@ -23,6 +23,8 @@ async function location(context: APIRequestContext, path: string) {
 test.describe.serial('CRM and ERP access: separate sides, one login', () => {
   let crmUserId: string
   let erpUserId: string
+  let managerId: string
+  const managerEmail = `e2e-crm-mgr-${stamp}@example.com`
 
   test('a CRM manager adds a CRM-only sales user from the CRM team page', async ({ request }) => {
     const team = await request.get('/api/cc_crm/team')
@@ -102,8 +104,37 @@ test.describe.serial('CRM and ERP access: separate sides, one login', () => {
     await both.dispose()
   })
 
+  test('a CRM manager edits CRM dropdown lists only; sales cannot edit lists; the CRM sidebar has its sections', async ({ request, playwright }) => {
+    const added = await request.post('/api/cc_crm/team', { data: { name: `E2E Manager ${stamp}`, email: managerEmail, password: PASSWORD, crmRole: 'manager' } })
+    expect(added.status(), await added.text()).toBe(201)
+    managerId = ((await added.json()) as { items: Member[] }).items.find((entry) => entry.email === managerEmail)!.id
+    const manager = await loginAs(playwright, managerEmail, PASSWORD)
+    const lists = ((await (await manager.get('/api/cc_lists/lists')).json()) as { items: Array<{ key: string; options: Array<{ value: string; active: boolean }> }> }).items
+    const sources = lists.find((list) => list.key === 'enquiry_sources')!
+    const changed = await manager.put('/api/cc_lists/lists', { data: { key: 'enquiry_sources', options: [...sources.options, { value: `Trade fair ${stamp}`, active: true }] } })
+    expect(changed.ok(), await changed.text()).toBeTruthy()
+    const packs = lists.find((list) => list.key === 'pack_types')!
+    const erpList = await manager.put('/api/cc_lists/lists', { data: { key: 'pack_types', options: packs.options } })
+    expect(erpList.status()).toBe(403)
+    expect((await manager.get('/backend/crm/lists')).status()).toBe(200)
+    expect((await manager.get('/backend/crm/team')).status()).toBe(200)
+    const nav = (await (await manager.get('/api/cc_departments/nav?workspace=crm')).json()) as { groups: Array<{ name: string; items: Array<{ title: string }> }> }
+    expect(nav.groups.map((group) => group.name)).toEqual(['Overview', 'Sales pipeline', 'Customers & orders', 'CRM settings'])
+    expect(nav.groups.find((group) => group.name === 'CRM settings')!.items.map((item) => item.title)).toEqual(expect.arrayContaining(['Dropdown lists', 'Team & access']))
+    await manager.dispose()
+    const sales = await loginAs(playwright, crmEmail, 'Next!Pass9word')
+    const salesEdit = await sales.put('/api/cc_lists/lists', { data: { key: 'enquiry_sources', options: sources.options } })
+    expect(salesEdit.status()).toBe(403)
+    expect(await (await sales.get('/backend/crm/lists')).text()).toContain('Access Denied')
+    const salesNav = (await (await sales.get('/api/cc_departments/nav?workspace=crm')).json()) as { groups: Array<{ items: Array<{ href: string }> }> }
+    expect(salesNav.groups.flatMap((group) => group.items.map((item) => item.href)).some((href) => href === '/backend/crm/lists' || href === '/backend/crm/team')).toBeFalsy()
+    await sales.dispose()
+    const reset = await request.put('/api/cc_lists/lists', { data: { key: 'enquiry_sources', reset: true } })
+    expect(reset.ok(), await reset.text()).toBeTruthy()
+  })
+
   test('cleanup: remove the test logins', async ({ request }) => {
-    for (const id of [crmUserId, erpUserId].filter(Boolean)) {
+    for (const id of [crmUserId, erpUserId, managerId].filter(Boolean)) {
       const removed = await request.delete(`/api/auth/users?id=${id}`)
       expect(removed.ok(), await removed.text()).toBeTruthy()
     }

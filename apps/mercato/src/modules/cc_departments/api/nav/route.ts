@@ -4,7 +4,7 @@ import type { OpenApiRouteDoc } from '@open-mercato/shared/lib/openapi'
 import type { BackendChromeNavGroup, BackendChromeNavItem, BackendChromePayload } from '@open-mercato/shared/modules/navigation/backendChrome'
 import { GET as coreNav } from '@open-mercato/core/modules/auth/api/admin/nav'
 import { getAuthFromRequest } from '@open-mercato/shared/lib/auth/server'
-import { CRM_PREFIXES, isCrmPath } from '../../lib/workspace'
+import { isCrmPath } from '../../lib/workspace'
 import { resolveWorkspaceAccess } from '../../lib/workspaceAccess'
 
 export const metadata = {
@@ -17,25 +17,47 @@ function flatten(groups: BackendChromeNavGroup[]): BackendChromeNavItem[] {
   return groups.flatMap((group) => group.items.flatMap((item) => [item, ...(item.children ?? [])]))
 }
 
+const CRM_SECTIONS: Array<{ id: string; name: string; match: (href: string) => boolean }> = [
+  { id: 'cc-crm.nav.overview', name: 'Overview', match: (href) => href === '/backend/crm' },
+  { id: 'cc-crm.nav.pipeline', name: 'Sales pipeline', match: (href) => href.startsWith('/backend/crm/enquiries') || href.startsWith('/backend/crm/quotations') },
+  { id: 'cc-crm.nav.customers', name: 'Customers & orders', match: (href) => href.startsWith('/backend/customers') || href.startsWith('/backend/orders/new') || href.startsWith('/backend/work/sales') },
+  { id: 'cc-crm.nav.settings', name: 'CRM settings', match: () => true },
+]
+
+const CRM_ORDER = ['/backend/crm', '/backend/crm/enquiries', '/backend/crm/quotations', '/backend/customers/companies', '/backend/orders/new', '/backend/work/sales', '/backend/crm/lists', '/backend/masters/prices', '/backend/crm/team']
+
+function crmRank(href: string): number {
+  const index = CRM_ORDER.indexOf(href)
+  return index < 0 ? CRM_ORDER.length : index
+}
+
+const CRM_TITLES: Record<string, string> = {
+  '/backend/crm': 'CRM home',
+  '/backend/customers/companies': 'Customers',
+  '/backend/orders/new': 'Book an order',
+  '/backend/work/sales': 'Orders to confirm',
+}
+
 function crmGroups(groups: BackendChromeNavGroup[]): BackendChromeNavGroup[] {
-  const items = flatten(groups).filter((item) => isCrmPath(item.href) && !item.hidden)
-  const rank = (href: string) => {
-    if (href.startsWith('/backend/crm/team')) return CRM_PREFIXES.length + 1
-    const index = CRM_PREFIXES.findIndex((prefix) => href === prefix || href.startsWith(`${prefix}/`))
-    return index < 0 ? CRM_PREFIXES.length : index
-  }
   const seen = new Set<string>()
-  const ordered = items
+  const items = flatten(groups)
+    .filter((item) => isCrmPath(item.href) && !item.hidden)
     .filter((item) => (seen.has(item.href) ? false : (seen.add(item.href), true)))
-    .map((item) => ({ ...item, children: (item.children ?? []).filter((child) => isCrmPath(child.href)) }))
-    .sort((left, right) => rank(left.href) - rank(right.href) || (left.order ?? 0) - (right.order ?? 0))
-  return ordered.length ? [{ id: 'cc-crm.nav.group', name: 'CRM', defaultName: 'CRM', items: ordered }] : []
+    .map((item) => ({ ...item, title: CRM_TITLES[item.href] ?? item.title, children: (item.children ?? []).filter((child) => isCrmPath(child.href)) }))
+    .sort((left, right) => crmRank(left.href) - crmRank(right.href) || (left.order ?? 0) - (right.order ?? 0))
+  const placed = new Set<string>()
+  return CRM_SECTIONS.map((section) => {
+    const own = items.filter((item) => !placed.has(item.href) && section.match(item.href))
+    own.forEach((item) => placed.add(item.href))
+    return { id: section.id, name: section.name, defaultName: section.name, items: own }
+  }).filter((group) => group.items.length > 0)
 }
 
 function erpGroups(groups: BackendChromeNavGroup[]): BackendChromeNavGroup[] {
   return groups
     .map((group) => ({ ...group, items: group.items.filter((item) => !isCrmPath(item.href)).map((item) => ({ ...item, children: item.children?.filter((child) => !isCrmPath(child.href)) })) }))
     .filter((group) => group.items.length > 0)
+    .map((group) => (group.id === 'cc-01-sales.nav.group' && group.items.every((item) => item.href.startsWith('/backend/orders')) ? { ...group, name: 'Orders', defaultName: 'Orders' } : group))
 }
 
 async function GET(req: Request) {

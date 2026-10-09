@@ -78,6 +78,7 @@ const ccSidebarGroupOrder = [
   'cc-02-accounts.nav.group',
   'cc-05-purchase.nav.group',
   'cc-06-store.nav.group',
+  'cc-04-plant.nav.group',
   'cc-07-production.nav.group',
   'cc-08-qc.nav.group',
   'cc-10-dispatch.nav.group',

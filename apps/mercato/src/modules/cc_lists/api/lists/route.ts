@@ -3,14 +3,15 @@ import { z } from 'zod'
 import type { OpenApiRouteDoc } from '@open-mercato/shared/lib/openapi'
 import { CrudHttpError } from '@open-mercato/shared/lib/crud/errors'
 import { enforceCommandOptimisticLock } from '@open-mercato/shared/lib/crud/optimistic-lock-command'
-import { currentUserName, resolveOrderContext } from '../../../cc_orders/lib/server'
+import { currentUserName, hasFeatures, resolveOrderContext } from '../../../cc_orders/lib/server'
+import { CRM_LIST_KEYS } from '../../lib/lists'
 import { runListGuarded } from '../../lib/server'
 import { listQuerySchema, listSaveSchema } from '../../data/validators'
 import { ListError, cleanOptions, listDef, listVersion, listViews, resetList, saveList } from '../../lib/service'
 
 export const metadata = {
   GET: { requireAuth: true },
-  PUT: { requireAuth: true, requireFeatures: ['cc_lists.manage'] },
+  PUT: { requireAuth: true },
 }
 
 function errorResponse(error: unknown) {
@@ -38,6 +39,9 @@ async function PUT(req: Request) {
   if (!parsed.success) return NextResponse.json({ error: 'Send the list key and its choices' }, { status: 400 })
   const def = listDef(parsed.data.key)
   if (!def) return NextResponse.json({ error: 'Unknown list' }, { status: 404 })
+  const canAll = await hasFeatures(ctx, ['cc_lists.manage'])
+  const canCrm = !canAll && CRM_LIST_KEYS.includes(def.key) && (await hasFeatures(ctx, ['cc_crm.team']))
+  if (!canAll && !canCrm) return NextResponse.json({ error: 'You cannot change this list' }, { status: 403 })
   try {
     const [current] = await listViews(ctx, def.key)
     const version = listVersion(current)

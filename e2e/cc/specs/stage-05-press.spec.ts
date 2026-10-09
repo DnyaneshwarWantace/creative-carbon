@@ -3,8 +3,8 @@ import { expect, test, type APIRequestContext } from '@playwright/test'
 const LOCK = 'x-om-ext-optimistic-lock-expected-updated-at'
 const today = new Date(Date.now() + 5.5 * 3600_000).toISOString().slice(0, 10)
 const stamp = Date.now()
-const YEAR = 2100 + (stamp % 800)
-const BOOK_DATE = `${YEAR}-10-02`
+let YEAR = 2100 + (stamp % 800)
+let BOOK_DATE = `${YEAR}-10-02`
 const round = (value: number) => Math.round(value * 1000) / 1000
 
 type Sheet = { thicknessMm: number; count?: number; weightKg: number; weightMinKg?: number | null; grade: string }
@@ -43,8 +43,8 @@ const F04 = [
   dl(4, { thicknessMm: 35, weightKg: 170.1, grade: '6x6' }),
 ]
 
-async function setup(request: APIRequestContext, date = BOOK_DATE): Promise<PressSetup> {
-  const response = await request.get(`/api/cc_production/press/setup?date=${date}`)
+async function setup(request: APIRequestContext, date?: string): Promise<PressSetup> {
+  const response = await request.get(`/api/cc_production/press/setup?date=${date ?? BOOK_DATE}`)
   expect(response.ok(), await response.text()).toBeTruthy()
   return response.json()
 }
@@ -70,6 +70,13 @@ test.describe.serial('Stage 5 · laminate pressing', () => {
   const batches: Record<string, Batch> = {}
 
   test('the press form knows the laminate presses, the loading tolerance and the next F/NN/MM/YYYY', async ({ request }) => {
+    for (let attempt = 0; attempt < 40; attempt += 1) {
+      const probe = await setup(request, `${YEAR}-10-02`)
+      if (probe.nextBatchNo === `F/01/10/${YEAR}`) break
+      YEAR += 1
+      if (YEAR > 2999) YEAR = 2100
+    }
+    BOOK_DATE = `${YEAR}-10-02`
     const data = await setup(request)
     expect(data.nextBatchNo).toBe(`F/01/10/${YEAR}`)
     expect(data.presses.map((entry) => entry.number)).toEqual(expect.arrayContaining([21, 22, 23, 24, 25]))
