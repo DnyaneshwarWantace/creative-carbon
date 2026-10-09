@@ -23,7 +23,10 @@ import { INVOICE_STATUS, type CompanyView, type InvoiceView } from './types'
 import { RecordPage, RecordState, formatDay, type Fact } from '../../cc_ui/components/RecordPage'
 import { recordHref } from '../../cc_ui/lib/links'
 
-const HISTORY: Record<string, string> = { created: 'Drafted', edited: 'Edited', quantities: 'Quantities changed', issued: 'Issued', credited: 'Credit note made', cancelled: 'Cancelled' }
+const HISTORY: Record<string, string> = { created: 'Drafted', edited: 'Edited', quantities: 'Quantities changed', issued: 'Issued', credited: 'Credit note made', cancelled: 'Cancelled', export: 'Export details changed' }
+
+const EXPORT_TEXT = ['incoterm', 'portOfLoading', 'portOfDischarge', 'country', 'vessel', 'containerNo', 'sealNo', 'shippingBillNo', 'shippingBillDate', 'lcNumber'] as const
+const EXPORT_AFTER_ISSUE = new Set<string>(['portOfDischarge', 'shippingBillNo', 'shippingBillDate', 'containerNo', 'sealNo', 'vessel', 'lcNumber'])
 
 function when(value: string): string {
   return new Date(value).toLocaleString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })
@@ -58,6 +61,14 @@ export function InvoicePage({ id }: { id: string }) {
       terms: next.terms ?? '',
       bankDetails: next.bankDetails ?? '',
       notes: next.notes ?? '',
+      ...(next.exportDetails
+        ? {
+            'exp.supply': next.exportDetails.supply,
+            'exp.currency': next.exportDetails.currency,
+            'exp.exchangeRate': next.exportDetails.exchangeRate == null ? '' : String(next.exportDetails.exchangeRate),
+            ...Object.fromEntries(EXPORT_TEXT.map((key) => [`exp.${key}`, next.exportDetails?.[key] ?? ''])),
+          }
+        : {}),
     })
     setQty(Object.fromEntries(next.lines.map((line) => [line.orderLineId, String(line.quantity)])))
     setCreditQty({})
@@ -129,6 +140,14 @@ export function InvoicePage({ id }: { id: string }) {
         terms: form.terms,
         bankDetails: form.bankDetails,
         notes: form.notes,
+        ...(doc.exportDetails
+          ? {
+              exportDetails: {
+                ...(draft ? { supply: form['exp.supply'], currency: form['exp.currency'], exchangeRate: form['exp.exchangeRate'] ? Number(form['exp.exchangeRate']) : null } : {}),
+                ...Object.fromEntries(EXPORT_TEXT.filter((key) => draft || EXPORT_AFTER_ISSUE.has(key)).map((key) => [key, key === 'shippingBillDate' ? form[`exp.${key}`] || null : (form[`exp.${key}`] ?? '')])),
+              },
+            }
+          : {}),
       },
       t('cc_accounts.inv.saved', 'Invoice saved'),
     )
@@ -162,19 +181,23 @@ export function InvoicePage({ id }: { id: string }) {
     </div>
   )
 
+  const exp = doc.exportDetails
+  const money = (value: number) => (exp && exp.currency !== 'INR' ? `${exp.currency} ${value.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : rupeeText(value))
   const facts: Fact[] = [
     { label: t('cc_accounts.inv.date', 'Invoice date'), value: formatDay(doc.invoiceDate) },
     { label: t('cc_accounts.inv.due', 'Due date'), value: credit ? '—' : formatDay(doc.dueDate), tone: !credit && doc.status === 'issued' && doc.dueDate && doc.dueDate < new Date().toISOString().slice(0, 10) ? 'warn' : undefined },
     { label: t('cc_accounts.inv.lines', 'Lines'), value: String(doc.lines.length) },
-    { label: t('cc_accounts.inv.taxable', 'Taxable'), value: rupeeText(doc.totals.taxable) },
-    { label: doc.interState ? 'IGST' : 'CGST + SGST', value: rupeeText(doc.totals.gst) },
-    { label: credit ? t('cc_accounts.inv.creditAmount', 'Credit amount') : t('cc_accounts.inv.payable', 'Payable'), value: rupeeText(doc.totals.payable) },
+    { label: t('cc_accounts.inv.taxable', 'Taxable'), value: money(doc.totals.taxable) },
+    exp
+      ? { label: t('cc_accounts.inv.inr', 'Value in ₹'), value: exp.currency === 'INR' ? rupeeText(doc.totals.payable) : exp.exchangeRate ? rupeeText(Math.round(doc.totals.payable * exp.exchangeRate * 100) / 100) : '—', hint: exp.currency !== 'INR' ? (exp.exchangeRate ? `@ ₹${exp.exchangeRate}` : t('cc_accounts.inv.needRate', 'exchange rate needed')) : undefined, tone: exp.currency !== 'INR' && !exp.exchangeRate ? 'warn' : undefined }
+      : { label: doc.interState ? 'IGST' : 'CGST + SGST', value: rupeeText(doc.totals.gst) },
+    { label: credit ? t('cc_accounts.inv.creditAmount', 'Credit amount') : t('cc_accounts.inv.payable', 'Payable'), value: money(doc.totals.payable) },
   ]
 
   return (
     <RecordPage
       back={{ href: '/backend/accounts/invoices', label: t('cc_accounts.inv.back', 'All invoices') }}
-      overline={[credit ? t('cc_accounts.inv.creditNote', 'Credit note') : t('cc_accounts.inv.taxInvoice', 'Tax invoice'), doc.customerName].join(' · ')}
+      overline={[credit ? t('cc_accounts.inv.creditNote', 'Credit note') : exp ? t('cc_accounts.inv.exportInvoice', 'Export invoice') : t('cc_accounts.inv.taxInvoice', 'Tax invoice'), doc.customerName].join(' · ')}
       title={doc.code}
       badges={
         <>
@@ -312,6 +335,44 @@ export function InvoicePage({ id }: { id: string }) {
                         <Input aria-label={`${line.title} quantity`} type="number" min={0} className="h-8 w-28 text-right" value={qty[line.orderLineId] ?? ''} onChange={(event) => setQty((prev) => ({ ...prev, [line.orderLineId]: event.target.value }))} />
                       </div>
                     ))}
+                  </div>
+                ) : null}
+                {exp ? (
+                  <div className="space-y-3 rounded-md border bg-muted/30 p-3">
+                    <p className="text-xs font-semibold">{t('cc_accounts.inv.export', 'Export')}</p>
+                    <div className="space-y-1">
+                      <span className="text-xs text-muted-foreground">{t('cc_accounts.inv.supply', 'GST on this export')}</span>
+                      <div className="flex rounded-md border bg-background p-0.5" role="radiogroup" aria-label={t('cc_accounts.inv.supply', 'GST on this export')}>
+                        {(['lut', 'igst'] as const).map((value) => (
+                          <button
+                            key={value}
+                            type="button"
+                            role="radio"
+                            aria-checked={form['exp.supply'] === value}
+                            disabled={!draft || !canRecord}
+                            onClick={() => setForm((prev) => ({ ...prev, 'exp.supply': value }))}
+                            className={form['exp.supply'] === value ? 'h-8 flex-1 rounded bg-primary text-xs font-medium text-primary-foreground' : 'h-8 flex-1 rounded text-xs text-muted-foreground disabled:opacity-60'}
+                          >
+                            {value === 'lut' ? t('cc_accounts.inv.lut', 'Under LUT, no IGST') : t('cc_accounts.inv.withIgst', 'With IGST paid')}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      {field('exp.currency', t('cc_accounts.inv.currency', 'Currency'), { disabled: !draft, upper: true })}
+                      {field('exp.exchangeRate', t('cc_accounts.inv.rate', '₹ per unit'), { type: 'number', disabled: !draft })}
+                      {field('exp.incoterm', t('cc_accounts.inv.incoterm', 'Incoterm'), { disabled: !draft, upper: true })}
+                      {field('exp.country', t('cc_accounts.inv.country', 'Destination country'), { disabled: !draft })}
+                      {field('exp.portOfLoading', t('cc_accounts.inv.pol', 'Port of loading'), { disabled: !draft })}
+                      {field('exp.portOfDischarge', t('cc_accounts.inv.pod', 'Port of discharge'))}
+                      {field('exp.containerNo', t('cc_accounts.inv.container', 'Container no.'), { upper: true })}
+                      {field('exp.sealNo', t('cc_accounts.inv.seal', 'Seal no.'), { upper: true })}
+                      {field('exp.shippingBillNo', t('cc_accounts.inv.sb', 'Shipping bill no.'))}
+                      {field('exp.shippingBillDate', t('cc_accounts.inv.sbDate', 'Shipping bill date'), { type: 'date' })}
+                      {field('exp.vessel', t('cc_accounts.inv.vessel', 'Vessel / flight'))}
+                      {field('exp.lcNumber', t('cc_accounts.inv.lc', 'LC no.'))}
+                    </div>
+                    {draft ? <p className="text-xs text-muted-foreground">{t('cc_accounts.inv.exportHint', 'Currency, rate and GST lock when the invoice is issued. Shipping bill, container and seal can be added later.')}</p> : null}
                   </div>
                 ) : null}
                 <div className="grid grid-cols-2 gap-3">

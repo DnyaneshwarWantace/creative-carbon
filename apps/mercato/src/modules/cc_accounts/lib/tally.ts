@@ -11,6 +11,7 @@ export const TALLY_KINDS: TallyKind[] = ['sales', 'credit_notes', 'receipts', 'p
 
 export const DEFAULT_LEDGERS = {
   sales: 'Sales @ GST',
+  exportSales: 'Export Sales',
   purchase: 'Purchase @ GST',
   outputCgst: 'Output CGST',
   outputSgst: 'Output SGST',
@@ -69,15 +70,18 @@ export async function tallyData(ctx: OrderContext, range: { from: string; to: st
       if ((credit && !want.has('credit_notes')) || (!credit && !want.has('sales'))) continue
       const totals = invoice.totals
       const sign = credit ? -1 : 1
-      const entries: Entry[] = [
-        { ledger: invoice.customerName, amount: -sign * round2(totals.payable) },
-        { ledger: ledgers.sales, amount: sign * round2(totals.taxable) },
-      ]
-      if (totals.cgst) entries.push({ ledger: ledgers.outputCgst, amount: sign * round2(totals.cgst) })
-      if (totals.sgst) entries.push({ ledger: ledgers.outputSgst, amount: sign * round2(totals.sgst) })
-      if (totals.igst) entries.push({ ledger: ledgers.outputIgst, amount: sign * round2(totals.igst) })
-      if (totals.roundOff) entries.push({ ledger: ledgers.roundOff, amount: sign * round2(totals.roundOff) })
-      vouchers.push({ type: credit ? 'Credit Note' : 'Sales', date: invoice.invoiceDate, number: invoice.code, reference: invoice.againstCode ?? invoice.orderNo, party: invoice.customerName, narration: `${credit ? 'Credit note' : 'Invoice'} ${invoice.code} for order ${invoice.orderNo}`, entries, recordId: invoice.id })
+      const exp = invoice.exportDetails
+      const rate = exp && exp.currency !== 'INR' ? Number(exp.exchangeRate ?? 0) || 1 : 1
+      const inr = (value: number) => round2(value * rate)
+      const entries: Entry[] = [{ ledger: exp ? ledgers.exportSales : ledgers.sales, amount: sign * inr(totals.taxable) }]
+      if (totals.cgst) entries.push({ ledger: ledgers.outputCgst, amount: sign * inr(totals.cgst) })
+      if (totals.sgst) entries.push({ ledger: ledgers.outputSgst, amount: sign * inr(totals.sgst) })
+      if (totals.igst) entries.push({ ledger: ledgers.outputIgst, amount: sign * inr(totals.igst) })
+      const partyAmount = rate === 1 ? round2(totals.payable) : inr(totals.payable)
+      const roundOff = round2(partyAmount - entries.reduce((sum, entry) => sum + sign * entry.amount, 0))
+      if (roundOff) entries.push({ ledger: ledgers.roundOff, amount: sign * roundOff })
+      entries.unshift({ ledger: invoice.customerName, amount: -sign * partyAmount })
+      vouchers.push({ type: credit ? 'Credit Note' : 'Sales', date: invoice.invoiceDate, number: invoice.code, reference: invoice.againstCode ?? invoice.orderNo, party: invoice.customerName, narration: [`${credit ? 'Credit note' : exp ? 'Export invoice' : 'Invoice'} ${invoice.code} for order ${invoice.orderNo}`, exp && rate !== 1 ? `${exp.currency} ${round2(totals.payable)} @ ₹${rate}` : null, exp?.shippingBillNo ? `SB ${exp.shippingBillNo}` : null].filter(Boolean).join(' · '), entries, recordId: invoice.id })
       parties.set(invoice.customerName, { name: invoice.customerName, group: 'Sundry Debtors', gstin: invoice.customerGstin ?? null, state: stateFromGstin(invoice.customerGstin)?.name ?? invoice.placeOfSupply ?? null })
     }
   }

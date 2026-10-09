@@ -3,6 +3,23 @@ import { OptionalProps } from '@mikro-orm/core'
 
 export type PaymentKind = 'advance' | 'balance' | 'other'
 
+export type ExportSupply = 'lut' | 'igst'
+export type ExportDetails = {
+  supply: ExportSupply
+  currency: string
+  exchangeRate: number | null
+  incoterm: string | null
+  portOfLoading: string | null
+  portOfDischarge: string | null
+  country: string | null
+  shippingBillNo: string | null
+  shippingBillDate: string | null
+  containerNo: string | null
+  sealNo: string | null
+  lcNumber: string | null
+  vessel: string | null
+}
+
 export type TallySettings = { url: string | null; company: string | null; ledgers: Record<string, string> }
 
 @Entity({ tableName: 'cc_order_payments' })
@@ -141,6 +158,15 @@ export class CompanyProfile {
 
   @Property({ name: 'tally_settings', type: 'json', nullable: true })
   tallySettings?: TallySettings | null
+
+  @Property({ type: 'text', nullable: true })
+  iec?: string | null
+
+  @Property({ name: 'lut_arn', type: 'text', nullable: true })
+  lutArn?: string | null
+
+  @Property({ name: 'lut_valid_till', type: 'text', nullable: true })
+  lutValidTill?: string | null
 
   @Property({ name: 'created_at', type: Date, onCreate: () => new Date() })
   createdAt: Date = new Date()
@@ -364,6 +390,9 @@ export class TaxInvoice {
 
   @Property({ type: 'json', nullable: true })
   history?: PiHistory[] | null
+
+  @Property({ name: 'export_details', type: 'json', nullable: true })
+  exportDetails?: ExportDetails | null
 
   @Property({ name: 'created_at', type: Date, onCreate: () => new Date() })
   createdAt: Date = new Date()

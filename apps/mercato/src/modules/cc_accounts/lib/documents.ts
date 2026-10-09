@@ -26,6 +26,9 @@ export const DEFAULT_COMPANY = {
   invoiceTerms: '1. Goods once dispatched will not be taken back.\n2. Interest @ 18% p.a. on payments delayed beyond the due date.\n3. Subject to local jurisdiction.' as string | null,
   piValidityDays: 15,
   grnOverPercent: 0,
+  iec: null as string | null,
+  lutArn: null as string | null,
+  lutValidTill: null as string | null,
 }
 
 export type CompanyView = typeof DEFAULT_COMPANY & { id: string | null; updatedAt: string | null }
@@ -67,6 +70,9 @@ export function companyView(profile: CompanyProfile | null): CompanyView {
     invoiceTerms: profile.invoiceTerms ?? null,
     piValidityDays: profile.piValidityDays,
     grnOverPercent: profile.grnOverPercent,
+    iec: profile.iec ?? null,
+    lutArn: profile.lutArn ?? null,
+    lutValidTill: profile.lutValidTill ?? null,
     updatedAt: profile.updatedAt.toISOString(),
   }
 }

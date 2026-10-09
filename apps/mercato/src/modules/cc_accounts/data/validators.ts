@@ -67,6 +67,9 @@ export const companyInputSchema = z.object({
   invoiceTerms: text(3000),
   piValidityDays: z.coerce.number().int().min(1).max(365).default(15),
   grnOverPercent: z.coerce.number().int().min(0).max(50).default(0),
+  iec: z.string().trim().max(10).regex(/^$|^[A-Z0-9]{10}$/i, 'IEC is 10 characters').optional().nullable(),
+  lutArn: text(40),
+  lutValidTill: z.string().regex(/^$|^\d{4}-\d{2}-\d{2}$/).optional().nullable(),
 })
 
 export const piCreateSchema = z.object({
@@ -122,6 +125,23 @@ export const invoiceUpdateSchema = z.object({
   terms: text(3000),
   bankDetails: text(1000),
   notes: text(2000),
+  exportDetails: z
+    .object({
+      supply: z.enum(['lut', 'igst']).optional(),
+      currency: z.string().trim().regex(/^[A-Z]{3}$/i, 'Currency is a 3-letter code like USD').optional(),
+      exchangeRate: z.coerce.number().positive().max(100000).nullable().optional(),
+      incoterm: text(20),
+      portOfLoading: text(80),
+      portOfDischarge: text(80),
+      country: text(80),
+      shippingBillNo: text(40),
+      shippingBillDate: isoDay.optional().nullable(),
+      containerNo: text(40),
+      sealNo: text(40),
+      lcNumber: text(60),
+      vessel: text(80),
+    })
+    .optional(),
 })
 
 export const invoiceActionSchema = z.object({

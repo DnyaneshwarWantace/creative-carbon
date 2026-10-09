@@ -3,7 +3,7 @@ import { logEvent } from '../../cc_orders/lib/engine'
 import { priceLine } from '../../cc_orders/lib/pricing'
 import { findOrder, loadCustomers, loadProducts, type OrderContext } from '../../cc_orders/lib/server'
 import { stepStates } from '../../cc_orders/lib/stages'
-import { TaxInvoice, type InvoiceLine, type InvoiceTotals } from '../data/entities'
+import { TaxInvoice, type ExportDetails, type ExportSupply, type InvoiceLine, type InvoiceTotals } from '../data/entities'
 import { bankText, companyView, loadCompany } from './documents'
 import { AccountsError } from './service'
 import { GST_STATES } from './gstStates'
@@ -66,6 +66,7 @@ async function buildLines(
   wanted: Array<{ orderLineId: string; quantity: number }> | null,
   interState: boolean,
   limit: Map<string, number>,
+  zeroRated = false,
 ): Promise<InvoiceLine[]> {
   const orderLines = await ctx.em.find(CcOrderLine, { orderId }, { orderBy: { position: 'asc' } })
   const products = await loadProducts(ctx, orderLines.map((line) => line.productId))
@@ -83,7 +84,7 @@ async function buildLines(
     if (requested <= 0) continue
     const product = products.get(line.productId)
     if (requested > available + 1e-9) throw new AccountsError(`${product?.title ?? 'A product'}: only ${available} ${product?.unit === 'nos' ? 'pcs' : 'kg'} are left to bill`)
-    const input = { quantity: requested, rate: line.rate == null ? null : Number(line.rate), gstPercent: Number(line.gstPercent ?? 18), discountPercent: Number(line.discountPercent ?? 0) }
+    const input = { quantity: requested, rate: line.rate == null ? null : Number(line.rate), gstPercent: zeroRated ? 0 : Number(line.gstPercent ?? 18), discountPercent: Number(line.discountPercent ?? 0) }
     if (input.rate == null) throw new AccountsError(`${product?.title ?? 'A product'} has no rate on the order`)
     const price = priceLine(input, pricesIncludeGst)
     result.push(
@@ -125,13 +126,17 @@ export async function createInvoice(
   const customer = customers.get(order.customerId)
   const own = stateOf(company.gstin)
   const theirs = stateOf(customer?.gstin)
-  const interState = Boolean(own && theirs && own !== theirs)
+  const exporting = order.market === 'export'
+  const interState = exporting || Boolean(own && theirs && own !== theirs)
   const orderLines = await ctx.em.find(CcOrderLine, { orderId: order.id })
   const already = await invoicedByLine(ctx, order.id)
   const left = new Map(orderLines.map((line) => [line.id, Math.max(0, Number(line.quantity) - (already.get(line.id) ?? 0))]))
-  const lines = await buildLines(ctx, order.id, order.pricesIncludeGst, input.lines ?? null, interState, left)
+  const lines = await buildLines(ctx, order.id, order.pricesIncludeGst, input.lines ?? null, interState, left, exporting)
   const invoiceDate = input.invoiceDate || new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' })
-  const dispatch = (await ctx.em.findOne(CcOrderStage, { orderId: order.id, stageKey: 'dispatch' }))?.data ?? {}
+  const stages = await ctx.em.find(CcOrderStage, { orderId: order.id, stageKey: { $in: ['dispatch', 'invoice', 'advance'] } })
+  const stageData = (key: string) => (stages.find((stage) => stage.stageKey === key)?.data ?? {}) as Record<string, unknown>
+  const dispatch = stageData('dispatch')
+  const exportDetails = exporting ? exportFromOrder(order, dispatch, stageData('invoice'), stageData('advance')) : null
   const invoice = ctx.em.create(TaxInvoice, {
     organizationId: ctx.organizationId,
     tenantId: ctx.tenantId,
@@ -146,7 +151,7 @@ export async function createInvoice(
     dueDate: addDays(invoiceDate, paymentTermDays(order.paymentTerms) ?? 0),
     status: 'draft',
     interState,
-    placeOfSupply: theirs ? `${theirs} ${GST_STATES[theirs] ?? ''}`.trim() : own ? `${own} ${GST_STATES[own] ?? ''}`.trim() : null,
+    placeOfSupply: exporting ? `96 Other countries${order.country ? ` (${order.country})` : ''}` : theirs ? `${theirs} ${GST_STATES[theirs] ?? ''}`.trim() : own ? `${own} ${GST_STATES[own] ?? ''}`.trim() : null,
     pricesIncludeGst: order.pricesIncludeGst,
     lines,
     totals: totalsOf(lines),
@@ -155,6 +160,7 @@ export async function createInvoice(
     terms: company.invoiceTerms,
     bankDetails: bankText(company),
     notes: input.notes ?? order.billingRemarks ?? null,
+    exportDetails,
     createdByName: byName,
     history: [{ action: 'created', by: byName, at: new Date().toISOString(), note: `From order ${order.orderNo}` }],
   })
@@ -169,13 +175,15 @@ export async function updateInvoiceLines(ctx: Scope, invoice: TaxInvoice, wanted
   const orderLines = await ctx.em.find(CcOrderLine, { orderId: order.id })
   const already = await invoicedByLine(ctx, order.id, invoice.id)
   const left = new Map(orderLines.map((line) => [line.id, Math.max(0, Number(line.quantity) - (already.get(line.id) ?? 0))]))
-  invoice.lines = await buildLines(ctx, order.id, invoice.pricesIncludeGst, wanted, invoice.interState, left)
+  invoice.lines = await buildLines(ctx, order.id, invoice.pricesIncludeGst, wanted, invoice.interState, left, invoice.exportDetails?.supply === 'lut')
   invoice.totals = totalsOf(invoice.lines)
   invoice.history = [...(invoice.history ?? []), { action: 'quantities', by: byName, at: new Date().toISOString(), note: invoice.lines.map((line) => `${line.title} ${line.quantity}`).join(', ') }]
 }
 
 export async function issueInvoice(ctx: Scope, invoice: TaxInvoice, byName: string | null): Promise<void> {
   if (invoice.status !== 'draft') throw new AccountsError(invoice.status === 'issued' ? 'Already issued' : 'This invoice is cancelled', 409)
+  const exp = invoice.exportDetails
+  if (exp && exp.currency !== 'INR' && !(exp.exchangeRate && exp.exchangeRate > 0)) throw new AccountsError(`Enter the exchange rate (₹ per ${exp.currency}) before issuing this export invoice`)
   invoice.status = 'issued'
   invoice.issuedAt = new Date()
   invoice.issuedByName = byName
@@ -236,6 +244,7 @@ export async function createCreditNote(
     lines,
     totals: totalsOf(lines),
     notes: input.reason,
+    exportDetails: invoice.exportDetails ?? null,
     createdByName: byName,
     history: [{ action: 'created', by: byName, at: new Date().toISOString(), note: input.reason }],
   })
@@ -275,6 +284,7 @@ export function invoiceView(invoice: TaxInvoice) {
     issuedByName: invoice.issuedByName ?? null,
     createdByName: invoice.createdByName ?? null,
     cancelReason: invoice.cancelReason ?? null,
+    exportDetails: invoice.exportDetails ?? null,
     history: invoice.history ?? [],
     createdAt: invoice.createdAt.toISOString(),
     updatedAt: invoice.updatedAt.toISOString(),
@@ -285,4 +295,50 @@ export async function findInvoice(ctx: Scope, id: string): Promise<TaxInvoice> {
   const invoice = await ctx.em.findOne(TaxInvoice, { id, tenantId: ctx.tenantId, organizationId: ctx.organizationId, deletedAt: null })
   if (!invoice) throw new AccountsError('Invoice not found', 404)
   return invoice
+}
+
+function textOf(value: unknown): string | null {
+  return typeof value === 'string' && value.trim() ? value.trim() : null
+}
+
+export function exportFromOrder(order: { currency?: string | null; incoterm?: string | null; portOfLoading?: string | null; country?: string | null }, dispatch: Record<string, unknown>, invoiceStage: Record<string, unknown>, advance: Record<string, unknown>): ExportDetails {
+  return {
+    supply: 'lut',
+    currency: (order.currency || 'USD').toUpperCase(),
+    exchangeRate: null,
+    incoterm: order.incoterm ?? null,
+    portOfLoading: textOf(dispatch.port) ?? order.portOfLoading ?? null,
+    portOfDischarge: null,
+    country: order.country ?? null,
+    shippingBillNo: textOf(invoiceStage.shipping_bill_no),
+    shippingBillDate: null,
+    containerNo: textOf(dispatch.container_no),
+    sealNo: textOf(dispatch.seal_no),
+    lcNumber: textOf(advance.lc_number),
+    vessel: null,
+  }
+}
+
+export type ExportPatch = Partial<Omit<ExportDetails, 'supply' | 'currency'>> & { supply?: ExportSupply; currency?: string }
+
+const AFTER_ISSUE: Array<keyof ExportDetails> = ['portOfDischarge', 'shippingBillNo', 'shippingBillDate', 'containerNo', 'sealNo', 'vessel', 'lcNumber']
+
+export async function updateExportDetails(ctx: Scope, invoice: TaxInvoice, patch: ExportPatch, byName: string | null): Promise<void> {
+  const current = invoice.exportDetails
+  if (!current) throw new AccountsError('This is not an export invoice')
+  const next: ExportDetails = { ...current }
+  const changed: string[] = []
+  for (const [key, value] of Object.entries(patch) as Array<[keyof ExportDetails, ExportDetails[keyof ExportDetails] | undefined]>) {
+    if (value === undefined || value === current[key]) continue
+    if (invoice.status !== 'draft' && !AFTER_ISSUE.includes(key)) throw new AccountsError('After issue only the shipping bill, container, seal, vessel, LC and port of discharge can change. Use a credit note for the rest.', 409)
+    ;(next as Record<string, unknown>)[key] = value
+    changed.push(key)
+  }
+  if (!changed.length) return
+  if (next.exchangeRate != null && !(next.exchangeRate > 0)) throw new AccountsError('Exchange rate must be more than 0')
+  invoice.exportDetails = next
+  if (changed.includes('supply')) {
+    await updateInvoiceLines(ctx, invoice, invoice.lines.map((line) => ({ orderLineId: line.orderLineId, quantity: line.quantity })), byName)
+  }
+  invoice.history = [...(invoice.history ?? []), { action: 'export', by: byName, at: new Date().toISOString(), note: changed.join(', ') }]
 }

@@ -43,6 +43,22 @@ export type PiView = {
   updatedAt: string
 }
 
+export type ExportDetailsView = {
+  supply: 'lut' | 'igst'
+  currency: string
+  exchangeRate: number | null
+  incoterm: string | null
+  portOfLoading: string | null
+  portOfDischarge: string | null
+  country: string | null
+  shippingBillNo: string | null
+  shippingBillDate: string | null
+  containerNo: string | null
+  sealNo: string | null
+  lcNumber: string | null
+  vessel: string | null
+}
+
 export type CompanyView = {
   id: string | null
   name: string
@@ -63,6 +79,9 @@ export type CompanyView = {
   invoiceTerms: string | null
   piValidityDays: number
   grnOverPercent?: number
+  iec?: string | null
+  lutArn?: string | null
+  lutValidTill?: string | null
   updatedAt: string | null
 }
 
@@ -104,6 +123,7 @@ export type InvoiceView = {
   issuedByName: string | null
   createdByName: string | null
   cancelReason: string | null
+  exportDetails: ExportDetailsView | null
   history: Array<{ action: string; by: string | null; at: string; note: string | null }>
   createdAt: string
   updatedAt: string

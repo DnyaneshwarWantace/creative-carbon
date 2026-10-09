@@ -32,6 +32,7 @@ const KINDS: Array<{ key: Kind; label: string; hint: string }> = [
 
 const LEDGER_FIELDS: Array<{ key: string; label: string; fallback: string }> = [
   { key: 'sales', label: 'Sales ledger', fallback: 'Sales @ GST' },
+  { key: 'exportSales', label: 'Export sales ledger', fallback: 'Export Sales' },
   { key: 'purchase', label: 'Purchase ledger', fallback: 'Purchase @ GST' },
   { key: 'outputCgst', label: 'Output CGST', fallback: 'Output CGST' },
   { key: 'outputSgst', label: 'Output SGST', fallback: 'Output SGST' },
@@ -44,7 +45,7 @@ const LEDGER_FIELDS: Array<{ key: string; label: string; fallback: string }> = [
 ]
 
 const LEDGER_GROUPS = [
-  { key: 'sales', title: 'Sales', keys: ['sales', 'outputCgst', 'outputSgst', 'outputIgst'] },
+  { key: 'sales', title: 'Sales', keys: ['sales', 'exportSales', 'outputCgst', 'outputSgst', 'outputIgst'] },
   { key: 'purchase', title: 'Purchase', keys: ['purchase', 'inputCgst', 'inputSgst', 'inputIgst'] },
   { key: 'other', title: 'Bank & other', keys: ['bank', 'roundOff'] },
 ]

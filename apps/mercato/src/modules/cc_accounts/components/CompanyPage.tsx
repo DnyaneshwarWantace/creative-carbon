@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from 'react'
-import { Building2, Landmark, ScrollText, Save } from 'lucide-react'
+import { Building2, Landmark, ScrollText, Save, Ship } from 'lucide-react'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { Page, PageBody } from '@open-mercato/ui/backend/Page'
 import { Button } from '@open-mercato/ui/primitives/button'
@@ -44,6 +44,16 @@ const SECTIONS: Array<{ title: string; hint: string; icon: typeof Building2; fie
       { key: 'bankAccount', label: 'Account no.' },
       { key: 'bankIfsc', label: 'IFSC', upper: true },
       { key: 'upiId', label: 'UPI ID' },
+    ],
+  },
+  {
+    title: 'Export',
+    hint: 'Printed on export invoices. Under a LUT, exports go without IGST.',
+    icon: Ship,
+    fields: [
+      { key: 'iec', label: 'IEC (import export code)', upper: true },
+      { key: 'lutArn', label: 'LUT ARN', placeholder: 'e.g. AD240326012345X', upper: true },
+      { key: 'lutValidTill', label: 'LUT valid till', type: 'date' },
     ],
   },
   {

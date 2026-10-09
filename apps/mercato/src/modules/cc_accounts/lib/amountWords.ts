@@ -34,3 +34,42 @@ export function rupeesInWords(amount: number): string {
   const paise = Math.round((safe - rupees) * 100)
   return `Rupees ${wholeWords(rupees)}${paise ? ` and ${belowHundred(paise)} Paise` : ''} Only`
 }
+
+function internationalWords(value: number): string {
+  if (value === 0) return 'Zero'
+  const groups: Array<[number, string]> = [
+    [1_000_000_000, 'Billion'],
+    [1_000_000, 'Million'],
+    [1_000, 'Thousand'],
+  ]
+  const parts: string[] = []
+  let rest = value
+  for (const [size, name] of groups) {
+    const count = Math.floor(rest / size)
+    if (count) parts.push(`${belowThousand(count)} ${name}`)
+    rest %= size
+  }
+  if (rest) parts.push(belowThousand(rest))
+  return parts.join(' ')
+}
+
+const CURRENCY_WORDS: Record<string, [string, string]> = {
+  USD: ['US Dollars', 'Cents'],
+  EUR: ['Euros', 'Cents'],
+  GBP: ['Pounds Sterling', 'Pence'],
+  AED: ['UAE Dirhams', 'Fils'],
+  SAR: ['Saudi Riyals', 'Halalas'],
+  AUD: ['Australian Dollars', 'Cents'],
+  SGD: ['Singapore Dollars', 'Cents'],
+  CNY: ['Yuan', 'Fen'],
+  JPY: ['Yen', 'Sen'],
+}
+
+export function amountInWords(amount: number, currency: string): string {
+  if (!currency || currency.toUpperCase() === 'INR') return rupeesInWords(amount)
+  const [major, minor] = CURRENCY_WORDS[currency.toUpperCase()] ?? [currency.toUpperCase(), 'Cents']
+  const safe = Math.max(0, Math.round(amount * 100) / 100)
+  const whole = Math.floor(safe)
+  const fraction = Math.round((safe - whole) * 100)
+  return `${major} ${internationalWords(whole)}${fraction ? ` and ${minor} ${belowHundred(fraction)}` : ''} Only`
+}

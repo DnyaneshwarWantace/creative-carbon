@@ -5,7 +5,7 @@ import type { OpenApiRouteDoc } from '@open-mercato/shared/lib/openapi'
 import { enforceCommandOptimisticLock } from '@open-mercato/shared/lib/crud/optimistic-lock-command'
 import { currentUserName, resolveOrderContext } from '../../../cc_orders/lib/server'
 import { invoiceCreateSchema, invoiceListSchema, invoiceUpdateSchema } from '../../data/validators'
-import { createInvoice, findInvoice, invoiceView, updateInvoiceLines } from '../../lib/invoices'
+import { createInvoice, findInvoice, invoiceView, updateExportDetails, updateInvoiceLines, type ExportPatch } from '../../lib/invoices'
 import { AccountsError } from '../../lib/service'
 import { accountsErrorResponse, runGuarded } from '../../lib/server'
 
@@ -96,6 +96,14 @@ async function PUT(req: Request) {
         if (input.terms !== undefined) doc.terms = clean(input.terms)
         if (input.bankDetails !== undefined) doc.bankDetails = clean(input.bankDetails)
         if (input.notes !== undefined) doc.notes = clean(input.notes)
+        if (input.exportDetails) {
+          const patch: ExportPatch = {}
+          for (const [key, value] of Object.entries(input.exportDetails)) {
+            if (value === undefined) continue
+            ;(patch as Record<string, unknown>)[key] = typeof value === 'string' ? (key === 'currency' ? value.trim().toUpperCase() : clean(value)) : value
+          }
+          await updateExportDetails(txCtx, doc, patch, byName)
+        }
         doc.history = [...(doc.history ?? []), { action: 'edited', by: byName, at: new Date().toISOString(), note: null }]
         doc.updatedAt = new Date()
         await em.flush()
