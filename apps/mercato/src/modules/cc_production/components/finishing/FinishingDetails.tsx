@@ -11,11 +11,12 @@ import { apiCall } from '@open-mercato/ui/backend/utils/apiCall'
 import { flash } from '@open-mercato/ui/backend/FlashMessages'
 import { useGranted } from '../../../cc_departments/components/useGranted'
 import { PLACE_LABEL, type StockPlace } from '../../../cc_products/lib/stock'
-import { DocLink, FieldList, HistoryPanel, LinkRows, Panel, RecordColumns, RecordPage, RecordState, RegisterGrid, type Fact, type LinkRow } from '../../../cc_ui/components/RecordPage'
+import { DocLink, FieldList, LinkRows, Panel, RecordColumns, RecordPage, RecordState, RegisterGrid, type Fact, type LinkRow } from '../../../cc_ui/components/RecordPage'
 import { PlantChain } from '../../../cc_ui/components/PlantChain'
 import { recordHref, type DocumentLink } from '../../../cc_ui/lib/links'
 import { HISTORY_LABEL, day, kg, when } from '../resin/shared'
 import { useSend } from './shared'
+import { Timeline } from '../../../cc_ui/components/Timeline'
 
 type Kind = 'cutting' | 'thickness' | 'fg' | 'direct_in' | 'damage'
 type HistoryItem = { action: string; by: string | null; at: string; note: string | null }
@@ -216,7 +217,7 @@ export function CuttingDetailPage({ recordId }: { recordId: string }) {
           </>
         }
       />
-      <HistoryPanel entries={historyEntries(cut.history)} />
+      <Timeline type="cutting" id={cut.id} refreshKey={cut.history.length} />
     </RecordPage>
   )
 }
@@ -303,7 +304,7 @@ export function ThicknessDetailPage({ recordId }: { recordId: string }) {
           </>
         }
       />
-      <HistoryPanel entries={historyEntries(row.history)} />
+      <Timeline type="thickness" id={row.id} refreshKey={row.history.length} />
     </RecordPage>
   )
 }
@@ -442,7 +443,7 @@ export function FgReportDetailPage({ recordId }: { recordId: string }) {
           )}
         />
       </Panel>
-      <HistoryPanel entries={historyEntries(report.history)} />
+      <Timeline type="fg_inspection" id={report.id} refreshKey={report.history.length} />
     </RecordPage>
   )
 }
@@ -509,7 +510,7 @@ export function DirectInDetailPage({ recordId }: { recordId: string }) {
         }
         side={<TracePanel title={t('cc_production.trace.wentTo', 'Went to')} trace={record.lot} empty={t('cc_production.direct.noLot', 'No stock lot.')} />}
       />
-      <HistoryPanel entries={historyEntries(record.history)} />
+      <Timeline type="fg_direct_in" id={record.id} refreshKey={record.history.length} />
     </RecordPage>
   )
 }
@@ -568,7 +569,7 @@ export function DamageDetailPage({ recordId }: { recordId: string }) {
         }
         side={<TracePanel title={t('cc_production.trace.cameFrom', 'Came from')} trace={record.lot} empty={t('cc_production.trace.noSource', 'Source lot not found.')} />}
       />
-      <HistoryPanel entries={historyEntries(record.history)} />
+      <Timeline type="damage" id={record.id} refreshKey={record.history.length} />
     </RecordPage>
   )
 }

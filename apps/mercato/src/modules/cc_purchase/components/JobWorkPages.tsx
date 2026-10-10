@@ -20,9 +20,10 @@ import { useGuardedMutation } from '@open-mercato/ui/backend/injection/useGuarde
 import { flash } from '@open-mercato/ui/backend/FlashMessages'
 import { useGranted } from '../../cc_departments/components/useGranted'
 import { PhoneList } from '../../cc_ui/components/PhoneList'
-import { FieldList, HistoryPanel, LinkRows, Panel, PanelEmpty, RecordColumns, RecordPage, RecordState, RegisterGrid, formatDay, formatKg, type Fact } from '../../cc_ui/components/RecordPage'
+import { FieldList, LinkRows, Panel, PanelEmpty, RecordColumns, RecordPage, RecordState, RegisterGrid, formatDay, formatKg, type Fact } from '../../cc_ui/components/RecordPage'
 import { recordHref } from '../../cc_ui/lib/links'
 import { Dropdown } from '../../cc_lists/components/Dropdown'
+import { Timeline } from '../../cc_ui/components/Timeline'
 
 type Status = 'open' | 'part_returned' | 'returned' | 'cancelled'
 type Line = { lineId: string; productId: string; title: string; hsn: string | null; unit: string; lotId: string; lotNumber: string; fromPlace: string; fromPlaceLabel: string; qty: number; value: number; returnedQty: number; lossQty: number; pending: number }
@@ -739,7 +740,7 @@ export function JobWorkDetailPage({ id }: { id: string }) {
           </>
         }
       />
-      <HistoryPanel entries={[...challan.history].reverse().map((entry, index) => ({ key: `${entry.at}-${index}`, label: <span className="first-letter:uppercase">{entry.action.replace(/_/g, ' ')}</span>, note: entry.note, by: entry.by, at: entry.at }))} />
+      <Timeline type="job_work" id={challan.id} refreshKey={challan.history.length} />
     </RecordPage>
   )
 }

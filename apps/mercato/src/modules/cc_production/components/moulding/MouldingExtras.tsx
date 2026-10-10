@@ -11,9 +11,10 @@ import { StatusBadge } from '@open-mercato/ui/primitives/status-badge'
 import { Spinner } from '@open-mercato/ui/primitives/spinner'
 import { apiCall } from '@open-mercato/ui/backend/utils/apiCall'
 import { HISTORY_LABEL, day, kg, todayIso, when } from '../resin/shared'
-import { FieldList, HistoryPanel, LinkRows, Panel, PanelEmpty, RecordColumns, RecordPage, RecordState, RegisterGrid, type Fact } from '../../../cc_ui/components/RecordPage'
+import { FieldList, LinkRows, Panel, PanelEmpty, RecordColumns, RecordPage, RecordState, RegisterGrid, type Fact } from '../../../cc_ui/components/RecordPage'
 import { PlantChain } from '../../../cc_ui/components/PlantChain'
 import { recordHref } from '../../../cc_ui/lib/links'
+import { Timeline } from '../../../cc_ui/components/Timeline'
 
 type EntryPage = {
   id: string
@@ -156,7 +157,7 @@ export function MouldingEntryPage({ entryId }: { entryId: string }) {
           </>
         }
       />
-      <HistoryPanel entries={[...entry.history].reverse().map((item, index) => ({ key: `${item.at}-${index}`, label: HISTORY_LABEL[item.action] ?? item.action, note: item.note, by: item.by, at: item.at }))} />
+      <Timeline type="moulding_entry" id={entry.id} refreshKey={entry.history.length} />
     </RecordPage>
   )
 }

@@ -4,7 +4,7 @@ import * as React from 'react'
 import { useGranted } from '../../cc_departments/components/useGranted'
 import { ViewOnlyNote } from '../../cc_departments/components/ViewOnlyNote'
 import Link from 'next/link'
-import { Ban, CheckCircle2, History, Printer, RefreshCcw, Save } from 'lucide-react'
+import { Ban, CheckCircle2, Printer, RefreshCcw, Save } from 'lucide-react'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { Button } from '@open-mercato/ui/primitives/button'
 import { Input } from '@open-mercato/ui/primitives/input'
@@ -21,12 +21,9 @@ import { buildPiHtml, printPi } from './piPrint'
 import { PI_STATUS, type CompanyView, type PiView } from './types'
 import { RecordPage, RecordState, formatDay, type Fact } from '../../cc_ui/components/RecordPage'
 import { recordHref } from '../../cc_ui/lib/links'
+import { Timeline } from '../../cc_ui/components/Timeline'
 
-const HISTORY: Record<string, string> = { created: 'Drafted', edited: 'Edited', refreshed: 'Lines refreshed from the order', sent: 'Sent to customer', cancelled: 'Cancelled' }
 
-function when(value: string): string {
-  return new Date(value).toLocaleString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })
-}
 
 export function ProformaPage({ id }: { id: string }) {
   const t = useT()
@@ -269,21 +266,7 @@ export function ProformaPage({ id }: { id: string }) {
                   </div>
                 ) : null}
               </section>
-              <section className="space-y-2 rounded-lg border bg-card p-4 shadow-xs">
-                <h2 className="flex items-center gap-1.5 text-sm font-semibold">
-                  <History className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
-                  {t('cc_accounts.pi.history', 'History')}
-                </h2>
-                <ol className="space-y-2 border-l pl-3 text-xs">
-                  {[...pi.history].reverse().map((entry, index) => (
-                    <li key={`${entry.at}-${index}`}>
-                      <span className="font-medium">{HISTORY[entry.action] ?? entry.action}</span>
-                      <span className="text-muted-foreground"> · {entry.by ?? '—'}, {when(entry.at)}</span>
-                      {entry.note ? <p className="text-muted-foreground">{entry.note}</p> : null}
-                    </li>
-                  ))}
-                </ol>
-              </section>
+              <Timeline type="proforma" id={pi.id} refreshKey={pi.updatedAt} />
             </div>
           </div>
     </RecordPage>

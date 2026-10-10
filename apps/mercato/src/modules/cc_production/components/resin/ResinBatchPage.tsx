@@ -18,9 +18,10 @@ import { flash } from '@open-mercato/ui/backend/FlashMessages'
 import { PLACE_LABEL, type StockPlace } from '../../../cc_products/lib/stock'
 import { useGranted } from '../../../cc_departments/components/useGranted'
 import { HISTORY_LABEL, READINGS, RESIN_STATUS, STEP_LABELS, day, kg, when, type BatchView } from './shared'
-import { HistoryPanel, Panel, PanelEmpty, RecordColumns, RecordPage, RecordState, RegisterGrid, type Fact } from '../../../cc_ui/components/RecordPage'
+import { Panel, PanelEmpty, RecordColumns, RecordPage, RecordState, RegisterGrid, type Fact } from '../../../cc_ui/components/RecordPage'
 import { PlantChain } from '../../../cc_ui/components/PlantChain'
 import { recordHref } from '../../../cc_ui/lib/links'
+import { Timeline } from '../../../cc_ui/components/Timeline'
 
 type Action = 'post' | 'fail' | 'reopen' | 'sign_chemist' | 'sign_incharge' | 'delete'
 
@@ -345,10 +346,7 @@ export function ResinBatchPage({ batchId }: { batchId: string }) {
             </>
           }
         />
-        <HistoryPanel
-          entries={[...batch.history].reverse().map((entry, index) => ({ key: `${entry.at}-${index}`, label: HISTORY_LABEL[entry.action] ?? entry.action, note: entry.note, by: entry.by, at: entry.at }))}
-          footer={batch.reopenUntil && batch.canReopen ? t('cc_production.resin.reopenUntil', 'Can be reopened until {at}.', { at: when(batch.reopenUntil) }) : undefined}
-        />
+        <Timeline type="resin_batch" id={batch.id} refreshKey={batch.history.length} footer={batch.reopenUntil && batch.canReopen ? t('cc_production.resin.reopenUntil', 'Can be reopened until {at}.', { at: when(batch.reopenUntil) }) : undefined} />
       </RecordPage>
 
         <Dialog open={failing} onOpenChange={(open) => !open && setFailing(false)}>

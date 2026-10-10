@@ -24,8 +24,9 @@ import { useSend, selectClass } from '../../cc_production/components/finishing/s
 import { QUOTE_LABEL, QUOTE_VARIANT, STAGE_LABEL, STAGE_VARIANT, type Enquiry, type EnquiryStage } from './types'
 import { Dropdown } from '../../cc_lists/components/Dropdown'
 import { PageLoading } from '../../cc_ui/components/PageLoading'
-import { FieldList, HistoryPanel, Panel, RecordColumns, RecordPage, RecordState, RegisterGrid, type Fact } from '../../cc_ui/components/RecordPage'
+import { FieldList, Panel, RecordColumns, RecordPage, RecordState, RegisterGrid, type Fact } from '../../cc_ui/components/RecordPage'
 import { recordHref } from '../../cc_ui/lib/links'
+import { Timeline } from '../../cc_ui/components/Timeline'
 
 function localNow(): string {
   const now = new Date(Date.now() - new Date().getTimezoneOffset() * 60_000)
@@ -445,7 +446,7 @@ export function EnquiryPage({ enquiryId }: { enquiryId: string }) {
           )
         }
       />
-      <HistoryPanel entries={[...enquiry.history].reverse().map((item, index) => ({ key: `${item.at}-${index}`, label: <span className="first-letter:uppercase">{item.action.replace(/_/g, ' ')}</span>, note: item.note, by: item.by, at: item.at }))} />
+      <Timeline type="enquiry" id={enquiry.id} refreshKey={enquiry.history.length} />
     </RecordPage>
   )
 }

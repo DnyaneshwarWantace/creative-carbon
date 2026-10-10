@@ -10,9 +10,10 @@ import { apiCall } from '@open-mercato/ui/backend/utils/apiCall'
 import { PLACE_LABEL, type StockPlace } from '../../../cc_products/lib/stock'
 import { HISTORY_LABEL, day, kg, when } from '../resin/shared'
 import { SHEET_STATUS, paperTime, type SheetView } from './shared'
-import { HistoryPanel, LinkRows, Panel, RecordColumns, RecordPage, RecordState, RegisterGrid, type Fact } from '../../../cc_ui/components/RecordPage'
+import { LinkRows, Panel, RecordColumns, RecordPage, RecordState, RegisterGrid, type Fact } from '../../../cc_ui/components/RecordPage'
 import { PlantChain } from '../../../cc_ui/components/PlantChain'
 import { recordHref } from '../../../cc_ui/lib/links'
+import { Timeline } from '../../../cc_ui/components/Timeline'
 
 export function CoatingSheetPage({ sheetId }: { sheetId: string }) {
   const t = useT()
@@ -203,7 +204,7 @@ export function CoatingSheetPage({ sheetId }: { sheetId: string }) {
           </>
         }
       />
-      <HistoryPanel entries={[...sheet.history].reverse().map((entry, index) => ({ key: `${entry.at}-${index}`, label: HISTORY_LABEL[entry.action] ?? entry.action, note: entry.note, by: entry.by, at: entry.at }))} />
+      <Timeline type="coating_sheet" id={sheet.id} refreshKey={sheet.history.length} />
     </RecordPage>
   )
 }

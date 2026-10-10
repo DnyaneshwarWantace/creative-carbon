@@ -5,7 +5,7 @@ import { useGranted } from '../../cc_departments/components/useGranted'
 import { ViewOnlyNote } from '../../cc_departments/components/ViewOnlyNote'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { Ban, CheckCircle2, FileMinus, History, Printer, Save } from 'lucide-react'
+import { Ban, CheckCircle2, FileMinus, Printer, Save } from 'lucide-react'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { Button } from '@open-mercato/ui/primitives/button'
 import { Input } from '@open-mercato/ui/primitives/input'
@@ -22,15 +22,12 @@ import { buildInvoiceHtml, printInvoice } from './invoicePrint'
 import { INVOICE_STATUS, type CompanyView, type InvoiceView } from './types'
 import { RecordPage, RecordState, formatDay, type Fact } from '../../cc_ui/components/RecordPage'
 import { recordHref } from '../../cc_ui/lib/links'
+import { Timeline } from '../../cc_ui/components/Timeline'
 
-const HISTORY: Record<string, string> = { created: 'Drafted', edited: 'Edited', quantities: 'Quantities changed', issued: 'Issued', credited: 'Credit note made', cancelled: 'Cancelled', export: 'Export details changed' }
 
 const EXPORT_TEXT = ['incoterm', 'portOfLoading', 'portOfDischarge', 'country', 'vessel', 'containerNo', 'sealNo', 'shippingBillNo', 'shippingBillDate', 'lcNumber'] as const
 const EXPORT_AFTER_ISSUE = new Set<string>(['portOfDischarge', 'shippingBillNo', 'shippingBillDate', 'containerNo', 'sealNo', 'vessel', 'lcNumber'])
 
-function when(value: string): string {
-  return new Date(value).toLocaleString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })
-}
 
 export function InvoicePage({ id }: { id: string }) {
   const t = useT()
@@ -402,21 +399,7 @@ export function InvoicePage({ id }: { id: string }) {
                   </div>
                 ) : null}
               </section>
-              <section className="space-y-2 rounded-lg border bg-card p-4 shadow-xs">
-                <h2 className="flex items-center gap-1.5 text-sm font-semibold">
-                  <History className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
-                  {t('cc_accounts.inv.history', 'History')}
-                </h2>
-                <ol className="space-y-2 border-l pl-3 text-xs">
-                  {[...doc.history].reverse().map((entry, index) => (
-                    <li key={`${entry.at}-${index}`}>
-                      <span className="font-medium">{HISTORY[entry.action] ?? entry.action}</span>
-                      <span className="text-muted-foreground"> · {entry.by ?? '—'}, {when(entry.at)}</span>
-                      {entry.note ? <p className="text-muted-foreground">{entry.note}</p> : null}
-                    </li>
-                  ))}
-                </ol>
-              </section>
+              <Timeline type="invoice" id={doc.id} refreshKey={doc.updatedAt} />
             </div>
           </div>
     </RecordPage>

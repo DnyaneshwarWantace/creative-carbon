@@ -17,9 +17,10 @@ import { flash } from '@open-mercato/ui/backend/FlashMessages'
 import { useGranted } from '../../../cc_departments/components/useGranted'
 import { HISTORY_LABEL, day, kg, when } from '../resin/shared'
 import { HEATING_FIELDS, PRESS_STATUS, weightText, type PressBatchView } from './shared'
-import { FieldList, HistoryPanel, LinkRows, Panel, PanelEmpty, RecordColumns, RecordPage, RecordState, RegisterGrid, type Fact } from '../../../cc_ui/components/RecordPage'
+import { FieldList, LinkRows, Panel, PanelEmpty, RecordColumns, RecordPage, RecordState, RegisterGrid, type Fact } from '../../../cc_ui/components/RecordPage'
 import { PlantChain } from '../../../cc_ui/components/PlantChain'
 import { recordHref } from '../../../cc_ui/lib/links'
+import { Timeline } from '../../../cc_ui/components/Timeline'
 
 type Action = 'post' | 'reopen' | 'cancel' | 'review'
 
@@ -265,7 +266,7 @@ export function PressBatchPage({ batchId }: { batchId: string }) {
             </>
           }
         />
-        <HistoryPanel entries={[...batch.history].reverse().map((entry, index) => ({ key: `${entry.at}-${index}`, label: HISTORY_LABEL[entry.action] ?? entry.action, note: entry.note, by: entry.by, at: entry.at }))} />
+        <Timeline type="press_batch" id={batch.id} refreshKey={batch.history.length} />
       </RecordPage>
 
         <Dialog open={cancelling} onOpenChange={(open) => !open && setCancelling(false)}>

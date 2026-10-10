@@ -269,6 +269,7 @@ export const enabledModules: ModuleEntry[] = [
   { id: 'cc_products', from: '@app' },
   { id: 'cc_orders', from: '@app' },
   { id: 'cc_store', from: '@app' },
+  { id: 'cc_audit', from: '@app' },
   { id: 'cc_purchase', from: '@app' },
   { id: 'cc_dashboard', from: '@app' },
   { id: 'cc_accounts', from: '@app' },

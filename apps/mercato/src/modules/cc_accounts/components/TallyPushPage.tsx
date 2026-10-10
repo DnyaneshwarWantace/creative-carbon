@@ -228,7 +228,7 @@ export function TallyPushPage({ pushId }: { pushId: string }) {
                   [t('cc_accounts.push.dates', 'Dates'), `${formatDay(push.rangeFrom)} – ${formatDay(push.rangeTo)}`],
                   [t('cc_accounts.push.kinds', 'Kinds'), push.kinds.map((kind) => t(`cc_accounts.tally.kind.${kind}`, KIND_LABEL[kind] ?? kind)).join(', ')],
                   [t('cc_accounts.push.company', 'Company in Tally'), push.tallyCompany],
-                  [t('cc_accounts.push.address', 'Tally address'), <span className="font-mono text-xs">{push.tallyUrl}</span>],
+                  [t('cc_accounts.push.address', 'Tally address'), <span key="url" className="font-mono text-xs">{push.tallyUrl}</span>],
                   [t('cc_accounts.push.withLedgers', 'Party ledgers'), push.withMasters ? t('cc_accounts.push.included', 'Included') : t('cc_accounts.push.notIncluded', 'Not included')],
                 ]}
               />

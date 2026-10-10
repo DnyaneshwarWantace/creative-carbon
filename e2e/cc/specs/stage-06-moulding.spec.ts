@@ -32,6 +32,19 @@ async function day(request: APIRequestContext): Promise<Day> {
   return response.json()
 }
 
+async function clearDay(request: APIRequestContext, date: string) {
+  for (const shift of [1, 2]) {
+    const load = async () => ((await (await request.get(`/api/cc_production/moulding?date=${date}`)).json()) as Day).shifts.find((entry) => entry.shift === shift)
+    let current = await load()
+    for (const entry of current?.entries.filter((candidate) => candidate.status === 'posted') ?? []) {
+      current = await load()
+      await request.post('/api/cc_production/moulding/action', { data: { entryDate: date, shift, action: 'reopen', pressId: entry.pressId }, headers: { [LOCK]: current!.version } })
+    }
+    current = await load()
+    if (current?.entries.length) await request.put('/api/cc_production/moulding', { data: { entryDate: date, shift, entries: [] }, headers: { [LOCK]: current.version } })
+  }
+}
+
 async function freeKg(request: APIRequestContext, productId: string): Promise<number> {
   const stock = (await (await request.get('/api/cc_store/stock?place=wh_a')).json()) as { items: Array<{ productId: string; usable: number }> }
   return stock.items.find((item) => item.productId === productId)?.usable ?? 0
@@ -179,16 +192,12 @@ test.describe.serial('Stage 6 · moulded products', () => {
     }
   })
 
+  test.afterAll(async ({ request }) => {
+    await clearDay(request, DATE)
+  })
+
   test('clean up: every entry reopened and removed, test stock taken back out', async ({ request }) => {
-    for (const shift of [1, 2]) {
-      const current = (await day(request)).shifts.find((entry) => entry.shift === shift)!
-      for (const entry of current.entries.filter((candidate) => candidate.status === 'posted')) {
-        const reopened = await act(request, shift, 'reopen', entry.pressId)
-        expect(reopened.ok(), await reopened.text()).toBeTruthy()
-      }
-      const cleared = await putShift(request, shift, [])
-      expect(cleared.ok(), await cleared.text()).toBeTruthy()
-    }
+    await clearDay(request, DATE)
     expect((await day(request)).shifts.every((shift) => shift.entries.length === 0)).toBeTruthy()
     const stock = (await (await request.get('/api/cc_store/stock?place=wh_a')).json()) as { items: Array<{ productId: string; lots: Array<{ lotId: string; lotNumber: string | null; free: number }> }> }
     for (const item of stock.items) {

@@ -16,9 +16,10 @@ import { useGranted } from '../../../cc_departments/components/useGranted'
 import { day } from '../resin/shared'
 import { LAB_ENTITY, fileSize } from './LabForm'
 import type { LabReportFile, LabResult, LabTest } from './types'
-import { FieldList, HistoryPanel, Panel, RecordColumns, RecordPage, RecordState, type Fact } from '../../../cc_ui/components/RecordPage'
+import { FieldList, Panel, RecordColumns, RecordPage, RecordState, type Fact } from '../../../cc_ui/components/RecordPage'
 import { PlantChain } from '../../../cc_ui/components/PlantChain'
 import { recordHref } from '../../../cc_ui/lib/links'
+import { Timeline } from '../../../cc_ui/components/Timeline'
 
 const RESULT_STYLE: Record<LabResult, { label: string; tone: string; icon: typeof CheckCircle2 }> = {
   pass: { label: 'Pass', tone: 'border-status-success-border bg-status-success-bg text-status-success-text', icon: CheckCircle2 },
@@ -255,7 +256,7 @@ export function LabDetailPage({ testId }: { testId: string }) {
           </Panel>
         }
       />
-      <HistoryPanel entries={[...test.history].reverse().map((entry, index) => ({ key: `${entry.at}-${index}`, label: <span className="first-letter:uppercase">{entry.action}</span>, note: entry.note, by: entry.by, at: entry.at }))} />
+      <Timeline type="lab_test" id={test.id} refreshKey={test.history.length} />
     </RecordPage>
   )
 }

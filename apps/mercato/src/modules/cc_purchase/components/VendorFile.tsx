@@ -13,6 +13,7 @@ import { GRN_STATUS, PO_STATUS, day, money, qty, type GrnStatus, type PoStatus }
 import { Panel, PanelEmpty, RecordColumns, RecordPage, RecordState, RegisterGrid, formatKg, type Fact } from '../../cc_ui/components/RecordPage'
 import { recordHref } from '../../cc_ui/lib/links'
 import { VENDOR_CATEGORY_LABEL } from '../../cc_vendors/lib/categories'
+import { Timeline } from '../../cc_ui/components/Timeline'
 
 type VendorView = {
   id: string
@@ -330,6 +331,7 @@ export function VendorFile({ vendorId }: { vendorId: string }) {
             </>
           }
         />
+        <Timeline type="vendor" id={vendor.id} refreshKey={vendor.updatedAt} />
       </RecordPage>
     </>
   )

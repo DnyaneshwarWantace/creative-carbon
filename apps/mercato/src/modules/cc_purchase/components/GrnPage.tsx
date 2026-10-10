@@ -18,8 +18,9 @@ import { useGuardedMutation } from '@open-mercato/ui/backend/injection/useGuarde
 import { flash } from '@open-mercato/ui/backend/FlashMessages'
 import { GRN_STATUS, HISTORY_LABEL, LINE_QC, day, qty, when, type GrnLineView, type GrnView } from './shared'
 import { PLACE_LABEL } from '../../cc_products/lib/stock'
-import { DocLink, FieldList, HistoryPanel, LinkRows, Panel, RecordColumns, RecordPage, RecordState, type Fact } from '../../cc_ui/components/RecordPage'
+import { DocLink, FieldList, LinkRows, Panel, RecordColumns, RecordPage, RecordState, type Fact } from '../../cc_ui/components/RecordPage'
 import { recordHref, type DocumentLink } from '../../cc_ui/lib/links'
+import { Timeline } from '../../cc_ui/components/Timeline'
 
 type LotTrace = { lotId: string; lotNumber: string | null; usedBy: Array<{ document: DocumentLink; kg: number; at: string }> }
 
@@ -250,7 +251,7 @@ export function GrnPage({ grnId }: { grnId: string }) {
             </>
           }
         />
-        <HistoryPanel entries={grn.history.slice().reverse().map((entry, index) => ({ key: `${entry.at}-${index}`, label: HISTORY_LABEL[entry.action] ?? entry.action, note: entry.note, by: entry.by, at: entry.at }))} />
+        <Timeline type="grn" id={grn.id} refreshKey={grn.history.length} />
       </RecordPage>
 
         <Dialog open={returning !== null} onOpenChange={(value) => (!value ? setReturning(null) : undefined)}>

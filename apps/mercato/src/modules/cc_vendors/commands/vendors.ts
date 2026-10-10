@@ -8,6 +8,28 @@ import type { CrudIndexerConfig, CrudEventsConfig } from '@open-mercato/shared/l
 import { E } from '@/.mercato/generated/entities.ids.generated'
 import { Vendor } from '../data/entities'
 import { checkVendor, nextVendorCode, type VendorValues } from '../lib/checkVendor'
+import { diffFields, recordActivity, type FieldSpec } from '../../cc_audit/lib/activity'
+import { userNames } from '../../cc_orders/lib/server'
+
+const VENDOR_FIELDS: Record<string, FieldSpec> = {
+  name: { label: 'Name' },
+  code: { label: 'Vendor code' },
+  gstNumber: { label: 'GSTIN' },
+  category: { label: 'Supplies' },
+  contactPerson: { label: 'Contact person' },
+  contactPhone: { label: 'Phone' },
+  contactEmail: { label: 'Email' },
+  address: { label: 'Address' },
+  paymentTerms: { label: 'Payment terms' },
+  isActive: { label: 'Active' },
+}
+
+async function actorOf(em: EntityManager, ctx: { auth?: { sub?: string | null } | null }, scope: { tenantId: string; organizationId: string }) {
+  const userId = typeof ctx.auth?.sub === 'string' && /^[0-9a-f-]{36}$/i.test(ctx.auth.sub) ? ctx.auth.sub : null
+  if (!userId) return { actorUserId: null, actorName: null }
+  const names = await userNames({ em, ...scope } as Parameters<typeof userNames>[0], [userId])
+  return { actorUserId: userId, actorName: names.get(userId) ?? null }
+}
 import {
   vendorCreateSchema,
   vendorUpdateSchema,
@@ -88,6 +110,8 @@ const createVendorCommand: CommandHandler<VendorCreateInput, { vendorId: string 
       }
     }
     if (!vendor) throw new CrudHttpError(409, { error: '[internal] could not assign a vendor code' })
+    recordActivity(em, scope, { recordType: 'vendor', recordId: vendor.id, action: 'created', kind: 'change', summary: `Vendor ${vendor.name} added (${vendor.code ?? ''})`.replace(' ()', ''), changes: diffFields(null, { ...checked, code: vendor.code, isActive: vendor.isActive }, VENDOR_FIELDS), ...(await actorOf(em, ctx, scope)) })
+    await em.flush()
 
     const de = ctx.container.resolve('dataEngine') as DataEngine
     await emitCrudSideEffects({
@@ -145,7 +169,12 @@ const updateVendorCommand: CommandHandler<VendorUpdateInput, { vendorId: string 
       },
       { id: vendor.id, ...current },
     )
+    const changes = diffFields({ ...current, isActive: vendor.isActive }, { ...checked, ...(parsed.isActive !== undefined ? { isActive: parsed.isActive } : {}) }, VENDOR_FIELDS)
     Object.assign(vendor, checked)
+    if (changes.length) {
+      const scope = { tenantId: vendor.tenantId, organizationId: vendor.organizationId }
+      recordActivity(em, scope, { recordType: 'vendor', recordId: vendor.id, action: 'edited', kind: 'change', summary: changes.length === 1 ? `${changes[0].label} changed` : `${changes.length} details changed`, changes, ...(await actorOf(em, ctx, scope)) })
+    }
     if (parsed.isActive !== undefined) vendor.isActive = parsed.isActive
 
     await em.flush()

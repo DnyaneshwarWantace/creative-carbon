@@ -22,8 +22,9 @@ import { WhatsAppMenu, type WhatsAppMessage } from '../../cc_products/components
 import { dateText, rupeeText } from '../../cc_products/lib/whatsapp'
 import { EmailPoButton } from './EmailPoDialog'
 import { useGranted } from '../../cc_departments/components/useGranted'
-import { FieldList, HistoryPanel, LinkRows, Panel, RecordColumns, RecordPage, RecordState, type Fact } from '../../cc_ui/components/RecordPage'
+import { FieldList, LinkRows, Panel, RecordColumns, RecordPage, RecordState, type Fact } from '../../cc_ui/components/RecordPage'
 import { recordHref } from '../../cc_ui/lib/links'
+import { Timeline } from '../../cc_ui/components/Timeline'
 
 function steps(po: PoView): StepIndicatorStep[] {
   const order = ['draft', 'pending_approval', 'approved', 'partly_received', 'received']
@@ -362,7 +363,7 @@ export function PurchaseOrderPage({ poId }: { poId: string }) {
             </>
           }
         />
-        <HistoryPanel entries={po.history.slice().reverse().map((entry, index) => ({ key: `${entry.at}-${index}`, label: HISTORY_LABEL[entry.action] ?? entry.action, note: entry.note, by: entry.by, at: entry.at }))} />
+        <Timeline type="po" id={po.id} refreshKey={po.history.length} />
       </RecordPage>
 
         <Dialog open={dialog !== null} onOpenChange={(value) => (!value ? setDialog(null) : undefined)}>

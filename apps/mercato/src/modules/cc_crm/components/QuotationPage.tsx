@@ -17,8 +17,9 @@ import { useGranted } from '../../cc_departments/components/useGranted'
 import { useSend } from '../../cc_production/components/finishing/shared'
 import { printQuotation } from './printQuotation'
 import { QUOTE_LABEL, QUOTE_VARIANT, type Quotation } from './types'
-import { FieldList, HistoryPanel, LinkRows, Panel, RecordColumns, RecordPage, RecordState, type Fact } from '../../cc_ui/components/RecordPage'
+import { FieldList, LinkRows, Panel, RecordColumns, RecordPage, RecordState, type Fact } from '../../cc_ui/components/RecordPage'
 import { recordHref } from '../../cc_ui/lib/links'
+import { Timeline } from '../../cc_ui/components/Timeline'
 
 export function QuotationPage({ quotationId }: { quotationId: string }) {
   const t = useT()
@@ -283,7 +284,7 @@ export function QuotationPage({ quotationId }: { quotationId: string }) {
           </>
         }
       />
-      <HistoryPanel entries={[...quote.history].reverse().map((item, index) => ({ key: `${item.at}-${index}`, label: item.action, note: item.note, by: item.by, at: item.at }))} />
+      <Timeline type="quotation" id={quote.id} refreshKey={quote.history.length} />
     </RecordPage>
   )
 }

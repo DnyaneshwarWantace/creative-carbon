@@ -7,8 +7,9 @@ import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { Button } from '@open-mercato/ui/primitives/button'
 import { StatusBadge, type StatusBadgeVariant } from '@open-mercato/ui/primitives/status-badge'
 import { apiCall } from '@open-mercato/ui/backend/utils/apiCall'
-import { FieldList, HistoryPanel, LinkRows, Panel, RecordColumns, RecordPage, RecordState, RegisterGrid, formatDay, formatWhen, type Fact } from '../../cc_ui/components/RecordPage'
+import { FieldList, LinkRows, Panel, RecordColumns, RecordPage, RecordState, RegisterGrid, formatDay, formatWhen, type Fact } from '../../cc_ui/components/RecordPage'
 import { recordHref } from '../../cc_ui/lib/links'
+import { Timeline } from '../../cc_ui/components/Timeline'
 
 type HistoryItem = { action: string; by: string | null; at: string; note: string | null }
 
@@ -105,7 +106,7 @@ export function PaymentPage({ paymentId }: { paymentId: string }) {
           </Panel>
         }
       />
-      <HistoryPanel entries={[...payment.history].reverse().map((entry, index) => ({ key: `${entry.at}-${index}`, label: <span className="first-letter:uppercase">{entry.action}</span>, note: entry.note, by: entry.by, at: entry.at }))} />
+      <Timeline type="payment" id={payment.id} refreshKey={payment.history.length} />
     </RecordPage>
   )
 }
@@ -216,7 +217,7 @@ export function VendorBillPage({ billId }: { billId: string }) {
           </Panel>
         }
       />
-      <HistoryPanel entries={[...bill.history].reverse().map((entry, index) => ({ key: `${entry.at}-${index}`, label: <span className="first-letter:uppercase">{entry.action.replace(/_/g, ' ')}</span>, note: entry.note, by: entry.by, at: entry.at }))} />
+      <Timeline type="vendor_bill" id={bill.id} refreshKey={bill.history.length} />
     </RecordPage>
   )
 }

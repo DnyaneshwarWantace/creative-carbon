@@ -8,9 +8,10 @@ import { Button } from '@open-mercato/ui/primitives/button'
 import { StatusBadge, type StatusBadgeVariant } from '@open-mercato/ui/primitives/status-badge'
 import { apiCall } from '@open-mercato/ui/backend/utils/apiCall'
 import { useGranted } from '../../cc_departments/components/useGranted'
-import { FieldList, HistoryPanel, LinkRows, Panel, RecordColumns, RecordPage, RecordState, RegisterGrid, type Fact } from '../../cc_ui/components/RecordPage'
+import { FieldList, LinkRows, Panel, RecordColumns, RecordPage, RecordState, RegisterGrid, type Fact } from '../../cc_ui/components/RecordPage'
 import { recordHref } from '../../cc_ui/lib/links'
 import { HISTORY_LABEL, day, qty } from './shared'
+import { Timeline } from '../../cc_ui/components/Timeline'
 
 type IndentStatus = 'submitted' | 'approved' | 'rejected' | 'ordered' | 'cancelled'
 
@@ -160,7 +161,7 @@ export function IndentPage({ indentId }: { indentId: string }) {
           </>
         }
       />
-      <HistoryPanel entries={[...indent.history].reverse().map((entry, index) => ({ key: `${entry.at}-${index}`, label: HISTORY_LABEL[entry.action] ?? entry.action, note: entry.note, by: entry.by, at: entry.at }))} />
+      <Timeline type="indent" id={indent.id} refreshKey={indent.history.length} />
     </RecordPage>
   )
 }

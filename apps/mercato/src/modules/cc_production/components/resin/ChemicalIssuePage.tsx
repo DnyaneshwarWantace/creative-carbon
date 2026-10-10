@@ -15,10 +15,11 @@ import { useGuardedMutation } from '@open-mercato/ui/backend/injection/useGuarde
 import { flash } from '@open-mercato/ui/backend/FlashMessages'
 import { PLACE_LABEL, type StockPlace } from '../../../cc_products/lib/stock'
 import { useGranted } from '../../../cc_departments/components/useGranted'
-import { HistoryPanel, Panel, PanelEmpty, RecordColumns, RecordPage, RecordState, RegisterGrid, type Fact } from '../../../cc_ui/components/RecordPage'
+import { Panel, PanelEmpty, RecordColumns, RecordPage, RecordState, RegisterGrid, type Fact } from '../../../cc_ui/components/RecordPage'
 import { PlantChain } from '../../../cc_ui/components/PlantChain'
 import { recordHref } from '../../../cc_ui/lib/links'
 import { HISTORY_LABEL, day, kg, when } from './shared'
+import { Timeline } from '../../../cc_ui/components/Timeline'
 
 type IssueView = {
   id: string
@@ -186,7 +187,7 @@ export function ChemicalIssuePage({ issueId }: { issueId: string }) {
             </Panel>
           }
         />
-        <HistoryPanel entries={[...issue.history].reverse().map((entry, index) => ({ key: `${entry.at}-${index}`, label: HISTORY_LABEL[entry.action] ?? entry.action, note: entry.note, by: entry.by, at: entry.at }))} />
+        <Timeline type="chemical_issue" id={issue.id} refreshKey={issue.history.length} />
       </RecordPage>
 
       <Dialog open={cancelling} onOpenChange={(open) => !open && setCancelling(false)}>

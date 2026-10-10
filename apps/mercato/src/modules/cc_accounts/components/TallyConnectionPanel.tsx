@@ -45,6 +45,15 @@ const LEDGER_GROUPS = [
   { key: 'other', title: 'Bank & other', keys: ['bank', 'roundOff'] },
 ]
 
+function download(file: 'script' | 'windows') {
+  const link = document.createElement('a')
+  link.href = `/api/cc_accounts/tally/bridge/download?file=${file}`
+  link.download = ''
+  document.body.appendChild(link)
+  link.click()
+  link.remove()
+}
+
 function ago(value: string | null): string {
   if (!value) return 'never'
   const seconds = Math.max(0, Math.round((Date.now() - new Date(value).getTime()) / 1000))
@@ -182,17 +191,13 @@ export function TallyConnectionPanel({ settings, canEdit, onChanged }: { setting
                   <KeyRound className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
                   {settings.bridgeKeySet ? t('cc_accounts.tally.newKey', 'New bridge key') : t('cc_accounts.tally.makeKey', 'Make bridge key')}
                 </Button>
-                <Button asChild size="sm" variant="outline">
-                  <a href="/api/cc_accounts/tally/bridge/download?file=script">
-                    <Download className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
-                    tally-bridge.mjs
-                  </a>
+                <Button type="button" size="sm" variant="outline" onClick={() => download('script')}>
+                  <Download className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
+                  tally-bridge.mjs
                 </Button>
-                <Button asChild size="sm" variant="outline">
-                  <a href="/api/cc_accounts/tally/bridge/download?file=windows">
-                    <Download className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
-                    {t('cc_accounts.tally.windows', 'Windows starter')}
-                  </a>
+                <Button type="button" size="sm" variant="outline" onClick={() => download('windows')}>
+                  <Download className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
+                  {t('cc_accounts.tally.windows', 'Windows starter')}
                 </Button>
               </div>
             ) : null}
