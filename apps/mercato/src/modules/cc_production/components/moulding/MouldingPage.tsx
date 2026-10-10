@@ -19,6 +19,7 @@ import { useGranted } from '../../../cc_departments/components/useGranted'
 import { kg, todayIso } from '../resin/shared'
 import { OfflineBadge, isOffline, queueSave } from '../offline'
 import { Dropdown } from '../../../cc_lists/components/Dropdown'
+import { CorrectDialog } from '../../../cc_ui/components/CorrectDialog'
 
 type Setup = { presses: Array<{ id: string; number: number; isWorking: boolean }>; operators: string[]; chindi: Array<{ id: string; title: string }>; cloths: Array<{ id: string; title: string }> }
 type EntryView = {
@@ -98,6 +99,7 @@ export function MouldingPage() {
   const [dies, setDies] = React.useState<Record<string, DieInfo>>({})
   const [showTemps, setShowTemps] = React.useState(false)
   const [busy, setBusy] = React.useState(false)
+  const [reopenPress, setReopenPress] = React.useState<string | null>(null)
   const [error, setError] = React.useState<string | null>(null)
 
   React.useEffect(() => {
@@ -212,7 +214,7 @@ export function MouldingPage() {
     return call.result
   }
 
-  const act = async (action: 'post' | 'reopen' | 'sign_shift' | 'sign_store' | 'sign_authorised', pressId?: string) => {
+  const act = async (action: 'post' | 'reopen' | 'sign_shift' | 'sign_store' | 'sign_authorised', pressId?: string, reason?: string) => {
     setBusy(true)
     try {
       if (action === 'post') {
@@ -221,7 +223,7 @@ export function MouldingPage() {
       }
       const fresh = action === 'post' ? (await apiCall<Day>(`/api/cc_production/moulding?date=${date}`)).result : day
       const version = fresh?.shifts.find((entry) => entry.shift === shift)?.version
-      const body = { entryDate: date, shift, action, ...(pressId ? { pressId } : {}) }
+      const body = { entryDate: date, shift, action, ...(pressId ? { pressId } : {}), ...(reason ? { reason } : {}) }
       const call = await runMutation({
         context: { date, shift },
         mutationPayload: body,
@@ -385,7 +387,7 @@ export function MouldingPage() {
                                   <Link className="font-mono underline-offset-2 hover:underline" href={`/backend/moulding/entries/${entry.id}`}>
                                     {entry.outputLotNumber?.slice(-6) ?? '—'}
                                   </Link>
-                                  <button type="button" className="text-muted-foreground hover:text-foreground" disabled={busy} onClick={() => void act('reopen', press.id)} title={t('cc_production.resin.reopen', 'Reopen')}>
+                                  <button type="button" className="text-muted-foreground hover:text-foreground" disabled={busy} onClick={() => setReopenPress(press.id)} title={t('cc_production.resin.reopen', 'Reopen')}>
                                     <RotateCcw className="h-3.5 w-3.5" aria-hidden="true" />
                                   </button>
                                 </span>
@@ -488,6 +490,17 @@ export function MouldingPage() {
           )}
         </div>
       </PageBody>
+      <CorrectDialog
+        open={reopenPress !== null}
+        onOpenChange={(open) => !open && setReopenPress(null)}
+        destructive={false}
+        title={t('cc_production.moulding.reopenTitle', 'Reopen this machine’s entry')}
+        confirmLabel={t('cc_production.resin.reopen', 'Reopen')}
+        undo={[t('cc_production.moulding.undoInputs', 'Puts the chindi, cloth and B-stage back'), t('cc_production.moulding.undoLot', 'Removes the moulded lot it made')]}
+        onConfirm={async (reason) => {
+          if (reopenPress) await act('reopen', reopenPress, reason)
+        }}
+      />
     </Page>
   )
 }

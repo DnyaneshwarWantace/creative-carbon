@@ -150,7 +150,7 @@ test.describe.serial('Stage 8 · stock, owner overview, offline, demo', () => {
     for (const shift of [1, 2]) {
       let day = await mouldingDay(request)
       for (const entry of day.shifts[shift - 1].entries.filter((candidate) => candidate.status === 'posted')) {
-        const reopened = await request.post('/api/cc_production/moulding/action', { data: { entryDate: DATE, shift, action: 'reopen', pressId: entry.pressId }, headers: { [LOCK]: day.shifts[shift - 1].version } })
+        const reopened = await request.post('/api/cc_production/moulding/action', { data: { entryDate: DATE, shift, action: 'reopen', pressId: entry.pressId, reason: 'e2e cleanup' }, headers: { [LOCK]: day.shifts[shift - 1].version } })
         expect(reopened.ok(), await reopened.text()).toBeTruthy()
         day = (await reopened.json()) as MouldingDay
       }

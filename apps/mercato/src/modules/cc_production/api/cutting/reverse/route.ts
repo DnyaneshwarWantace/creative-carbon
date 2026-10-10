@@ -8,6 +8,8 @@ import { CuttingEntry } from '../../../data/entities'
 import { cuttingReverseSchema } from '../../../data/validators'
 import { reverseCutting } from '../../../lib/finishing'
 import { PlantError, plantErrorResponse, runPlantGuarded } from '../../../lib/server'
+import { logCorrection } from '../../../../cc_audit/lib/activity'
+import { reasonIssue } from '../../../../cc_audit/lib/reason'
 
 export const metadata = { POST: { requireAuth: true, requireFeatures: ['cc_production.cutting.enter'] } }
 
@@ -15,7 +17,7 @@ async function POST(req: Request) {
   const ctx = await resolveStoreContext(req)
   if ('error' in ctx) return NextResponse.json({ error: ctx.error }, { status: ctx.status })
   const parsed = cuttingReverseSchema.safeParse(await req.json().catch(() => null))
-  if (!parsed.success) return NextResponse.json({ error: 'Say which cutting entry' }, { status: 400 })
+  if (!parsed.success) return NextResponse.json({ error: reasonIssue(parsed.error) ?? 'Say which cutting entry' }, { status: 400 })
   try {
     const cut = await ctx.em.findOne(CuttingEntry, { id: parsed.data.id, tenantId: ctx.tenantId, organizationId: ctx.organizationId })
     if (!cut) throw new PlantError('Cutting entry not found', 404)
@@ -26,6 +28,7 @@ async function POST(req: Request) {
       return { ok: true }
     })
     if (result instanceof Response) return result
+    await logCorrection(ctx, { recordType: 'cutting', recordId: cut.id, action: 'reversed', summary: 'Cutting reversed; the pressed lot is back, the trimmed lot removed', reason: parsed.data.reason ?? '' })
     return NextResponse.json(result)
   } catch (error) {
     return plantErrorResponse(error)

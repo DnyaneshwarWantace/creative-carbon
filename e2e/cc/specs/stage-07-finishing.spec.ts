@@ -182,21 +182,21 @@ test.describe.serial('Stage 7 · cutting, thickness, FG inspection, lab, bought-
   })
 
   test('clean up: FG reopened, cutting reversed, press, coating and resin undone, test stock out', async ({ request }) => {
-    const reopened = await request.post('/api/cc_production/fg-inspection/action', { data: { id: fgReport.id, action: 'reopen' }, headers: { [LOCK]: fgReport.updatedAt } })
+    const reopened = await request.post('/api/cc_production/fg-inspection/action', { data: { id: fgReport.id, action: 'reopen', reason: 'e2e correction' }, headers: { [LOCK]: fgReport.updatedAt } })
     expect(reopened.ok(), await reopened.text()).toBeTruthy()
     const cuts = ((await (await request.get(`/api/cc_production/cutting?month=${today.slice(0, 7)}`)).json()) as { items: Array<{ id: string; updatedAt: string }> }).items
     const cut = cuts.find((entry) => entry.id === ids.cut)!
-    const reversed = await request.post('/api/cc_production/cutting/reverse', { data: { id: cut.id }, headers: { [LOCK]: cut.updatedAt } })
+    const reversed = await request.post('/api/cc_production/cutting/reverse', { data: { id: cut.id, reason: 'e2e correction' }, headers: { [LOCK]: cut.updatedAt } })
     expect(reversed.ok(), await reversed.text()).toBeTruthy()
     let batch = (await (await request.get(`/api/cc_production/press/batches?id=${ids.press}`)).json()) as { id: string; updatedAt: string; status: string }
-    batch = (await (await request.post('/api/cc_production/press/batches/action', { data: { id: batch.id, action: 'reopen' }, headers: { [LOCK]: batch.updatedAt } })).json()) as typeof batch
+    batch = (await (await request.post('/api/cc_production/press/batches/action', { data: { id: batch.id, action: 'reopen', reason: 'e2e cleanup' }, headers: { [LOCK]: batch.updatedAt } })).json()) as typeof batch
     expect(batch.status).toBe('draft')
     expect((await request.post('/api/cc_production/press/batches/action', { data: { id: batch.id, action: 'cancel', reason: 'e2e cleanup' }, headers: { [LOCK]: batch.updatedAt } })).ok()).toBeTruthy()
     let sheet = (await (await request.get(`/api/cc_production/coating/sheets?id=${ids.sheet}`)).json()) as { id: string; updatedAt: string; status: string }
-    sheet = (await (await request.post('/api/cc_production/coating/sheets/action', { data: { id: sheet.id, action: 'reopen' }, headers: { [LOCK]: sheet.updatedAt } })).json()) as typeof sheet
+    sheet = (await (await request.post('/api/cc_production/coating/sheets/action', { data: { id: sheet.id, action: 'reopen', reason: 'e2e cleanup' }, headers: { [LOCK]: sheet.updatedAt } })).json()) as typeof sheet
     expect((await request.post('/api/cc_production/coating/sheets/action', { data: { id: sheet.id, action: 'delete' }, headers: { [LOCK]: sheet.updatedAt } })).ok()).toBeTruthy()
     let resin = (await (await request.get(`/api/cc_production/resin/batches?id=${ids.resin}`)).json()) as { id: string; updatedAt: string }
-    resin = (await (await request.post('/api/cc_production/resin/batches/action', { data: { id: resin.id, action: 'reopen' }, headers: { [LOCK]: resin.updatedAt } })).json()) as typeof resin
+    resin = (await (await request.post('/api/cc_production/resin/batches/action', { data: { id: resin.id, action: 'reopen', reason: 'e2e cleanup' }, headers: { [LOCK]: resin.updatedAt } })).json()) as typeof resin
     expect((await request.post('/api/cc_production/resin/batches/action', { data: { id: resin.id, action: 'delete' }, headers: { [LOCK]: resin.updatedAt } })).ok()).toBeTruthy()
     for (const place of ['wh_a', 'fg']) {
       const stock = (await (await request.get(`/api/cc_store/stock?place=${place}`)).json()) as { items: Array<{ productId: string; lots: Array<{ lotId: string; lotNumber: string | null; free: number }> }> }

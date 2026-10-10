@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { requireReasonFor } from '../../cc_audit/lib/reason'
 
 const day = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Use YYYY-MM-DD')
 
@@ -113,7 +114,7 @@ export const indentActionSchema = z.object({
   id: z.string().uuid(),
   action: z.enum(['approve', 'reject', 'cancel']),
   note: z.string().trim().max(1000).optional().nullable(),
-})
+}).superRefine(requireReasonFor(['reject', 'cancel'], 'note'))
 
 export const indentListSchema = z.object({
   id: z.string().uuid().optional(),

@@ -7,6 +7,8 @@ import { resolveStoreContext } from '../../../../../cc_store/lib/server'
 import { resinActionSchema } from '../../../../data/validators'
 import { batchView, deleteBatch, failBatch, findBatch, postBatch, reopenBatch, signBatch } from '../../../../lib/resin'
 import { plantErrorResponse, runPlantGuarded } from '../../../../lib/server'
+import { logCorrection } from '../../../../../cc_audit/lib/activity'
+import { reasonIssue } from '../../../../../cc_audit/lib/reason'
 
 export const metadata = {
   POST: { requireAuth: true, requireFeatures: ['cc_production.resin.view'] },
@@ -16,7 +18,7 @@ async function POST(req: Request) {
   const ctx = await resolveStoreContext(req)
   if ('error' in ctx) return NextResponse.json({ error: ctx.error }, { status: ctx.status })
   const parsed = resinActionSchema.safeParse(await req.json().catch(() => null))
-  if (!parsed.success) return NextResponse.json({ error: 'Say which batch and what to do' }, { status: 400 })
+  if (!parsed.success) return NextResponse.json({ error: reasonIssue(parsed.error) ?? 'Say which batch and what to do' }, { status: 400 })
   const { id, action, reason } = parsed.data
   const signing = action === 'sign_chemist' || action === 'sign_incharge'
   if (!(await hasFeatures(ctx, [signing ? 'cc_production.resin.sign' : 'cc_production.resin.enter']))) {
@@ -37,6 +39,7 @@ async function POST(req: Request) {
       return batchView(ctx, await signBatch(ctx, batch, action === 'sign_chemist' ? 'chemist' : 'incharge', byName))
     })
     if (result instanceof Response) return result
+    if (action === 'reopen' || action === 'fail') await logCorrection(ctx, { recordType: 'resin_batch', recordId: batch.id, action: action === 'fail' ? 'failed' : 'reopened', summary: action === 'fail' ? 'Marked failed; chemicals written off as scrap' : 'Reopened; its stock movements reversed', reason: reason ?? '' })
     return NextResponse.json(result)
   } catch (error) {
     return plantErrorResponse(error)

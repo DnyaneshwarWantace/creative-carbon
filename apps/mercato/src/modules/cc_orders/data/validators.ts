@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { STAGE_KEYS } from '../lib/stages'
+import { requireReasonFor } from '../../cc_audit/lib/reason'
 
 const optionalText = (max: number) => z.string().trim().max(max).optional().nullable()
 const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/)
@@ -58,7 +59,7 @@ export const stageActionSchema = z.object({
   holdParty: optionalText(60),
   followUpOn: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().nullable(),
   responsibleUserId: z.string().uuid().optional().nullable(),
-})
+}).superRefine(requireReasonFor(['revert'], 'note'))
 
 export const orderListQuerySchema = z.object({
   id: z.string().uuid().optional(),

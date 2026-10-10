@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { requireReasonFor } from '../../cc_audit/lib/reason'
 
 
 const paymentModeSchema = z.string().trim().min(1).max(80)
@@ -93,7 +94,7 @@ export const piUpdateSchema = z.object({
   refreshLines: z.boolean().optional(),
 })
 
-export const piActionSchema = z.object({ id: z.string().uuid(), action: z.enum(['send', 'cancel']), reason: text(500) })
+export const piActionSchema = z.object({ id: z.string().uuid(), action: z.enum(['send', 'cancel']), reason: text(500) }).superRefine(requireReasonFor(['cancel']))
 
 export const piListSchema = z.object({
   id: z.string().uuid().optional(),
@@ -149,7 +150,7 @@ export const invoiceActionSchema = z.object({
   action: z.enum(['issue', 'cancel', 'credit_note']),
   reason: text(500),
   lines: z.array(invoiceLineSchema).max(50).optional(),
-})
+}).superRefine(requireReasonFor(['cancel', 'credit_note']))
 
 export const invoiceListSchema = z.object({
   id: z.string().uuid().optional(),

@@ -6,6 +6,7 @@ import { OrderError, currentUserName, findOrder } from '../../../lib/server'
 import { resolveStoreContext } from '../../../../cc_store/lib/server'
 import { releaseAllForOrder } from '../../../lib/fulfilment'
 import { enforceOrderLock, orderErrorResponse, runGuarded } from '../../../lib/guard'
+import { logCorrection } from '../../../../cc_audit/lib/activity'
 
 export const metadata = {
   POST: { requireAuth: true, requireFeatures: ['cc_orders.manage'] },
@@ -28,6 +29,7 @@ async function POST(req: Request) {
       order.updatedAt = new Date()
       const byName = await currentUserName(ctx)
       logEvent(ctx, order, 'cancelled', null, parsed.data.reason, byName)
+      await logCorrection(ctx, { recordType: 'order', recordId: order.id, action: 'cancelled', summary: 'Order cancelled; allocations released', reason: parsed.data.reason })
       await ctx.em.flush()
       await releaseAllForOrder(ctx, order, byName)
       return NextResponse.json(await serializeOrder(ctx, order))

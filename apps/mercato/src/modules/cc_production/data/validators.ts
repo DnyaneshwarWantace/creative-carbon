@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { MASTER_TYPES, type MasterColumn, type MasterDef } from '../lib/masterDefs'
+import { requireReasonFor } from '../../cc_audit/lib/reason'
 
 export const masterTypeSchema = z.enum(MASTER_TYPES as [string, ...string[]])
 
@@ -119,11 +120,13 @@ export type ResinBatchInput = z.infer<typeof resinBatchInputSchema>
 
 export const resinBatchUpdateSchema = resinBatchInputSchema.extend({ id: z.string().uuid() })
 
-export const resinActionSchema = z.object({
-  id: z.string().uuid(),
-  action: z.enum(['post', 'fail', 'reopen', 'sign_chemist', 'sign_incharge', 'delete']),
-  reason: z.string().trim().max(500).optional(),
-})
+export const resinActionSchema = z
+  .object({
+    id: z.string().uuid(),
+    action: z.enum(['post', 'fail', 'reopen', 'sign_chemist', 'sign_incharge', 'delete']),
+    reason: z.string().trim().max(500).optional(),
+  })
+  .superRefine(requireReasonFor(['fail', 'reopen']))
 
 export const resinListSchema = z.object({
   id: z.string().uuid().optional(),
@@ -197,7 +200,7 @@ export type CoatingSheetInput = z.infer<typeof coatingSheetInputSchema>
 
 export const coatingSheetUpdateSchema = coatingSheetInputSchema.extend({ id: z.string().uuid() })
 
-export const coatingActionSchema = z.object({ id: z.string().uuid(), action: z.enum(['post', 'reopen', 'delete']) })
+export const coatingActionSchema = z.object({ id: z.string().uuid(), action: z.enum(['post', 'reopen', 'delete']), reason: z.string().trim().max(500).optional() }).superRefine(requireReasonFor(['reopen']))
 
 export const coatingListSchema = z.object({
   id: z.string().uuid().optional(),
@@ -258,7 +261,7 @@ export type PressBatchInput = z.infer<typeof pressBatchInputSchema>
 
 export const pressBatchUpdateSchema = pressBatchInputSchema.extend({ id: z.string().uuid() })
 
-export const pressActionSchema = z.object({ id: z.string().uuid(), action: z.enum(['post', 'reopen', 'cancel', 'review']), reason: z.string().trim().max(500).optional() })
+export const pressActionSchema = z.object({ id: z.string().uuid(), action: z.enum(['post', 'reopen', 'cancel', 'review']), reason: z.string().trim().max(500).optional() }).superRefine(requireReasonFor(['reopen', 'cancel']))
 
 export const pressListSchema = z.object({
   id: z.string().uuid().optional(),
@@ -308,7 +311,8 @@ export const mouldingActionSchema = z.object({
   shift: z.coerce.number().int().min(1).max(2),
   action: z.enum(['post', 'reopen', 'sign_shift', 'sign_store', 'sign_authorised']),
   pressId: z.string().uuid().optional(),
-})
+  reason: z.string().trim().max(500).optional(),
+}).superRefine(requireReasonFor(['reopen']))
 
 export const mouldingDaySchema = z.object({ date: isoDate, id: z.string().uuid().optional() })
 
@@ -323,7 +327,7 @@ export const cuttingInputSchema = z.object({
   notes: optionalText(500),
 })
 
-export const cuttingReverseSchema = z.object({ id: z.string().uuid() })
+export const cuttingReverseSchema = z.object({ id: z.string().uuid(), reason: z.string().trim().max(500).optional() }).superRefine(requireReasonFor([]))
 
 export const thicknessInputSchema = z.object({
   inspectDate: isoDate,
@@ -353,7 +357,7 @@ export const fgRowSchema = z.object({
 
 export const fgReportInputSchema = z.object({ reportDate: isoDate, rows: z.array(fgRowSchema).min(1).max(60), inspector: optionalText(80), approvedBy: optionalText(80) })
 export const fgReportUpdateSchema = fgReportInputSchema.extend({ id: z.string().uuid() })
-export const fgActionSchema = z.object({ id: z.string().uuid(), action: z.enum(['post', 'reopen']) })
+export const fgActionSchema = z.object({ id: z.string().uuid(), action: z.enum(['post', 'reopen']), reason: z.string().trim().max(500).optional() }).superRefine(requireReasonFor(['reopen']))
 
 export const labInputSchema = z.object({
   testDate: isoDate,

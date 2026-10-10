@@ -12,6 +12,8 @@ import { canSeeMoney } from '../../../lib/money'
 import { stageDef, stageWorkFeature } from '../../../lib/stages'
 import { enforceOrderLock, orderErrorResponse, runGuarded } from '../../../lib/guard'
 import { withStageOverrides } from '../../../lib/stageSettings'
+import { logCorrection } from '../../../../cc_audit/lib/activity'
+import { reasonIssue } from '../../../../cc_audit/lib/reason'
 
 export const metadata = {
   POST: { requireAuth: true, requireFeatures: ['cc_orders.stages'] },
@@ -22,7 +24,7 @@ async function POST(req: Request) {
   if ('error' in ctx) return NextResponse.json({ error: ctx.error }, { status: ctx.status })
   return withStageOverrides(ctx, async () => {
     const parsed = stageActionSchema.safeParse(await req.json().catch(() => null))
-    if (!parsed.success) return NextResponse.json({ error: 'Invalid stage action', details: parsed.error.flatten() }, { status: 400 })
+    if (!parsed.success) return NextResponse.json({ error: reasonIssue(parsed.error) ?? 'Invalid stage action', details: parsed.error.flatten() }, { status: 400 })
     const money = await canSeeMoney(ctx)
     const reopenAnyTime = parsed.data.action === 'revert' && (await hasFeatures(ctx, ['cc_orders.reopen']))
     const allowed =
@@ -51,6 +53,7 @@ async function POST(req: Request) {
         const after = await freshCtx.em.find(CcOrderStage, { orderId: order.id })
         const opened = after.filter((stage) => stage.status === 'open' && statusBefore.get(stage.stageKey) !== 'open' && statusBefore.get(stage.stageKey) !== 'on_hold').map((stage) => stage.stageKey)
         await notifyStagesOpened(ctx, freshOrder, opened)
+        if (parsed.data.action === 'revert') await logCorrection(ctx, { recordType: 'order', recordId: parsed.data.orderId, action: 'stage_reopened', summary: `Stage reopened: ${parsed.data.stageKey}`, reason: parsed.data.note ?? '' })
         if (parsed.data.action === 'revert') await notifyStagesPaused(ctx, freshOrder, parsed.data.stageKey, paused, parsed.data.note ?? '', await currentUserName(ctx))
         if (parsed.data.action === 'assign' && parsed.data.responsibleUserId && parsed.data.responsibleUserId !== ctx.userId) {
           await notifyAssigned(ctx, freshOrder, parsed.data.stageKey, parsed.data.responsibleUserId, await currentUserName(ctx))

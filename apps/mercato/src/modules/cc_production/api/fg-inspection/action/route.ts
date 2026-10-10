@@ -7,6 +7,8 @@ import { resolveStoreContext } from '../../../../cc_store/lib/server'
 import { fgActionSchema } from '../../../data/validators'
 import { fgReportView, findFgReport, postFgReport, reopenFgReport } from '../../../lib/finishing'
 import { plantErrorResponse, runPlantGuarded } from '../../../lib/server'
+import { logCorrection } from '../../../../cc_audit/lib/activity'
+import { reasonIssue } from '../../../../cc_audit/lib/reason'
 
 export const metadata = { POST: { requireAuth: true, requireFeatures: ['cc_production.quality.enter'] } }
 
@@ -14,7 +16,7 @@ async function POST(req: Request) {
   const ctx = await resolveStoreContext(req)
   if ('error' in ctx) return NextResponse.json({ error: ctx.error }, { status: ctx.status })
   const parsed = fgActionSchema.safeParse(await req.json().catch(() => null))
-  if (!parsed.success) return NextResponse.json({ error: 'Say which report and what to do' }, { status: 400 })
+  if (!parsed.success) return NextResponse.json({ error: reasonIssue(parsed.error) ?? 'Say which report and what to do' }, { status: 400 })
   try {
     const report = await findFgReport(ctx, parsed.data.id)
     enforceCommandOptimisticLock({ resourceKind: 'cc_production.fg_inspection', resourceId: report.id, current: report.updatedAt, request: req })
@@ -23,6 +25,7 @@ async function POST(req: Request) {
       fgReportView(parsed.data.action === 'post' ? await postFgReport(ctx, report, byName) : await reopenFgReport(ctx, report, byName)),
     )
     if (result instanceof Response) return result
+    if (parsed.data.action === 'reopen') await logCorrection(ctx, { recordType: 'fg_inspection', recordId: report.id, action: 'reopened', summary: 'Reopened; FG lots taken back out of the FG store', reason: parsed.data.reason ?? '' })
     return NextResponse.json(result)
   } catch (error) {
     return plantErrorResponse(error)

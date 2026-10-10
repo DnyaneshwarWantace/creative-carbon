@@ -8,6 +8,8 @@ import { piActionSchema } from '../../../data/validators'
 import { findPi, markPiSent, piView } from '../../../lib/documents'
 import { AccountsError } from '../../../lib/service'
 import { accountsErrorResponse, runGuarded } from '../../../lib/server'
+import { logCorrection } from '../../../../cc_audit/lib/activity'
+import { reasonIssue } from '../../../../cc_audit/lib/reason'
 
 export const metadata = {
   POST: { requireAuth: true, requireFeatures: ['cc_accounts.record'] },
@@ -17,7 +19,7 @@ async function POST(req: Request) {
   const ctx = await resolveOrderContext(req)
   if ('error' in ctx) return NextResponse.json({ error: ctx.error }, { status: ctx.status })
   const parsed = piActionSchema.safeParse(await req.json().catch(() => null))
-  if (!parsed.success) return NextResponse.json({ error: 'Invalid action' }, { status: 400 })
+  if (!parsed.success) return NextResponse.json({ error: reasonIssue(parsed.error) ?? 'Invalid action' }, { status: 400 })
   try {
     const first = await findPi(ctx, parsed.data.id)
     enforceCommandOptimisticLock({ resourceKind: 'cc_accounts.proforma', resourceId: first.id, current: first.updatedAt, request: req })
@@ -38,6 +40,7 @@ async function POST(req: Request) {
         await em.flush()
         return pi
       })
+      if (parsed.data.action === 'cancel') await logCorrection(ctx, { recordType: 'proforma', recordId: parsed.data.id, action: 'cancelled', summary: 'Proforma cancelled', reason: parsed.data.reason ?? '' })
       return NextResponse.json(piView(result))
     })
   } catch (error) {

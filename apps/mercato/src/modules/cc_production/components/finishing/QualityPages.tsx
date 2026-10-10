@@ -22,6 +22,7 @@ import { lotLabel, useSend, useSetup, type FloorLot } from './shared'
 import { PlantTable } from '../PlantTable'
 import { Dropdown } from '../../../cc_lists/components/Dropdown'
 import { recordHref } from '../../../cc_ui/lib/links'
+import { CorrectDialog } from '../../../cc_ui/components/CorrectDialog'
 
 type Disposition = 'stock' | 'export' | 'allocation'
 type FgRowView = { sr: number; sourceLotId: string; sourceLotNumber: string | null; batchNo: string | null; itemTitle: string; sheetSize: string | null; thicknessMm: number | null; qtyNos: number; rejectNos: number; rejectReason: string | null; disposition: Disposition; customerId: string | null; customerName: string | null; passKg: number | null; outputLotNumber: string | null }
@@ -56,6 +57,7 @@ export function FgInspectionPage() {
   const [inspector, setInspector] = React.useState('')
   const [approvedBy, setApprovedBy] = React.useState('')
   const [busy, setBusy] = React.useState(false)
+  const [reopening, setReopening] = React.useState<FgReport | null>(null)
 
   const load = React.useCallback(async () => {
     const call = await apiCall<{ items: FgReport[] }>(`/api/cc_production/fg-inspection?month=${month}`, undefined, { fallback: { items: [] } })
@@ -105,8 +107,8 @@ export function FgInspectionPage() {
     }
   }
 
-  const reopen = async (report: FgReport) => {
-    const result = await send<FgReport>('/api/cc_production/fg-inspection/action', 'POST', { id: report.id, action: 'reopen' }, report.updatedAt)
+  const reopen = async (report: FgReport, reason: string) => {
+    const result = await send<FgReport>('/api/cc_production/fg-inspection/action', 'POST', { id: report.id, action: 'reopen', reason }, report.updatedAt)
     if (result) {
       flash(t('cc_production.coating.reopened', 'Reopened. The stock movements are reversed.'), 'success')
       await Promise.all([load(), reload()])
@@ -275,7 +277,7 @@ export function FgInspectionPage() {
                       </Button>
                     ) : null}
                     {canEnter && report.status === 'posted' ? (
-                      <Button type="button" size="sm" variant="ghost" onClick={() => void reopen(report)}>
+                      <Button type="button" size="sm" variant="ghost" onClick={() => setReopening(report)}>
                         <RotateCcw className="mr-1 h-3.5 w-3.5" aria-hidden="true" />
                         {t('cc_production.resin.reopen', 'Reopen')}
                       </Button>
@@ -312,6 +314,17 @@ export function FgInspectionPage() {
           )}
         </div>
       </PageBody>
+      <CorrectDialog
+        open={reopening !== null}
+        onOpenChange={(open) => !open && setReopening(null)}
+        destructive={false}
+        title={t('cc_production.fg.reopenTitle', 'Reopen this FG inspection')}
+        confirmLabel={t('cc_production.resin.reopen', 'Reopen')}
+        undo={[t('cc_production.fg.undoLots', 'Takes the FG lots back out of the FG store'), t('cc_production.fg.undoFloor', 'Puts the pieces back on the shop floor')]}
+        onConfirm={async (reason) => {
+          if (reopening) await reopen(reopening, reason)
+        }}
+      />
     </Page>
   )
 }

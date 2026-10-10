@@ -49,7 +49,7 @@ async function register(request: APIRequestContext, productId: string): Promise<
 }
 
 async function act(request: APIRequestContext, batch: Batch, action: string, reason?: string) {
-  return request.post('/api/cc_production/resin/batches/action', { data: { id: batch.id, action, ...(reason ? { reason } : {}) }, headers: { [LOCK]: batch.updatedAt } })
+  return request.post('/api/cc_production/resin/batches/action', { data: { id: batch.id, action, ...(reason ? { reason } : action === 'reopen' ? { reason: 'e2e correction' } : {}) }, headers: { [LOCK]: batch.updatedAt } })
 }
 
 test.describe.serial('Stage 3 · resin plant and the chemical register', () => {

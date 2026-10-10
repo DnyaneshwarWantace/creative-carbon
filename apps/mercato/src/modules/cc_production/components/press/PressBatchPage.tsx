@@ -21,6 +21,7 @@ import { FieldList, LinkRows, Panel, PanelEmpty, RecordColumns, RecordPage, Reco
 import { PlantChain } from '../../../cc_ui/components/PlantChain'
 import { recordHref } from '../../../cc_ui/lib/links'
 import { Timeline } from '../../../cc_ui/components/Timeline'
+import { CorrectDialog } from '../../../cc_ui/components/CorrectDialog'
 
 type Action = 'post' | 'reopen' | 'cancel' | 'review'
 
@@ -29,6 +30,7 @@ export function PressBatchPage({ batchId }: { batchId: string }) {
   const granted = useGranted()
   const canEnter = granted.has('cc_production.press.enter')
   const { runMutation } = useGuardedMutation({ contextId: `cc-press-${batchId}` })
+  const [reopening, setReopening] = React.useState(false)
   const [batch, setBatch] = React.useState<PressBatchView | null>(null)
   const [error, setError] = React.useState<string | null>(null)
   const [busy, setBusy] = React.useState(false)
@@ -152,7 +154,7 @@ export function PressBatchPage({ batchId }: { batchId: string }) {
               </>
             ) : null}
             {canEnter && batch.status === 'posted' ? (
-              <Button type="button" variant="outline" size="sm" disabled={busy} onClick={() => void act('reopen')}>
+              <Button type="button" variant="outline" size="sm" disabled={busy} onClick={() => setReopening(true)}>
                 <RotateCcw className="mr-1.5 h-4 w-4" aria-hidden="true" />
                 {t('cc_production.resin.reopen', 'Reopen')}
               </Button>
@@ -269,6 +271,15 @@ export function PressBatchPage({ batchId }: { batchId: string }) {
         <Timeline type="press_batch" id={batch.id} refreshKey={batch.history.length} />
       </RecordPage>
 
+        <CorrectDialog
+          open={reopening}
+          onOpenChange={setReopening}
+          destructive={false}
+          title={t('cc_production.press.reopenTitle', 'Reopen this press batch')}
+          confirmLabel={t('cc_production.press.reopen', 'Reopen')}
+          undo={[t('cc_production.press.undoBstage', 'Puts the B-stage lots back on the shop floor'), t('cc_production.press.undoLots', 'Removes the pressed lots it made'), t('cc_production.press.undoDraft', 'Makes the batch a draft again')]}
+          onConfirm={(reason) => act('reopen', reason)}
+        />
         <Dialog open={cancelling} onOpenChange={(open) => !open && setCancelling(false)}>
           <DialogContent
             onKeyDown={(event) => {

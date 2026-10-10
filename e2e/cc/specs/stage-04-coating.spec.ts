@@ -54,7 +54,7 @@ async function sheetFor(request: APIRequestContext, date: string, dryerId: strin
 }
 
 async function sheetAction(request: APIRequestContext, sheet: Sheet, action: 'post' | 'reopen' | 'delete') {
-  return request.post('/api/cc_production/coating/sheets/action', { data: { id: sheet.id, action }, headers: { [LOCK]: sheet.updatedAt } })
+  return request.post('/api/cc_production/coating/sheets/action', { data: { id: sheet.id, action, ...(action === 'reopen' ? { reason: 'e2e correction' } : {}) }, headers: { [LOCK]: sheet.updatedAt } })
 }
 
 async function removeSheet(request: APIRequestContext, date: string, dryerId: string) {
@@ -258,7 +258,7 @@ test.describe.serial('Stage 4 · coating (dryer sheets) and the B-stage board', 
     await removeSheet(request, PAPER_DATE, dryer('Dryer 3').id)
 
     const batch = (await (await request.get(`/api/cc_production/resin/batches?id=${resinBatch.id}`)).json()) as { id: string; updatedAt: string }
-    const reopened = await request.post('/api/cc_production/resin/batches/action', { data: { id: batch.id, action: 'reopen' }, headers: { [LOCK]: batch.updatedAt } })
+    const reopened = await request.post('/api/cc_production/resin/batches/action', { data: { id: batch.id, action: 'reopen', reason: 'e2e correction' }, headers: { [LOCK]: batch.updatedAt } })
     expect(reopened.ok(), await reopened.text()).toBeTruthy()
     const draft = (await reopened.json()) as { id: string; updatedAt: string }
     expect((await request.post('/api/cc_production/resin/batches/action', { data: { id: draft.id, action: 'delete' }, headers: { [LOCK]: draft.updatedAt } })).ok()).toBeTruthy()

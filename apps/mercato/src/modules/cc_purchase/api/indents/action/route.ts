@@ -6,6 +6,8 @@ import { hasFeatures, resolveOrderContext } from '../../../../cc_orders/lib/serv
 import { indentActionSchema } from '../../../data/validators'
 import { actOnIndent, findIndent, indentViews } from '../../../lib/indents'
 import { purchaseErrorResponse, runGuarded } from '../../../lib/server'
+import { logCorrection } from '../../../../cc_audit/lib/activity'
+import { reasonIssue } from '../../../../cc_audit/lib/reason'
 
 export const metadata = {
   POST: { requireAuth: true, requireFeatures: ['cc_purchase.view'] },
@@ -15,7 +17,7 @@ async function POST(req: Request) {
   const ctx = await resolveOrderContext(req)
   if ('error' in ctx) return NextResponse.json({ error: ctx.error }, { status: ctx.status })
   const parsed = indentActionSchema.safeParse(await req.json().catch(() => null))
-  if (!parsed.success) return NextResponse.json({ error: 'Invalid action' }, { status: 400 })
+  if (!parsed.success) return NextResponse.json({ error: reasonIssue(parsed.error) ?? 'Invalid action' }, { status: 400 })
   const needed = parsed.data.action === 'cancel' ? ['cc_purchase.indent'] : ['cc_purchase.approve']
   if (!(await hasFeatures(ctx, needed))) return NextResponse.json({ error: parsed.data.action === 'cancel' ? 'Only the person who can raise indents can cancel one' : 'Only an approver can approve or reject an indent' }, { status: 403 })
   try {
@@ -26,6 +28,7 @@ async function POST(req: Request) {
       return (await indentViews(ctx, [indent]))[0]
     })
     if (result instanceof Response) return result
+    if (parsed.data.action !== 'approve') await logCorrection(ctx, { recordType: 'indent', recordId: parsed.data.id, action: parsed.data.action === 'cancel' ? 'cancelled' : 'rejected', summary: parsed.data.action === 'cancel' ? 'Indent cancelled' : 'Indent rejected', reason: parsed.data.note ?? '' })
     return NextResponse.json(result)
   } catch (error) {
     return purchaseErrorResponse(error)

@@ -271,7 +271,7 @@ export function IndentsPage() {
 
   const act = async () => {
     if (!decision) return
-    if (decision.action === 'reject' && !note.trim()) return flash(t('cc_purchase.indent.reasonNeeded', 'Write why it is rejected'), 'error')
+    if (decision.action !== 'approve' && note.trim().length < 3) return flash(decision.action === 'reject' ? t('cc_purchase.indent.reasonNeeded', 'Write why it is rejected') : t('cc_purchase.indent.cancelReason', 'Write why it is cancelled'), 'error')
     const body = { id: decision.indent.id, action: decision.action, note: note.trim() || null }
     setBusy(true)
     try {

@@ -38,7 +38,7 @@ async function clearDay(request: APIRequestContext, date: string) {
     let current = await load()
     for (const entry of current?.entries.filter((candidate) => candidate.status === 'posted') ?? []) {
       current = await load()
-      await request.post('/api/cc_production/moulding/action', { data: { entryDate: date, shift, action: 'reopen', pressId: entry.pressId }, headers: { [LOCK]: current!.version } })
+      await request.post('/api/cc_production/moulding/action', { data: { entryDate: date, shift, action: 'reopen', pressId: entry.pressId, reason: 'e2e cleanup' }, headers: { [LOCK]: current!.version } })
     }
     current = await load()
     if (current?.entries.length) await request.put('/api/cc_production/moulding', { data: { entryDate: date, shift, entries: [] }, headers: { [LOCK]: current.version } })
@@ -76,7 +76,7 @@ test.describe.serial('Stage 6 · moulded products', () => {
 
   const act = async (request: APIRequestContext, shift: number, action: string, pressId?: string) => {
     const current = (await day(request)).shifts.find((entry) => entry.shift === shift)!
-    return request.post('/api/cc_production/moulding/action', { data: { entryDate: DATE, shift, action, ...(pressId ? { pressId } : {}) }, headers: { [LOCK]: current.version } })
+    return request.post('/api/cc_production/moulding/action', { data: { entryDate: DATE, shift, action, ...(pressId ? { pressId } : {}), ...(action === 'reopen' ? { reason: 'e2e correction' } : {}) }, headers: { [LOCK]: current.version } })
   }
 
   test('the register knows machines 1–20, the operators and the dies (Stage 1 masters)', async ({ request }) => {

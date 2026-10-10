@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { orderInputSchema } from '../../cc_orders/data/validators'
+import { requireReasonFor } from '../../cc_audit/lib/reason'
 
 const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/)
 const text = (max: number) =>
@@ -60,7 +61,7 @@ export const quotationActionSchema = z.object({
   orderDate: isoDate.optional(),
   customerPoRef: text(120),
   note: text(1000),
-})
+}).superRefine(requireReasonFor(['reopen'], 'note'))
 
 export const quotationListSchema = z.object({
   id: z.string().uuid().optional(),

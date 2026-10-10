@@ -22,6 +22,7 @@ import { Panel, PanelEmpty, RecordColumns, RecordPage, RecordState, RegisterGrid
 import { PlantChain } from '../../../cc_ui/components/PlantChain'
 import { recordHref } from '../../../cc_ui/lib/links'
 import { Timeline } from '../../../cc_ui/components/Timeline'
+import { CorrectDialog } from '../../../cc_ui/components/CorrectDialog'
 
 type Action = 'post' | 'fail' | 'reopen' | 'sign_chemist' | 'sign_incharge' | 'delete'
 
@@ -32,6 +33,7 @@ export function ResinBatchPage({ batchId }: { batchId: string }) {
   const canEnter = granted.has('cc_production.resin.enter')
   const canSign = granted.has('cc_production.resin.sign')
   const { runMutation } = useGuardedMutation({ contextId: `cc-resin-${batchId}` })
+  const [reopening, setReopening] = React.useState(false)
   const [batch, setBatch] = React.useState<BatchView | null>(null)
   const [error, setError] = React.useState<string | null>(null)
   const [busy, setBusy] = React.useState(false)
@@ -165,7 +167,7 @@ export function ResinBatchPage({ batchId }: { batchId: string }) {
               </>
             ) : null}
             {canEnter && batch.canReopen ? (
-              <Button type="button" variant="outline" size="sm" disabled={busy} onClick={() => void act('reopen')}>
+              <Button type="button" variant="outline" size="sm" disabled={busy} onClick={() => setReopening(true)}>
                 <RotateCcw className="mr-1.5 h-4 w-4" aria-hidden="true" />
                 {t('cc_production.resin.reopen', 'Reopen')}
               </Button>
@@ -349,6 +351,15 @@ export function ResinBatchPage({ batchId }: { batchId: string }) {
         <Timeline type="resin_batch" id={batch.id} refreshKey={batch.history.length} footer={batch.reopenUntil && batch.canReopen ? t('cc_production.resin.reopenUntil', 'Can be reopened until {at}.', { at: when(batch.reopenUntil) }) : undefined} />
       </RecordPage>
 
+        <CorrectDialog
+          open={reopening}
+          onOpenChange={setReopening}
+          destructive={false}
+          title={t('cc_production.resin.reopenTitle', 'Reopen this batch')}
+          confirmLabel={t('cc_production.resin.reopen', 'Reopen')}
+          undo={[t('cc_production.resin.undoChem', 'Puts the chemicals back into Warehouse A'), t('cc_production.resin.undoTank', 'Takes this resin back out of the resin tank'), t('cc_production.resin.undoDraft', 'Makes the batch a draft again to correct and post')]}
+          onConfirm={(reason) => act('reopen', reason)}
+        />
         <Dialog open={failing} onOpenChange={(open) => !open && setFailing(false)}>
           <DialogContent
             onKeyDown={(event) => {

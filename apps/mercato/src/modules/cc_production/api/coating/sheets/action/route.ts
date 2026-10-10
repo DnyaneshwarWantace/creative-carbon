@@ -7,6 +7,8 @@ import { resolveStoreContext } from '../../../../../cc_store/lib/server'
 import { coatingActionSchema } from '../../../../data/validators'
 import { deleteSheet, findSheet, postSheet, reopenSheet, sheetView } from '../../../../lib/coating'
 import { plantErrorResponse, runPlantGuarded } from '../../../../lib/server'
+import { logCorrection } from '../../../../../cc_audit/lib/activity'
+import { reasonIssue } from '../../../../../cc_audit/lib/reason'
 
 export const metadata = {
   POST: { requireAuth: true, requireFeatures: ['cc_production.coating.enter'] },
@@ -16,7 +18,7 @@ async function POST(req: Request) {
   const ctx = await resolveStoreContext(req)
   if ('error' in ctx) return NextResponse.json({ error: ctx.error }, { status: ctx.status })
   const parsed = coatingActionSchema.safeParse(await req.json().catch(() => null))
-  if (!parsed.success) return NextResponse.json({ error: 'Say which sheet and what to do' }, { status: 400 })
+  if (!parsed.success) return NextResponse.json({ error: reasonIssue(parsed.error) ?? 'Say which sheet and what to do' }, { status: 400 })
   try {
     const sheet = await findSheet(ctx, parsed.data.id)
     enforceCommandOptimisticLock({ resourceKind: 'cc_production.coating_sheet', resourceId: sheet.id, current: sheet.updatedAt, request: req })
@@ -28,6 +30,7 @@ async function POST(req: Request) {
       return { ok: true }
     })
     if (result instanceof Response) return result
+    if (parsed.data.action === 'reopen') await logCorrection(ctx, { recordType: 'coating_sheet', recordId: sheet.id, action: 'reopened', summary: 'Reopened; resin, cloth and B-stage lots reversed', reason: parsed.data.reason ?? '' })
     return NextResponse.json(result)
   } catch (error) {
     return plantErrorResponse(error)

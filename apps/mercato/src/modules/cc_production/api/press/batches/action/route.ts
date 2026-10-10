@@ -7,6 +7,8 @@ import { resolveStoreContext } from '../../../../../cc_store/lib/server'
 import { pressActionSchema } from '../../../../data/validators'
 import { cancelPressBatch, findPressBatch, postPressBatch, pressBatchView, reopenPressBatch, reviewPressBatch } from '../../../../lib/press'
 import { plantErrorResponse, runPlantGuarded } from '../../../../lib/server'
+import { logCorrection } from '../../../../../cc_audit/lib/activity'
+import { reasonIssue } from '../../../../../cc_audit/lib/reason'
 
 export const metadata = {
   POST: { requireAuth: true, requireFeatures: ['cc_production.press.view'] },
@@ -16,7 +18,7 @@ async function POST(req: Request) {
   const ctx = await resolveStoreContext(req)
   if ('error' in ctx) return NextResponse.json({ error: ctx.error }, { status: ctx.status })
   const parsed = pressActionSchema.safeParse(await req.json().catch(() => null))
-  if (!parsed.success) return NextResponse.json({ error: 'Say which batch and what to do' }, { status: 400 })
+  if (!parsed.success) return NextResponse.json({ error: reasonIssue(parsed.error) ?? 'Say which batch and what to do' }, { status: 400 })
   const { id, action, reason } = parsed.data
   const feature = action === 'review' ? 'cc_production.press.review' : 'cc_production.press.enter'
   if (!(await hasFeatures(ctx, [feature]))) return NextResponse.json({ error: action === 'review' ? 'You cannot review press batches' : 'You cannot change press batches' }, { status: 403 })
@@ -31,6 +33,7 @@ async function POST(req: Request) {
       return pressBatchView(ctx, await reviewPressBatch(ctx, batch, byName))
     })
     if (result instanceof Response) return result
+    if (action === 'reopen' || action === 'cancel') await logCorrection(ctx, { recordType: 'press_batch', recordId: batch.id, action: action === 'cancel' ? 'cancelled' : 'reopened', summary: action === 'cancel' ? 'Batch cancelled' : 'Reopened; B-stage taken back and pressed lots removed', reason: reason ?? '' })
     return NextResponse.json(result)
   } catch (error) {
     return plantErrorResponse(error)

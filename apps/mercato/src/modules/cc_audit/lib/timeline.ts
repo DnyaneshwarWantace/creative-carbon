@@ -46,7 +46,7 @@ export type TimelineItem = {
   legacy: boolean
 }
 
-const CORRECTION = /reopen|cancel|void|revers|credit|correct|undo|scrap|return/i
+const CORRECTION = /reopen|cancel|void|revers|credit|correct|undo|scrap|return|fail|reject|revert/i
 const STAGE = /stage|started|done|skip|hold|resume|advance|allocat|pack|despatch|dispatch|issued|posted|approved|submitted|sent|convert/i
 const DOCUMENT = /upload|attach|document|print|email|whatsapp/i
 
@@ -126,7 +126,9 @@ export async function recordTimeline(ctx: Scope, type: string, recordId: string,
   }))
   const old = def ? await legacyItems(ctx, def, recordId) : []
   const seen = new Set(fresh.map((item) => `${item.action}|${item.at.slice(0, 19)}`))
-  const all = [...fresh, ...old.filter((item) => !seen.has(`${item.action}|${item.at.slice(0, 19)}`))].sort((a, b) => b.at.localeCompare(a.at))
+  const corrections = fresh.filter((item) => item.kind === 'correction').map((item) => Date.parse(item.at))
+  const duplicate = (item: TimelineItem) => seen.has(`${item.action}|${item.at.slice(0, 19)}`) || (item.kind === 'correction' && corrections.some((at) => Math.abs(at - Date.parse(item.at)) < 15000))
+  const all = [...fresh, ...old.filter((item) => !duplicate(item))].sort((a, b) => b.at.localeCompare(a.at))
   const masked = options.showMoney ? all : all.map((item) => ({ ...item, changes: item.changes.map((change) => (change.money ? { ...change, from: change.from === null ? null : '•••', to: change.to === null ? null : '•••' } : change)) }))
   const filtered = options.kind ? masked.filter((item) => item.kind === options.kind) : masked
   const counts = masked.reduce<Record<string, number>>((acc, item) => ({ ...acc, [item.kind]: (acc[item.kind] ?? 0) + 1 }), {})

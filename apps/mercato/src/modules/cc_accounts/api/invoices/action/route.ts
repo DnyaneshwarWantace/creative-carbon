@@ -9,6 +9,8 @@ import { invoiceActionSchema } from '../../../data/validators'
 import { createCreditNote, findInvoice, invoiceView, issueInvoice } from '../../../lib/invoices'
 import { AccountsError } from '../../../lib/service'
 import { accountsErrorResponse, runGuarded } from '../../../lib/server'
+import { logCorrection } from '../../../../cc_audit/lib/activity'
+import { reasonIssue } from '../../../../cc_audit/lib/reason'
 
 export const metadata = {
   POST: { requireAuth: true, requireFeatures: ['cc_accounts.record'] },
@@ -18,7 +20,7 @@ async function POST(req: Request) {
   const ctx = await resolveOrderContext(req)
   if ('error' in ctx) return NextResponse.json({ error: ctx.error }, { status: ctx.status })
   const parsed = invoiceActionSchema.safeParse(await req.json().catch(() => null))
-  if (!parsed.success) return NextResponse.json({ error: 'Invalid action' }, { status: 400 })
+  if (!parsed.success) return NextResponse.json({ error: reasonIssue(parsed.error) ?? 'Invalid action' }, { status: 400 })
   try {
     const first = await findInvoice(ctx, parsed.data.id)
     enforceCommandOptimisticLock({ resourceKind: 'cc_accounts.invoice', resourceId: first.id, current: first.updatedAt, request: req })
@@ -52,6 +54,7 @@ async function POST(req: Request) {
         await em.flush()
         return doc
       })
+      if (parsed.data.action === 'cancel' || parsed.data.action === 'credit_note') await logCorrection(ctx, { recordType: 'invoice', recordId: parsed.data.id, action: parsed.data.action === 'cancel' ? 'cancelled' : 'credit_note', summary: parsed.data.action === 'cancel' ? 'Invoice cancelled' : `Credit note ${result.code} made`, reason: parsed.data.reason ?? '', links: parsed.data.action === 'credit_note' ? [{ type: 'invoice', id: result.id, label: result.code }] : [] })
       return NextResponse.json(invoiceView(result))
     })
   } catch (error) {

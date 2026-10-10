@@ -54,7 +54,7 @@ async function bstageFree(request: APIRequestContext, grade: string): Promise<nu
 }
 
 async function action(request: APIRequestContext, batch: Batch, name: string, reason?: string) {
-  return request.post('/api/cc_production/press/batches/action', { data: { id: batch.id, action: name, ...(reason ? { reason } : {}) }, headers: { [LOCK]: batch.updatedAt } })
+  return request.post('/api/cc_production/press/batches/action', { data: { id: batch.id, action: name, ...(reason ? { reason } : name === 'reopen' ? { reason: 'e2e correction' } : {}) }, headers: { [LOCK]: batch.updatedAt } })
 }
 
 async function addStock(request: APIRequestContext, productId: string, quantity: number, lotNumber: string) {
@@ -253,11 +253,11 @@ test.describe.serial('Stage 5 · laminate pressing', () => {
       if (batch.status === 'draft') expect((await action(request, batch, 'cancel', 'e2e cleanup')).ok()).toBeTruthy()
     }
     let sheet = (await (await request.get(`/api/cc_production/coating/sheets?id=${coatingSheetId}`)).json()) as { id: string; status: string; updatedAt: string }
-    sheet = (await (await request.post('/api/cc_production/coating/sheets/action', { data: { id: sheet.id, action: 'reopen' }, headers: { [LOCK]: sheet.updatedAt } })).json()) as typeof sheet
+    sheet = (await (await request.post('/api/cc_production/coating/sheets/action', { data: { id: sheet.id, action: 'reopen', reason: 'e2e cleanup' }, headers: { [LOCK]: sheet.updatedAt } })).json()) as typeof sheet
     expect(sheet.status).toBe('draft')
     expect((await request.post('/api/cc_production/coating/sheets/action', { data: { id: sheet.id, action: 'delete' }, headers: { [LOCK]: sheet.updatedAt } })).ok()).toBeTruthy()
     let resin = (await (await request.get(`/api/cc_production/resin/batches?id=${resinBatchId}`)).json()) as { id: string; updatedAt: string }
-    resin = (await (await request.post('/api/cc_production/resin/batches/action', { data: { id: resin.id, action: 'reopen' }, headers: { [LOCK]: resin.updatedAt } })).json()) as typeof resin
+    resin = (await (await request.post('/api/cc_production/resin/batches/action', { data: { id: resin.id, action: 'reopen', reason: 'e2e cleanup' }, headers: { [LOCK]: resin.updatedAt } })).json()) as typeof resin
     expect((await request.post('/api/cc_production/resin/batches/action', { data: { id: resin.id, action: 'delete' }, headers: { [LOCK]: resin.updatedAt } })).ok()).toBeTruthy()
     const stock = (await (await request.get('/api/cc_store/stock?place=wh_a')).json()) as { items: Array<{ productId: string; lots: Array<{ lotId: string; lotNumber: string | null; free: number }> }> }
     for (const item of stock.items) {

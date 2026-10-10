@@ -8,6 +8,8 @@ import { MouldingEntry } from '../../../data/entities'
 import { mouldingActionSchema } from '../../../data/validators'
 import { mouldingDay, postShift, reopenEntry, shiftVersion, signShift } from '../../../lib/moulding'
 import { PlantError, plantErrorResponse, runPlantGuarded } from '../../../lib/server'
+import { logCorrection } from '../../../../cc_audit/lib/activity'
+import { reasonIssue } from '../../../../cc_audit/lib/reason'
 
 export const metadata = {
   POST: { requireAuth: true, requireFeatures: ['cc_production.moulding.view'] },
@@ -17,7 +19,7 @@ async function POST(req: Request) {
   const ctx = await resolveStoreContext(req)
   if ('error' in ctx) return NextResponse.json({ error: ctx.error }, { status: ctx.status })
   const parsed = mouldingActionSchema.safeParse(await req.json().catch(() => null))
-  if (!parsed.success) return NextResponse.json({ error: 'Say which day, shift and what to do' }, { status: 400 })
+  if (!parsed.success) return NextResponse.json({ error: reasonIssue(parsed.error) ?? 'Say which day, shift and what to do' }, { status: 400 })
   const { entryDate, shift, action, pressId } = parsed.data
   const signing = action.startsWith('sign_')
   if (!(await hasFeatures(ctx, [signing ? 'cc_production.moulding.sign' : 'cc_production.moulding.enter']))) return NextResponse.json({ error: signing ? 'You cannot sign the moulding register' : 'You cannot post moulding entries' }, { status: 403 })
@@ -31,6 +33,8 @@ async function POST(req: Request) {
       else if (action === 'reopen') {
         if (!pressId) throw new PlantError('Say which machine to reopen')
         await reopenEntry(ctx, entryDate, shift, pressId, byName)
+        const entry = existing.find((row) => row.pressId === pressId)
+        if (entry) await logCorrection(ctx, { recordType: 'moulding_entry', recordId: entry.id, action: 'reopened', summary: 'Reopened; chindi, cloth and the moulded lot reversed', reason: parsed.data.reason ?? '' })
       } else await signShift(ctx, entryDate, shift, action, byName)
       return { ...(await mouldingDay(ctx, entryDate)), errors }
     })

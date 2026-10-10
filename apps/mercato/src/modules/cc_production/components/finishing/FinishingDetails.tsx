@@ -17,6 +17,7 @@ import { recordHref, type DocumentLink } from '../../../cc_ui/lib/links'
 import { HISTORY_LABEL, day, kg, when } from '../resin/shared'
 import { useSend } from './shared'
 import { Timeline } from '../../../cc_ui/components/Timeline'
+import { CorrectDialog } from '../../../cc_ui/components/CorrectDialog'
 
 type Kind = 'cutting' | 'thickness' | 'fg' | 'direct_in' | 'damage'
 type HistoryItem = { action: string; by: string | null; at: string; note: string | null }
@@ -126,11 +127,12 @@ export function CuttingDetailPage({ recordId }: { recordId: string }) {
   const send = useSend(`cc-cutting-${recordId}`)
   const { record: cut, error, load } = useRecord<CuttingView>('cutting', recordId, t('cc_production.cutting.loadError', 'Could not load this cutting entry.'))
   const [busy, setBusy] = React.useState(false)
+  const [reversing, setReversing] = React.useState(false)
   if (error || !cut) return <RecordState error={error} loadingLabel={t('cc_production.resin.loading', 'Loading…')} />
 
-  const reverse = async () => {
+  const reverse = async (reason: string) => {
     setBusy(true)
-    const result = await send<{ ok: boolean }>('/api/cc_production/cutting/reverse', 'POST', { id: cut.id }, cut.updatedAt)
+    const result = await send<{ ok: boolean }>('/api/cc_production/cutting/reverse', 'POST', { id: cut.id, reason }, cut.updatedAt)
     setBusy(false)
     if (result) {
       flash(t('cc_production.cutting.reversed', 'Reversed. The sheets are back in the pressed lot.'), 'success')
@@ -157,7 +159,7 @@ export function CuttingDetailPage({ recordId }: { recordId: string }) {
         <>
           <PrintButton />
           {granted.has('cc_production.cutting.enter') && cut.status === 'posted' ? (
-            <Button type="button" variant="outline" size="sm" disabled={busy} onClick={() => void reverse()}>
+            <Button type="button" variant="outline" size="sm" disabled={busy} onClick={() => setReversing(true)}>
               <Undo2 className="mr-1.5 h-4 w-4" aria-hidden="true" />
               {t('cc_production.cutting.reverse', 'Reverse')}
             </Button>
@@ -218,6 +220,14 @@ export function CuttingDetailPage({ recordId }: { recordId: string }) {
         }
       />
       <Timeline type="cutting" id={cut.id} refreshKey={cut.history.length} />
+      <CorrectDialog
+        open={reversing}
+        onOpenChange={setReversing}
+        title={t('cc_production.cutting.reverseTitle', 'Reverse this cutting entry')}
+        confirmLabel={t('cc_production.cutting.reverse', 'Reverse')}
+        undo={[t('cc_production.cutting.undoSheets', 'Puts the sheets back in the pressed lot'), t('cc_production.cutting.undoLot', 'Removes the trimmed lot and its trim loss')]}
+        onConfirm={(reason) => reverse(reason)}
+      />
     </RecordPage>
   )
 }
@@ -351,10 +361,11 @@ export function FgReportDetailPage({ recordId }: { recordId: string }) {
   const send = useSend(`cc-fg-${recordId}`)
   const { record: report, error, load } = useRecord<FgView>('fg', recordId, t('cc_production.fg.loadError', 'Could not load this report.'))
   const [busy, setBusy] = React.useState(false)
+  const [reopening, setReopening] = React.useState(false)
   if (error || !report) return <RecordState error={error} loadingLabel={t('cc_production.resin.loading', 'Loading…')} />
-  const reopen = async () => {
+  const reopen = async (reason: string) => {
     setBusy(true)
-    const result = await send<FgView>('/api/cc_production/fg-inspection/action', 'POST', { id: report.id, action: 'reopen' }, report.updatedAt)
+    const result = await send<FgView>('/api/cc_production/fg-inspection/action', 'POST', { id: report.id, action: 'reopen', reason }, report.updatedAt)
     setBusy(false)
     if (result) {
       flash(t('cc_production.fg.reopened', 'Reopened. The pieces are back on the shop floor.'), 'success')
@@ -395,7 +406,7 @@ export function FgReportDetailPage({ recordId }: { recordId: string }) {
         <>
           <PrintButton />
           {granted.has('cc_production.quality.enter') && report.status === 'posted' ? (
-            <Button type="button" variant="outline" size="sm" disabled={busy} onClick={() => void reopen()}>
+            <Button type="button" variant="outline" size="sm" disabled={busy} onClick={() => setReopening(true)}>
               <RotateCcw className="mr-1.5 h-4 w-4" aria-hidden="true" />
               {t('cc_production.resin.reopen', 'Reopen')}
             </Button>
@@ -444,6 +455,15 @@ export function FgReportDetailPage({ recordId }: { recordId: string }) {
         />
       </Panel>
       <Timeline type="fg_inspection" id={report.id} refreshKey={report.history.length} />
+      <CorrectDialog
+        open={reopening}
+        onOpenChange={setReopening}
+        destructive={false}
+        title={t('cc_production.fg.reopenTitle', 'Reopen this FG inspection')}
+        confirmLabel={t('cc_production.resin.reopen', 'Reopen')}
+        undo={[t('cc_production.fg.undoLots', 'Takes the FG lots back out of the FG store'), t('cc_production.fg.undoFloor', 'Puts the pieces back on the shop floor')]}
+        onConfirm={(reason) => reopen(reason)}
+      />
     </RecordPage>
   )
 }

@@ -23,6 +23,7 @@ import { kg, todayIso } from '../resin/shared'
 import { SHEET_STATUS, paperTime, type CoatingSetup, type SheetListItem, type SheetView } from './shared'
 import { OfflineBadge, isOffline, queueSave } from '../offline'
 import { Dropdown } from '../../../cc_lists/components/Dropdown'
+import { CorrectDialog } from '../../../cc_ui/components/CorrectDialog'
 
 const ROWS = 10
 
@@ -214,11 +215,12 @@ export function CoatingDayPage() {
     }
   }
 
-  const act = async (action: 'reopen' | 'delete') => {
+  const [reopening, setReopening] = React.useState(false)
+  const act = async (action: 'reopen' | 'delete', reason?: string) => {
     if (!sheet) return
     setBusy(true)
     try {
-      const call = await send<SheetView>('/api/cc_production/coating/sheets/action', 'POST', { id: sheet.id, action }, sheet.updatedAt)
+      const call = await send<SheetView>('/api/cc_production/coating/sheets/action', 'POST', { id: sheet.id, action, ...(reason ? { reason } : {}) }, sheet.updatedAt)
       if (!call.ok || !call.result || call.result.error) {
         flash(call.result?.error ?? t('cc_production.coating.actionError', 'Could not do that.'), 'error')
         return
@@ -442,7 +444,7 @@ export function CoatingDayPage() {
               {canEnter ? (
                 <div className="sticky bottom-0 flex flex-wrap items-center justify-end gap-2 border-t border-border bg-background/95 py-3 backdrop-blur">
                   {sheet?.status === 'posted' ? (
-                    <Button type="button" variant="outline" disabled={busy} onClick={() => void act('reopen')}>
+                    <Button type="button" variant="outline" disabled={busy} onClick={() => setReopening(true)}>
                       <RotateCcw className="mr-1.5 h-4 w-4" aria-hidden="true" />
                       {t('cc_production.resin.reopen', 'Reopen')}
                     </Button>
@@ -469,6 +471,15 @@ export function CoatingDayPage() {
           )}
         </div>
       </PageBody>
+      <CorrectDialog
+        open={reopening}
+        onOpenChange={setReopening}
+        destructive={false}
+        title={t('cc_production.coating.reopenTitle', 'Reopen this day sheet')}
+        confirmLabel={t('cc_production.coating.reopen', 'Reopen')}
+        undo={[t('cc_production.coating.undoResin', 'Puts the resin and cloth back'), t('cc_production.coating.undoBstage', 'Removes the B-stage lots it made (only if none is used yet)')]}
+        onConfirm={(reason) => act('reopen', reason)}
+      />
     </Page>
   )
 }

@@ -6,6 +6,8 @@ import { currentUserName, resolveOrderContext } from '../../../../cc_orders/lib/
 import { quotationActionSchema } from '../../../data/validators'
 import { findQuotation, quotationAction } from '../../../lib/quotations'
 import { crmErrorResponse, runCrmGuarded } from '../../../lib/server'
+import { logCorrection } from '../../../../cc_audit/lib/activity'
+import { reasonIssue } from '../../../../cc_audit/lib/reason'
 
 export const metadata = {
   POST: { requireAuth: true, requireFeatures: ['cc_crm.manage'] },
@@ -15,7 +17,7 @@ async function POST(req: Request) {
   const ctx = await resolveOrderContext(req)
   if ('error' in ctx) return NextResponse.json({ error: ctx.error }, { status: ctx.status })
   const parsed = quotationActionSchema.safeParse(await req.json().catch(() => null))
-  if (!parsed.success) return NextResponse.json({ error: 'Invalid action' }, { status: 400 })
+  if (!parsed.success) return NextResponse.json({ error: reasonIssue(parsed.error) ?? 'Invalid action' }, { status: 400 })
   try {
     const row = await findQuotation(ctx, parsed.data.id)
     enforceCommandOptimisticLock({ resourceKind: 'cc_crm.quotation', resourceId: row.id, current: row.updatedAt, request: req })
@@ -25,6 +27,7 @@ async function POST(req: Request) {
       return { ok: true, status: outcome.quotation.status, order: outcome.order }
     })
     if (result instanceof Response) return result
+    if (parsed.data.action === 'reopen') await logCorrection(ctx, { recordType: 'quotation', recordId: parsed.data.id, action: 'reopened', summary: 'Quotation reopened', reason: parsed.data.note ?? '' })
     return NextResponse.json(result)
   } catch (error) {
     return crmErrorResponse(error)

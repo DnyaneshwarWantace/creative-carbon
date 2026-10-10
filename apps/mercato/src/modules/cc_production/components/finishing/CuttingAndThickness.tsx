@@ -19,6 +19,7 @@ import { OfflineBadge, isOffline, queueSave } from '../offline'
 import { PlantTable } from '../PlantTable'
 import { Dropdown } from '../../../cc_lists/components/Dropdown'
 import { recordHref } from '../../../cc_ui/lib/links'
+import { CorrectDialog } from '../../../cc_ui/components/CorrectDialog'
 
 type Cutting = { id: string; entryDate: string; sourceLotNumber: string | null; sheetsIn: number; sourceKgUsed: number; cutSize: string; trimmedKg: number; trimKg: number; trimPct: number; outputLotNumber: string | null; status: string; warnings: string[]; updatedAt: string }
 
@@ -44,6 +45,7 @@ export function CuttingPage() {
   const [items, setItems] = React.useState<Cutting[]>([])
   const [form, setForm] = React.useState({ entryDate: todayIso(), lotId: '', cutSize: '8x4', weights: '' })
   const [busy, setBusy] = React.useState(false)
+  const [reversing, setReversing] = React.useState<Cutting | null>(null)
 
   const load = React.useCallback(async () => {
     const call = await apiCall<{ items: Cutting[] }>(`/api/cc_production/cutting?month=${month}`, undefined, { fallback: { items: [] } })
@@ -82,8 +84,8 @@ export function CuttingPage() {
     }
   }
 
-  const reverse = async (cut: Cutting) => {
-    const result = await send<{ ok: boolean }>('/api/cc_production/cutting/reverse', 'POST', { id: cut.id }, cut.updatedAt)
+  const reverse = async (cut: Cutting, reason: string) => {
+    const result = await send<{ ok: boolean }>('/api/cc_production/cutting/reverse', 'POST', { id: cut.id, reason }, cut.updatedAt)
     if (result) {
       flash(t('cc_production.cutting.reversed', 'Reversed. The sheets are back in the pressed lot.'), 'success')
       await Promise.all([load(), reload()])
@@ -167,7 +169,7 @@ export function CuttingPage() {
                 label: '',
                 render: (cut) =>
                   cut.status === 'posted' && granted.has('cc_production.cutting.enter') ? (
-                    <Button type="button" variant="ghost" size="sm" onClick={() => void reverse(cut)}>
+                    <Button type="button" variant="ghost" size="sm" onClick={() => setReversing(cut)}>
                       <RotateCcw className="mr-1 h-3.5 w-3.5" aria-hidden="true" />
                       {t('cc_production.cutting.reverse', 'Reverse')}
                     </Button>
@@ -177,6 +179,16 @@ export function CuttingPage() {
           />
         </div>
       </PageBody>
+      <CorrectDialog
+        open={reversing !== null}
+        onOpenChange={(open) => !open && setReversing(null)}
+        title={t('cc_production.cutting.reverseTitle', 'Reverse this cutting entry')}
+        confirmLabel={t('cc_production.cutting.reverse', 'Reverse')}
+        undo={[t('cc_production.cutting.undoSheets', 'Puts the sheets back in the pressed lot'), t('cc_production.cutting.undoLot', 'Removes the trimmed lot and its trim loss')]}
+        onConfirm={async (reason) => {
+          if (reversing) await reverse(reversing, reason)
+        }}
+      />
     </Page>
   )
 }

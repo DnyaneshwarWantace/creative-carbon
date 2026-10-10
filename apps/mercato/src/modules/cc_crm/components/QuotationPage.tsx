@@ -20,6 +20,7 @@ import { QUOTE_LABEL, QUOTE_VARIANT, type Quotation } from './types'
 import { FieldList, LinkRows, Panel, RecordColumns, RecordPage, RecordState, type Fact } from '../../cc_ui/components/RecordPage'
 import { recordHref } from '../../cc_ui/lib/links'
 import { Timeline } from '../../cc_ui/components/Timeline'
+import { CorrectDialog } from '../../cc_ui/components/CorrectDialog'
 
 export function QuotationPage({ quotationId }: { quotationId: string }) {
   const t = useT()
@@ -28,6 +29,7 @@ export function QuotationPage({ quotationId }: { quotationId: string }) {
   const canManage = granted.has('cc_crm.manage')
   const canConvert = granted.has('cc_crm.convert') && granted.has('cc_orders.manage')
   const send = useSend(`cc-quotation-${quotationId}`)
+  const [reopening, setReopening] = React.useState(false)
   const [quote, setQuote] = React.useState<Quotation | null>(null)
   const [error, setError] = React.useState<string | null>(null)
   const [company, setCompany] = React.useState<DocCompany | null>(null)
@@ -128,7 +130,7 @@ export function QuotationPage({ quotationId }: { quotationId: string }) {
                   </Button>
                 </>
               ) : (
-                <Button type="button" variant="outline" size="sm" disabled={busy} onClick={() => act('reopen')}>
+                <Button type="button" variant="outline" size="sm" disabled={busy} onClick={() => setReopening(true)}>
                   <RotateCcw className="mr-1.5 h-4 w-4" />
                   {t('cc_crm.actions.reopen', 'Reopen')}
                 </Button>
@@ -285,6 +287,15 @@ export function QuotationPage({ quotationId }: { quotationId: string }) {
         }
       />
       <Timeline type="quotation" id={quote.id} refreshKey={quote.history.length} />
+      <CorrectDialog
+        open={reopening}
+        onOpenChange={setReopening}
+        destructive={false}
+        title={t('cc_crm.quote.reopenTitle', 'Reopen this quotation')}
+        confirmLabel={t('cc_crm.quote.reopen', 'Reopen')}
+        undo={[t('cc_crm.quote.undoStatus', 'Takes it back to draft so it can be changed and sent again')]}
+        onConfirm={(reason) => act('reopen', { note: reason })}
+      />
     </RecordPage>
   )
 }
