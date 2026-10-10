@@ -281,6 +281,15 @@ export function publicSettings(profile: CompanyProfile | null) {
 
 
 export async function testConnection(ctx: OrderContext) {
+  const result = await runConnectionTest(ctx)
+  await ctx.em.getConnection().execute(
+    `update cc_company_profiles set tally_settings = coalesce(tally_settings, '{}'::jsonb) || ?::jsonb where tenant_id = ? and organization_id = ?`,
+    [JSON.stringify({ lastTestOk: result.ok, lastTestAt: new Date().toISOString() }), ctx.tenantId, ctx.organizationId],
+  )
+  return result
+}
+
+async function runConnectionTest(ctx: OrderContext) {
   const settings = await loadSettings(ctx)
   assertConnection(settings)
   const companies = await readFromTally(ctx, settings, companiesRequest(), 'companies', parseCompanies)

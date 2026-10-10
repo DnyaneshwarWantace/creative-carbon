@@ -2,6 +2,7 @@ import { MASTER_DEFS, type MasterColumn, type MasterDef } from '../masterDefs'
 import { importMasters } from '../masters'
 import { dryerRowsRegister, dryerSlotsRegister } from './coatingRegisters'
 import { mouldingRegister } from './mouldingRegister'
+import { openingStockRegister } from './openingRegister'
 import { pressLoadingRegister } from './pressRegister'
 import { resinBatchRegister } from './resinRegister'
 import type { UploadColumn, UploadRegister } from './types'
@@ -51,6 +52,7 @@ export const UPLOAD_REGISTERS: UploadRegister[] = [
   masterRegister(MASTER_DEFS.moulds, 'Press & moulding', 'Mould / die list (Excel)'),
   masterRegister(MASTER_DEFS.tolerances, 'Press & moulding', 'Press loading register — specified range'),
   masterRegister(MASTER_DEFS.prices, 'Sales', 'Small and big size price lists'),
+  openingStockRegister,
 ]
 
 export function uploadRegister(key: string): UploadRegister | null {

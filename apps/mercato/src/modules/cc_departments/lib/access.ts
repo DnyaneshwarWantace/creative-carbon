@@ -12,6 +12,7 @@ export const ACCESS_AREAS: AccessArea[] = [
       { feature: 'cc_dashboard.my_work', label: 'See their own pending work', short: 'Own work' },
       { feature: 'cc_dashboard.view', label: 'See the overview dashboard and turnaround', short: 'Dashboard' },
       { feature: 'cc_dashboard.everyone', label: "See everyone's pending work", short: 'Everyone' },
+      { feature: 'cc_dashboard.golive', label: 'Run the go-live checklist', short: 'Go-live' },
     ],
   },
   {

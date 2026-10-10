@@ -37,3 +37,19 @@ export const transferSchema = z.object({
   quantity: z.coerce.number().positive().max(100000000),
   note: z.string().trim().max(500).nullable().optional(),
 })
+
+const parallelPlace = z.enum(['wh_a', 'wh_b', 'tank', 'floor', 'fg'])
+
+export const parallelQuerySchema = z.object({
+  place: parallelPlace.default('wh_a'),
+  date: isoDate.optional(),
+  summary: z.enum(['1']).optional(),
+  targetDays: z.coerce.number().int().min(1).max(90).optional(),
+})
+
+export const parallelSaveSchema = z.object({
+  place: parallelPlace,
+  date: isoDate,
+  note: z.string().trim().max(500).nullable().optional(),
+  rows: z.array(z.object({ productId: z.string().uuid(), paper: z.coerce.number().min(0).max(100_000_000).nullable() })).min(1).max(2000),
+})

@@ -20,6 +20,8 @@ export type ExportDetails = {
   vessel: string | null
 }
 
+export type GoLiveSettings = { cutoverDate?: string | null; targetDays?: number; confirmed?: Record<string, { by: string | null; at: string }> }
+
 export type TallyMode = 'direct' | 'bridge'
 export type TallySettings = { url: string | null; company: string | null; ledgers: Record<string, string>; mode?: TallyMode; bridgeTokenHash?: string | null; bridgeSeenAt?: string | null; bridgeTallyUrl?: string | null }
 
@@ -168,6 +170,9 @@ export class CompanyProfile {
 
   @Property({ name: 'lut_valid_till', type: 'text', nullable: true })
   lutValidTill?: string | null
+
+  @Property({ name: 'go_live', type: 'json', nullable: true })
+  goLive?: GoLiveSettings | null
 
   @Property({ name: 'created_at', type: Date, onCreate: () => new Date() })
   createdAt: Date = new Date()

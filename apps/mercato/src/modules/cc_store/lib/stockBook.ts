@@ -26,7 +26,7 @@ function daysUntil(iso: string | null): number | null {
   return Math.round((Date.parse(`${iso.slice(0, 10)}T00:00:00Z`) - Date.parse(`${todayIso()}T00:00:00Z`)) / 86400000)
 }
 
-async function placeLocations(ctx: StoreContext) {
+export async function placeLocations(ctx: StoreContext) {
   const warehouse = await ccWarehouse(ctx)
   if (!warehouse) throw new StoreError('The warehouse is not set up yet', 409)
   const byPlace = new Map<StockPlace, string>()

@@ -14,6 +14,7 @@ const UI_FEATURES = [
   'cc_purchase.view',
   'wms.view',
   'cc_dashboard.everyone',
+  'cc_dashboard.golive',
   'cc_orders.work.accounts',
   'cc_orders.work.store',
   'cc_orders.work.qc',
