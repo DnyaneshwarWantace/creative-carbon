@@ -23,6 +23,7 @@ import { INVOICE_STATUS, type CompanyView, type InvoiceView } from './types'
 import { RecordPage, RecordState, formatDay, type Fact } from '../../cc_ui/components/RecordPage'
 import { recordHref } from '../../cc_ui/lib/links'
 import { Timeline } from '../../cc_ui/components/Timeline'
+import { Comments } from '../../cc_ui/components/Comments'
 import { Attachments } from '../../cc_ui/components/Attachments'
 
 
@@ -401,6 +402,7 @@ export function InvoicePage({ id }: { id: string }) {
                 ) : null}
               </section>
               <Attachments type="invoice" id={doc.id} />
+              <Comments type="invoice" id={doc.id} />
               <Timeline type="invoice" id={doc.id} refreshKey={doc.updatedAt} />
             </div>
           </div>

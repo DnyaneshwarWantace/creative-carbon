@@ -24,6 +24,7 @@ import { FieldList, LinkRows, Panel, PanelEmpty, RecordColumns, RecordPage, Reco
 import { recordHref } from '../../cc_ui/lib/links'
 import { Dropdown } from '../../cc_lists/components/Dropdown'
 import { Timeline } from '../../cc_ui/components/Timeline'
+import { Comments } from '../../cc_ui/components/Comments'
 import { Attachments } from '../../cc_ui/components/Attachments'
 
 type Status = 'open' | 'part_returned' | 'returned' | 'cancelled'
@@ -742,6 +743,7 @@ export function JobWorkDetailPage({ id }: { id: string }) {
         }
       />
       <Attachments type="job_work" id={challan.id} />
+      <Comments type="job_work" id={challan.id} />
       <Timeline type="job_work" id={challan.id} refreshKey={challan.history.length} />
     </RecordPage>
   )

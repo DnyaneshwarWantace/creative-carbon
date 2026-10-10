@@ -68,7 +68,7 @@ export function recordActivity(em: EntityManager, scope: Scope, input: ActivityI
   return entry
 }
 
-type CorrectionScope = { em: EntityManager; tenantId: string; organizationId: string; userId?: string | null }
+type CorrectionScope = { em: EntityManager; tenantId: string; organizationId: string; userId?: string | null; container?: { resolve: (name: string) => unknown } }
 
 export const REASON_MIN = 3
 
@@ -77,4 +77,8 @@ export async function logCorrection(ctx: CorrectionScope, input: { recordType: s
   const name = ctx.userId ? ((await userNames(ctx as Parameters<typeof userNames>[0], [ctx.userId])).get(ctx.userId) ?? null) : null
   recordActivity(ctx.em, ctx, { recordType: input.recordType, recordId: input.recordId, action: input.action, kind: 'correction', summary: input.summary, reason: input.reason, links: input.links ?? null, actorUserId: ctx.userId ?? null, actorName: name })
   await ctx.em.flush()
+  if (ctx.container) {
+    const { notifyCorrection } = await import('./notify')
+    await notifyCorrection({ ...ctx, container: ctx.container }, { ...input, byName: name })
+  }
 }

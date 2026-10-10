@@ -12,6 +12,7 @@ import { FieldList, LinkRows, Panel, RecordColumns, RecordPage, RecordState, Reg
 import { recordHref } from '../../cc_ui/lib/links'
 import { HISTORY_LABEL, day, qty } from './shared'
 import { Timeline } from '../../cc_ui/components/Timeline'
+import { Comments } from '../../cc_ui/components/Comments'
 import { Attachments } from '../../cc_ui/components/Attachments'
 
 type IndentStatus = 'submitted' | 'approved' | 'rejected' | 'ordered' | 'cancelled'
@@ -163,6 +164,7 @@ export function IndentPage({ indentId }: { indentId: string }) {
         }
       />
       <Attachments type="indent" id={indent.id} />
+      <Comments type="indent" id={indent.id} />
       <Timeline type="indent" id={indent.id} refreshKey={indent.history.length} />
     </RecordPage>
   )

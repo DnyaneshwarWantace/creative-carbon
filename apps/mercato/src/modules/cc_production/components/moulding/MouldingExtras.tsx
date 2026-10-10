@@ -15,6 +15,7 @@ import { FieldList, LinkRows, Panel, PanelEmpty, RecordColumns, RecordPage, Reco
 import { PlantChain } from '../../../cc_ui/components/PlantChain'
 import { recordHref } from '../../../cc_ui/lib/links'
 import { Timeline } from '../../../cc_ui/components/Timeline'
+import { Comments } from '../../../cc_ui/components/Comments'
 import { Attachments } from '../../../cc_ui/components/Attachments'
 
 type EntryPage = {
@@ -159,6 +160,7 @@ export function MouldingEntryPage({ entryId }: { entryId: string }) {
         }
       />
       <Attachments type="moulding_entry" id={entry.id} />
+      <Comments type="moulding_entry" id={entry.id} />
       <Timeline type="moulding_entry" id={entry.id} refreshKey={entry.history.length} />
     </RecordPage>
   )

@@ -18,3 +18,8 @@ export const registerFileSchema = filesQuerySchema.extend({
   label: z.string().trim().max(120).nullish(),
   replaces: z.string().uuid().nullish(),
 })
+
+export const commentSchema = filesQuerySchema.extend({
+  text: z.string().trim().min(1, 'Write something').max(2000),
+  mentions: z.array(z.string().uuid()).max(20).default([]),
+})

@@ -27,6 +27,7 @@ import { PageLoading } from '../../cc_ui/components/PageLoading'
 import { FieldList, Panel, RecordColumns, RecordPage, RecordState, RegisterGrid, type Fact } from '../../cc_ui/components/RecordPage'
 import { recordHref } from '../../cc_ui/lib/links'
 import { Timeline } from '../../cc_ui/components/Timeline'
+import { Comments } from '../../cc_ui/components/Comments'
 import { Attachments } from '../../cc_ui/components/Attachments'
 
 function localNow(): string {
@@ -448,6 +449,7 @@ export function EnquiryPage({ enquiryId }: { enquiryId: string }) {
         }
       />
       <Attachments type="enquiry" id={enquiry.id} />
+      <Comments type="enquiry" id={enquiry.id} />
       <Timeline type="enquiry" id={enquiry.id} refreshKey={enquiry.history.length} />
     </RecordPage>
   )

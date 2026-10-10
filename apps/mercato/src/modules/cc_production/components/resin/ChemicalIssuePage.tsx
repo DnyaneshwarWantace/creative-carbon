@@ -20,6 +20,7 @@ import { PlantChain } from '../../../cc_ui/components/PlantChain'
 import { recordHref } from '../../../cc_ui/lib/links'
 import { HISTORY_LABEL, day, kg, when } from './shared'
 import { Timeline } from '../../../cc_ui/components/Timeline'
+import { Comments } from '../../../cc_ui/components/Comments'
 import { Attachments } from '../../../cc_ui/components/Attachments'
 
 type IssueView = {
@@ -189,6 +190,7 @@ export function ChemicalIssuePage({ issueId }: { issueId: string }) {
           }
         />
         <Attachments type="chemical_issue" id={issue.id} />
+        <Comments type="chemical_issue" id={issue.id} />
         <Timeline type="chemical_issue" id={issue.id} refreshKey={issue.history.length} />
       </RecordPage>
 

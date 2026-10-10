@@ -20,6 +20,7 @@ import { FieldList, Panel, RecordColumns, RecordPage, RecordState, type Fact } f
 import { PlantChain } from '../../../cc_ui/components/PlantChain'
 import { recordHref } from '../../../cc_ui/lib/links'
 import { Timeline } from '../../../cc_ui/components/Timeline'
+import { Comments } from '../../../cc_ui/components/Comments'
 
 const RESULT_STYLE: Record<LabResult, { label: string; tone: string; icon: typeof CheckCircle2 }> = {
   pass: { label: 'Pass', tone: 'border-status-success-border bg-status-success-bg text-status-success-text', icon: CheckCircle2 },
@@ -256,6 +257,7 @@ export function LabDetailPage({ testId }: { testId: string }) {
           </Panel>
         }
       />
+      <Comments type="lab_test" id={test.id} />
       <Timeline type="lab_test" id={test.id} refreshKey={test.history.length} />
     </RecordPage>
   )

@@ -10,6 +10,7 @@ import { apiCall } from '@open-mercato/ui/backend/utils/apiCall'
 import { FieldList, LinkRows, Panel, RecordColumns, RecordPage, RecordState, RegisterGrid, formatDay, formatWhen, type Fact } from '../../cc_ui/components/RecordPage'
 import { recordHref } from '../../cc_ui/lib/links'
 import { Timeline } from '../../cc_ui/components/Timeline'
+import { Comments } from '../../cc_ui/components/Comments'
 import { Attachments } from '../../cc_ui/components/Attachments'
 
 type HistoryItem = { action: string; by: string | null; at: string; note: string | null }
@@ -108,6 +109,7 @@ export function PaymentPage({ paymentId }: { paymentId: string }) {
         }
       />
       <Attachments type="payment" id={payment.id} />
+      <Comments type="payment" id={payment.id} />
       <Timeline type="payment" id={payment.id} refreshKey={payment.history.length} />
     </RecordPage>
   )
@@ -220,6 +222,7 @@ export function VendorBillPage({ billId }: { billId: string }) {
         }
       />
       <Attachments type="vendor_bill" id={bill.id} />
+      <Comments type="vendor_bill" id={bill.id} />
       <Timeline type="vendor_bill" id={bill.id} refreshKey={bill.history.length} />
     </RecordPage>
   )

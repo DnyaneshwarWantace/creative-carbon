@@ -17,6 +17,7 @@ import { recordHref, type DocumentLink } from '../../../cc_ui/lib/links'
 import { HISTORY_LABEL, day, kg, when } from '../resin/shared'
 import { useSend } from './shared'
 import { Timeline } from '../../../cc_ui/components/Timeline'
+import { Comments } from '../../../cc_ui/components/Comments'
 import { Attachments } from '../../../cc_ui/components/Attachments'
 import { CorrectDialog } from '../../../cc_ui/components/CorrectDialog'
 
@@ -221,6 +222,7 @@ export function CuttingDetailPage({ recordId }: { recordId: string }) {
         }
       />
       <Attachments type="cutting" id={cut.id} />
+      <Comments type="cutting" id={cut.id} />
       <Timeline type="cutting" id={cut.id} refreshKey={cut.history.length} />
       <CorrectDialog
         open={reversing}
@@ -317,6 +319,7 @@ export function ThicknessDetailPage({ recordId }: { recordId: string }) {
         }
       />
       <Attachments type="thickness" id={row.id} />
+      <Comments type="thickness" id={row.id} />
       <Timeline type="thickness" id={row.id} refreshKey={row.history.length} />
     </RecordPage>
   )
@@ -458,6 +461,7 @@ export function FgReportDetailPage({ recordId }: { recordId: string }) {
         />
       </Panel>
       <Attachments type="fg_inspection" id={report.id} />
+      <Comments type="fg_inspection" id={report.id} />
       <Timeline type="fg_inspection" id={report.id} refreshKey={report.history.length} />
       <CorrectDialog
         open={reopening}
@@ -535,6 +539,7 @@ export function DirectInDetailPage({ recordId }: { recordId: string }) {
         side={<TracePanel title={t('cc_production.trace.wentTo', 'Went to')} trace={record.lot} empty={t('cc_production.direct.noLot', 'No stock lot.')} />}
       />
       <Attachments type="fg_direct_in" id={record.id} />
+      <Comments type="fg_direct_in" id={record.id} />
       <Timeline type="fg_direct_in" id={record.id} refreshKey={record.history.length} />
     </RecordPage>
   )
@@ -595,6 +600,7 @@ export function DamageDetailPage({ recordId }: { recordId: string }) {
         side={<TracePanel title={t('cc_production.trace.cameFrom', 'Came from')} trace={record.lot} empty={t('cc_production.trace.noSource', 'Source lot not found.')} />}
       />
       <Attachments type="damage" id={record.id} />
+      <Comments type="damage" id={record.id} />
       <Timeline type="damage" id={record.id} refreshKey={record.history.length} />
     </RecordPage>
   )

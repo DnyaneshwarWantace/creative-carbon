@@ -22,6 +22,7 @@ import { Panel, PanelEmpty, RecordColumns, RecordPage, RecordState, RegisterGrid
 import { PlantChain } from '../../../cc_ui/components/PlantChain'
 import { recordHref } from '../../../cc_ui/lib/links'
 import { Timeline } from '../../../cc_ui/components/Timeline'
+import { Comments } from '../../../cc_ui/components/Comments'
 import { Attachments } from '../../../cc_ui/components/Attachments'
 import { CorrectDialog } from '../../../cc_ui/components/CorrectDialog'
 
@@ -355,6 +356,7 @@ export function ResinBatchPage({ batchId }: { batchId: string }) {
           }
         />
         <Attachments type="resin_batch" id={batch.id} />
+        <Comments type="resin_batch" id={batch.id} />
         <Timeline type="resin_batch" id={batch.id} refreshKey={batch.history.length} footer={batch.reopenUntil && batch.canReopen ? t('cc_production.resin.reopenUntil', 'Can be reopened until {at}.', { at: when(batch.reopenUntil) }) : undefined} />
       </RecordPage>
 

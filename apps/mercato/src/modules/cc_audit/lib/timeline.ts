@@ -3,33 +3,38 @@ import { ActivityEntry, type ActivityChange, type ActivityKind, type ActivityLin
 
 type Scope = { em: EntityManager; tenantId: string; organizationId: string }
 
-export type RecordTypeDef = { label: string; table: string | null; viewFeature: string; legacy: 'history' | 'order_events' | null }
+export type RecordTypeDef = { label: string; table: string | null; viewFeature: string; legacy: 'history' | 'order_events' | null; path?: string; maker?: string[] }
 
 export const RECORD_TYPES: Record<string, RecordTypeDef> = {
-  order: { label: 'Order', table: 'cc_orders', viewFeature: 'cc_orders.view', legacy: 'order_events' },
-  enquiry: { label: 'Enquiry', table: 'cc_enquiries', viewFeature: 'cc_crm.view', legacy: 'history' },
-  quotation: { label: 'Quotation', table: 'cc_quotations', viewFeature: 'cc_crm.view', legacy: 'history' },
-  customer: { label: 'Customer', table: null, viewFeature: 'customers.companies.view', legacy: null },
-  vendor: { label: 'Vendor', table: 'cc_vendors', viewFeature: 'cc_vendors.view', legacy: null },
-  resin_batch: { label: 'Resin batch', table: 'cc_resin_batches', viewFeature: 'cc_production.resin.view', legacy: 'history' },
-  chemical_issue: { label: 'Chemical issue', table: 'cc_chemical_issues', viewFeature: 'cc_production.resin.view', legacy: 'history' },
-  coating_sheet: { label: 'Coating day sheet', table: 'cc_coating_sheets', viewFeature: 'cc_production.coating.view', legacy: 'history' },
-  press_batch: { label: 'Press batch', table: 'cc_press_batches', viewFeature: 'cc_production.press.view', legacy: 'history' },
-  moulding_entry: { label: 'Moulding entry', table: 'cc_moulding_entries', viewFeature: 'cc_production.moulding.view', legacy: 'history' },
-  cutting: { label: 'Cutting entry', table: 'cc_cutting_entries', viewFeature: 'cc_production.quality.view', legacy: 'history' },
-  thickness: { label: 'Thickness inspection', table: 'cc_thickness_inspections', viewFeature: 'cc_production.quality.view', legacy: 'history' },
-  fg_inspection: { label: 'FG inspection', table: 'cc_fg_inspections', viewFeature: 'cc_production.quality.view', legacy: 'history' },
-  lab_test: { label: 'Lab test report', table: 'cc_lab_tests', viewFeature: 'cc_production.quality.view', legacy: 'history' },
-  fg_direct_in: { label: 'Bought-in goods', table: 'cc_fg_direct_ins', viewFeature: 'cc_production.quality.view', legacy: 'history' },
-  damage: { label: 'Damage entry', table: 'cc_damage_entries', viewFeature: 'cc_production.quality.view', legacy: 'history' },
-  indent: { label: 'Purchase indent', table: 'cc_purchase_indents', viewFeature: 'cc_purchase.view', legacy: 'history' },
-  po: { label: 'Purchase order', table: 'cc_pos', viewFeature: 'cc_purchase.view', legacy: 'history' },
-  grn: { label: 'GRN', table: 'cc_grns', viewFeature: 'cc_purchase.view', legacy: 'history' },
-  job_work: { label: 'Job-work challan', table: 'cc_job_work_challans', viewFeature: 'cc_purchase.view', legacy: 'history' },
-  proforma: { label: 'Proforma', table: 'cc_proforma_invoices', viewFeature: 'cc_accounts.view', legacy: 'history' },
-  invoice: { label: 'Tax invoice', table: 'cc_tax_invoices', viewFeature: 'cc_accounts.view', legacy: 'history' },
-  payment: { label: 'Payment', table: 'cc_order_payments', viewFeature: 'cc_accounts.view', legacy: 'history' },
-  vendor_bill: { label: 'Vendor bill', table: 'cc_vendor_bills', viewFeature: 'cc_accounts.view', legacy: 'history' },
+  order: { label: 'Order', table: 'cc_orders', viewFeature: 'cc_orders.view', legacy: 'order_events', path: '/backend/orders/', maker: ['created_by_name'] },
+  enquiry: { label: 'Enquiry', table: 'cc_enquiries', viewFeature: 'cc_crm.view', legacy: 'history', path: '/backend/crm/enquiries/', maker: ['owner_name', 'by_name'] },
+  quotation: { label: 'Quotation', table: 'cc_quotations', viewFeature: 'cc_crm.view', legacy: 'history', path: '/backend/crm/quotations/', maker: ['by_name'] },
+  customer: { label: 'Customer', table: null, viewFeature: 'customers.companies.view', legacy: null, path: '/backend/customers/companies/' },
+  vendor: { label: 'Vendor', table: 'cc_vendors', viewFeature: 'cc_vendors.view', legacy: null, path: '/backend/cc_vendors/' },
+  resin_batch: { label: 'Resin batch', table: 'cc_resin_batches', viewFeature: 'cc_production.resin.view', legacy: 'history', path: '/backend/resin/batches/', maker: ['posted_by_name', 'updated_by_name'] },
+  chemical_issue: { label: 'Chemical issue', table: 'cc_chemical_issues', viewFeature: 'cc_production.resin.view', legacy: 'history', path: '/backend/resin/issues/', maker: ['by_name'] },
+  coating_sheet: { label: 'Coating day sheet', table: 'cc_coating_sheets', viewFeature: 'cc_production.coating.view', legacy: 'history', path: '/backend/coating/', maker: ['posted_by_name', 'updated_by_name'] },
+  press_batch: { label: 'Press batch', table: 'cc_press_batches', viewFeature: 'cc_production.press.view', legacy: 'history', path: '/backend/press/batches/', maker: ['posted_by_name', 'updated_by_name'] },
+  moulding_entry: { label: 'Moulding entry', table: 'cc_moulding_entries', viewFeature: 'cc_production.moulding.view', legacy: 'history', path: '/backend/moulding/entries/', maker: ['posted_by_name', 'updated_by_name'] },
+  cutting: { label: 'Cutting entry', table: 'cc_cutting_entries', viewFeature: 'cc_production.quality.view', legacy: 'history', path: '/backend/cutting/', maker: ['by_name'] },
+  thickness: { label: 'Thickness inspection', table: 'cc_thickness_inspections', viewFeature: 'cc_production.quality.view', legacy: 'history', path: '/backend/quality/thickness/', maker: ['by_name'] },
+  fg_inspection: { label: 'FG inspection', table: 'cc_fg_inspections', viewFeature: 'cc_production.quality.view', legacy: 'history', path: '/backend/quality/fg-inspection/', maker: ['by_name'] },
+  lab_test: { label: 'Lab test report', table: 'cc_lab_tests', viewFeature: 'cc_production.quality.view', legacy: 'history', path: '/backend/quality/lab/', maker: ['by_name'] },
+  fg_direct_in: { label: 'Bought-in goods', table: 'cc_fg_direct_ins', viewFeature: 'cc_production.quality.view', legacy: 'history', path: '/backend/fg/direct-in/', maker: ['by_name'] },
+  damage: { label: 'Damage entry', table: 'cc_damage_entries', viewFeature: 'cc_production.quality.view', legacy: 'history', path: '/backend/fg/damage/', maker: ['by_name'] },
+  indent: { label: 'Purchase indent', table: 'cc_purchase_indents', viewFeature: 'cc_purchase.view', legacy: 'history', path: '/backend/purchase/indents/', maker: ['requested_by_name'] },
+  po: { label: 'Purchase order', table: 'cc_pos', viewFeature: 'cc_purchase.view', legacy: 'history', path: '/backend/purchase/orders/', maker: ['created_by_name'] },
+  grn: { label: 'GRN', table: 'cc_grns', viewFeature: 'cc_purchase.view', legacy: 'history', path: '/backend/purchase/grns/', maker: ['received_by_name'] },
+  job_work: { label: 'Job-work challan', table: 'cc_job_work_challans', viewFeature: 'cc_purchase.view', legacy: 'history', path: '/backend/purchase/job-work/', maker: ['created_by_name'] },
+  proforma: { label: 'Proforma', table: 'cc_proforma_invoices', viewFeature: 'cc_accounts.view', legacy: 'history', path: '/backend/accounts/proformas/', maker: ['created_by_name'] },
+  invoice: { label: 'Tax invoice', table: 'cc_tax_invoices', viewFeature: 'cc_accounts.view', legacy: 'history', path: '/backend/accounts/invoices/', maker: ['created_by_name'] },
+  payment: { label: 'Payment', table: 'cc_order_payments', viewFeature: 'cc_accounts.view', legacy: 'history', path: '/backend/accounts/payments/', maker: ['by_name'] },
+  vendor_bill: { label: 'Vendor bill', table: 'cc_vendor_bills', viewFeature: 'cc_accounts.view', legacy: 'history', path: '/backend/accounts/vendor-bills/', maker: ['created_by_name'] },
+}
+
+export function recordHref(type: string, id: string): string | null {
+  const path = RECORD_TYPES[type]?.path
+  return path ? `${path}${id}` : null
 }
 
 export type TimelineItem = {

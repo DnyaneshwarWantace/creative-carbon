@@ -2,6 +2,7 @@
 
 import * as React from 'react'
 import { Timeline } from '../../cc_ui/components/Timeline'
+import { Comments } from '../../cc_ui/components/Comments'
 import { useGranted } from '../../cc_departments/components/useGranted'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
@@ -473,7 +474,12 @@ export function OrderView({ orderId }: { orderId: string }) {
               ) : null}
               {tab === 'documents' ? <DocumentsOverview order={limited ? { ...order, stages: order.stages.filter((stage) => !stage.locked) } : order} onStage={goToStage} /> : null}
               {tab === 'money' && order.canSeeMoney ? <OrderMoneyCard order={order} onChanged={load} /> : null}
-              {tab === 'history' ? <Timeline type="order" id={order.id} refreshKey={order.updatedAt} /> : null}
+              {tab === 'history' ? (
+                <div className="space-y-4">
+                  <Comments type="order" id={order.id} />
+                  <Timeline type="order" id={order.id} refreshKey={order.updatedAt} />
+                </div>
+              ) : null}
             </div>
 
             <aside className="space-y-4 lg:sticky lg:top-4 lg:col-span-4 lg:self-start">
