@@ -83,6 +83,7 @@ export function CoatingDayPage() {
   const [loading, setLoading] = React.useState(true)
   const [draft, setDraft] = React.useState<ReturnType<typeof draftFrom> | null>(null)
   const [busy, setBusy] = React.useState(false)
+  const [reopening, setReopening] = React.useState(false)
 
   React.useEffect(() => {
     void apiCall<CoatingSetup>('/api/cc_production/coating/setup').then((call) => {
@@ -215,7 +216,6 @@ export function CoatingDayPage() {
     }
   }
 
-  const [reopening, setReopening] = React.useState(false)
   const act = async (action: 'reopen' | 'delete', reason?: string) => {
     if (!sheet) return
     setBusy(true)
