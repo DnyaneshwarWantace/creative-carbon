@@ -176,12 +176,19 @@ test.describe.serial('Stage 3 · resin plant and the chemical register', () => {
 
   test('reopen within 24 hours reverses both movements; it can then be posted again', async ({ request }) => {
     const before = await freeKg(request, 'Phenol')
+    const preview = (await (await request.get(`/api/cc_production/resin/batches/preview?id=${posted.id}`)).json()) as { undo: string[]; blockedBy: unknown[]; moves: Array<{ title: string; kg: number; direction: string; place: string }> }
+    expect(preview.blockedBy).toEqual([])
+    expect(preview.moves.filter((move) => move.direction === 'out')).toEqual([expect.objectContaining({ place: 'tank', kg: 1100 })])
+    expect(preview.moves.filter((move) => move.direction === 'in' && move.title === 'Phenol').reduce((sum, move) => sum + move.kg, 0)).toBe(1000)
+    expect(preview.undo.join(' ')).toMatch(/1100 kg Resin taken out of the resin tank/)
     const reopen = await act(request, posted, 'reopen')
     expect(reopen.ok(), await reopen.text()).toBeTruthy()
     const draft = (await reopen.json()) as Batch
     expect(draft.status).toBe('draft')
     expect(draft.resin).toBeNull()
     expect(await freeKg(request, 'Phenol')).toBe(Math.round((before + 1000) * 1000) / 1000)
+    const draftPreview = (await (await request.get(`/api/cc_production/resin/batches/preview?id=${posted.id}`)).json()) as { blockedBy: Array<{ label: string }> }
+    expect(draftPreview.blockedBy[0]?.label).toMatch(/not posted/)
     const again = await act(request, draft, 'post')
     expect(again.ok(), await again.text()).toBeTruthy()
     posted = (await again.json()) as Batch

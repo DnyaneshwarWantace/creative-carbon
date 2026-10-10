@@ -58,6 +58,11 @@ export function ResinBatchPage({ batchId }: { batchId: string }) {
     void load()
   }, [load])
 
+  const loadReopenPreview = React.useCallback(async () => {
+    const call = await apiCall<{ undo: string[]; blockedBy: Array<{ label: string; href: string | null }> }>(`/api/cc_production/resin/batches/preview?id=${encodeURIComponent(batchId)}`)
+    return call.ok && call.result ? call.result : null
+  }, [batchId])
+
   const act = async (action: Action, note?: string) => {
     if (!batch) return
     const body = { id: batch.id, action, ...(note ? { reason: note } : {}) }
@@ -357,7 +362,7 @@ export function ResinBatchPage({ batchId }: { batchId: string }) {
           destructive={false}
           title={t('cc_production.resin.reopenTitle', 'Reopen this batch')}
           confirmLabel={t('cc_production.resin.reopen', 'Reopen')}
-          undo={[t('cc_production.resin.undoChem', 'Puts the chemicals back into Warehouse A'), t('cc_production.resin.undoTank', 'Takes this resin back out of the resin tank'), t('cc_production.resin.undoDraft', 'Makes the batch a draft again to correct and post')]}
+          loadPreview={loadReopenPreview}
           onConfirm={(reason) => act('reopen', reason)}
         />
         <Dialog open={failing} onOpenChange={(open) => !open && setFailing(false)}>

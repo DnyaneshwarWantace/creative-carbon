@@ -389,3 +389,32 @@ export async function listBatches(ctx: StoreContext, query: { status: string; gr
   )
   return { items: rows.map(batchRow), total, page: query.page, pageSize: query.pageSize, counts: Object.fromEntries(counts.map((row) => [row.status, Number(row.count)])) }
 }
+
+export type CorrectionMove = { productId: string; title: string; lotId: string; lotNumber: string | null; place: string; kg: number; direction: 'in' | 'out' }
+
+export async function reopenPreview(ctx: StoreContext, batch: ResinBatch) {
+  const blockedBy: Array<{ label: string; href: string | null }> = []
+  const moves: CorrectionMove[] = []
+  if (batch.status === 'draft') blockedBy.push({ label: 'This batch is not posted', href: null })
+  const deadline = reopenDeadline(batch)
+  if (deadline && deadline.getTime() < Date.now()) blockedBy.push({ label: `The ${REOPEN_HOURS}-hour reopen window closed on ${deadline.toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })}`, href: null })
+  if (batch.status === 'posted' && batch.resinProductId && batch.resinLotId) {
+    const resinStock = await plantStock(ctx, [batch.resinProductId])
+    const yieldKg = num(batch.yieldKg) ?? 0
+    const left = await lotOnHand(ctx, resinStock, batch.resinProductId, batch.resinLotId, 'tank')
+    if (left + 0.0005 < yieldKg) {
+      const users = await ctx.em.getConnection().execute<Array<{ sheet_id: string | null; label: string | null }>>(
+        `select distinct m.metadata->>'sheetId' as sheet_id, concat_ws(' · ', m.metadata->>'dryerCode', m.metadata->>'sheetDate') as label
+           from wms_inventory_movements m where m.lot_id = ? and m.tenant_id = ? and m.organization_id = ? and m.deleted_at is null and m.metadata->>'sheetId' is not null`,
+        [batch.resinLotId, ctx.tenantId, ctx.organizationId],
+      )
+      blockedBy.push(...(users.length ? users.map((row) => ({ label: `Coating day sheet ${row.label ?? ''} used ${kg3(yieldKg - left)} kg of this resin`.replace('  ', ' '), href: row.sheet_id ? `/backend/coating/${row.sheet_id}` : null })) : [{ label: `${kg3(yieldKg - left)} kg of this resin is already used`, href: null }]))
+    }
+    moves.push({ productId: batch.resinProductId, title: 'Resin', lotId: batch.resinLotId, lotNumber: batch.resinLotNumber ?? null, place: 'tank', kg: kg3(yieldKg), direction: 'out' })
+  }
+  for (const line of batch.materials) for (const lot of line.lots) moves.push({ productId: line.productId, title: line.title, lotId: lot.lotId, lotNumber: lot.lotNumber, place: lot.place, kg: kg3(lot.kg), direction: 'in' })
+  const placeName = (place: string) => ({ wh_a: 'Warehouse A', wh_b: 'Warehouse B', tank: 'the resin tank', floor: 'the shop floor', fg: 'the FG store' })[place] ?? place
+  const undo = moves.map((move) => (move.direction === 'out' ? `${move.kg} kg ${move.title} taken out of ${placeName(move.place)}${move.lotNumber ? ` (lot ${move.lotNumber})` : ''}` : `${move.kg} kg ${move.title} put back in ${placeName(move.place)}${move.lotNumber ? ` (lot ${move.lotNumber})` : ''}`))
+  undo.push('The batch becomes a draft again to correct and post')
+  return { undo, blockedBy, moves }
+}
