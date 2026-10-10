@@ -303,6 +303,11 @@ export async function applyStageAction(ctx: OrderContext, order: CcOrder, input:
         throw new OrderError(`Reopen these first: ${labels.join(', ')}`, 409)
       }
       if (def.key === 'order') throw new OrderError('The order itself cannot be reopened; edit the order instead', 409)
+      if (def.key === 'dispatch') {
+        const billing = (stages.find((entry) => entry.stageKey === 'invoice')?.data ?? {}) as Record<string, unknown>
+        if (typeof billing.irn === 'string' && billing.irn.trim()) throw new OrderError('The invoice is reported to GST (IRN given). Raise a credit note or book a sales return instead of reversing the despatch.', 409)
+        if (stage.data && Array.isArray((stage.data as Record<string, unknown>).__returns) && ((stage.data as Record<string, unknown>).__returns as unknown[]).length) throw new OrderError('Goods from this despatch have already come back as a sales return; it cannot be reversed.', 409)
+      }
       const info = reopenInfo(order, stages, def.key, overrides)
       const block = reopenBlock(info)
       if (block && !options.reopenAnyTime) {

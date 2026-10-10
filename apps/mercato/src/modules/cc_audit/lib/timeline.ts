@@ -3,10 +3,11 @@ import { ActivityEntry, type ActivityChange, type ActivityKind, type ActivityLin
 
 type Scope = { em: EntityManager; tenantId: string; organizationId: string }
 
-export type RecordTypeDef = { label: string; table: string | null; viewFeature: string; legacy: 'history' | 'order_events' | null; path?: string; maker?: string[] }
+export type RecordTypeDef = { label: string; table: string | null; viewFeature: string; legacy: 'history' | 'order_events' | 'stage_events' | null; path?: string; maker?: string[] }
 
 export const RECORD_TYPES: Record<string, RecordTypeDef> = {
   order: { label: 'Order', table: 'cc_orders', viewFeature: 'cc_orders.view', legacy: 'order_events', path: '/backend/orders/', maker: ['created_by_name'] },
+  dispatch: { label: 'Despatch', table: null, viewFeature: 'cc_orders.view', legacy: 'stage_events', path: '/backend/dispatch/' },
   enquiry: { label: 'Enquiry', table: 'cc_enquiries', viewFeature: 'cc_crm.view', legacy: 'history', path: '/backend/crm/enquiries/', maker: ['owner_name', 'by_name'] },
   quotation: { label: 'Quotation', table: 'cc_quotations', viewFeature: 'cc_crm.view', legacy: 'history', path: '/backend/crm/quotations/', maker: ['by_name'] },
   customer: { label: 'Customer', table: null, viewFeature: 'customers.companies.view', legacy: null, path: '/backend/customers/companies/' },
@@ -70,9 +71,13 @@ function words(action: string): string {
 
 async function legacyItems(ctx: Scope, def: RecordTypeDef, recordId: string): Promise<TimelineItem[]> {
   const connection = ctx.em.getConnection()
-  if (def.legacy === 'order_events') {
+  if (def.legacy === 'order_events' || def.legacy === 'stage_events') {
     const rows = await connection.execute<Array<{ id: string; action: string; stage_key: string | null; note: string | null; by_name: string | null; created_at: Date; changes: Array<{ key: string; label: string; from: unknown; to: unknown }> | null }>>(
-      'select id, action, stage_key, note, by_name, created_at, changes from cc_order_events where order_id = ? and tenant_id = ? and organization_id = ? order by created_at desc limit 500',
+      def.legacy === 'order_events'
+        ? 'select id, action, stage_key, note, by_name, created_at, changes from cc_order_events where order_id = ? and tenant_id = ? and organization_id = ? order by created_at desc limit 500'
+        : `select e.id, e.action, e.stage_key, e.note, e.by_name, e.created_at, e.changes from cc_order_events e
+             join cc_order_stages s on s.order_id = e.order_id and s.stage_key = e.stage_key
+            where s.id::text = ? and e.tenant_id = ? and e.organization_id = ? order by e.created_at desc limit 500`,
       [recordId, ctx.tenantId, ctx.organizationId],
     )
     return rows.map((row) => ({

@@ -32,6 +32,7 @@ export async function dispatchRegister(ctx: OrderContext, filter: { view: 'ready
       const billData = billing.find((entry) => entry.orderId === order.id)?.data ?? {}
       const value = priceOrder(own.map((line) => ({ quantity: Number(line.quantity), rate: line.rate == null ? null : Number(line.rate), gstPercent: Number(line.gstPercent ?? 18), discountPercent: Number(line.discountPercent ?? 0) })), order.pricesIncludeGst).total
       return {
+        despatchId: stage.id,
         orderId: order.id,
         orderNo: order.orderNo,
         customer: customers.get(order.customerId)?.name ?? null,

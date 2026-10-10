@@ -20,6 +20,7 @@ export const recordHref = {
   stocktake: () => '/backend/stock/stocktake',
   storeLedger: () => '/backend/store/ledger',
   order: (id: string) => `/backend/orders/${id}`,
+  despatch: (id: string) => `/backend/dispatch/${id}`,
   enquiry: (id: string) => `/backend/crm/enquiries/${id}`,
   quotation: (id: string) => `/backend/crm/quotations/${id}`,
   indent: (id: string) => `/backend/purchase/indents/${id}`,

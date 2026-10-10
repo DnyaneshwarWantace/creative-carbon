@@ -25,7 +25,7 @@ export function placesFor(kind: string | null): StockPlace[] {
   return ['wh_a', 'wh_b']
 }
 
-function asStore(ctx: OrderContext): StoreContext {
+export function asStore(ctx: OrderContext): StoreContext {
   const store = ctx as StoreContext
   if (!('organizationScope' in store) || !store.request) throw new OrderError('[internal] stock work needs the store context', 500)
   return store

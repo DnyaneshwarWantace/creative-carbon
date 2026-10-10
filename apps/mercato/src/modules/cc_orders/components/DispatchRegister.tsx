@@ -17,6 +17,7 @@ import { formatDate, formatQty } from './format'
 import { PageLoading } from '../../cc_ui/components/PageLoading'
 
 type Row = {
+  despatchId: string
   orderId: string
   orderNo: string
   customer: string | null
@@ -141,7 +142,7 @@ export function DispatchRegister() {
                   {rows.map((row) => (
                     <tr key={row.orderId} className="align-top hover:bg-muted/30">
                       <td className="px-3 py-2">
-                        <Link href={`/backend/orders/${row.orderId}?stage=dispatch`} className="font-mono font-medium hover:underline">
+                        <Link href={`/backend/dispatch/${row.despatchId}`} className="font-mono font-medium hover:underline">
                           {row.orderNo}
                         </Link>
                         {row.priority === 'urgent' ? <span className="ml-2 rounded-sm bg-status-error-bg px-1.5 py-0.5 text-xs text-status-error-text">{t('cc_orders.priority.urgent', 'Urgent')}</span> : null}
