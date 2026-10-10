@@ -3,7 +3,7 @@
 import * as React from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { CheckCircle2, FileText, Pencil, Printer, RotateCcw, Scale, Send, ShoppingCart, Waypoints, XCircle } from 'lucide-react'
+import { Ban, CheckCircle2, FilePen, FileText, History, Pencil, Printer, RotateCcw, Scale, Send, ShoppingCart, Undo2, Waypoints, XCircle } from 'lucide-react'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { Button } from '@open-mercato/ui/primitives/button'
 import { Input } from '@open-mercato/ui/primitives/input'
@@ -32,6 +32,8 @@ export function QuotationPage({ quotationId }: { quotationId: string }) {
   const canConvert = granted.has('cc_crm.convert') && granted.has('cc_orders.manage')
   const send = useSend(`cc-quotation-${quotationId}`)
   const [reopening, setReopening] = React.useState(false)
+  const [fix, setFix] = React.useState<'revise' | 'withdraw' | 'undo_convert' | 'rejected' | null>(null)
+  const canTeam = granted.has('cc_crm.team')
   const [quote, setQuote] = React.useState<Quotation | null>(null)
   const [error, setError] = React.useState<string | null>(null)
   const [company, setCompany] = React.useState<DocCompany | null>(null)
@@ -49,19 +51,30 @@ export function QuotationPage({ quotationId }: { quotationId: string }) {
     apiCall<DocCompany>('/api/cc_accounts/company').then((call) => setCompany(call.ok ? (call.result ?? null) : null))
   }, [load])
 
-  const act = async (action: string, extra: Record<string, unknown> = {}) => {
-    if (!quote) return
+  const act = async (action: string, extra: Record<string, unknown> = {}): Promise<boolean> => {
+    if (!quote) return false
     setBusy(true)
     const result = await send<{ ok: boolean; status: string; order: { id: string; orderNo: string } | null }>('/api/cc_crm/quotations/action', 'POST', { id: quote.id, action, ...extra }, quote.updatedAt)
     setBusy(false)
-    if (!result) return
+    if (!result) return false
     if (result.order) {
       flash(t('cc_crm.flash.converted', 'Order {no} booked from this quotation', { no: result.order.orderNo }), 'success')
       router.push(`/backend/orders/${result.order.id}`)
-      return
+      return true
     }
     flash(t('cc_crm.flash.quoteStatus', 'Quotation updated'), 'success')
     await load()
+    return true
+  }
+
+  const printRevision = async (revision: number) => {
+    if (!quote) return
+    const call = await apiCall<Quotation>(`/api/cc_crm/quotations?id=${encodeURIComponent(quote.id)}&revision=${revision}`)
+    if (!call.ok || !call.result) {
+      flash(t('cc_crm.errors.loadQuote', 'Could not load the quotation.'), 'error')
+      return
+    }
+    if (!printQuotation({ ...call.result, quoteNo: `${quote.quoteNo} (rev ${revision})` }, company)) flash(t('cc_crm.errors.popup', 'Allow pop-ups to print.'), 'error')
   }
 
   if (error || !quote) return <RecordState error={error} loadingLabel={t('cc_crm.loading', 'Loading…')} />
@@ -106,14 +119,33 @@ export function QuotationPage({ quotationId }: { quotationId: string }) {
             <Printer className="mr-1.5 h-4 w-4" />
             {t('cc_crm.actions.print', 'Print / PDF')}
           </Button>
+          {converted && canTeam ? (
+            <Button type="button" variant="outline" size="sm" disabled={busy} onClick={() => setFix('undo_convert')}>
+              <Undo2 className="mr-1.5 h-4 w-4" />
+              {t('cc_crm.actions.undoConvert', 'Undo convert')}
+            </Button>
+          ) : null}
           {canManage && !converted ? (
             <>
-              <Button asChild variant="outline" size="sm">
-                <Link href={`/backend/crm/quotations/${quote.id}/edit`}>
-                  <Pencil className="mr-1.5 h-4 w-4" />
-                  {t('cc_crm.actions.edit', 'Edit')}
-                </Link>
-              </Button>
+              {quote.status === 'draft' ? (
+                <Button asChild variant="outline" size="sm">
+                  <Link href={`/backend/crm/quotations/${quote.id}/edit`}>
+                    <Pencil className="mr-1.5 h-4 w-4" />
+                    {t('cc_crm.actions.edit', 'Edit')}
+                  </Link>
+                </Button>
+              ) : quote.status !== 'withdrawn' ? (
+                <Button type="button" variant="outline" size="sm" disabled={busy} onClick={() => setFix('revise')}>
+                  <FilePen className="mr-1.5 h-4 w-4" />
+                  {t('cc_crm.actions.revise', 'Revise')}
+                </Button>
+              ) : null}
+              {quote.status !== 'accepted' && quote.status !== 'withdrawn' ? (
+                <Button type="button" variant="ghost" size="sm" disabled={busy} onClick={() => setFix('withdraw')}>
+                  <Ban className="mr-1.5 h-4 w-4" />
+                  {t('cc_crm.actions.withdraw', 'Withdraw')}
+                </Button>
+              ) : null}
               {quote.status === 'draft' ? (
                 <Button type="button" variant="outline" size="sm" disabled={busy} onClick={() => act('sent')}>
                   <Send className="mr-1.5 h-4 w-4" />
@@ -126,7 +158,7 @@ export function QuotationPage({ quotationId }: { quotationId: string }) {
                     <CheckCircle2 className="mr-1.5 h-4 w-4" />
                     {t('cc_crm.actions.accepted', 'Accepted')}
                   </Button>
-                  <Button type="button" variant="outline" size="sm" disabled={busy} onClick={() => act('rejected')}>
+                  <Button type="button" variant="outline" size="sm" disabled={busy} onClick={() => setFix('rejected')}>
                     <XCircle className="mr-1.5 h-4 w-4" />
                     {t('cc_crm.actions.rejected', 'Rejected')}
                   </Button>
@@ -288,9 +320,52 @@ export function QuotationPage({ quotationId }: { quotationId: string }) {
           </>
         }
       />
-      <Attachments type="quotation" id={quote.id} />
+      {quote.revisions?.length ? (
+        <Panel title={t('cc_crm.quotations.revisions', 'Earlier revisions')} icon={History} count={quote.revisions.length} flush>
+          <LinkRows
+            empty=""
+            rows={[...quote.revisions].reverse().map((rev) => ({
+              key: String(rev.revision),
+              primary: t('cc_crm.quotations.revisionRow', 'Revision {n} · {status}', { n: rev.revision, status: t(`cc_crm.quote.${rev.status}`, QUOTE_LABEL[rev.status]) }),
+              secondary: [formatDate(rev.quoteDate), rev.by, rev.reason].filter(Boolean).join(' · '),
+              value: `${symbol}${formatQty(rev.totalAmount, 2)}`,
+              badge: (
+                <Button type="button" variant="ghost" size="sm" onClick={() => void printRevision(rev.revision)} aria-label={t('cc_crm.quotations.printRevision', 'Print revision {n}', { n: rev.revision })}>
+                  <Printer className="h-3.5 w-3.5" />
+                </Button>
+              ),
+            }))}
+          />
+        </Panel>
+      ) : null}
+      <Attachments type="quotation" id={quote.id} hint={t('cc_crm.quotations.filesHint', 'Every PDF sent, by revision, and the customer’s reply.')} />
       <Comments type="quotation" id={quote.id} />
-      <Timeline type="quotation" id={quote.id} refreshKey={quote.history.length} />
+      <Timeline type="quotation" id={quote.id} refreshKey={quote.updatedAt} />
+      <CorrectDialog
+        open={fix !== null}
+        onOpenChange={(next) => !next && setFix(null)}
+        destructive={fix === 'withdraw' || fix === 'undo_convert'}
+        title={
+          fix === 'revise'
+            ? t('cc_crm.quote.reviseTitle', 'Make revision {n}?', { n: (quote.revision ?? 1) + 1 })
+            : fix === 'withdraw'
+              ? t('cc_crm.quote.withdrawTitle', 'Withdraw this quotation?')
+              : fix === 'undo_convert'
+                ? t('cc_crm.quote.undoConvertTitle', 'Undo the conversion to order {no}?', { no: quote.convertedOrderNo ?? '' })
+                : t('cc_crm.quote.rejectedTitle', 'Customer rejected it?')
+        }
+        undo={
+          fix === 'revise'
+            ? [t('cc_crm.quote.reviseKeep', 'Revision {n} stays here with its PDF', { n: quote.revision ?? 1 }), t('cc_crm.quote.reviseDraft', 'The new revision is a draft to edit and send again')]
+            : fix === 'withdraw'
+              ? [t('cc_crm.quote.withdrawUndo', 'Status becomes withdrawn; it can be reopened later')]
+              : fix === 'undo_convert'
+                ? [t('cc_crm.quote.undoConvertOrder', 'Order {no} is cancelled with your reason', { no: quote.convertedOrderNo ?? '' }), t('cc_crm.quote.undoConvertBack', 'The quotation goes back to accepted and the enquiry to negotiating')]
+                : [t('cc_crm.quote.rejectedKeep', 'The reason is kept; it can be revised or reopened later')]
+        }
+        confirmLabel={fix === 'revise' ? t('cc_crm.actions.revise', 'Revise') : fix === 'withdraw' ? t('cc_crm.actions.withdraw', 'Withdraw') : fix === 'undo_convert' ? t('cc_crm.actions.undoConvert', 'Undo convert') : t('cc_crm.actions.rejected', 'Rejected')}
+        onConfirm={(reason) => (fix ? act(fix, { note: reason }) : Promise.resolve(false))}
+      />
       <CorrectDialog
         open={reopening}
         onOpenChange={setReopening}

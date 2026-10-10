@@ -85,6 +85,42 @@ function Row({ item, showPerson }: { item: WorkItem; showPerson: boolean }) {
   )
 }
 
+type FollowUpRow = { id: string; kindLabel: string; dueOn: string; overdue: boolean; partyName: string | null; enquiryNo: string | null; note: string | null; ownerName: string | null }
+
+function MyFollowUps({ everyone }: { everyone: boolean }) {
+  const t = useT()
+  const [rows, setRows] = React.useState<FollowUpRow[] | null>(null)
+  React.useEffect(() => {
+    setRows(null)
+    void apiCall<{ items: FollowUpRow[] }>(`/api/cc_crm/follow-ups?view=${everyone ? 'all' : 'mine'}&status=open`, undefined, { fallback: { items: [] } }).then((call) => setRows(call.result?.items ?? []))
+  }, [everyone])
+  if (!rows?.length) return null
+  const due = rows.filter((row) => row.dueOn <= new Date(Date.now() + 5.5 * 3600_000).toISOString().slice(0, 10))
+  return (
+    <section className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
+      <header className="flex items-center justify-between border-b border-border px-5 py-3">
+        <h2 className="text-sm font-semibold">{t('cc_dashboard.my.followUps', 'Follow-ups due · {count}', { count: due.length })}</h2>
+        <Link href="/backend/crm/follow-ups" className="text-xs text-primary hover:underline">
+          {t('cc_dashboard.my.allFollowUps', 'All follow-ups')}
+        </Link>
+      </header>
+      <ul className="divide-y divide-border">
+        {(due.length ? due : rows.slice(0, 5)).map((row) => (
+          <li key={row.id}>
+            <Link href={`/backend/crm/follow-ups/${row.id}`} className="flex items-center justify-between gap-3 px-5 py-2.5 hover:bg-muted/50">
+              <span className="min-w-0">
+                <span className="block truncate text-sm font-medium">{[row.kindLabel, row.partyName].filter(Boolean).join(' · ')}</span>
+                <span className="block truncate text-xs text-muted-foreground">{[row.enquiryNo, row.note, everyone ? row.ownerName : null].filter(Boolean).join(' · ')}</span>
+              </span>
+              <span className={cn('shrink-0 font-mono text-xs tabular-nums', row.overdue && 'font-semibold text-status-error-text')}>{row.dueOn}</span>
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </section>
+  )
+}
+
 export function MyWorkPage() {
   const t = useT()
   const [scope, setScope] = React.useState<'mine' | 'everyone'>('mine')
@@ -142,6 +178,8 @@ export function MyWorkPage() {
               />
             </div>
           </header>
+
+          {granted.has('cc_crm.view') ? <MyFollowUps everyone={scope === 'everyone'} /> : null}
 
           {!items ? (
             <div className="flex justify-center py-20">

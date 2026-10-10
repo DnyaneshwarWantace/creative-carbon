@@ -34,7 +34,10 @@ export const enquiryUpdateSchema = enquiryInputSchema.extend({ id: z.string().uu
 
 export const enquiryActionSchema = z.object({
   id: z.string().uuid(),
-  action: z.enum(['stage', 'follow_up', 'note']),
+  action: z.enum(['stage', 'follow_up', 'note', 'reopen', 'reassign', 'undo_won']),
+  kind: z.enum(['call', 'visit', 'sample', 'quote_chase', 'other']).optional().nullable(),
+  ownerName: text(120),
+  reason: text(500),
   stage: z.enum(ENQUIRY_STAGES).optional(),
   lostReason: text(200),
   nextActionOn: isoDate.optional().nullable(),
@@ -57,17 +60,20 @@ export const quotationUpdateSchema = quotationInputSchema.extend({ id: z.string(
 
 export const quotationActionSchema = z.object({
   id: z.string().uuid(),
-  action: z.enum(['sent', 'accepted', 'rejected', 'reopen', 'convert']),
+  action: z.enum(['sent', 'accepted', 'rejected', 'reopen', 'convert', 'revise', 'withdraw', 'undo_convert']),
   orderDate: isoDate.optional(),
   customerPoRef: text(120),
+  sentTo: text(200),
+  channel: z.enum(['email', 'whatsapp', 'hand', 'courier']).optional().nullable(),
   note: text(1000),
-}).superRefine(requireReasonFor(['reopen'], 'note'))
+}).superRefine(requireReasonFor(['reopen', 'revise', 'withdraw', 'undo_convert', 'rejected'], 'note'))
 
 export const quotationListSchema = z.object({
   id: z.string().uuid().optional(),
   enquiryId: z.string().uuid().optional(),
   orderId: z.string().uuid().optional(),
-  status: z.enum(['draft', 'sent', 'accepted', 'rejected', 'converted', 'open', 'all']).default('all'),
+  revision: z.coerce.number().int().min(1).max(999).optional(),
+  status: z.enum(['draft', 'sent', 'accepted', 'rejected', 'converted', 'withdrawn', 'open', 'all']).default('all'),
 })
 
 export const rateQuerySchema = z.object({

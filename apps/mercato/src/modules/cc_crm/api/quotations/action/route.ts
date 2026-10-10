@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { z } from 'zod'
 import type { OpenApiRouteDoc } from '@open-mercato/shared/lib/openapi'
 import { enforceCommandOptimisticLock } from '@open-mercato/shared/lib/crud/optimistic-lock-command'
-import { currentUserName, resolveOrderContext } from '../../../../cc_orders/lib/server'
+import { currentUserName, resolveOrderContext, hasFeatures } from '../../../../cc_orders/lib/server'
 import { quotationActionSchema } from '../../../data/validators'
 import { findQuotation, quotationAction } from '../../../lib/quotations'
 import { crmErrorResponse, runCrmGuarded } from '../../../lib/server'
@@ -18,13 +18,14 @@ async function POST(req: Request) {
   if ('error' in ctx) return NextResponse.json({ error: ctx.error }, { status: ctx.status })
   const parsed = quotationActionSchema.safeParse(await req.json().catch(() => null))
   if (!parsed.success) return NextResponse.json({ error: reasonIssue(parsed.error) ?? 'Invalid action' }, { status: 400 })
+  if (parsed.data.action === 'undo_convert' && !(await hasFeatures(ctx, ['cc_crm.team']))) return NextResponse.json({ error: 'Only the CRM manager can undo a conversion' }, { status: 403 })
   try {
     const row = await findQuotation(ctx, parsed.data.id)
     enforceCommandOptimisticLock({ resourceKind: 'cc_crm.quotation', resourceId: row.id, current: row.updatedAt, request: req })
     const byName = await currentUserName(ctx)
     const result = await runCrmGuarded(ctx, req, { resourceKind: 'cc_crm.quotation', resourceId: row.id, operation: 'custom', payload: parsed.data }, async () => {
       const outcome = await quotationAction(ctx, row, parsed.data, byName)
-      return { ok: true, status: outcome.quotation.status, order: outcome.order }
+      return { ok: true, status: outcome.quotation.status, revision: outcome.quotation.revision ?? 1, order: outcome.order }
     })
     if (result instanceof Response) return result
     if (parsed.data.action === 'reopen') await logCorrection(ctx, { recordType: 'quotation', recordId: parsed.data.id, action: 'reopened', summary: 'Quotation reopened', reason: parsed.data.note ?? '' })

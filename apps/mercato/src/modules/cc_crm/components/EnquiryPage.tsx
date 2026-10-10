@@ -3,7 +3,7 @@
 import * as React from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { ArrowLeft, CalendarClock, FileText, Flag, MessageSquare, Pencil, Plus } from 'lucide-react'
+import { ArrowLeft, CalendarClock, FileText, Flag, MessageSquare, Pencil, Plus, RotateCcw, UserRoundCog } from 'lucide-react'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { cn } from '@open-mercato/shared/lib/utils'
 import { Page, PageBody } from '@open-mercato/ui/backend/Page'
@@ -29,6 +29,7 @@ import { recordHref } from '../../cc_ui/lib/links'
 import { Timeline } from '../../cc_ui/components/Timeline'
 import { Comments } from '../../cc_ui/components/Comments'
 import { Attachments } from '../../cc_ui/components/Attachments'
+import { CorrectDialog } from '../../cc_ui/components/CorrectDialog'
 
 function localNow(): string {
   const now = new Date(Date.now() - new Date().getTimezoneOffset() * 60_000)
@@ -238,6 +239,14 @@ export function EnquiryEdit({ enquiryId }: { enquiryId: string }) {
 
 const NEXT_STAGES: EnquiryStage[] = ['new', 'quoted', 'negotiating', 'won', 'lost']
 
+const FOLLOW_KINDS = [
+  { value: 'call', label: 'Call' },
+  { value: 'visit', label: 'Visit' },
+  { value: 'sample', label: 'Sample' },
+  { value: 'quote_chase', label: 'Quote chase' },
+  { value: 'other', label: 'Other' },
+]
+
 export function EnquiryPage({ enquiryId }: { enquiryId: string }) {
   const t = useT()
   const granted = useGranted()
@@ -246,7 +255,11 @@ export function EnquiryPage({ enquiryId }: { enquiryId: string }) {
   const lostReasons = useListOptions('lost_reasons')
   const [enquiry, setEnquiry] = React.useState<Enquiry | null>(null)
   const [error, setError] = React.useState<string | null>(null)
-  const [followUp, setFollowUp] = React.useState({ on: addDays(2), note: '' })
+  const [followUp, setFollowUp] = React.useState({ on: addDays(2), note: '', kind: 'call' })
+  const [fix, setFix] = React.useState<'reopen' | 'undo_won' | 'reassign' | null>(null)
+  const [newOwner, setNewOwner] = React.useState('')
+  const [people, setPeople] = React.useState<Array<{ id: string; name: string }>>([])
+  const canTeam = granted.has('cc_crm.team')
   const [note, setNote] = React.useState('')
   const [lostReason, setLostReason] = React.useState('')
   const [busy, setBusy] = React.useState(false)
@@ -261,14 +274,20 @@ export function EnquiryPage({ enquiryId }: { enquiryId: string }) {
     void load()
   }, [load])
 
-  const act = async (body: Record<string, unknown>, done: string) => {
-    if (!enquiry) return
+  React.useEffect(() => {
+    if (fix !== 'reassign' || people.length) return
+    void apiCall<{ items: Array<{ id: string; name: string }> }>('/api/cc_audit/people', undefined, { fallback: { items: [] } }).then((call) => setPeople(call.result?.items ?? []))
+  }, [fix, people.length])
+
+  const act = async (body: Record<string, unknown>, done: string): Promise<boolean> => {
+    if (!enquiry) return false
     setBusy(true)
     const result = await send<Enquiry>('/api/cc_crm/enquiries/action', 'POST', { id: enquiry.id, ...body }, enquiry.updatedAt)
     setBusy(false)
-    if (!result) return
+    if (!result) return false
     setEnquiry(result)
     flash(done, 'success')
+    return true
   }
 
   if (error || !enquiry) return <RecordState error={error} loadingLabel={t('cc_crm.loading', 'Loading…')} />
@@ -307,6 +326,24 @@ export function EnquiryPage({ enquiryId }: { enquiryId: string }) {
                 {t('cc_crm.actions.edit', 'Edit')}
               </Link>
             </Button>
+            {enquiry.stage === 'lost' ? (
+              <Button type="button" variant="outline" size="sm" onClick={() => setFix('reopen')}>
+                <RotateCcw className="mr-1.5 h-4 w-4" />
+                {t('cc_crm.actions.reopen', 'Reopen')}
+              </Button>
+            ) : null}
+            {enquiry.stage === 'won' && canTeam ? (
+              <Button type="button" variant="outline" size="sm" onClick={() => setFix('undo_won')}>
+                <RotateCcw className="mr-1.5 h-4 w-4" />
+                {t('cc_crm.actions.undoWon', 'Undo won')}
+              </Button>
+            ) : null}
+            {canTeam && !closed ? (
+              <Button type="button" variant="outline" size="sm" onClick={() => setFix('reassign')}>
+                <UserRoundCog className="mr-1.5 h-4 w-4" />
+                {t('cc_crm.actions.reassign', 'Hand over')}
+              </Button>
+            ) : null}
             {closed ? null : (
               <Button asChild size="sm">
                 <Link href={quoteHref}>
@@ -386,13 +423,34 @@ export function EnquiryPage({ enquiryId }: { enquiryId: string }) {
                   </p>
                   {closed ? null : (
                     <>
-                      <Input type="date" value={followUp.on} onChange={(event) => setFollowUp((prev) => ({ ...prev, on: event.target.value }))} aria-label={t('cc_crm.enquiries.next', 'Next follow-up')} />
+                      <div className="flex gap-2">
+                        <Input type="date" value={followUp.on} onChange={(event) => setFollowUp((prev) => ({ ...prev, on: event.target.value }))} aria-label={t('cc_crm.enquiries.next', 'Next follow-up')} />
+                        <Dropdown value={followUp.kind} onChange={(event) => setFollowUp((prev) => ({ ...prev, kind: event.target.value }))} aria-label={t('cc_crm.followUps.type', 'Type')}>
+                          {FOLLOW_KINDS.map((kind) => (
+                            <option key={kind.value} value={kind.value}>
+                              {t(`cc_crm.followUps.kind.${kind.value}`, kind.label)}
+                            </option>
+                          ))}
+                        </Dropdown>
+                      </div>
                       <Input value={followUp.note} onChange={(event) => setFollowUp((prev) => ({ ...prev, note: event.target.value }))} placeholder={t('cc_crm.form.nextNoteHint', 'e.g. send rates, call back')} />
-                      <Button type="button" size="sm" variant="outline" disabled={busy} onClick={() => act({ action: 'follow_up', nextActionOn: followUp.on, nextActionNote: followUp.note }, t('cc_crm.flash.followUp', 'Follow-up set'))}>
+                      <Button type="button" size="sm" variant="outline" disabled={busy} onClick={() => act({ action: 'follow_up', nextActionOn: followUp.on, nextActionNote: followUp.note, kind: followUp.kind }, t('cc_crm.flash.followUp', 'Follow-up planned'))}>
                         {t('cc_crm.actions.followUp', 'Set follow-up')}
                       </Button>
                     </>
                   )}
+                  {enquiry.followUps?.length ? (
+                    <ul className="divide-y border-t text-xs">
+                      {enquiry.followUps.map((item) => (
+                        <li key={item.id}>
+                          <Link href={`/backend/crm/follow-ups/${item.id}`} className="flex items-center justify-between gap-2 py-1.5 hover:underline">
+                            <span className="min-w-0 truncate">{[t(`cc_crm.followUps.kind.${item.kind}`, FOLLOW_KINDS.find((kind) => kind.value === item.kind)?.label ?? item.kind), item.status === 'planned' ? item.note : item.outcome].filter(Boolean).join(' · ')}</span>
+                            <span className={cn('shrink-0 font-mono', item.status !== 'planned' && 'text-muted-foreground line-through')}>{item.dueOn}</span>
+                          </Link>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : null}
                 </div>
               </Panel>
 
@@ -450,7 +508,50 @@ export function EnquiryPage({ enquiryId }: { enquiryId: string }) {
       />
       <Attachments type="enquiry" id={enquiry.id} />
       <Comments type="enquiry" id={enquiry.id} />
-      <Timeline type="enquiry" id={enquiry.id} refreshKey={enquiry.history.length} />
+      <Timeline type="enquiry" id={enquiry.id} refreshKey={enquiry.updatedAt} />
+      <CorrectDialog
+        open={fix !== null}
+        onOpenChange={(next) => {
+          if (!next) {
+            setFix(null)
+            setNewOwner('')
+          }
+        }}
+        destructive={false}
+        title={fix === 'reopen' ? t('cc_crm.enquiries.reopenTitle', 'Reopen this lost enquiry?') : fix === 'undo_won' ? t('cc_crm.enquiries.undoWonTitle', 'Undo "won"?') : t('cc_crm.enquiries.reassignTitle', 'Hand over to another person')}
+        description={
+          fix === 'reassign' ? (
+            <span className="mt-2 block">
+              <Dropdown value={newOwner} onChange={(event) => setNewOwner(event.target.value)} aria-label={t('cc_crm.enquiries.owner', 'Owner')}>
+                <option value="">{t('cc_crm.enquiries.pickOwner', 'New owner…')}</option>
+                {people
+                  .filter((person) => person.name !== enquiry.ownerName)
+                  .map((person) => (
+                    <option key={person.id} value={person.name}>
+                      {person.name}
+                    </option>
+                  ))}
+              </Dropdown>
+            </span>
+          ) : undefined
+        }
+        undo={
+          fix === 'reopen'
+            ? [t('cc_crm.enquiries.reopenUndo', 'Back to negotiating; the lost reason stays in the history')]
+            : fix === 'undo_won'
+              ? [t('cc_crm.enquiries.undoWonUndo', 'Back to negotiating; the order is unlinked from this enquiry (it is not cancelled)')]
+              : newOwner
+                ? [t('cc_crm.enquiries.reassignUndo', '{from} → {to}; open follow-ups move too', { from: enquiry.ownerName ?? '—', to: newOwner })]
+                : []
+        }
+        confirmLabel={fix === 'reopen' ? t('cc_crm.actions.reopen', 'Reopen') : fix === 'undo_won' ? t('cc_crm.actions.undoWon', 'Undo won') : t('cc_crm.actions.reassign', 'Hand over')}
+        onConfirm={async (reason) => {
+          if (fix === 'reassign' && !newOwner) return false
+          const ok = await act({ action: fix, reason, ...(fix === 'reassign' ? { ownerName: newOwner } : {}) }, t('cc_crm.flash.corrected', 'Saved'))
+          if (ok) setNewOwner('')
+          return ok
+        }}
+      />
     </RecordPage>
   )
 }

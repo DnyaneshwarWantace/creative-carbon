@@ -21,7 +21,7 @@ async function GET(req: Request) {
   const parsed = quotationListSchema.safeParse(Object.fromEntries(new URL(req.url).searchParams))
   if (!parsed.success) return NextResponse.json({ error: 'Invalid query' }, { status: 400 })
   try {
-    if (parsed.data.id) return NextResponse.json(await quotationDetail(ctx, await findQuotation(ctx, parsed.data.id)))
+    if (parsed.data.id) return NextResponse.json(await quotationDetail(ctx, await findQuotation(ctx, parsed.data.id), parsed.data.revision ?? null))
     return NextResponse.json({ items: await listQuotations(ctx, parsed.data) })
   } catch (error) {
     return crmErrorResponse(error)

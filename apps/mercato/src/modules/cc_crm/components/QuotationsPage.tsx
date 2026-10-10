@@ -17,7 +17,7 @@ import { formatDate, formatQty } from '../../cc_orders/components/format'
 import { QUOTE_LABEL, QUOTE_VARIANT, type QuotationRow } from './types'
 import { PageLoading } from '../../cc_ui/components/PageLoading'
 
-const TABS = ['open', 'draft', 'sent', 'accepted', 'converted', 'rejected', 'all'] as const
+const TABS = ['open', 'draft', 'sent', 'accepted', 'converted', 'rejected', 'withdrawn', 'all'] as const
 
 export function QuotationsPage() {
   const t = useT()

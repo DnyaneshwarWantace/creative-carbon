@@ -30,10 +30,11 @@ export type Enquiry = {
   history: HistoryEntry[]
   createdAt: string
   updatedAt: string
+  followUps?: Array<{ id: string; kind: string; dueOn: string; status: 'planned' | 'done' | 'skipped'; note: string | null; outcome: string | null; ownerName: string | null }>
   quotations?: Array<{ id: string; quoteNo: string; quoteDate: string; status: QuotationStatus; totalAmount: number; currency: string; orderId: string | null; orderNo: string | null }>
 }
 
-export type QuotationStatus = 'draft' | 'sent' | 'accepted' | 'rejected' | 'converted'
+export type QuotationStatus = 'draft' | 'sent' | 'accepted' | 'rejected' | 'converted' | 'withdrawn'
 
 export type QuotationRow = {
   id: string
@@ -63,6 +64,8 @@ export type Quotation = Omit<Order, 'status' | 'stages' | 'payments' | 'events' 
   validUntil: string | null
   enquiryId: string | null
   enquiryNo: string | null
+  revision?: number
+  revisions?: Array<{ revision: number; at: string; by: string | null; reason: string; status: QuotationStatus; totalAmount: number; quoteDate: string; sentAt: string | null }>
   status: QuotationStatus
   expired: boolean
   sentAt: string | null
@@ -74,5 +77,5 @@ export type Quotation = Omit<Order, 'status' | 'stages' | 'payments' | 'events' 
 
 export const STAGE_LABEL: Record<EnquiryStage, string> = { new: 'New', quoted: 'Quoted', negotiating: 'Negotiating', won: 'Won', lost: 'Lost' }
 export const STAGE_VARIANT: Record<EnquiryStage, 'info' | 'warning' | 'success' | 'error' | 'neutral'> = { new: 'info', quoted: 'warning', negotiating: 'warning', won: 'success', lost: 'neutral' }
-export const QUOTE_LABEL: Record<QuotationStatus, string> = { draft: 'Draft', sent: 'Sent', accepted: 'Accepted', rejected: 'Rejected', converted: 'Order made' }
-export const QUOTE_VARIANT: Record<QuotationStatus, 'info' | 'warning' | 'success' | 'error' | 'neutral'> = { draft: 'neutral', sent: 'info', accepted: 'success', rejected: 'error', converted: 'success' }
+export const QUOTE_LABEL: Record<QuotationStatus, string> = { draft: 'Draft', sent: 'Sent', accepted: 'Accepted', rejected: 'Rejected', converted: 'Order made', withdrawn: 'Withdrawn' }
+export const QUOTE_VARIANT: Record<QuotationStatus, 'info' | 'warning' | 'success' | 'error' | 'neutral'> = { draft: 'neutral', sent: 'info', accepted: 'success', rejected: 'error', converted: 'success', withdrawn: 'neutral' }
