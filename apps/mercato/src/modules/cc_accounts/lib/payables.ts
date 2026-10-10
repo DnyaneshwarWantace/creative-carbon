@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto'
 import { currentUserName, type OrderContext } from '../../cc_orders/lib/server'
 import { Vendor } from '../../cc_vendors/data/entities'
 import { GoodsReceipt, GoodsReceiptLine, PurchaseOrder, PurchaseOrderLine } from '../../cc_purchase/data/entities'
-import { VendorBill } from '../data/entities'
+import { DebitNote, VendorBill } from '../data/entities'
 import type { VendorBillAction, VendorBillInput } from '../data/validators'
 import { AccountsError } from './service'
 import { nextSeriesCode } from './numberSeries'
@@ -111,26 +111,142 @@ export async function createBill(ctx: OrderContext, input: VendorBillInput): Pro
   return bill
 }
 
-export async function actOnBill(ctx: OrderContext, bill: VendorBill, input: VendorBillAction) {
+function settle(bill: VendorBill) {
+  const paid = money((bill.payments ?? []).filter((payment) => !payment.voidedAt).reduce((sum, payment) => sum + Number(payment.amount), 0))
+  bill.paid = String(paid)
+  const covered = money(paid + Number(bill.debited ?? 0))
+  if (bill.status === 'cancelled') return
+  bill.status = covered >= Number(bill.total) - 0.005 ? 'paid' : covered > 0 ? 'partly_paid' : 'open'
+}
+
+export function billBalance(bill: VendorBill): number {
+  return money(Number(bill.total) - Number(bill.paid) - Number(bill.debited ?? 0))
+}
+
+export function vendorPaymentNumber(bill: VendorBill, paymentId: string): string {
+  return `PAY-${bill.code}-${paymentId.slice(0, 6)}`
+}
+
+async function inTallyAs(ctx: OrderContext, number: string): Promise<string | null> {
+  const [row] = await ctx.em.getConnection().execute<Array<{ code: string }>>(
+    `select p.code from cc_tally_pushes p, jsonb_array_elements(p.documents) d
+      where p.tenant_id = ? and p.organization_id = ? and p.status in ('sent', 'partial', 'manual') and d->>'number' = ? limit 1`,
+    [ctx.tenantId, ctx.organizationId, number],
+  )
+  return row?.code ?? null
+}
+
+export type BillActionResult = { note?: DebitNote; voided?: { id: string; amount: number } }
+
+export async function actOnBill(ctx: OrderContext, bill: VendorBill, input: VendorBillAction): Promise<BillActionResult> {
   const byName = await currentUserName(ctx)
-  const balance = money(Number(bill.total) - Number(bill.paid))
+  const balance = billBalance(bill)
+  const why = input.note?.trim() ?? ''
+  const result: BillActionResult = {}
   if (input.action === 'pay') {
     if (bill.status === 'cancelled' || bill.status === 'paid') throw new AccountsError('This bill is closed', 409)
     const amount = money(input.amount ?? balance)
     if (amount > balance + 0.005) throw new AccountsError(`Only ₹${balance} is left to pay on this bill`, 409)
     const payment = { id: randomUUID(), amount, paidOn: input.paidOn ?? todayIst(), mode: input.mode ?? null, reference: input.reference ?? null, by: byName, at: new Date().toISOString() }
     bill.payments = [...(bill.payments ?? []), payment]
-    bill.paid = String(money(Number(bill.paid) + amount))
-    bill.status = Number(bill.paid) >= Number(bill.total) - 0.005 ? 'paid' : 'partly_paid'
+    settle(bill)
     bill.history = [...(bill.history ?? []), { action: 'paid', by: byName, at: new Date().toISOString(), note: `₹${amount}${payment.reference ? ` · ${payment.reference}` : ''}` }]
+  } else if (input.action === 'void_payment') {
+    if (why.length < 3) throw new AccountsError('Write why the payment is voided (at least 3 letters); it is kept in the history')
+    const payment = (bill.payments ?? []).find((entry) => entry.id === input.paymentId)
+    if (!payment) throw new AccountsError('Payment not found on this bill', 404)
+    if (payment.voidedAt) throw new AccountsError('This payment is already voided', 409)
+    const pushed = await inTallyAs(ctx, vendorPaymentNumber(bill, payment.id))
+    if (pushed) throw new AccountsError(`This payment is already in Tally (${pushed}). Cancel it in Tally first.`, 409)
+    bill.payments = (bill.payments ?? []).map((entry) => (entry.id === payment.id ? { ...entry, voidedAt: new Date().toISOString(), voidReason: why, voidedBy: byName } : entry))
+    settle(bill)
+    bill.history = [...(bill.history ?? []), { action: 'payment_voided', by: byName, at: new Date().toISOString(), note: `₹${payment.amount}${payment.reference ? ` · ${payment.reference}` : ''} · ${why}` }]
+    result.voided = { id: payment.id, amount: payment.amount }
+  } else if (input.action === 'debit_note') {
+    if (bill.status === 'cancelled') throw new AccountsError('This bill is cancelled', 409)
+    if (why.length < 3) throw new AccountsError('Write why the debit note is raised (at least 3 letters); it is kept in the history')
+    const taxable = money(input.taxable ?? 0)
+    const gst = money(input.gst ?? 0)
+    const total = money(taxable + gst)
+    if (!(total > 0)) throw new AccountsError('Enter the amount of the debit note')
+    if (total > money(Number(bill.total) - Number(bill.debited ?? 0)) + 0.005) throw new AccountsError(`A debit note cannot be more than the bill (₹${money(Number(bill.total) - Number(bill.debited ?? 0))} left to debit)`, 409)
+    const noteDate = input.noteDate ?? todayIst()
+    const note = ctx.em.create(DebitNote, {
+      organizationId: ctx.organizationId,
+      tenantId: ctx.tenantId,
+      code: await nextSeriesCode(ctx, 'DN', new Date(`${noteDate}T12:00:00+05:30`)),
+      vendorBillId: bill.id,
+      billCode: bill.code,
+      vendorId: bill.vendorId,
+      vendorName: bill.vendorName,
+      noteDate,
+      reason: why,
+      taxable: String(taxable),
+      gst: String(gst),
+      total: String(total),
+      createdByName: byName,
+      history: [{ action: 'created', by: byName, at: new Date().toISOString(), note: why }],
+    })
+    ctx.em.persist(note)
+    bill.debited = String(money(Number(bill.debited ?? 0) + total))
+    settle(bill)
+    bill.history = [...(bill.history ?? []), { action: 'debit_note', by: byName, at: new Date().toISOString(), note: `${note.code} ₹${total} · ${why}` }]
+    result.note = note
   } else {
     if (Number(bill.paid) > 0) throw new AccountsError('A bill with payments cannot be cancelled', 409)
-    if (!input.note) throw new AccountsError('Write why the bill is cancelled')
+    if (Number(bill.debited ?? 0) > 0) throw new AccountsError('This bill has debit notes; cancel those first', 409)
+    if (!why) throw new AccountsError('Write why the bill is cancelled')
     bill.status = 'cancelled'
-    bill.history = [...(bill.history ?? []), { action: 'cancelled', by: byName, at: new Date().toISOString(), note: input.note }]
+    bill.history = [...(bill.history ?? []), { action: 'cancelled', by: byName, at: new Date().toISOString(), note: why }]
   }
   bill.updatedAt = new Date()
   await ctx.em.flush()
+  return result
+}
+
+export async function cancelDebitNote(ctx: OrderContext, note: DebitNote, reason: string): Promise<VendorBill> {
+  if (note.status === 'cancelled') throw new AccountsError('Already cancelled', 409)
+  const pushed = await inTallyAs(ctx, note.code)
+  if (pushed) throw new AccountsError(`This debit note is already in Tally (${pushed}). Cancel it in Tally first.`, 409)
+  const bill = await findBill(ctx, note.vendorBillId)
+  const byName = await currentUserName(ctx)
+  note.status = 'cancelled'
+  note.cancelReason = reason
+  note.history = [...(note.history ?? []), { action: 'cancelled', by: byName, at: new Date().toISOString(), note: reason }]
+  note.updatedAt = new Date()
+  bill.debited = String(money(Math.max(0, Number(bill.debited ?? 0) - Number(note.total))))
+  settle(bill)
+  bill.history = [...(bill.history ?? []), { action: 'debit_note_cancelled', by: byName, at: new Date().toISOString(), note: `${note.code} · ${reason}` }]
+  bill.updatedAt = new Date()
+  await ctx.em.flush()
+  return bill
+}
+
+export async function findDebitNote(ctx: OrderContext, id: string): Promise<DebitNote> {
+  const note = await ctx.em.findOne(DebitNote, { id, tenantId: ctx.tenantId, organizationId: ctx.organizationId, deletedAt: null })
+  if (!note) throw new AccountsError('Debit note not found', 404)
+  return note
+}
+
+export function debitNoteView(note: DebitNote) {
+  return {
+    id: note.id,
+    code: note.code,
+    vendorBillId: note.vendorBillId,
+    billCode: note.billCode,
+    vendorId: note.vendorId,
+    vendorName: note.vendorName,
+    noteDate: note.noteDate,
+    reason: note.reason,
+    taxable: Number(note.taxable),
+    gst: Number(note.gst),
+    total: Number(note.total),
+    status: note.status,
+    cancelReason: note.cancelReason ?? null,
+    history: note.history ?? [],
+    createdByName: note.createdByName ?? null,
+    updatedAt: note.updatedAt.toISOString(),
+  }
 }
 
 export function billView(bill: VendorBill) {
@@ -154,7 +270,8 @@ export function billView(bill: VendorBill) {
     gst: Number(bill.gst),
     total,
     paid,
-    balance: money(total - paid),
+    debited: Number(bill.debited ?? 0),
+    balance: money(total - paid - Number(bill.debited ?? 0)),
     status: bill.status,
     overdueDays: open && bill.dueDate && bill.dueDate < today ? Math.round((Date.parse(`${today}T00:00:00Z`) - Date.parse(`${bill.dueDate}T00:00:00Z`)) / DAY_MS) : 0,
     notes: bill.notes ?? null,

@@ -25,6 +25,7 @@ import { recordHref } from '../../cc_ui/lib/links'
 import { Timeline } from '../../cc_ui/components/Timeline'
 import { Comments } from '../../cc_ui/components/Comments'
 import { Attachments } from '../../cc_ui/components/Attachments'
+import { CorrectDialog } from '../../cc_ui/components/CorrectDialog'
 
 
 const EXPORT_TEXT = ['incoterm', 'portOfLoading', 'portOfDischarge', 'country', 'vessel', 'containerNo', 'sealNo', 'shippingBillNo', 'shippingBillDate', 'lcNumber'] as const
@@ -45,6 +46,7 @@ export function InvoicePage({ id }: { id: string }) {
   const [form, setForm] = React.useState<Record<string, string>>({})
   const [qty, setQty] = React.useState<Record<string, string>>({})
   const [mode, setMode] = React.useState<'cancel' | 'credit' | null>(null)
+  const [correcting, setCorrecting] = React.useState(false)
   const [reason, setReason] = React.useState('')
   const [creditQty, setCreditQty] = React.useState<Record<string, string>>({})
 
@@ -125,11 +127,12 @@ export function InvoicePage({ id }: { id: string }) {
   const draft = doc.status === 'draft'
   const credit = doc.kind === 'credit_note'
   const status = INVOICE_STATUS[doc.status]
-  const save = () =>
+  const save = (reason?: string) =>
     send(
       '/api/cc_accounts/invoices',
       {
         id,
+        ...(reason ? { reason } : {}),
         ...(draft ? { invoiceDate: form.invoiceDate, lines: doc.lines.map((line) => ({ orderLineId: line.orderLineId, quantity: Number(qty[line.orderLineId] || 0) })) } : {}),
         dueDate: form.dueDate || null,
         transporter: form.transporter,
@@ -235,7 +238,7 @@ export function InvoicePage({ id }: { id: string }) {
               {t('cc_accounts.inv.issue', 'Issue invoice')}
             </Button>
           ) : null}
-          {canRecord && !credit && doc.status === 'issued' ? (
+          {canRecord && !credit && doc.status === 'issued' && (!granted.ready || granted.has('cc_accounts.credit_note')) ? (
             <Button type="button" variant="outline" size="sm" onClick={() => setMode('credit')} disabled={busy}>
               <FileMinus className="mr-1.5 h-4 w-4" aria-hidden="true" />
               {t('cc_accounts.inv.credit', 'Credit note')}
@@ -394,7 +397,7 @@ export function InvoicePage({ id }: { id: string }) {
                 </div>
                 {canRecord && doc.status !== 'cancelled' ? (
                   <div className="flex justify-end">
-                    <Button type="button" size="sm" onClick={save} disabled={busy}>
+                    <Button type="button" size="sm" onClick={() => (draft ? save() : setCorrecting(true))} disabled={busy}>
                       <Save className="mr-1.5 h-4 w-4" aria-hidden="true" />
                       {t('cc_accounts.inv.save', 'Save')}
                     </Button>
@@ -406,6 +409,15 @@ export function InvoicePage({ id }: { id: string }) {
               <Timeline type="invoice" id={doc.id} refreshKey={doc.updatedAt} />
             </div>
           </div>
+      <CorrectDialog
+        open={correcting}
+        onOpenChange={setCorrecting}
+        destructive={false}
+        title={t('cc_accounts.inv.correctTitle', 'Correct details of {code}', { code: doc.code })}
+        description={t('cc_accounts.inv.correctHint', 'Only transport, notes, terms and shipping details change; amounts and GST stay. The old values are kept in the history. Not possible once the invoice is in Tally.')}
+        confirmLabel={t('cc_accounts.inv.correctConfirm', 'Save correction')}
+        onConfirm={(why) => save(why)}
+      />
     </RecordPage>
   )
 }

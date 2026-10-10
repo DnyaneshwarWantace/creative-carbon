@@ -2,9 +2,9 @@ import { NextResponse } from 'next/server'
 import { z } from 'zod'
 import type { OpenApiRouteDoc } from '@open-mercato/shared/lib/openapi'
 import { resolveOrderContext } from '../../../cc_orders/lib/server'
-import { VendorBill } from '../../data/entities'
+import { DebitNote, VendorBill } from '../../data/entities'
 import { vendorBillInputSchema, vendorBillListSchema } from '../../data/validators'
-import { billView, createBill, findBill, unbilledGrns } from '../../lib/payables'
+import { billView, createBill, debitNoteView, findBill, unbilledGrns } from '../../lib/payables'
 import { accountsErrorResponse, runGuarded } from '../../lib/server'
 
 export const metadata = {
@@ -18,7 +18,11 @@ async function GET(req: Request) {
   const parsed = vendorBillListSchema.safeParse(Object.fromEntries(new URL(req.url).searchParams))
   if (!parsed.success) return NextResponse.json({ error: 'Invalid query' }, { status: 400 })
   try {
-    if (parsed.data.id) return NextResponse.json(billView(await findBill(ctx, parsed.data.id)))
+    if (parsed.data.id) {
+      const bill = await findBill(ctx, parsed.data.id)
+      const notes = await ctx.em.find(DebitNote, { vendorBillId: bill.id, tenantId: ctx.tenantId, organizationId: ctx.organizationId, deletedAt: null }, { orderBy: { createdAt: 'asc' } })
+      return NextResponse.json({ ...billView(bill), debitNotes: notes.map(debitNoteView) })
+    }
     if (parsed.data.unbilledFor) return NextResponse.json({ items: await unbilledGrns(ctx, parsed.data.unbilledFor) })
     const where: Record<string, unknown> = { tenantId: ctx.tenantId, organizationId: ctx.organizationId, deletedAt: null }
     if (parsed.data.vendorId) where.vendorId = parsed.data.vendorId

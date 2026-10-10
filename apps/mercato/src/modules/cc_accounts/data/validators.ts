@@ -94,7 +94,9 @@ export const piUpdateSchema = z.object({
   refreshLines: z.boolean().optional(),
 })
 
-export const piActionSchema = z.object({ id: z.string().uuid(), action: z.enum(['send', 'cancel']), reason: text(500) }).superRefine(requireReasonFor(['cancel']))
+export const piActionSchema = z
+  .object({ id: z.string().uuid(), action: z.enum(['send', 'cancel', 'revise']), reason: text(500), sentTo: text(200), channel: z.enum(['email', 'whatsapp', 'hand', 'courier']).optional().nullable(), validUntil: isoDay.optional().nullable(), advancePercent: z.coerce.number().min(0).max(100).optional().nullable() })
+  .superRefine(requireReasonFor(['cancel', 'revise']))
 
 export const piListSchema = z.object({
   id: z.string().uuid().optional(),
@@ -126,6 +128,7 @@ export const invoiceUpdateSchema = z.object({
   terms: text(3000),
   bankDetails: text(1000),
   notes: text(2000),
+  reason: text(500),
   exportDetails: z
     .object({
       supply: z.enum(['lut', 'igst']).optional(),
@@ -177,7 +180,11 @@ export const vendorBillInputSchema = z.object({
 
 export const vendorBillActionSchema = z.object({
   id: z.string().uuid(),
-  action: z.enum(['pay', 'cancel']),
+  action: z.enum(['pay', 'cancel', 'void_payment', 'debit_note']),
+  paymentId: z.string().uuid().optional(),
+  taxable: z.coerce.number().min(0).max(1_000_000_000).optional(),
+  gst: z.coerce.number().min(0).max(1_000_000_000).optional(),
+  noteDate: billDay.optional().nullable(),
   amount: z.coerce.number().positive().max(1_000_000_000).optional(),
   paidOn: billDay.optional().nullable(),
   mode: z.string().trim().max(80).optional().nullable(),
@@ -201,7 +208,7 @@ export const numberSeriesInputSchema = z.object({
   items: z
     .array(
       z.object({
-        key: z.enum(['SO', 'ENQ', 'QT', 'PI', 'INV', 'CN', 'VB', 'IND', 'PO', 'GR', 'JW', 'SKU', 'RB', 'PB', 'LOT_BS', 'LOT_PR', 'LOT_MO', 'LOT_CUT', 'LOT_FG', 'LOT_BI']),
+        key: z.enum(['SO', 'ENQ', 'QT', 'PI', 'INV', 'CN', 'DN', 'VB', 'IND', 'PO', 'GR', 'JW', 'SKU', 'RB', 'PB', 'LOT_BS', 'LOT_PR', 'LOT_MO', 'LOT_CUT', 'LOT_FG', 'LOT_BI']),
         prefix: seriesText.min(1, 'Prefix cannot be empty'),
         suffix: seriesText.optional().nullable(),
         pad: z.coerce.number().int().min(1).max(8),
@@ -237,7 +244,7 @@ export const tallyPushSchema = z.object({
 
 export const tallyPushListSchema = z.object({
   id: z.string().uuid().optional(),
-  status: z.enum(['sent', 'partial', 'failed']).optional(),
+  status: z.enum(['sent', 'partial', 'failed', 'manual']).optional(),
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
 })

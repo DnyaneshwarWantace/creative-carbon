@@ -1,5 +1,5 @@
 import type { EntityManager } from '@mikro-orm/postgresql'
-import { OrderPayment, TaxInvoice, type PaymentKind } from '../data/entities'
+import { OrderPayment, ProformaInvoice, TaxInvoice, type PaymentKind } from '../data/entities'
 import type { PaymentInput } from '../data/validators'
 
 type Scope = { em: EntityManager; tenantId: string; organizationId: string }
@@ -76,6 +76,17 @@ export async function recordPayment(ctx: Scope, input: PaymentInput & { orderNo:
   })
   ctx.em.persist(payment)
   await ctx.em.flush()
+  const { recordActivity } = await import('../../cc_audit/lib/activity')
+  if (invoice) {
+    recordActivity(ctx.em, ctx, { recordType: 'invoice', recordId: invoice.id, action: 'payment_applied', kind: 'stage', summary: `₹${money(input.amount).toLocaleString('en-IN')} received and applied (${input.kind}${input.reference ? `, ${input.reference}` : ''})`, links: [{ type: 'payment', id: payment.id, label: input.reference ?? 'Payment' }], actorUserId: (ctx as { userId?: string | null }).userId ?? null, actorName: byName })
+    await ctx.em.flush()
+  } else {
+    const proformas = await ctx.em.find(ProformaInvoice, { tenantId: ctx.tenantId, organizationId: ctx.organizationId, orderId: input.orderId, deletedAt: null, status: { $ne: 'cancelled' } })
+    for (const pi of proformas) {
+      recordActivity(ctx.em, ctx, { recordType: 'proforma', recordId: pi.id, action: 'advance_received', kind: 'stage', summary: `₹${money(input.amount).toLocaleString('en-IN')} received against it (${input.kind}${input.reference ? `, ${input.reference}` : ''})`, links: [{ type: 'payment', id: payment.id, label: input.reference ?? 'Payment' }], actorUserId: (ctx as { userId?: string | null }).userId ?? null, actorName: byName })
+    }
+    if (proformas.length) await ctx.em.flush()
+  }
   return payment
 }
 
@@ -98,6 +109,8 @@ export async function updatePayment(
   byName: string | null,
 ): Promise<void> {
   if (payment.voidedAt) throw new AccountsError('A voided payment cannot be changed', 409)
+  await assertNotInTally(ctx, payment.id)
+  const oldInvoice = payment.invoiceId ? { id: payment.invoiceId, code: payment.invoiceCode ?? null } : null
   const shown = (key: TrackedField) => (key === 'amount' ? Number(payment.amount).toFixed(2) : String(payment[key] ?? ''))
   const before = Object.fromEntries(MONEY_FIELDS.map(([key]) => [key, shown(key)]))
   if (input.kind) payment.kind = input.kind
@@ -111,10 +124,32 @@ export async function updatePayment(
     payment.invoiceId = invoice?.id ?? null
     payment.invoiceCode = invoice?.code ?? null
   }
-  const changes = MONEY_FIELDS.filter(([key]) => shown(key) !== before[key]).map(([key, label]) => `${label}: ${before[key] || '—'} → ${shown(key) || '—'}`)
+  const changed = MONEY_FIELDS.filter(([key]) => shown(key) !== before[key])
+  const changes = changed.map(([key, label]) => `${label}: ${before[key] || '—'} → ${shown(key) || '—'}`)
   if (!changes.length) throw new AccountsError('Nothing changed')
   payment.history = [...(payment.history ?? []), { action: 'edited', by: byName, at: new Date().toISOString(), note: `${changes.join('; ')} · ${input.reason}` }]
   payment.updatedAt = new Date()
+  const { recordActivity } = await import('../../cc_audit/lib/activity')
+  const actor = { actorUserId: (ctx as { userId?: string | null }).userId ?? null, actorName: byName }
+  const moved = (oldInvoice?.id ?? null) !== (payment.invoiceId ?? null)
+  recordActivity(ctx.em, ctx, {
+    recordType: 'payment',
+    recordId: payment.id,
+    action: moved ? 're_applied' : 'corrected',
+    kind: 'correction',
+    summary: moved ? `Applied to ${payment.invoiceCode ?? 'no invoice'} instead of ${oldInvoice?.code ?? 'no invoice'}` : 'Payment details corrected',
+    reason: input.reason,
+    changes: changed.map(([key, label]) => ({ field: key, label, from: before[key] || null, to: shown(key) || null, ...(key === 'amount' ? { money: true } : {}) })),
+    ...actor,
+  })
+  if (moved && oldInvoice) recordActivity(ctx.em, ctx, { recordType: 'invoice', recordId: oldInvoice.id, action: 'payment_moved_out', kind: 'correction', summary: `Payment of ₹${Number(payment.amount).toLocaleString('en-IN')} moved to ${payment.invoiceCode ?? 'no invoice'}`, reason: input.reason, links: [{ type: 'payment', id: payment.id, label: payment.reference ?? 'Payment' }], ...actor })
+  if (moved && payment.invoiceId) recordActivity(ctx.em, ctx, { recordType: 'invoice', recordId: payment.invoiceId, action: 'payment_applied', kind: 'stage', summary: `Payment of ₹${Number(payment.amount).toLocaleString('en-IN')} applied${oldInvoice ? ` (moved from ${oldInvoice.code ?? 'another invoice'})` : ''}`, reason: input.reason, links: [{ type: 'payment', id: payment.id, label: payment.reference ?? 'Payment' }], ...actor })
+}
+
+async function assertNotInTally(ctx: Scope, recordId: string) {
+  const { tallyPushOf } = await import('./tallyLog')
+  const pushed = await tallyPushOf(ctx, recordId)
+  if (pushed) throw new AccountsError(`This is already in Tally (${pushed}). Change it in Tally, or record a new entry.`, 409)
 }
 
 export async function recordAdvanceFromStage(
@@ -158,6 +193,7 @@ export async function voidPayment(ctx: Scope, id: string, reason: string, byName
   const payment = await ctx.em.findOne(OrderPayment, { id, tenantId: ctx.tenantId, organizationId: ctx.organizationId })
   if (!payment) throw new AccountsError('Payment not found', 404)
   if (payment.voidedAt) throw new AccountsError('This payment is already voided', 409)
+  await assertNotInTally(ctx, payment.id)
   payment.voidedAt = new Date()
   payment.voidReason = `${reason}${byName ? ` (${byName})` : ''}`
   await ctx.em.flush()

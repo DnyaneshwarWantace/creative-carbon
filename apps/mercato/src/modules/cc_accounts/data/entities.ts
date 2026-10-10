@@ -200,11 +200,12 @@ export type PiLine = {
 }
 export type PiTotals = { gross: number; discount: number; taxable: number; gst: number; total: number }
 export type PiHistory = { action: string; by: string | null; at: string; note: string | null }
+export type PiRevision = { revision: number; at: string; by: string | null; reason: string; piDate: string; validUntil: string | null; advancePercent: number | null; lines: PiLine[]; totals: PiTotals; terms: string | null; notes: string | null; status: PiStatus }
 
 @Entity({ tableName: 'cc_proforma_invoices' })
 @Index({ name: 'cc_proforma_invoices_order_idx', properties: ['organizationId', 'tenantId', 'orderId'] })
 export class ProformaInvoice {
-  [OptionalProps]?: 'customerGstin' | 'validUntil' | 'status' | 'advancePercent' | 'pricesIncludeGst' | 'terms' | 'bankDetails' | 'notes' | 'sentAt' | 'sentByName' | 'createdByName' | 'cancelReason' | 'history' | 'createdAt' | 'updatedAt' | 'deletedAt'
+  [OptionalProps]?: 'revision' | 'revisions' | 'customerGstin' | 'validUntil' | 'status' | 'advancePercent' | 'pricesIncludeGst' | 'terms' | 'bankDetails' | 'notes' | 'sentAt' | 'sentByName' | 'createdByName' | 'cancelReason' | 'history' | 'createdAt' | 'updatedAt' | 'deletedAt'
 
   @PrimaryKey({ type: 'uuid', defaultRaw: 'gen_random_uuid()' })
   id!: string
@@ -271,6 +272,12 @@ export class ProformaInvoice {
 
   @Property({ name: 'created_by_name', type: 'text', nullable: true })
   createdByName?: string | null
+
+  @Property({ type: 'integer', default: 1 })
+  revision: number = 1
+
+  @Property({ type: 'json', nullable: true })
+  revisions?: PiRevision[] | null
 
   @Property({ name: 'cancel_reason', type: 'text', nullable: true })
   cancelReason?: string | null
@@ -412,14 +419,14 @@ export class TaxInvoice {
 }
 
 export type VendorBillStatus = 'open' | 'partly_paid' | 'paid' | 'cancelled'
-export type VendorBillPayment = { id: string; amount: number; paidOn: string; mode: string | null; reference: string | null; by: string | null; at: string }
+export type VendorBillPayment = { id: string; amount: number; paidOn: string; mode: string | null; reference: string | null; by: string | null; at: string; voidedAt?: string | null; voidReason?: string | null; voidedBy?: string | null }
 
 @Entity({ tableName: 'cc_vendor_bills' })
 @Index({ name: 'cc_vendor_bills_scope_idx', properties: ['organizationId', 'tenantId', 'status'] })
 @Index({ name: 'cc_vendor_bills_vendor_idx', properties: ['vendorId'] })
 @Unique({ name: 'cc_vendor_bills_code_uq', properties: ['organizationId', 'tenantId', 'code'] })
 export class VendorBill {
-  [OptionalProps]?: 'status' | 'poId' | 'poCode' | 'grnIds' | 'grnCodes' | 'dueDate' | 'notes' | 'payments' | 'paid' | 'history' | 'createdByName' | 'createdAt' | 'updatedAt' | 'deletedAt'
+  [OptionalProps]?: 'status' | 'poId' | 'poCode' | 'grnIds' | 'grnCodes' | 'dueDate' | 'notes' | 'payments' | 'paid' | 'debited' | 'history' | 'createdByName' | 'createdAt' | 'updatedAt' | 'deletedAt'
 
   @PrimaryKey({ type: 'uuid', defaultRaw: 'gen_random_uuid()' })
   id!: string
@@ -472,6 +479,9 @@ export class VendorBill {
   @Property({ type: 'numeric', precision: 14, scale: 2, default: '0' })
   paid: string = '0'
 
+  @Property({ type: 'numeric', precision: 14, scale: 2, default: '0' })
+  debited: string = '0'
+
   @Property({ type: 'text', default: 'open' })
   status: VendorBillStatus = 'open'
 
@@ -497,7 +507,7 @@ export class VendorBill {
   deletedAt?: Date | null
 }
 
-export type TallyPushStatus = 'sent' | 'partial' | 'failed'
+export type TallyPushStatus = 'sent' | 'partial' | 'failed' | 'manual'
 export type TallyPushDocument = { key: string; type: string; number: string; date: string; reference: string | null; party: string; amount: number; recordId: string | null }
 export type TallyPushAttempt = { at: string; by: string | null; status: TallyPushStatus; httpStatus: number | null; created: number; altered: number; errors: number; lineErrors: string[]; error: string | null }
 
@@ -610,4 +620,73 @@ export class TallyJob {
 
   @Property({ name: 'updated_at', type: Date, onCreate: () => new Date(), onUpdate: () => new Date() })
   updatedAt: Date = new Date()
+}
+
+export type DebitNoteStatus = 'issued' | 'cancelled'
+
+@Entity({ tableName: 'cc_debit_notes' })
+@Index({ name: 'cc_debit_notes_bill_idx', properties: ['organizationId', 'tenantId', 'vendorBillId'] })
+@Unique({ name: 'cc_debit_notes_code_uq', properties: ['organizationId', 'tenantId', 'code'] })
+export class DebitNote {
+  [OptionalProps]?: 'status' | 'cancelReason' | 'history' | 'createdByName' | 'createdAt' | 'updatedAt' | 'deletedAt'
+
+  @PrimaryKey({ type: 'uuid', defaultRaw: 'gen_random_uuid()' })
+  id!: string
+
+  @Property({ name: 'organization_id', type: 'uuid' })
+  organizationId!: string
+
+  @Property({ name: 'tenant_id', type: 'uuid' })
+  tenantId!: string
+
+  @Property({ type: 'text' })
+  code!: string
+
+  @Property({ name: 'vendor_bill_id', type: 'uuid' })
+  vendorBillId!: string
+
+  @Property({ name: 'bill_code', type: 'text' })
+  billCode!: string
+
+  @Property({ name: 'vendor_id', type: 'uuid' })
+  vendorId!: string
+
+  @Property({ name: 'vendor_name', type: 'text' })
+  vendorName!: string
+
+  @Property({ name: 'note_date', type: 'text' })
+  noteDate!: string
+
+  @Property({ type: 'text' })
+  reason!: string
+
+  @Property({ type: 'numeric', precision: 14, scale: 2 })
+  taxable!: string
+
+  @Property({ type: 'numeric', precision: 14, scale: 2 })
+  gst!: string
+
+  @Property({ type: 'numeric', precision: 14, scale: 2 })
+  total!: string
+
+  @Property({ type: 'text', default: 'issued' })
+  status: DebitNoteStatus = 'issued'
+
+  @Property({ name: 'cancel_reason', type: 'text', nullable: true })
+  cancelReason?: string | null
+
+  @Property({ type: 'json', nullable: true })
+  history?: Array<{ action: string; by: string | null; at: string; note: string | null }> | null
+
+  @Property({ name: 'created_by_name', type: 'text', nullable: true })
+  createdByName?: string | null
+
+  @Property({ name: 'created_at', type: Date, onCreate: () => new Date() })
+  createdAt: Date = new Date()
+
+  @Property({ name: 'updated_at', type: Date, onCreate: () => new Date(), onUpdate: () => new Date() })
+  updatedAt: Date = new Date()
+
+  @Property({ name: 'deleted_at', type: Date, nullable: true })
+  deletedAt?: Date | null
 }

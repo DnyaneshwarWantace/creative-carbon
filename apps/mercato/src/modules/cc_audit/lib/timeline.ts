@@ -30,6 +30,8 @@ export const RECORD_TYPES: Record<string, RecordTypeDef> = {
   proforma: { label: 'Proforma', table: 'cc_proforma_invoices', viewFeature: 'cc_accounts.view', legacy: 'history', path: '/backend/accounts/proformas/', maker: ['created_by_name'] },
   invoice: { label: 'Tax invoice', table: 'cc_tax_invoices', viewFeature: 'cc_accounts.view', legacy: 'history', path: '/backend/accounts/invoices/', maker: ['created_by_name'] },
   payment: { label: 'Payment', table: 'cc_order_payments', viewFeature: 'cc_accounts.view', legacy: 'history', path: '/backend/accounts/payments/', maker: ['by_name'] },
+  debit_note: { label: 'Debit note', table: 'cc_debit_notes', viewFeature: 'cc_accounts.view', legacy: 'history', path: '/backend/accounts/notes/', maker: ['created_by_name'] },
+  tally_push: { label: 'Tally push', table: 'cc_tally_pushes', viewFeature: 'cc_accounts.view', legacy: null, path: '/backend/accounts/tally/' },
   vendor_bill: { label: 'Vendor bill', table: 'cc_vendor_bills', viewFeature: 'cc_accounts.view', legacy: 'history', path: '/backend/accounts/vendor-bills/', maker: ['created_by_name'] },
 }
 

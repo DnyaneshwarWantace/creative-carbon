@@ -9,6 +9,8 @@ import { createInvoice, findInvoice, invoiceView, updateExportDetails, updateInv
 import { AccountsError } from '../../lib/service'
 import { accountsErrorResponse, runGuarded } from '../../lib/server'
 
+import { tallyPushOf } from '../../lib/tallyLog'
+import { recordActivity } from '../../../cc_audit/lib/activity'
 export const metadata = {
   GET: { requireAuth: true, requireFeatures: ['cc_accounts.view'] },
   POST: { requireAuth: true, requireFeatures: ['cc_accounts.record'] },
@@ -85,6 +87,18 @@ async function PUT(req: Request) {
         const input = parsed.data
         const issued = doc.status === 'issued'
         if (issued && (input.lines || input.invoiceDate)) throw new AccountsError('An issued invoice keeps its date and quantities. Use a credit note to reduce it.', 409)
+        const tracked = (): Record<string, string | null> => ({
+          dueDate: doc.dueDate ?? null,
+          transporter: doc.transporter ?? null,
+          vehicleNo: doc.vehicleNo ?? null,
+          lrNo: doc.lrNo ?? null,
+          ewayBillNo: doc.ewayBillNo ?? null,
+          terms: doc.terms ?? null,
+          bankDetails: doc.bankDetails ?? null,
+          notes: doc.notes ?? null,
+          ...Object.fromEntries(Object.entries(doc.exportDetails ?? {}).map(([key, value]) => [`export.${key}`, value === null || value === undefined ? null : String(value)])),
+        })
+        const before = tracked()
         if (input.invoiceDate) doc.invoiceDate = input.invoiceDate
         if (input.dueDate !== undefined) doc.dueDate = input.dueDate
         if (input.lines) await updateInvoiceLines(txCtx, doc, input.lines, byName)
@@ -104,7 +118,26 @@ async function PUT(req: Request) {
           }
           await updateExportDetails(txCtx, doc, patch, byName)
         }
-        doc.history = [...(doc.history ?? []), { action: 'edited', by: byName, at: new Date().toISOString(), note: null }]
+        const after = tracked()
+        const changed = Object.keys({ ...before, ...after }).filter((key) => (before[key] ?? null) !== (after[key] ?? null) && (before[key] ?? null) !== null)
+        if (issued && changed.length) {
+          const why = input.reason?.trim() ?? ''
+          if (why.length < 3) throw new AccountsError('Write why these details are corrected (at least 3 letters); it is kept in the history')
+          const pushed = await tallyPushOf(txCtx, doc.id, [doc.kind === 'credit_note' ? 'Credit Note' : 'Sales'])
+          if (pushed) throw new AccountsError(`This ${doc.kind === 'credit_note' ? 'credit note' : 'invoice'} is already in Tally (${pushed}). Correct it in Tally, or raise a credit note.`, 409)
+          recordActivity(em as EntityManager, ctx, {
+            recordType: 'invoice',
+            recordId: doc.id,
+            action: 'details_corrected',
+            kind: 'correction',
+            summary: `Details corrected after issue: ${changed.map((key) => INVOICE_FIELD_LABEL[key] ?? key).join(', ')}`,
+            reason: why,
+            changes: changed.map((key) => ({ field: key, label: INVOICE_FIELD_LABEL[key] ?? key, from: before[key] ?? null, to: after[key] ?? null })),
+            actorUserId: ctx.userId ?? null,
+            actorName: byName,
+          })
+        }
+        doc.history = [...(doc.history ?? []), { action: 'edited', by: byName, at: new Date().toISOString(), note: issued && changed.length ? input.reason?.trim() ?? null : null }]
         doc.updatedAt = new Date()
         await em.flush()
         return doc
@@ -114,6 +147,24 @@ async function PUT(req: Request) {
   } catch (error) {
     return accountsErrorResponse(error)
   }
+}
+
+const INVOICE_FIELD_LABEL: Record<string, string> = {
+  dueDate: 'Due date',
+  transporter: 'Transporter',
+  vehicleNo: 'Vehicle no.',
+  lrNo: 'LR / docket no.',
+  ewayBillNo: 'E-way bill no.',
+  terms: 'Terms',
+  bankDetails: 'Bank details',
+  notes: 'Note',
+  'export.portOfDischarge': 'Port of discharge',
+  'export.shippingBillNo': 'Shipping bill no.',
+  'export.shippingBillDate': 'Shipping bill date',
+  'export.containerNo': 'Container no.',
+  'export.sealNo': 'Seal no.',
+  'export.vessel': 'Vessel',
+  'export.lcNumber': 'LC no.',
 }
 
 export const openApi: OpenApiRouteDoc = {

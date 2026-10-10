@@ -4,7 +4,7 @@ import { priceLine, priceOrder } from '../../cc_orders/lib/pricing'
 import { findOrder, loadCustomers, loadProducts, type OrderContext } from '../../cc_orders/lib/server'
 import { stepStates } from '../../cc_orders/lib/stages'
 import { CompanyProfile, ProformaInvoice, type PiLine } from '../data/entities'
-import { AccountsError } from './service'
+import { AccountsError, paymentsFor, received } from './service'
 import { nextSeriesCode } from './numberSeries'
 
 export const DEFAULT_COMPANY = {
@@ -193,12 +193,15 @@ export async function refreshPiLines(ctx: Scope, pi: ProformaInvoice, byName: st
   pi.history = [...(pi.history ?? []), { action: 'refreshed', by: byName, at: new Date().toISOString(), note: 'Lines and totals taken again from the order' }]
 }
 
-export async function markPiSent(ctx: Scope, pi: ProformaInvoice, byName: string | null): Promise<void> {
+const CHANNEL_LABEL: Record<string, string> = { email: 'by email', whatsapp: 'on WhatsApp', hand: 'by hand', courier: 'by courier' }
+
+export async function markPiSent(ctx: Scope, pi: ProformaInvoice, byName: string | null, to?: { sentTo?: string | null; channel?: string | null }): Promise<void> {
   if (pi.status === 'cancelled') throw new AccountsError('This proforma invoice is cancelled', 409)
   pi.status = 'sent'
   pi.sentAt = new Date()
   pi.sentByName = byName
-  pi.history = [...(pi.history ?? []), { action: 'sent', by: byName, at: new Date().toISOString(), note: null }]
+  const note = [to?.sentTo ? `To ${to.sentTo}` : null, to?.channel ? CHANNEL_LABEL[to.channel] ?? to.channel : null, (pi.revision ?? 1) > 1 ? `revision ${pi.revision}` : null].filter(Boolean).join(' ') || null
+  pi.history = [...(pi.history ?? []), { action: 'sent', by: byName, at: new Date().toISOString(), note }]
   const order = await findOrder(ctx, pi.orderId)
   const stage = await ctx.em.findOne(CcOrderStage, { orderId: order.id, stageKey: 'advance' })
   if (stage && (stage.status === 'open' || stage.status === 'on_hold')) {
@@ -213,6 +216,54 @@ export async function markPiSent(ctx: Scope, pi: ProformaInvoice, byName: string
     order.updatedAt = new Date()
   }
   logEvent(ctx, order, 'pi_sent', 'advance', `Proforma invoice ${pi.code} sent to the customer`, byName)
+}
+
+export async function advanceReceived(ctx: Scope, orderId: string): Promise<number> {
+  return received(await paymentsFor(ctx, [orderId]))
+}
+
+export async function revisePi(ctx: Scope, pi: ProformaInvoice, input: { reason: string; validUntil?: string | null; advancePercent?: number | null }, byName: string | null) {
+  if (pi.status === 'cancelled') throw new AccountsError('This proforma invoice is cancelled', 409)
+  const paid = await advanceReceived(ctx, pi.orderId)
+  if (paid > 0) throw new AccountsError(`₹${paid.toLocaleString('en-IN')} advance is already received against this order. Make a new proforma or refund first.`, 409)
+  const snapshot = {
+    revision: pi.revision ?? 1,
+    at: new Date().toISOString(),
+    by: byName,
+    reason: input.reason,
+    piDate: pi.piDate,
+    validUntil: pi.validUntil ?? null,
+    advancePercent: pi.advancePercent == null ? null : Number(pi.advancePercent),
+    lines: pi.lines,
+    totals: pi.totals,
+    terms: pi.terms ?? null,
+    notes: pi.notes ?? null,
+    status: pi.status,
+  }
+  const order = await findOrder(ctx, pi.orderId)
+  const { lines, totals } = await linesFromOrder(ctx, order)
+  const changes: Array<{ field: string; label: string; from: string | number | null; to: string | number | null; money?: boolean }> = []
+  if (snapshot.totals.total !== totals.total) changes.push({ field: 'total', label: 'Total', from: snapshot.totals.total, to: totals.total, money: true })
+  const nextPercent = input.advancePercent === undefined || input.advancePercent === null ? snapshot.advancePercent : input.advancePercent
+  if (nextPercent !== snapshot.advancePercent) changes.push({ field: 'advancePercent', label: 'Advance %', from: snapshot.advancePercent, to: nextPercent })
+  const nextValid = input.validUntil || snapshot.validUntil
+  if (nextValid !== snapshot.validUntil) changes.push({ field: 'validUntil', label: 'Valid until', from: snapshot.validUntil, to: nextValid })
+  const linesChanged = JSON.stringify(snapshot.lines.map((line) => [line.title, line.quantity, line.rate])) !== JSON.stringify(lines.map((line) => [line.title, line.quantity, line.rate]))
+  if (linesChanged) changes.push({ field: 'lines', label: 'Lines', from: snapshot.lines.map((line) => `${line.title} × ${line.quantity}`).join('; '), to: lines.map((line) => `${line.title} × ${line.quantity}`).join('; ') })
+  pi.revisions = [...(pi.revisions ?? []), snapshot]
+  pi.revision = snapshot.revision + 1
+  pi.lines = lines
+  pi.totals = totals
+  pi.pricesIncludeGst = order.pricesIncludeGst
+  pi.advancePercent = nextPercent === null ? null : String(nextPercent)
+  pi.validUntil = nextValid
+  pi.piDate = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' })
+  pi.status = 'draft'
+  pi.sentAt = null
+  pi.sentByName = null
+  pi.history = [...(pi.history ?? []), { action: 'revised', by: byName, at: new Date().toISOString(), note: `Revision ${pi.revision}: ${input.reason}` }]
+  logEvent(ctx, order, 'pi_revised', 'advance', `Proforma invoice ${pi.code} revised (revision ${pi.revision}): ${input.reason}`, byName)
+  return changes
 }
 
 export function piView(pi: ProformaInvoice) {
@@ -240,6 +291,8 @@ export function piView(pi: ProformaInvoice) {
     sentByName: pi.sentByName ?? null,
     createdByName: pi.createdByName ?? null,
     cancelReason: pi.cancelReason ?? null,
+    revision: pi.revision ?? 1,
+    revisions: pi.revisions ?? [],
     history: pi.history ?? [],
     createdAt: pi.createdAt.toISOString(),
     updatedAt: pi.updatedAt.toISOString(),

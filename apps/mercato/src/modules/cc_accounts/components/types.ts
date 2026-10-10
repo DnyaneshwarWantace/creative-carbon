@@ -38,6 +38,8 @@ export type PiView = {
   sentByName: string | null
   createdByName: string | null
   cancelReason: string | null
+  revision?: number
+  revisions?: Array<{ revision: number; at: string; by: string | null; reason: string; piDate: string; validUntil: string | null; advancePercent: number | null; lines: PiLine[]; totals: { gross: number; discount: number; taxable: number; gst: number; total: number }; terms: string | null; notes: string | null; status: 'draft' | 'sent' | 'cancelled' }>
   history: Array<{ action: string; by: string | null; at: string; note: string | null }>
   createdAt: string
   updatedAt: string

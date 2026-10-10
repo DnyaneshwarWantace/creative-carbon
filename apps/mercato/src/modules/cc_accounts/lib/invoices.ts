@@ -3,7 +3,7 @@ import { logEvent } from '../../cc_orders/lib/engine'
 import { priceLine } from '../../cc_orders/lib/pricing'
 import { findOrder, loadCustomers, loadProducts, type OrderContext } from '../../cc_orders/lib/server'
 import { stepStates } from '../../cc_orders/lib/stages'
-import { TaxInvoice, type BstageLotLine, type ExportDetails, type ExportSupply, type InvoiceLine, type InvoiceTotals } from '../data/entities'
+import { OrderPayment, TaxInvoice, type BstageLotLine, type ExportDetails, type ExportSupply, type InvoiceLine, type InvoiceTotals } from '../data/entities'
 import { bankText, companyView, loadCompany } from './documents'
 import { AccountsError } from './service'
 import { GST_STATES } from './gstStates'
@@ -206,6 +206,42 @@ export async function issueInvoice(ctx: Scope, invoice: TaxInvoice, byName: stri
     }
   }
   logEvent(ctx, order, invoice.kind === 'invoice' ? 'invoice_issued' : 'credit_note', 'invoice', `${invoice.kind === 'invoice' ? 'Tax invoice' : `Credit note against ${invoice.againstCode}`} ${invoice.code} · ₹${invoice.totals.payable.toLocaleString('en-IN')}`, byName)
+}
+
+export const CANCEL_HOURS = 24
+
+export async function cancelInvoice(ctx: Scope, doc: TaxInvoice, reason: string, byName: string | null): Promise<void> {
+  if (doc.status === 'cancelled') throw new AccountsError('Already cancelled', 409)
+  const notes = await ctx.em.count(TaxInvoice, { againstId: doc.id, status: { $ne: 'cancelled' }, deletedAt: null })
+  if (notes) throw new AccountsError('This invoice has credit notes; cancel those first', 409)
+  const { tallyPushOf } = await import('./tallyLog')
+  const pushed = await tallyPushOf(ctx, doc.id, [doc.kind === 'credit_note' ? 'Credit Note' : 'Sales'])
+  if (pushed) throw new AccountsError(`Already in Tally (${pushed}). Cancel it in Tally first, or raise ${doc.kind === 'credit_note' ? 'a debit entry' : 'a credit note'} instead.`, 409)
+  if (doc.kind === 'invoice') {
+    const applied = await ctx.em.count(OrderPayment, { tenantId: ctx.tenantId, organizationId: ctx.organizationId, invoiceId: doc.id, voidedAt: null })
+    if (applied) throw new AccountsError('A payment is applied to this invoice. Void or move the payment first, or raise a credit note.', 409)
+    if (doc.status === 'issued' && doc.issuedAt && Date.now() - doc.issuedAt.getTime() > CANCEL_HOURS * 3600_000) throw new AccountsError(`More than ${CANCEL_HOURS} hours since it was issued (GST rule). Raise a credit note instead.`, 409)
+  }
+  doc.status = 'cancelled'
+  doc.cancelReason = reason
+  doc.history = [...(doc.history ?? []), { action: 'cancelled', by: byName, at: new Date().toISOString(), note: reason }]
+  doc.updatedAt = new Date()
+  const order = await findOrder(ctx, doc.orderId)
+  if (doc.kind === 'invoice') {
+    const stage = await ctx.em.findOne(CcOrderStage, { orderId: order.id, stageKey: 'invoice' })
+    if (stage) {
+      const data = { ...(stage.data ?? {}) } as Record<string, unknown>
+      const left = (typeof data.invoice_number === 'string' ? data.invoice_number.split(',').map((value) => value.trim()) : []).filter((code) => code && code !== doc.code)
+      data.invoice_number = left.length ? left.join(', ') : null
+      if (!left.length) data.__steps = { ...stepStates(data), invoice: { done: false, at: new Date().toISOString(), by: byName } }
+      stage.data = data
+      order.updatedAt = new Date()
+    }
+  } else if (doc.againstId) {
+    const against = await ctx.em.findOne(TaxInvoice, { id: doc.againstId, tenantId: ctx.tenantId, organizationId: ctx.organizationId })
+    if (against) against.history = [...(against.history ?? []), { action: 'credit_cancelled', by: byName, at: new Date().toISOString(), note: `${doc.code}: ${reason}` }]
+  }
+  logEvent(ctx, order, doc.kind === 'invoice' ? 'invoice_cancelled' : 'credit_note_cancelled', 'invoice', `${doc.kind === 'invoice' ? 'Tax invoice' : 'Credit note'} ${doc.code} cancelled: ${reason}`, byName)
 }
 
 export async function createCreditNote(

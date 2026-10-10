@@ -15,11 +15,11 @@ import { Attachments } from '../../cc_ui/components/Attachments'
 
 type HistoryItem = { action: string; by: string | null; at: string; note: string | null }
 
-function rupees(value: number): string {
+export function rupees(value: number): string {
   return `₹ ${new Intl.NumberFormat('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(value)}`
 }
 
-function PrintButton() {
+export function PrintButton() {
   const t = useT()
   return (
     <Button type="button" variant="outline" size="sm" onClick={() => window.print()}>
@@ -111,119 +111,6 @@ export function PaymentPage({ paymentId }: { paymentId: string }) {
       <Attachments type="payment" id={payment.id} />
       <Comments type="payment" id={payment.id} />
       <Timeline type="payment" id={payment.id} refreshKey={payment.history.length} />
-    </RecordPage>
-  )
-}
-
-type BillView = {
-  id: string
-  code: string
-  vendorId: string
-  vendorName: string
-  billNo: string
-  billDate: string
-  dueDate: string | null
-  poId: string | null
-  poCode: string | null
-  grnIds: string[]
-  grnCodes: string[]
-  taxable: number
-  gst: number
-  total: number
-  paid: number
-  balance: number
-  status: 'open' | 'partly_paid' | 'paid' | 'cancelled'
-  overdueDays: number
-  notes: string | null
-  payments: Array<{ id: string; amount: number; paidOn: string; mode: string | null; reference: string | null; by: string | null; at: string }>
-  history: HistoryItem[]
-  createdByName: string | null
-}
-
-const BILL_STATUS: Record<BillView['status'], { label: string; variant: StatusBadgeVariant }> = {
-  open: { label: 'To pay', variant: 'warning' },
-  partly_paid: { label: 'Part paid', variant: 'info' },
-  paid: { label: 'Paid', variant: 'success' },
-  cancelled: { label: 'Cancelled', variant: 'neutral' },
-}
-
-export function VendorBillPage({ billId }: { billId: string }) {
-  const t = useT()
-  const [bill, setBill] = React.useState<BillView | null>(null)
-  const [error, setError] = React.useState<string | null>(null)
-  React.useEffect(() => {
-    void apiCall<BillView>(`/api/cc_accounts/vendor-bills?id=${encodeURIComponent(billId)}`).then((call) => {
-      if (!call.ok || !call.result) setError(t('cc_accounts.bills.loadError', 'Could not load this bill.'))
-      else setBill(call.result)
-    })
-  }, [billId, t])
-  if (error || !bill) return <RecordState error={error} loadingLabel={t('cc_accounts.loading', 'Loading…')} />
-  const status = BILL_STATUS[bill.status]
-  const facts: Fact[] = [
-    { label: t('cc_accounts.bills.billDate', 'Bill date'), value: formatDay(bill.billDate) },
-    { label: t('cc_accounts.bills.due', 'Due'), value: formatDay(bill.dueDate), tone: bill.overdueDays ? 'bad' : undefined, hint: bill.overdueDays ? t('cc_accounts.bills.overdueDays', '{days} days overdue', { days: bill.overdueDays }) : undefined },
-    { label: t('cc_accounts.bills.taxable', 'Taxable'), value: rupees(bill.taxable) },
-    { label: 'GST', value: rupees(bill.gst) },
-    { label: t('cc_accounts.bills.total', 'Total'), value: rupees(bill.total) },
-    { label: t('cc_accounts.bills.balance', 'Still to pay'), value: rupees(bill.balance), tone: bill.balance > 0.5 ? 'warn' : 'good' },
-  ]
-  return (
-    <RecordPage
-      back={{ href: '/backend/accounts/vendor-bills', label: t('cc_accounts.nav.vendorBills', 'Vendor bills & payments') }}
-      overline={[t('cc_accounts.bills.overline', 'Vendor bill'), bill.code].join(' · ')}
-      title={bill.billNo}
-      badges={<StatusBadge variant={status.variant} dot>{t(`cc_accounts.bills.status.${bill.status}`, status.label)}</StatusBadge>}
-      meta={
-        <>
-          <Link className="underline-offset-2 hover:underline" href={recordHref.vendor(bill.vendorId)}>
-            {bill.vendorName}
-          </Link>
-          {bill.createdByName ? ` · ${t('cc_accounts.bills.enteredBy', 'entered by {name}', { name: bill.createdByName })}` : ''}
-        </>
-      }
-      actions={<PrintButton />}
-      facts={facts}
-    >
-      <RecordColumns
-        main={
-          <>
-            <Panel title={t('cc_accounts.bills.payments', 'Payments made')} icon={Banknote} count={bill.payments.length} flush>
-              <RegisterGrid
-                rows={bill.payments}
-                rowKey={(row) => row.id}
-                empty={t('cc_accounts.bills.noPayments', 'Nothing paid on this bill yet.')}
-                columns={[
-                  { key: 'on', label: t('cc_accounts.pay.paidOn', 'Paid on'), render: (row) => formatDay(row.paidOn) },
-                  { key: 'mode', label: t('cc_accounts.pay.mode', 'Mode'), render: (row) => row.mode ?? '—' },
-                  { key: 'ref', label: t('cc_accounts.pay.reference', 'Reference'), mono: true, render: (row) => row.reference ?? '—' },
-                  { key: 'by', label: t('cc_accounts.pay.by', 'Entered by'), render: (row) => row.by ?? '—' },
-                  { key: 'amount', label: t('cc_accounts.pay.amount', 'Amount'), align: 'right', render: (row) => rupees(row.amount), total: rupees(bill.paid) },
-                ]}
-              />
-            </Panel>
-            {bill.notes ? (
-              <Panel title={t('cc_accounts.bills.notes', 'Notes')} icon={Receipt}>
-                <p className="whitespace-pre-wrap text-sm">{bill.notes}</p>
-              </Panel>
-            ) : null}
-          </>
-        }
-        side={
-          <Panel title={t('cc_accounts.bills.cameFrom', 'Came from')} icon={FileStack} flush>
-            <LinkRows
-              empty={t('cc_accounts.bills.noSource', 'Entered without a PO or GRN.')}
-              rows={[
-                { key: 'vendor', href: recordHref.vendor(bill.vendorId), primary: bill.vendorName, secondary: t('cc_accounts.bills.vendor', 'Vendor') },
-                ...(bill.poId ? [{ key: 'po', href: recordHref.purchaseOrder(bill.poId), primary: <span className="font-mono">{bill.poCode ?? '—'}</span>, secondary: t('cc_accounts.bills.po', 'Purchase order') }] : []),
-                ...bill.grnIds.map((grnId, index) => ({ key: grnId, href: recordHref.grn(grnId), primary: <span className="font-mono">{bill.grnCodes[index] ?? '—'}</span>, secondary: t('cc_accounts.bills.grn', 'Goods received') })),
-              ]}
-            />
-          </Panel>
-        }
-      />
-      <Attachments type="vendor_bill" id={bill.id} />
-      <Comments type="vendor_bill" id={bill.id} />
-      <Timeline type="vendor_bill" id={bill.id} refreshKey={bill.history.length} />
     </RecordPage>
   )
 }

@@ -4,7 +4,7 @@ import * as React from 'react'
 import { useGranted } from '../../cc_departments/components/useGranted'
 import { ViewOnlyNote } from '../../cc_departments/components/ViewOnlyNote'
 import Link from 'next/link'
-import { Ban, CheckCircle2, Printer, RefreshCcw, Save } from 'lucide-react'
+import { Ban, CheckCircle2, FilePen, History, Printer, RefreshCcw, Save } from 'lucide-react'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { Button } from '@open-mercato/ui/primitives/button'
 import { Input } from '@open-mercato/ui/primitives/input'
@@ -24,6 +24,7 @@ import { recordHref } from '../../cc_ui/lib/links'
 import { Timeline } from '../../cc_ui/components/Timeline'
 import { Comments } from '../../cc_ui/components/Comments'
 import { Attachments } from '../../cc_ui/components/Attachments'
+import { CorrectDialog } from '../../cc_ui/components/CorrectDialog'
 
 
 
@@ -40,6 +41,7 @@ export function ProformaPage({ id }: { id: string }) {
   const [form, setForm] = React.useState({ piDate: '', validUntil: '', advancePercent: '', terms: '', bankDetails: '', notes: '' })
   const [cancelOpen, setCancelOpen] = React.useState(false)
   const [reason, setReason] = React.useState('')
+  const [reviseOpen, setReviseOpen] = React.useState(false)
 
   const apply = (next: PiView) => {
     setPi(next)
@@ -151,9 +153,12 @@ export function ProformaPage({ id }: { id: string }) {
       overline={[t('cc_accounts.pi.overline', 'Proforma invoice'), pi.customerName].join(' · ')}
       title={pi.code}
       badges={
-        <StatusBadge variant={status.variant} dot>
-          {t(`cc_accounts.pi.status.${pi.status}`, status.label)}
-        </StatusBadge>
+        <>
+          <StatusBadge variant={status.variant} dot>
+            {t(`cc_accounts.pi.status.${pi.status}`, status.label)}
+          </StatusBadge>
+          {(pi.revision ?? 1) > 1 ? <StatusBadge variant="info">{t('cc_accounts.pi.revision', 'Rev {n}', { n: pi.revision ?? 1 })}</StatusBadge> : null}
+        </>
       }
       meta={
         <>
@@ -177,6 +182,12 @@ export function ProformaPage({ id }: { id: string }) {
             <Button type="button" size="sm" onClick={() => send('/api/cc_accounts/proformas/action', { id, action: 'send' }, t('cc_accounts.pi.sentFlash', 'Marked as sent; the order Advance stage has the PI no.'))} disabled={busy}>
               <CheckCircle2 className="mr-1.5 h-4 w-4" aria-hidden="true" />
               {t('cc_accounts.pi.markSent', 'Mark as sent')}
+            </Button>
+          ) : null}
+          {canRecord && pi.status === 'sent' ? (
+            <Button type="button" variant="outline" size="sm" onClick={() => setReviseOpen(true)} disabled={busy}>
+              <FilePen className="mr-1.5 h-4 w-4" aria-hidden="true" />
+              {t('cc_accounts.pi.revise', 'Revise')}
             </Button>
           ) : null}
           {canRecord && pi.status !== 'cancelled' ? (
@@ -257,10 +268,14 @@ export function ProformaPage({ id }: { id: string }) {
                 </div>
                 {editable ? (
                   <div className="flex flex-wrap justify-between gap-2">
-                    <Button type="button" variant="ghost" size="sm" onClick={() => send('/api/cc_accounts/proformas', { id, refreshLines: true }, t('cc_accounts.pi.refreshed', 'Lines and totals taken again from the order'))} disabled={busy}>
-                      <RefreshCcw className="mr-1.5 h-4 w-4" aria-hidden="true" />
-                      {t('cc_accounts.pi.refresh', 'Refresh from order')}
-                    </Button>
+                    {pi.status === 'draft' ? (
+                      <Button type="button" variant="ghost" size="sm" onClick={() => send('/api/cc_accounts/proformas', { id, refreshLines: true }, t('cc_accounts.pi.refreshed', 'Lines and totals taken again from the order'))} disabled={busy}>
+                        <RefreshCcw className="mr-1.5 h-4 w-4" aria-hidden="true" />
+                        {t('cc_accounts.pi.refresh', 'Refresh from order')}
+                      </Button>
+                    ) : (
+                      <span />
+                    )}
                     <Button type="button" size="sm" onClick={save} disabled={busy}>
                       <Save className="mr-1.5 h-4 w-4" aria-hidden="true" />
                       {t('cc_accounts.pi.save', 'Save')}
@@ -268,11 +283,51 @@ export function ProformaPage({ id }: { id: string }) {
                   </div>
                 ) : null}
               </section>
+              {pi.revisions?.length ? (
+                <section className="space-y-2 rounded-lg border bg-card p-4 shadow-xs">
+                  <h2 className="flex items-center gap-2 text-sm font-semibold">
+                    <History className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+                    {t('cc_accounts.pi.revisions', 'Earlier revisions')}
+                  </h2>
+                  <ul className="divide-y text-sm">
+                    {[...pi.revisions].reverse().map((rev) => (
+                      <li key={rev.revision} className="flex items-center justify-between gap-2 py-2">
+                        <span className="min-w-0">
+                          <span className="block font-medium">{t('cc_accounts.pi.revisionRow', 'Revision {n} · {total}', { n: rev.revision, total: rupeeText(rev.totals.total) })}</span>
+                          <span className="block truncate text-xs text-muted-foreground">{[dateText(rev.piDate), rev.by, rev.reason].filter(Boolean).join(' · ')}</span>
+                        </span>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => (printPi({ ...pi, ...rev, advanceAmount: rev.advancePercent ? Math.round(rev.totals.total * rev.advancePercent) / 100 : null, code: `${pi.code} (rev ${rev.revision})` }, company) ? null : flash(t('cc_accounts.pi.popup', 'Allow pop-ups to print'), 'error'))}
+                        >
+                          <Printer className="h-3.5 w-3.5" aria-hidden="true" />
+                          <span className="sr-only">{t('cc_accounts.pi.printRevision', 'Print revision {n}', { n: rev.revision })}</span>
+                        </Button>
+                      </li>
+                    ))}
+                  </ul>
+                </section>
+              ) : null}
               <Attachments type="proforma" id={pi.id} />
               <Comments type="proforma" id={pi.id} />
               <Timeline type="proforma" id={pi.id} refreshKey={pi.updatedAt} />
             </div>
           </div>
+      <CorrectDialog
+        open={reviseOpen}
+        onOpenChange={setReviseOpen}
+        destructive={false}
+        title={t('cc_accounts.pi.reviseTitle', 'Revise {code}', { code: pi.code })}
+        undo={[
+          t('cc_accounts.pi.reviseLines', 'Lines and totals are taken again from the order'),
+          t('cc_accounts.pi.reviseKeep', 'Revision {n} stays here and can still be printed', { n: pi.revision ?? 1 }),
+          t('cc_accounts.pi.reviseSend', 'The new revision is a draft until you send it again'),
+        ]}
+        confirmLabel={t('cc_accounts.pi.reviseConfirm', 'Make revision {n}', { n: (pi.revision ?? 1) + 1 })}
+        onConfirm={(why) => send('/api/cc_accounts/proformas/action', { id, action: 'revise', reason: why }, t('cc_accounts.pi.revised', 'New revision made'))}
+      />
     </RecordPage>
   )
 }

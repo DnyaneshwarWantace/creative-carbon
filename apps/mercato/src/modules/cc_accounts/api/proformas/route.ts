@@ -92,6 +92,7 @@ async function PUT(req: Request) {
       if (input.terms !== undefined) pi.terms = input.terms?.trim() || null
       if (input.bankDetails !== undefined) pi.bankDetails = input.bankDetails?.trim() || null
       if (input.notes !== undefined) pi.notes = input.notes?.trim() || null
+      if (input.refreshLines && pi.status !== 'draft') throw new AccountsError('This proforma is sent. Use Revise so the sent revision is kept.', 409)
       if (input.refreshLines) await refreshPiLines(ctx, pi, byName)
       pi.history = [...(pi.history ?? []), { action: 'edited', by: byName, at: new Date().toISOString(), note: null }]
       pi.updatedAt = new Date()

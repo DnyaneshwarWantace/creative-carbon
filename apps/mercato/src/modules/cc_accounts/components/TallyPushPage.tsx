@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from 'react'
-import { AlertTriangle, Download, FileCode2, History, ListChecks, RotateCw, Send, Waypoints } from 'lucide-react'
+import { AlertTriangle, Download, FileCode2, Hand, History, ListChecks, RotateCw, Send, Waypoints } from 'lucide-react'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { Button } from '@open-mercato/ui/primitives/button'
 import { StatusBadge, type StatusBadgeVariant } from '@open-mercato/ui/primitives/status-badge'
@@ -11,8 +11,12 @@ import { flash } from '@open-mercato/ui/backend/FlashMessages'
 import { FieldList, HistoryPanel, LinkRows, Panel, PanelEmpty, RecordColumns, RecordPage, RecordState, RegisterGrid, formatDay, formatWhen, type Fact } from '../../cc_ui/components/RecordPage'
 import { recordHref } from '../../cc_ui/lib/links'
 import { useGranted } from '../../cc_departments/components/useGranted'
+import { Timeline } from '../../cc_ui/components/Timeline'
+import { Comments } from '../../cc_ui/components/Comments'
+import { Attachments } from '../../cc_ui/components/Attachments'
+import { CorrectDialog } from '../../cc_ui/components/CorrectDialog'
 
-export type PushStatus = 'sent' | 'partial' | 'failed'
+export type PushStatus = 'sent' | 'partial' | 'failed' | 'manual'
 export type PushDocument = { key: string; type: string; number: string; date: string; reference: string | null; party: string; amount: number; recordId: string | null }
 export type PushAttempt = { at: string; by: string | null; status: PushStatus; httpStatus: number | null; created: number; altered: number; errors: number; lineErrors: string[]; error: string | null }
 export type PushView = {
@@ -42,6 +46,7 @@ export const PUSH_STATUS: Record<PushStatus, { label: string; variant: StatusBad
   sent: { label: 'In Tally', variant: 'success' },
   partial: { label: 'Partly in Tally', variant: 'warning' },
   failed: { label: 'Not sent', variant: 'error' },
+  manual: { label: 'Entered by hand', variant: 'info' },
 }
 
 export const KIND_LABEL: Record<string, string> = { sales: 'Sales', credit_notes: 'Credit notes', receipts: 'Receipts', purchases: 'Purchases', payments: 'Vendor payments' }
@@ -52,7 +57,8 @@ function rupees(value: number): string {
 
 function documentHref(doc: PushDocument): string | null {
   if (!doc.recordId) return null
-  if (doc.type === 'Sales' || doc.type === 'Credit Note') return recordHref.invoice(doc.recordId)
+  if (doc.type === 'Credit Note' || doc.type === 'Debit Note') return `/backend/accounts/notes/${doc.recordId}`
+  if (doc.type === 'Sales') return recordHref.invoice(doc.recordId)
   if (doc.type === 'Receipt') return recordHref.payment(doc.recordId)
   if (doc.type === 'Purchase' || doc.type === 'Payment') return recordHref.vendorBill(doc.recordId)
   return null
@@ -78,6 +84,7 @@ export function TallyPushPage({ pushId }: { pushId: string }) {
   const [error, setError] = React.useState<string | null>(null)
   const [busy, setBusy] = React.useState(false)
   const [showXml, setShowXml] = React.useState(false)
+  const [manualOpen, setManualOpen] = React.useState(false)
 
   const load = React.useCallback(async () => {
     const call = await apiCall<PushView>(`/api/cc_accounts/tally/pushes?id=${encodeURIComponent(pushId)}`)
@@ -93,9 +100,25 @@ export function TallyPushPage({ pushId }: { pushId: string }) {
 
   const status = PUSH_STATUS[push.status]
   const tookPart = push.attempts.some((attempt) => attempt.created + attempt.altered > 0)
-  const canRetry = canPush && push.status !== 'sent' && !tookPart
+  const canRetry = canPush && push.status !== 'sent' && push.status !== 'manual' && !tookPart
+  const canMarkManual = granted.has('cc_accounts.record') && (push.status === 'failed' || push.status === 'partial')
   const last = push.lastAttempt
   const totals = push.attempts.reduce((sum, attempt) => ({ created: Math.max(sum.created, attempt.created), altered: Math.max(sum.altered, attempt.altered) }), { created: 0, altered: 0 })
+
+  const markManual = async (reason: string): Promise<boolean> => {
+    const call = await runMutation({
+      context: { formId: `cc-tally-push-${push.id}`, resourceKind: 'cc_accounts.tally_push', resourceId: push.id, retryLastMutation },
+      mutationPayload: { id: push.id, reason },
+      operation: () => apiCall<PushView & { error?: string }>('/api/cc_accounts/tally/pushes/manual', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ id: push.id, reason }) }),
+    })
+    if (!call.ok || !call.result || call.result.error) {
+      flash(call.result?.error ?? t('cc_accounts.push.manualError', 'Could not mark it.'), 'error')
+      return false
+    }
+    setPush(call.result)
+    flash(t('cc_accounts.push.manualOk', 'Marked as entered in Tally by hand'), 'success')
+    return true
+  }
 
   const retry = async () => {
     setBusy(true)
@@ -138,6 +161,18 @@ export function TallyPushPage({ pushId }: { pushId: string }) {
             <Button type="button" variant="outline" size="sm" onClick={() => saveFile(`${push.code}.xml`, push.requestXml ?? '', 'application/xml')}>
               <Download className="mr-1.5 h-4 w-4" aria-hidden="true" />
               {t('cc_accounts.push.downloadXml', 'XML sent')}
+            </Button>
+          ) : null}
+          {push.responseText ? (
+            <Button type="button" variant="outline" size="sm" onClick={() => saveFile(`${push.code}-reply.xml`, push.responseText ?? '', 'application/xml')}>
+              <Download className="mr-1.5 h-4 w-4" aria-hidden="true" />
+              {t('cc_accounts.push.downloadReply', 'Tally reply')}
+            </Button>
+          ) : null}
+          {canMarkManual ? (
+            <Button type="button" variant="outline" size="sm" disabled={busy} onClick={() => setManualOpen(true)}>
+              <Hand className="mr-1.5 h-4 w-4" aria-hidden="true" />
+              {t('cc_accounts.push.manual', 'Entered by hand')}
             </Button>
           ) : null}
           {canRetry ? (
@@ -236,7 +271,7 @@ export function TallyPushPage({ pushId }: { pushId: string }) {
             <Panel title={t('cc_accounts.push.linked', 'Linked to')} icon={Waypoints} count={push.documents.length} flush>
               <LinkRows
                 empty={t('cc_accounts.push.noDocs', 'No entries.')}
-                rows={push.documents.slice(0, 12).map((doc) => ({
+                rows={push.documents.map((doc) => ({
                   key: doc.key,
                   href: documentHref(doc),
                   primary: <span className="font-mono">{doc.number}</span>,
@@ -261,6 +296,18 @@ export function TallyPushPage({ pushId }: { pushId: string }) {
           by: attempt.by,
           at: attempt.at,
         }))}
+      />
+      <Attachments type="tally_push" id={push.id} hint={t('cc_accounts.push.filesHint', 'Screenshots from Tally, the accountant’s confirmation, or anything else for this push.')} />
+      <Comments type="tally_push" id={push.id} />
+      <Timeline type="tally_push" id={push.id} refreshKey={push.updatedAt} />
+      <CorrectDialog
+        open={manualOpen}
+        onOpenChange={setManualOpen}
+        destructive={false}
+        title={t('cc_accounts.push.manualTitle', 'Mark {code} as entered in Tally by hand?', { code: push.code })}
+        undo={[t('cc_accounts.push.manualStop', 'It will not be sent again'), t('cc_accounts.push.manualLock', 'Its entries count as in Tally, so they can no longer be corrected here')]}
+        confirmLabel={t('cc_accounts.push.manualConfirm', 'Mark as entered')}
+        onConfirm={markManual}
       />
     </RecordPage>
   )

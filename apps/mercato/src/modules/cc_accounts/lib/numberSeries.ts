@@ -1,6 +1,6 @@
 import type { EntityManager } from '@mikro-orm/postgresql'
 
-export type SeriesKey = 'SO' | 'ENQ' | 'QT' | 'PI' | 'INV' | 'CN' | 'VB' | 'IND' | 'PO' | 'GR' | 'JW' | 'SKU' | 'RB' | 'PB' | 'LOT_BS' | 'LOT_PR' | 'LOT_MO' | 'LOT_CUT' | 'LOT_FG' | 'LOT_BI'
+export type SeriesKey = 'SO' | 'ENQ' | 'QT' | 'PI' | 'INV' | 'CN' | 'DN' | 'VB' | 'IND' | 'PO' | 'GR' | 'JW' | 'SKU' | 'RB' | 'PB' | 'LOT_BS' | 'LOT_PR' | 'LOT_MO' | 'LOT_CUT' | 'LOT_FG' | 'LOT_BI'
 
 export type SeriesSetting = { prefix: string; suffix: string; pad: number; startAt: number }
 
@@ -13,6 +13,7 @@ export const SERIES_DEFS: SeriesDef[] = [
   { key: 'PI', label: 'Proforma invoice', department: 'Accounts', table: 'cc_proforma_invoices', column: 'code', prefix: 'CCCPL/PI/{FY}/', suffix: '', pad: 3, startAt: 1 },
   { key: 'INV', label: 'Tax invoice', department: 'Accounts', table: 'cc_tax_invoices', column: 'code', prefix: 'CCCPL/INV/{FY}/', suffix: '', pad: 4, startAt: 1 },
   { key: 'CN', label: 'Credit note', department: 'Accounts', table: 'cc_tax_invoices', column: 'code', prefix: 'CCCPL/CN/{FY}/', suffix: '', pad: 4, startAt: 1 },
+  { key: 'DN', label: 'Debit note (to vendor)', department: 'Accounts', table: 'cc_debit_notes', column: 'code', prefix: 'CCCPL/DN/{FY}/', suffix: '', pad: 4, startAt: 1 },
   { key: 'VB', label: 'Vendor bill', department: 'Accounts', table: 'cc_vendor_bills', column: 'code', prefix: 'CCCPL/VB/{FY}/', suffix: '', pad: 4, startAt: 1 },
   { key: 'IND', label: 'Purchase indent', department: 'Purchase', table: 'cc_purchase_indents', column: 'code', prefix: 'CCCPL/IND/{FY}/', suffix: '', pad: 4, startAt: 1 },
   { key: 'PO', label: 'Purchase order', department: 'Purchase', table: 'cc_pos', column: 'code', prefix: 'CCCPL/PO/{FY}/', suffix: '', pad: 4, startAt: 1 },

@@ -1,7 +1,7 @@
 import { Vendor } from '../../cc_vendors/data/entities'
 import { loadCustomers, type OrderContext } from '../../cc_orders/lib/server'
 import { CcOrder } from '../../cc_orders/data/entities'
-import { OrderPayment, TaxInvoice, VendorBill } from '../data/entities'
+import { OrderPayment, TaxInvoice, DebitNote, VendorBill } from '../data/entities'
 import { loadCompany } from './documents'
 import { stateFromGstin } from './gstStates'
 
@@ -28,7 +28,7 @@ export type TallyLedgers = typeof DEFAULT_LEDGERS
 type Entry = { ledger: string; amount: number }
 
 export type TallyVoucher = {
-  type: 'Sales' | 'Credit Note' | 'Receipt' | 'Purchase' | 'Payment'
+  type: 'Sales' | 'Credit Note' | 'Receipt' | 'Purchase' | 'Payment' | 'Debit Note'
   date: string
   number: string
   reference: string | null
@@ -137,6 +137,7 @@ export async function tallyData(ctx: OrderContext, range: { from: string; to: st
       let paidInRange = false
       if (want.has('payments')) {
         for (const payment of bill.payments ?? []) {
+          if (payment.voidedAt) continue
           if (!between(payment.paidOn, range.from, range.to)) continue
           paidInRange = true
           const amount = round2(Number(payment.amount))
@@ -156,6 +157,27 @@ export async function tallyData(ctx: OrderContext, range: { from: string; to: st
         }
       }
       if ((used || paidInRange) && !parties.has(party)) parties.set(party, { name: party, group: 'Sundry Creditors', gstin: vendor?.gstNumber ?? null, state: stateFromGstin(vendor?.gstNumber)?.name ?? null })
+    }
+    if (want.has('purchases')) {
+      const notes = await ctx.em.find(DebitNote, { ...scope, deletedAt: null, status: 'issued' }, { orderBy: { noteDate: 'asc' } })
+      for (const note of notes) {
+        if (!between(note.noteDate, range.from, range.to)) continue
+        const bill = bills.find((entry) => entry.id === note.vendorBillId)
+        const vendor = vendors.find((entry) => entry.id === note.vendorId)
+        const vendorState = stateFromGstin(vendor?.gstNumber)?.code ?? null
+        const party = note.vendorName
+        const taxable = round2(Number(note.taxable))
+        const gst = splitGst(Number(note.gst), Boolean(homeState && vendorState && homeState !== vendorState))
+        const total = round2(Number(note.total))
+        const entries: Entry[] = [{ ledger: party, amount: -total }, { ledger: ledgers.purchase, amount: taxable }]
+        if (gst.cgst) entries.push({ ledger: ledgers.inputCgst, amount: gst.cgst })
+        if (gst.sgst) entries.push({ ledger: ledgers.inputSgst, amount: gst.sgst })
+        if (gst.igst) entries.push({ ledger: ledgers.inputIgst, amount: gst.igst })
+        const difference = round2(total - taxable - gst.cgst - gst.sgst - gst.igst)
+        if (difference) entries.push({ ledger: ledgers.roundOff, amount: difference })
+        vouchers.push({ type: 'Debit Note', date: note.noteDate, number: note.code, reference: bill?.billNo ?? note.billCode, party, narration: [`Debit note against bill ${bill?.billNo ?? note.billCode}`, note.reason].filter(Boolean).join(' · '), entries, recordId: note.id })
+        if (!parties.has(party)) parties.set(party, { name: party, group: 'Sundry Creditors', gstin: vendor?.gstNumber ?? null, state: stateFromGstin(vendor?.gstNumber)?.name ?? null })
+      }
     }
   }
 

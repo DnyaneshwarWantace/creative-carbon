@@ -1,3 +1,4 @@
+import { logPushOnDocuments } from './tallyLog'
 import type { OrderContext } from '../../cc_orders/lib/server'
 import { CompanyProfile, TallyPush, type TallyPushAttempt, type TallyPushDocument, type TallyPushStatus, type TallySettings } from '../data/entities'
 import { DEFAULT_LEDGERS, remoteIdOf, tallyData, tallyXml, type TallyKind, type TallyLedgers, type TallyVoucher } from './tally'
@@ -89,7 +90,7 @@ function documentOf(voucher: TallyVoucher): TallyPushDocument {
 export async function pushedKeys(ctx: OrderContext): Promise<Map<string, string>> {
   const rows = await ctx.em.getConnection().execute<Array<{ code: string; key: string }>>(
     `select p.code, d->>'key' as key from cc_tally_pushes p, jsonb_array_elements(p.documents) d
-      where p.tenant_id = ? and p.organization_id = ? and p.status in ('sent', 'partial')`,
+      where p.tenant_id = ? and p.organization_id = ? and p.status in ('sent', 'partial', 'manual')`,
     [ctx.tenantId, ctx.organizationId],
   )
   return new Map(rows.map((row) => [row.key, row.code]))
@@ -201,12 +202,16 @@ export async function pushRange(
     attempts: [attempt],
     pushedByName: by,
   })
-  await ctx.em.persist(push).flush()
+  ctx.em.persist(push)
+  await ctx.em.flush()
+  logPushOnDocuments(ctx, push, attempt, false)
+  await ctx.em.flush()
   return push
 }
 
 export async function retryPush(ctx: OrderContext, push: TallyPush, by: string | null): Promise<TallyPush> {
   if (push.status === 'sent') throw new AccountsError('This push already went through', 409)
+  if (push.status === 'manual') throw new AccountsError('This push is marked as entered in Tally by hand', 409)
   const already = await pushedKeys(ctx)
   already.forEach((code, key) => {
     if (code === push.code) already.delete(key)
@@ -228,6 +233,27 @@ export async function retryPush(ctx: OrderContext, push: TallyPush, by: string |
   push.tallyUrl = connectionLabel(settings)
   push.status = attempt.status
   push.attempts = [...push.attempts, attempt]
+  await ctx.em.flush()
+  logPushOnDocuments(ctx, push, attempt, true)
+  await ctx.em.flush()
+  return push
+}
+
+export async function markPushManual(ctx: OrderContext, push: TallyPush, reason: string, by: string | null): Promise<TallyPush> {
+  if (push.status === 'sent') throw new AccountsError('This push already went through', 409)
+  if (push.status === 'manual') throw new AccountsError('Already marked as entered by hand', 409)
+  const attempt: TallyPushAttempt = { at: new Date().toISOString(), by, status: 'manual', httpStatus: null, created: 0, altered: 0, errors: 0, lineErrors: [], error: reason }
+  push.status = 'manual'
+  push.attempts = [...push.attempts, attempt]
+  await ctx.em.flush()
+  const { recordActivity } = await import('../../cc_audit/lib/activity')
+  const { TALLY_RECORD_TYPE } = await import('./tallyLog')
+  recordActivity(ctx.em, ctx, { recordType: 'tally_push', recordId: push.id, action: 'marked_manual', kind: 'correction', summary: 'Marked as entered in Tally by hand; it will not be sent again', reason, actorUserId: ctx.userId ?? null, actorName: by })
+  for (const doc of push.documents) {
+    const recordType = TALLY_RECORD_TYPE[doc.type]
+    if (!doc.recordId || !recordType) continue
+    recordActivity(ctx.em, ctx, { recordType, recordId: doc.recordId, action: 'tally_manual', kind: 'system', summary: `Entered in Tally by hand (${push.code}, ${doc.type} ${doc.number})`, reason, links: [{ type: 'tally_push', id: push.id, label: push.code }], actorUserId: ctx.userId ?? null, actorName: by })
+  }
   await ctx.em.flush()
   return push
 }

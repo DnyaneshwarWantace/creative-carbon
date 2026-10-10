@@ -44,7 +44,7 @@ async function POST(req: Request) {
   }
 }
 
-const pushSchema = z.object({ id: z.string(), code: z.string(), status: z.enum(['sent', 'partial', 'failed']) }).passthrough()
+const pushSchema = z.object({ id: z.string(), code: z.string(), status: z.enum(['sent', 'partial', 'failed', 'manual']) }).passthrough()
 
 export const openApi: OpenApiRouteDoc = {
   tag: 'Creative Carbon Accounts',
