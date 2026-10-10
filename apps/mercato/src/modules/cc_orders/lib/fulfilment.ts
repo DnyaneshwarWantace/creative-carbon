@@ -8,7 +8,7 @@ import { MouldingEntry } from '../../cc_production/data/entities'
 import { CcOrder, CcOrderAllocation, CcOrderLine, CcOrderPacking, CcOrderStage } from '../data/entities'
 import { loadCustomers, loadProducts, OrderError, type OrderContext } from './server'
 import { logEvent } from './engine'
-import { stepStates } from './stages'
+import { isFinished, stepStates } from './stages'
 import type { LineSpecs } from './specs'
 
 const EPSILON = 0.0005
@@ -231,6 +231,28 @@ export async function releaseAllocation(ctx: OrderContext, order: CcOrder, alloc
   await refreshAllocationSteps(ctx, order, stage, byName)
   logEvent(ctx, order, 'unallocated', 'allocation', `${allocation.lotNumber}: ${allocation.qty} ${allocation.unit} released`, byName)
   await ctx.em.flush()
+}
+
+export async function undoAllocation(ctx: OrderContext, order: CcOrder, allocationId: string, reason: string, byName: string | null, options: { reopenAnyTime: boolean }) {
+  const allocation = await ctx.em.findOne(CcOrderAllocation, { ...scope(ctx), id: allocationId, orderId: order.id })
+  if (!allocation || allocation.status !== 'reserved') throw new OrderError('That allocation is not held any more', 409)
+  if (Number(allocation.shippedQty) > EPSILON) throw new OrderError('Part of it is despatched already', 409)
+  const packing = await stageOf(ctx, order.id, 'packing')
+  if (isFinished(packing.status) || stepStates(packing.data).packed?.done) throw new OrderError('The goods are packed. Reopen packing first, then undo the allocation.', 409)
+  const stage = await stageOf(ctx, order.id, 'allocation')
+  if (isFinished(stage.status)) {
+    const { applyStageAction } = await import('./engine')
+    await applyStageAction(ctx, order, { orderId: order.id, stageKey: 'allocation', action: 'revert', note: `Undo allocation of ${allocation.lotNumber}: ${reason}` }, { reopenAnyTime: options.reopenAnyTime })
+    await ctx.em.flush()
+  }
+  if (allocation.reservationId) await runCommand(asStore(ctx), 'wms.inventory.release', { reservationId: allocation.reservationId, reason: `Allocation undone on ${order.orderNo}: ${reason}` })
+  allocation.status = 'released'
+  await ctx.em.flush()
+  await refreshAllocationSteps(ctx, order, stage, byName)
+  logEvent(ctx, order, 'allocation_undone', 'allocation', `${allocation.lotNumber}: ${allocation.qty} ${allocation.unit} back to free stock · ${reason}`, byName)
+  await ctx.em.flush()
+  const { logCorrection } = await import('../../cc_audit/lib/activity')
+  await logCorrection(ctx, { recordType: 'order', recordId: order.id, action: 'allocation_undone', summary: `Allocation of lot ${allocation.lotNumber} (${allocation.qty} ${allocation.unit}) undone; stock is free again`, reason })
 }
 
 export async function savePacking(ctx: OrderContext, order: CcOrder, input: { lineId: string; weights: number[]; pieces: number | null; notes: string | null }, byName: string | null) {

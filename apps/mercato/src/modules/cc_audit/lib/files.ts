@@ -23,22 +23,34 @@ export function filesRecordId(type: string, id: string): string {
   return `${type}:${id}`
 }
 
+export type FileLocation = { entityId: string; recordId: string }
+
+const SLOT_ENTITIES: Record<string, string[]> = {
+  order: ['cc_orders:order_stage'],
+}
+
+export function fileLocation(type: string, id: string, slot?: { entityId?: string | null; recordId?: string | null } | null): FileLocation {
+  if (!slot?.entityId || !slot.recordId) return { entityId: RECORD_FILES_ENTITY, recordId: filesRecordId(type, id) }
+  if (!(SLOT_ENTITIES[type] ?? []).includes(slot.entityId) || !slot.recordId.startsWith(`${id}:`)) throw new FileError('That file place does not belong to this record', 400)
+  return { entityId: slot.entityId, recordId: slot.recordId }
+}
+
 function view(row: FileRow): RecordFile {
   const meta = row.storage_metadata?.ccFile ?? {}
   return { id: row.id, fileName: row.file_name, mimeType: row.mime_type, fileSize: Number(row.file_size), at: new Date(row.created_at).toISOString(), by: meta.byName ?? null, label: meta.label ?? null, version: meta.version ?? 1, registered: Boolean(meta.registeredAt) }
 }
 
-async function rows(ctx: Scope, type: string, id: string): Promise<FileRow[]> {
+async function rows(ctx: Scope, location: FileLocation): Promise<FileRow[]> {
   return ctx.em.getConnection().execute<FileRow[]>(
     `select id, file_name, mime_type, file_size, created_at, storage_metadata from attachments
       where entity_id = ? and record_id = ? and tenant_id = ? and (organization_id = ? or organization_id is null)
       order by created_at desc`,
-    [RECORD_FILES_ENTITY, filesRecordId(type, id), ctx.tenantId, ctx.organizationId],
+    [location.entityId, location.recordId, ctx.tenantId, ctx.organizationId],
   )
 }
 
-export async function recordFiles(ctx: Scope, type: string, id: string): Promise<RecordFileGroup[]> {
-  const all = await rows(ctx, type, id)
+export async function recordFiles(ctx: Scope, location: FileLocation): Promise<RecordFileGroup[]> {
+  const all = await rows(ctx, location)
   const byId = new Map(all.map((row) => [row.id, row]))
   const current = all.filter((row) => !row.storage_metadata?.ccFile?.supersededBy)
   return current.map((row) => {
@@ -55,8 +67,8 @@ export async function recordFiles(ctx: Scope, type: string, id: string): Promise
   })
 }
 
-export async function registerFile(ctx: Scope & { userName: string | null }, input: { type: string; id: string; attachmentId: string; label?: string | null; replaces?: string | null }) {
-  const all = await rows(ctx, input.type, input.id)
+export async function registerFile(ctx: Scope & { userName: string | null }, input: { type: string; id: string; location: FileLocation; attachmentId: string; label?: string | null; replaces?: string | null }) {
+  const all = await rows(ctx, input.location)
   const file = all.find((row) => row.id === input.attachmentId)
   if (!file) throw new FileError('That file is not attached to this record', 404)
   if (file.storage_metadata?.ccFile?.registeredAt) throw new FileError('That file is already recorded', 409)
@@ -82,5 +94,5 @@ export async function registerFile(ctx: Scope & { userName: string | null }, inp
     actorName: ctx.userName,
   })
   await ctx.em.flush()
-  return (await recordFiles(ctx, input.type, input.id)).find((group) => group.id === file.id) ?? null
+  return (await recordFiles(ctx, input.location)).find((group) => group.id === file.id) ?? null
 }

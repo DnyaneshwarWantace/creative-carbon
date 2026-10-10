@@ -5,7 +5,7 @@ import { resolveStoreContext } from '../../../cc_store/lib/server'
 import { currentUserName } from '../../../cc_orders/lib/server'
 import { filesQuerySchema, registerFileSchema } from '../../data/validators'
 import { recordAccess } from '../../lib/access'
-import { FileError, RECORD_FILES_ENTITY, recordFiles, registerFile } from '../../lib/files'
+import { FileError, fileLocation, recordFiles, registerFile } from '../../lib/files'
 
 export const metadata = {
   GET: { requireAuth: true, requireFeatures: ['attachments.view'] },
@@ -19,7 +19,13 @@ async function GET(req: Request) {
   if (!parsed.success) return NextResponse.json({ error: parsed.error.issues[0]?.message ?? 'Invalid query' }, { status: 400 })
   const access = await recordAccess(ctx, parsed.data.type)
   if ('error' in access) return NextResponse.json({ error: access.error }, { status: access.status })
-  return NextResponse.json({ entityId: RECORD_FILES_ENTITY, recordId: `${parsed.data.type}:${parsed.data.id}`, items: await recordFiles(ctx, parsed.data.type, parsed.data.id) })
+  try {
+    const location = fileLocation(parsed.data.type, parsed.data.id, parsed.data)
+    return NextResponse.json({ ...location, items: await recordFiles(ctx, location) })
+  } catch (error) {
+    if (error instanceof FileError) return NextResponse.json({ error: error.message }, { status: error.status })
+    throw error
+  }
 }
 
 async function POST(req: Request) {
@@ -30,7 +36,8 @@ async function POST(req: Request) {
   const access = await recordAccess(ctx, parsed.data.type)
   if ('error' in access) return NextResponse.json({ error: access.error }, { status: access.status })
   try {
-    const item = await registerFile({ ...ctx, userName: await currentUserName(ctx) }, parsed.data)
+    const location = fileLocation(parsed.data.type, parsed.data.id, parsed.data)
+    const item = await registerFile({ ...ctx, userName: await currentUserName(ctx) }, { ...parsed.data, location })
     return NextResponse.json({ ok: true, item })
   } catch (error) {
     if (error instanceof FileError) return NextResponse.json({ error: error.message }, { status: error.status })

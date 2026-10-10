@@ -36,6 +36,10 @@ export class CcOrder {
     | 'revisedAt'
     | 'revisedByName'
     | 'revisionNote'
+    | 'revision'
+    | 'heldAt'
+    | 'holdReason'
+    | 'heldByName'
     | 'createdByName'
     | 'createdAt'
     | 'updatedAt'
@@ -127,6 +131,18 @@ export class CcOrder {
 
   @Property({ name: 'revision_note', type: 'text', nullable: true })
   revisionNote?: string | null
+
+  @Property({ type: 'integer', default: 1 })
+  revision: number = 1
+
+  @Property({ name: 'held_at', type: Date, nullable: true })
+  heldAt?: Date | null
+
+  @Property({ name: 'hold_reason', type: 'text', nullable: true })
+  holdReason?: string | null
+
+  @Property({ name: 'held_by_name', type: 'text', nullable: true })
+  heldByName?: string | null
 
   @Property({ name: 'created_by_name', type: 'text', nullable: true })
   createdByName?: string | null

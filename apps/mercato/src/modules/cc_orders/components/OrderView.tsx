@@ -3,10 +3,12 @@
 import * as React from 'react'
 import { Timeline } from '../../cc_ui/components/Timeline'
 import { Comments } from '../../cc_ui/components/Comments'
+import { Attachments } from '../../cc_ui/components/Attachments'
+import { CorrectDialog } from '../../cc_ui/components/CorrectDialog'
 import { useGranted } from '../../cc_departments/components/useGranted'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { ArrowLeft, Ban, CheckCircle2, Copy, Layers, Lock, Package, Pencil } from 'lucide-react'
+import { ArrowLeft, Ban, CheckCircle2, Copy, Layers, Lock, Package, PauseCircle, Pencil, PlayCircle } from 'lucide-react'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { cn } from '@open-mercato/shared/lib/utils'
 import { Page, PageBody } from '@open-mercato/ui/backend/Page'
@@ -148,6 +150,7 @@ export function OrderView({ orderId }: { orderId: string }) {
   const busy = cancelBusy || stageRunner.busy
   const [cancelOpen, setCancelOpen] = React.useState(false)
   const [cancelReason, setCancelReason] = React.useState('')
+  const [holdOpen, setHoldOpen] = React.useState(false)
   const [tab, setTab] = React.useState<OrderTab>('work')
   const [sources, setSources] = React.useState<Array<{ id: string; quoteNo: string; quoteDate: string; enquiryId: string | null; enquiryNo: string | null }> | null>(null)
 
@@ -244,6 +247,30 @@ export function OrderView({ orderId }: { orderId: string }) {
     }
   }
 
+  const holdOrder = async (reason: string): Promise<boolean> => {
+    if (!order) return false
+    const body = { id: order.id, action: order.held ? 'release' : 'hold', reason }
+    const call = await runMutation({
+      context: { orderId: order.id, action: body.action },
+      mutationPayload: body,
+      operation: () =>
+        withScopedApiRequestHeaders(buildOptimisticLockHeader(order.updatedAt), () =>
+          apiCall<Order & { error?: string }>('/api/cc_orders/orders/hold', {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify(body),
+          }),
+        ),
+    })
+    if (!call.ok || !call.result) {
+      flash(call.result?.error ?? t('cc_orders.errors.hold', 'Could not change the hold.'), 'error')
+      return false
+    }
+    setOrder(call.result)
+    flash(body.action === 'hold' ? t('cc_orders.flash.held', 'Order put on hold') : t('cc_orders.flash.released', 'Order released'), 'success')
+    return true
+  }
+
   if (loadError) {
     return (
       <Page>
@@ -299,6 +326,7 @@ export function OrderView({ orderId }: { orderId: string }) {
                   {statusLabel}
                 </StatusBadge>
                 {order.onHold ? <StatusBadge variant="error">{t('cc_orders.status.on_hold', 'On hold')}</StatusBadge> : null}
+                {(order.revision ?? 1) > 1 ? <StatusBadge variant="info">{t('cc_orders.view.revision', 'Rev {n}', { n: order.revision ?? 1 })}</StatusBadge> : null}
                 {order.priority === 'urgent' ? <StatusBadge variant="error">{t('cc_orders.priority.urgent', 'Urgent')}</StatusBadge> : null}
                 {order.headline === 'delivered' ? <StatusBadge variant="success">{t('cc_orders.headline.delivered', 'Delivered')}</StatusBadge> : null}
                 {order.headline === 'updated' ? (
@@ -340,6 +368,10 @@ export function OrderView({ orderId }: { orderId: string }) {
               ) : null}
               {order.status !== 'cancelled' && order.status !== 'completed' && granted.has('cc_orders.manage') ? (
                 <>
+                  <Button type="button" variant="outline" size="sm" onClick={() => setHoldOpen(true)}>
+                    {order.held ? <PlayCircle className="mr-1.5 h-4 w-4" /> : <PauseCircle className="mr-1.5 h-4 w-4" />}
+                    {order.held ? t('cc_orders.view.release', 'Release hold') : t('cc_orders.view.hold', 'Put on hold')}
+                  </Button>
                   <Button type="button" variant="destructive-ghost" size="sm" onClick={() => setCancelOpen(true)}>
                     <Ban className="mr-1.5 h-4 w-4" />
                     {t('cc_orders.view.cancel', 'Cancel order')}
@@ -402,6 +434,18 @@ export function OrderView({ orderId }: { orderId: string }) {
               </HorizontalScroll>
             </CardContent>
           </Card>
+
+          {order.held ? (
+            <div className="flex items-start gap-2 rounded-lg border border-status-error-border bg-status-error-bg p-3 text-sm text-status-error-text">
+              <PauseCircle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+              <p>
+                <span className="font-semibold">{t('cc_orders.view.heldTitle', 'On hold since {at}', { at: formatDateTime(order.held.at) })}</span>
+                {order.held.by ? ` · ${order.held.by}` : ''}
+                {order.held.reason ? ` · ${order.held.reason}` : ''}
+                <span className="block text-xs">{t('cc_orders.view.heldHint', 'Stage work is stopped and stage clocks are paused until the order is released.')}</span>
+              </p>
+            </div>
+          ) : null}
 
           <div className="grid grid-cols-1 gap-5 lg:grid-cols-12">
             <div className="min-w-0 space-y-4 lg:col-span-8">
@@ -472,6 +516,7 @@ export function OrderView({ orderId }: { orderId: string }) {
             </CardContent>
           </Card>
               ) : null}
+              {tab === 'documents' ? <Attachments type="order" id={order.id} title={t('cc_orders.view.orderFiles', 'Customer PO, drawings and other files')} /> : null}
               {tab === 'documents' ? <DocumentsOverview order={limited ? { ...order, stages: order.stages.filter((stage) => !stage.locked) } : order} onStage={goToStage} /> : null}
               {tab === 'money' && order.canSeeMoney ? <OrderMoneyCard order={order} onChanged={load} /> : null}
               {tab === 'history' ? (
@@ -580,6 +625,15 @@ export function OrderView({ orderId }: { orderId: string }) {
           </p>
         </div>
 
+        <CorrectDialog
+          open={holdOpen}
+          onOpenChange={setHoldOpen}
+          destructive={!order.held}
+          title={order.held ? t('cc_orders.hold.releaseTitle', 'Release {no}?', { no: order.orderNo }) : t('cc_orders.hold.title', 'Put {no} on hold?', { no: order.orderNo })}
+          description={order.held ? t('cc_orders.hold.releaseHint', 'Stage work can go on again. Open stages get the held time back on their clocks.') : t('cc_orders.hold.hint', 'Stage work stops and the stage clocks pause until it is released. The departments with open stages are told.')}
+          confirmLabel={order.held ? t('cc_orders.hold.release', 'Release') : t('cc_orders.hold.confirm', 'Put on hold')}
+          onConfirm={holdOrder}
+        />
         <Dialog open={cancelOpen} onOpenChange={setCancelOpen}>
           <DialogContent
             onKeyDown={(event) => {

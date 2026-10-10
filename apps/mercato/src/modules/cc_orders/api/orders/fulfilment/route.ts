@@ -3,16 +3,17 @@ import { z } from 'zod'
 import type { OpenApiRouteDoc } from '@open-mercato/shared/lib/openapi'
 import { resolveStoreContext } from '../../../../cc_store/lib/server'
 import { fulfilmentActionSchema, fulfilmentQuerySchema } from '../../../data/validators'
-import { allocateLot, allocationCandidates, fulfilmentView, markPacked, qcView, releaseAllocation, savePacking, syncQcSteps } from '../../../lib/fulfilment'
+import { allocateLot, allocationCandidates, fulfilmentView, markPacked, qcView, releaseAllocation, savePacking, syncQcSteps, undoAllocation } from '../../../lib/fulfilment'
 import { currentUserName, findOrder, hasFeatures } from '../../../lib/server'
 import { orderErrorResponse, runGuarded } from '../../../lib/guard'
+import { reasonIssue } from '../../../../cc_audit/lib/reason'
 
 export const metadata = {
   GET: { requireAuth: true, requireFeatures: ['cc_orders.view'] },
   POST: { requireAuth: true, requireFeatures: ['cc_orders.stages'] },
 }
 
-const FEATURE: Record<string, string> = { allocate: 'cc_orders.work.store', release: 'cc_orders.work.store', pack: 'cc_orders.work.dispatch', packed: 'cc_orders.work.dispatch', qc_sync: 'cc_orders.work.qc' }
+const FEATURE: Record<string, string> = { allocate: 'cc_orders.work.store', release: 'cc_orders.work.store', undo: 'cc_orders.work.store', pack: 'cc_orders.work.dispatch', packed: 'cc_orders.work.dispatch', qc_sync: 'cc_orders.work.qc' }
 
 async function GET(req: Request) {
   const ctx = await resolveStoreContext(req)
@@ -32,7 +33,7 @@ async function POST(req: Request) {
   const ctx = await resolveStoreContext(req)
   if ('error' in ctx) return NextResponse.json({ error: ctx.error }, { status: ctx.status })
   const parsed = fulfilmentActionSchema.safeParse(await req.json().catch(() => null))
-  if (!parsed.success) return NextResponse.json({ error: 'Check the line, lot and quantity' }, { status: 400 })
+  if (!parsed.success) return NextResponse.json({ error: reasonIssue(parsed.error) ?? 'Check the line, lot and quantity' }, { status: 400 })
   const input = parsed.data
   if (!(await hasFeatures(ctx, [FEATURE[input.action]]))) return NextResponse.json({ error: 'Your department does not do this step' }, { status: 403 })
   try {
@@ -43,6 +44,7 @@ async function POST(req: Request) {
       let extra: Record<string, unknown> = {}
       if (input.action === 'allocate') await allocateLot(ctx, order, input, byName)
       if (input.action === 'release') await releaseAllocation(ctx, order, input.allocationId, byName)
+      if (input.action === 'undo') await undoAllocation(ctx, order, input.allocationId, input.reason!.trim(), byName, { reopenAnyTime: await hasFeatures(ctx, ['cc_orders.reopen']) })
       if (input.action === 'pack') extra = await savePacking(ctx, order, input, byName)
       if (input.action === 'packed') await markPacked(ctx, order, byName)
       if (input.action === 'qc_sync') extra = { qc: await syncQcSteps(ctx, order, byName) }

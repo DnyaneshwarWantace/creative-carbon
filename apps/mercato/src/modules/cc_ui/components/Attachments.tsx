@@ -56,7 +56,7 @@ function FileLine({ file, old }: { file: FileItem; old?: boolean }) {
   )
 }
 
-export function Attachments({ type, id, title, hint, onChanged }: { type: string; id: string; title?: string; hint?: string; onChanged?: () => void }) {
+export function Attachments({ type, id, title, hint, onChanged, slot, label: fixedLabel, bare }: { type: string; id: string; title?: string; hint?: string; onChanged?: () => void; slot?: { entityId: string; recordId: string }; label?: string; bare?: boolean }) {
   const t = useT()
   const granted = useGranted()
   const canUpload = granted.has('attachments.manage')
@@ -69,15 +69,18 @@ export function Attachments({ type, id, title, hint, onChanged }: { type: string
   const replaceInput = React.useRef<HTMLInputElement>(null)
   const replacing = React.useRef<string | null>(null)
 
+  const slotEntity = slot?.entityId
+  const slotRecord = slot?.recordId
   const load = React.useCallback(async () => {
-    const call = await apiCall<FilesPage & { error?: string }>(`/api/cc_audit/files?type=${encodeURIComponent(type)}&id=${encodeURIComponent(id)}`)
+    const query = new URLSearchParams({ type, id, ...(slotEntity && slotRecord ? { entityId: slotEntity, recordId: slotRecord } : {}) })
+    const call = await apiCall<FilesPage & { error?: string }>(`/api/cc_audit/files?${query.toString()}`)
     if (!call.ok || !call.result) {
       setError(call.status === 403 ? t('cc_ui.files.forbidden', 'You cannot see the files of this record.') : t('cc_ui.files.error', 'Could not load the files.'))
       return
     }
     setError(null)
     setPage(call.result)
-  }, [type, id, t])
+  }, [type, id, slotEntity, slotRecord, t])
 
   React.useEffect(() => {
     void load()
@@ -101,7 +104,7 @@ export function Attachments({ type, id, title, hint, onChanged }: { type: string
       const noted = await apiCall<{ ok?: boolean; error?: string }>('/api/cc_audit/files', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ type, id, attachmentId, label: replaces ? null : label.trim() || null, replaces }),
+        body: JSON.stringify({ type, id, attachmentId, label: replaces ? null : label.trim() || fixedLabel || null, replaces, ...(slot ?? {}) }),
       })
       if (!noted.ok) failed.push(file.name)
     }
@@ -115,8 +118,8 @@ export function Attachments({ type, id, title, hint, onChanged }: { type: string
   }
 
   return (
-    <section className="space-y-3 rounded-lg border bg-card p-4">
-      <div className="flex flex-wrap items-start justify-between gap-2">
+    <section className={cn('space-y-3', !bare && 'rounded-lg border bg-card p-4')}>
+      <div className={cn('flex flex-wrap items-start justify-between gap-2', bare && 'hidden')}>
         <div>
           <h2 className="flex items-center gap-2 text-sm font-semibold">
             <Paperclip className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
@@ -184,8 +187,8 @@ export function Attachments({ type, id, title, hint, onChanged }: { type: string
       ) : null}
 
       {canUpload && page ? (
-        <div className="flex flex-col gap-2 border-t pt-3 sm:flex-row">
-          <Input value={label} onChange={(event) => setLabel(event.target.value)} placeholder={t('cc_ui.files.labelHint', 'What is it? e.g. Weighbridge slip (optional)')} maxLength={120} className="sm:flex-1" />
+        <div className={cn('flex flex-col gap-2 sm:flex-row', !bare && 'border-t pt-3')}>
+          {fixedLabel ? null : <Input value={label} onChange={(event) => setLabel(event.target.value)} placeholder={t('cc_ui.files.labelHint', 'What is it? e.g. Weighbridge slip (optional)')} maxLength={120} className="sm:flex-1" />}
           <Button type="button" variant="outline" disabled={Boolean(busy)} onClick={() => addInput.current?.click()}>
             {busy === 'new' ? <Spinner className="h-4 w-4" /> : <Upload className="h-4 w-4" aria-hidden="true" />}
             {t('cc_ui.files.add', 'Add photo / PDF')}

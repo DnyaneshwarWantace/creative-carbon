@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { z } from 'zod'
 import type { EntityManager } from '@mikro-orm/postgresql'
 import type { OpenApiRouteDoc } from '@open-mercato/shared/lib/openapi'
-import { CcOrder, CcOrderLine, CcOrderStage } from '../../data/entities'
+import { CcOrder, CcOrderLine, CcOrderStage, type FieldChange } from '../../data/entities'
 import { orderInputSchema, orderListQuerySchema, orderUpdateSchema, type OrderInput } from '../../data/validators'
 import { createStages, logEvent, openReadyStages, serializeOrder, stageViews } from '../../lib/engine'
 import { isFinished, orderHeadline } from '../../lib/stages'
@@ -18,7 +18,7 @@ import {
   type OrderContext,
 } from '../../lib/server'
 import { orderFilter } from '../../lib/orderFilter'
-import { notifyStagesOpened } from '../../lib/notify'
+import { notifyAmended, notifyStagesOpened } from '../../lib/notify'
 import { enforceOrderLock, orderErrorResponse, runGuarded } from '../../lib/guard'
 import { withStageOverrides } from '../../lib/stageSettings'
 import { applyHeader, clean, createOrderRecord, validateInput, writeLines } from '../../lib/orderCreate'
@@ -29,25 +29,42 @@ export const metadata = {
   PUT: { requireAuth: true, requireFeatures: ['cc_orders.manage'] },
 }
 
-function describeChanges(before: { header: Record<string, unknown>; lines: Array<{ productId: string; quantity: number; rate: number | null }> }, input: OrderInput, titles: Map<string, string>): string {
+function describeChanges(before: { header: Record<string, unknown>; lines: Array<{ productId: string; quantity: number; rate: number | null }> }, input: OrderInput, titles: Map<string, string>): { text: string; fields: FieldChange[] } {
   const labels: Record<string, string> = { deliveryDate: 'delivery date', customerPoRef: 'customer PO', salesManager: 'sales manager', paymentTerms: 'payment terms', market: 'domestic / export', incoterm: 'incoterm', portOfLoading: 'port of loading', country: 'country', currency: 'currency', paymentRemarks: 'payment remarks', priority: 'priority', shippingAddress: 'shipping address', billingAddress: 'billing address', productRemarks: 'product remarks', packingRemarks: 'packing remarks', billingRemarks: 'billing remarks' }
   const changes: string[] = []
+  const fields: FieldChange[] = []
+  const plain = (value: unknown) => (value === null || value === undefined || value === '' ? null : typeof value === 'number' ? value : String(value))
   for (const [key, label] of Object.entries(labels)) {
     const was = before.header[key] ?? null
     const now = (input as Record<string, unknown>)[key] ?? null
-    if (String(was ?? '') !== String(now ?? '')) changes.push(`${label}: ${was ?? '—'} → ${now ?? '—'}`)
+    if (String(was ?? '') !== String(now ?? '')) {
+      changes.push(`${label}: ${was ?? '—'} → ${now ?? '—'}`)
+      fields.push({ key, label: label.charAt(0).toUpperCase() + label.slice(1), from: plain(was), to: plain(now) })
+    }
   }
   for (const line of input.lines) {
     const old = before.lines.find((entry) => entry.productId === line.productId)
     const name = titles.get(line.productId) ?? 'product'
-    if (!old) changes.push(`added ${name} × ${line.quantity}`)
-    else {
-      if (old.quantity !== Number(line.quantity)) changes.push(`${name} qty ${old.quantity} → ${line.quantity}`)
-      if ((old.rate ?? null) !== (line.rate ?? null)) changes.push(`${name} rate ${old.rate ?? '—'} → ${line.rate ?? '—'}`)
+    if (!old) {
+      changes.push(`added ${name} × ${line.quantity}`)
+      fields.push({ key: `line:${line.productId}:quantity`, label: `${name} qty`, from: null, to: Number(line.quantity) })
+    } else {
+      if (old.quantity !== Number(line.quantity)) {
+        changes.push(`${name} qty ${old.quantity} → ${line.quantity}`)
+        fields.push({ key: `line:${line.productId}:quantity`, label: `${name} qty`, from: old.quantity, to: Number(line.quantity) })
+      }
+      if ((old.rate ?? null) !== (line.rate ?? null)) {
+        changes.push(`${name} rate ${old.rate ?? '—'} → ${line.rate ?? '—'}`)
+        fields.push({ key: `line:${line.productId}:rate`, label: `${name} rate`, from: old.rate ?? null, to: line.rate ?? null })
+      }
     }
   }
-  for (const old of before.lines) if (!input.lines.some((line) => line.productId === old.productId)) changes.push(`removed ${titles.get(old.productId) ?? 'product'}`)
-  return changes.join('; ')
+  for (const old of before.lines) {
+    if (input.lines.some((line) => line.productId === old.productId)) continue
+    changes.push(`removed ${titles.get(old.productId) ?? 'product'}`)
+    fields.push({ key: `line:${old.productId}:quantity`, label: `${titles.get(old.productId) ?? 'product'} qty`, from: old.quantity, to: null })
+  }
+  return { text: changes.join('; '), fields }
 }
 
 async function GET(req: Request) {
@@ -147,12 +164,19 @@ async function PUT(req: Request) {
   const ctx = await resolveOrderContext(req)
   if ('error' in ctx) return NextResponse.json({ error: ctx.error }, { status: ctx.status })
   const parsed = orderUpdateSchema.safeParse(await req.json().catch(() => null))
-  if (!parsed.success) return NextResponse.json({ error: 'Invalid order', details: parsed.error.flatten() }, { status: 400 })
+  if (!parsed.success) return NextResponse.json({ error: parsed.error.issues.find((issue) => issue.path[0] === 'revisionNote')?.message ?? 'Invalid order', details: parsed.error.flatten() }, { status: 400 })
   const input = parsed.data
   try {
     const order = await findOrder(ctx, input.id)
     if (order.status === 'cancelled' || order.status === 'completed') throw new OrderError('This order can no longer be changed', 409)
     const stages = await ctx.em.find(CcOrderStage, { orderId: order.id })
+    const [invoiced] = await ctx.em.getConnection().execute<Array<{ code: string }>>(
+      `select code from cc_tax_invoices where order_id = ? and tenant_id = ? and organization_id = ? and deleted_at is null and status <> 'cancelled' and kind <> 'credit_note' limit 1`,
+      [order.id, ctx.tenantId, ctx.organizationId],
+    )
+    if (invoiced) throw new OrderError(`Invoice ${invoiced.code} is made. Change it with a credit note instead.`, 409)
+    const packing = stages.find((stage) => stage.stageKey === 'packing')
+    if (packing && (isFinished(packing.status) || Boolean((packing.data as Record<string, unknown> | null)?.__started))) throw new OrderError('Packing has started. The order can no longer be amended.', 409)
     if (stages.some((stage) => stage.stageKey === 'allocation' && isFinished(stage.status))) {
       throw new OrderError('Stock is allocated — items and quantities are locked', 409)
     }
@@ -160,6 +184,7 @@ async function PUT(req: Request) {
     await validateInput(ctx, input)
     return await runGuarded(ctx, req, { resourceId: order.id, operation: 'update', payload: input }, async () => {
       const byName = await currentUserName(ctx)
+      const outcome: { amended: { revision: number; summary: string; reason: string } | null } = { amended: null }
       await ctx.em.transactional(async (em) => {
         const txCtx = { ...ctx, em: em as EntityManager }
         const fresh = await findOrder(txCtx, order.id)
@@ -169,11 +194,13 @@ async function PUT(req: Request) {
           lines: oldLines.map((line) => ({ productId: line.productId, quantity: Number(line.quantity), rate: line.rate == null ? null : Number(line.rate) })),
         }
         const titles = new Map([...(await loadProducts(txCtx, [...oldLines.map((line) => line.productId), ...input.lines.map((line) => line.productId)])).entries()].map(([id, product]) => [id, product.title]))
-        const summary = describeChanges(before, input, titles)
+        const described = describeChanges(before, input, titles)
+        const summary = described.text
         const keptBatch = new Map(oldLines.map((line) => [line.productId, line.batchNo ?? null]))
         const withBatches = { ...input, lines: input.lines.map((line) => ({ ...line, batchNo: clean(line.batchNo) ?? keptBatch.get(line.productId) ?? null })) }
         applyHeader(fresh, input)
         fresh.updatedAt = new Date()
+        if (summary) fresh.revision = (fresh.revision ?? 1) + 1
         if (summary || clean(input.revisionNote)) {
           fresh.revisedAt = new Date()
           fresh.revisedByName = byName
@@ -181,10 +208,13 @@ async function PUT(req: Request) {
         }
         await em.nativeDelete(CcOrderLine, { orderId: fresh.id })
         await writeLines(txCtx, fresh, withBatches)
-        logEvent(txCtx, fresh, 'edited', null, [clean(input.revisionNote), summary].filter(Boolean).join(' — ') || null, byName)
+        logEvent(txCtx, fresh, 'edited', null, [summary ? `Revision ${fresh.revision}` : null, clean(input.revisionNote)].filter(Boolean).join(' — ') || null, byName, described.fields)
         await em.flush()
+        if (summary) outcome.amended = { revision: fresh.revision, summary, reason: clean(input.revisionNote) ?? '' }
       })
-      return NextResponse.json({ ok: true })
+      const amended = outcome.amended
+      if (amended) await notifyAmended(ctx, order, stages.filter((stage) => stage.status === 'open' || stage.status === 'on_hold' || isFinished(stage.status)).map((stage) => stage.stageKey), amended, byName)
+      return NextResponse.json({ ok: true, revision: amended?.revision ?? order.revision })
     })
   } catch (error) {
     return orderErrorResponse(error)

@@ -35,6 +35,10 @@ export const ACTION_LABEL: Record<string, string> = {
   payment_override: 'Dispatched before full payment',
   delivered: 'Delivered',
   cancelled: 'Order cancelled',
+  order_held: 'Order put on hold',
+  order_released: 'Order released from hold',
+  overdue_alert: 'Late alert sent',
+  allocation_undone: 'Allocation undone',
 }
 
 type Kind = 'all' | 'changes' | 'holds' | 'steps' | 'done'

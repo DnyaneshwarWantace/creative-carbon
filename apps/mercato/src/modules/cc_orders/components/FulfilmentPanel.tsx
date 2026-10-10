@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 import Link from 'next/link'
-import { PackageCheck, Plus, RefreshCw, Scale, Search, X } from 'lucide-react'
+import { PackageCheck, Plus, RefreshCw, Scale, Search, Undo2, X } from 'lucide-react'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { cn } from '@open-mercato/shared/lib/utils'
 import { Button } from '@open-mercato/ui/primitives/button'
@@ -12,6 +12,7 @@ import { apiCall } from '@open-mercato/ui/backend/utils/apiCall'
 import { useGuardedMutation } from '@open-mercato/ui/backend/injection/useGuardedMutation'
 import { flash } from '@open-mercato/ui/backend/FlashMessages'
 import { useGranted } from '../../cc_departments/components/useGranted'
+import { CorrectDialog } from '../../cc_ui/components/CorrectDialog'
 
 export const ORDER_CHANGED_EVENT = 'cc-order-changed'
 
@@ -86,6 +87,8 @@ export function FulfilmentPanel({ orderId, stageKey, stageStatus, editable }: { 
   const open = stageStatus === 'open' || stageStatus === 'on_hold'
   const can = (feature: string) => editable && open && granted.has(feature)
 
+  const [undoing, setUndoing] = React.useState<{ allocation: Allocation; unit: string } | null>(null)
+  const canUndo = editable && stageKey === 'allocation' && stageStatus === 'done' && granted.has('cc_orders.work.store')
   const [overAge, setOverAge] = React.useState<{ lotId: string; message: string; reason: string } | null>(null)
 
   const post = async (body: Record<string, unknown>, success: string) => {
@@ -169,6 +172,12 @@ export function FulfilmentPanel({ orderId, stageKey, stageStatus, editable }: { 
                         {allocation.status === 'reserved' && can('cc_orders.work.store') ? (
                           <button type="button" className="text-muted-foreground hover:text-foreground" disabled={busy} onClick={() => void post({ action: 'release', allocationId: allocation.id }, t('cc_orders.fulfilment.released', 'Released back to free stock.'))} aria-label={t('cc_orders.fulfilment.release', 'Release')}>
                             <X className="h-3.5 w-3.5" aria-hidden="true" />
+                          </button>
+                        ) : null}
+                        {allocation.status === 'reserved' && canUndo ? (
+                          <button type="button" className="inline-flex items-center gap-1 text-muted-foreground hover:text-foreground" disabled={busy} onClick={() => setUndoing({ allocation, unit: line.unit })}>
+                            <Undo2 className="h-3.5 w-3.5" aria-hidden="true" />
+                            {t('cc_orders.fulfilment.undo', 'Undo')}
                           </button>
                         ) : null}
                       </span>
@@ -411,6 +420,14 @@ export function FulfilmentPanel({ orderId, stageKey, stageStatus, editable }: { 
           ))}
         </ul>
       ) : null}
+      <CorrectDialog
+        open={Boolean(undoing)}
+        onOpenChange={(next) => !next && setUndoing(null)}
+        title={t('cc_orders.fulfilment.undoTitle', 'Undo allocation of {lot}?', { lot: undoing?.allocation.lotNumber ?? '' })}
+        undo={undoing ? [t('cc_orders.fulfilment.undoFree', '{qty} {unit} of lot {lot} becomes free stock again', { qty: num(undoing.allocation.qty), unit: undoing.unit, lot: undoing.allocation.lotNumber }), t('cc_orders.fulfilment.undoReopen', 'Stock allocation opens again; later stages that are open go back to waiting')] : []}
+        confirmLabel={t('cc_orders.fulfilment.undoConfirm', 'Undo allocation')}
+        onConfirm={async (reason) => (undoing ? post({ action: 'undo', allocationId: undoing.allocation.id, reason }, t('cc_orders.fulfilment.undone', 'Allocation undone. The stock is free again.')) : false)}
+      />
     </section>
   )
 }

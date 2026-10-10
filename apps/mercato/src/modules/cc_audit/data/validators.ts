@@ -11,6 +11,8 @@ export const activityQuerySchema = z.object({
 export const filesQuerySchema = z.object({
   type: z.string().regex(/^[a-z_]{2,40}$/, 'Unknown record type'),
   id: z.string().min(1).max(80),
+  entityId: z.string().regex(/^[a-z_]+:[a-z_]+$/).optional(),
+  recordId: z.string().min(1).max(200).optional(),
 })
 
 export const registerFileSchema = filesQuerySchema.extend({

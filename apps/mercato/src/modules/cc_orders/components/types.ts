@@ -108,6 +108,8 @@ export type Order = {
   revisedByName?: string | null
   revisionNote?: string | null
   onHold: boolean
+  revision?: number
+  held?: { at: string; reason: string | null; by: string | null } | null
   createdByName: string | null
   createdAt: string
   updatedAt: string

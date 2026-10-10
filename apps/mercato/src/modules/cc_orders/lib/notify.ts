@@ -1,6 +1,6 @@
 import { resolveNotificationService } from '@open-mercato/core/modules/notifications/lib/notificationService'
 import { createLogger } from '@open-mercato/shared/lib/logger'
-import { CcOrder, CcOrderStage } from '../data/entities'
+import { CcOrder, CcOrderEvent, CcOrderStage } from '../data/entities'
 import { loadCustomers, type OrderContext } from './server'
 import { applyDayLimit, stageDef, stageWorkFeature } from './stages'
 import { effectiveStageDef, loadStageOverrides } from './stageSettings'
@@ -94,6 +94,61 @@ export async function notifyStagesPaused(ctx: Scope, order: CcOrder, reopenedKey
   }
 }
 
+export async function notifyAmended(ctx: Scope, order: CcOrder, stageKeys: string[], amended: { revision: number; summary: string; reason: string }, byName: string | null): Promise<number> {
+  let sent = 0
+  try {
+    for (const key of new Set(stageKeys)) {
+      const def = stageDef(key)
+      if (!def || key === 'order') continue
+      const created = await service(ctx).createForFeature(
+        {
+          type: 'cc_orders.order.amended',
+          requiredFeature: stageWorkFeature(key),
+          title: `${order.orderNo} amended (revision ${amended.revision}): check ${def.label.toLowerCase()}`,
+          body: [amended.summary, amended.reason ? `Why: ${amended.reason}` : null, byName ? `By ${byName}` : null].filter(Boolean).join(' · ').slice(0, 900),
+          severity: 'warning',
+          sourceModule: 'cc_orders',
+          sourceEntityType: 'cc_orders:order',
+          sourceEntityId: order.id,
+          linkHref: `/backend/orders/${order.id}/stages/${key}`,
+          groupKey: `cc_orders:${order.id}:${key}:amended:${amended.revision}`,
+        },
+        { tenantId: ctx.tenantId, organizationId: ctx.organizationId },
+      )
+      sent += created.length
+    }
+  } catch (error) {
+    logger.error('Failed to send amendment notification', { err: error })
+  }
+  return sent
+}
+
+export async function notifyOrderHeld(ctx: Scope, order: CcOrder, stageKeys: string[], action: 'hold' | 'release', reason: string, byName: string | null): Promise<void> {
+  try {
+    for (const key of new Set(stageKeys)) {
+      const def = stageDef(key)
+      if (!def) continue
+      await service(ctx).createForFeature(
+        {
+          type: 'cc_orders.order.held',
+          requiredFeature: stageWorkFeature(key),
+          title: action === 'hold' ? `${order.orderNo} is on hold: stop ${def.label.toLowerCase()}` : `${order.orderNo} is released: ${def.label.toLowerCase()} can go on`,
+          body: [reason, byName ? `By ${byName}` : null].filter(Boolean).join(' · '),
+          severity: action === 'hold' ? 'warning' : 'info',
+          sourceModule: 'cc_orders',
+          sourceEntityType: 'cc_orders:order',
+          sourceEntityId: order.id,
+          linkHref: `/backend/orders/${order.id}/stages/${key}`,
+          groupKey: `cc_orders:${order.id}:${key}:held`,
+        },
+        { tenantId: ctx.tenantId, organizationId: ctx.organizationId },
+      )
+    }
+  } catch (error) {
+    logger.error('Failed to send hold notification', { err: error })
+  }
+}
+
 export async function notifyAssigned(ctx: Scope, order: CcOrder, stageKey: string, userId: string, byName: string | null): Promise<void> {
   const def = stageDef(stageKey)
   if (!def) return
@@ -134,7 +189,7 @@ export async function sweepOverdueStages(ctx: Scope, options: { force?: boolean 
     return (Date.now() - stage.openedAt.getTime()) / DAY_MS > limit
   })
   if (!late.length) return 0
-  const orders = await em.find(CcOrder, { id: { $in: [...new Set(late.map((stage) => stage.orderId))] }, deletedAt: null, status: { $nin: ['cancelled', 'completed'] } })
+  const orders = await em.find(CcOrder, { id: { $in: [...new Set(late.map((stage) => stage.orderId))] }, deletedAt: null, heldAt: null, status: { $nin: ['cancelled', 'completed'] } })
   let sent = 0
   for (const stage of late) {
     const order = orders.find((entry) => entry.id === stage.orderId)
@@ -156,6 +211,7 @@ export async function sweepOverdueStages(ctx: Scope, options: { force?: boolean 
       await service(ctx).createForFeature({ ...base, requiredFeature: stageWorkFeature(stage.stageKey) }, { tenantId: ctx.tenantId, organizationId: ctx.organizationId })
       await service(ctx).createForFeature({ ...base, requiredFeature: 'cc_dashboard.everyone' }, { tenantId: ctx.tenantId, organizationId: ctx.organizationId })
       stage.data = { ...(stage.data ?? {}), __overdue_notified: new Date().toISOString() }
+      em.persist(em.create(CcOrderEvent, { organizationId: ctx.organizationId, tenantId: ctx.tenantId, orderId: order.id, stageKey: stage.stageKey, action: 'overdue_alert', note: base.title, byName: null, changes: null }))
       sent += 1
     } catch (error) {
       logger.error('Failed to send overdue notification', { err: error })

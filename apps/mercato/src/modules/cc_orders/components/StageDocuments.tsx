@@ -5,8 +5,8 @@ import { CheckCircle2, CircleAlert, FileText } from 'lucide-react'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { cn } from '@open-mercato/shared/lib/utils'
 import { apiCall } from '@open-mercato/ui/backend/utils/apiCall'
-import { AttachmentsSection } from '@open-mercato/ui/backend/detail/AttachmentsSection'
-import { EWAY_BILL_LIMIT, documentRecordId } from '../lib/stages'
+import { Attachments } from '../../cc_ui/components/Attachments'
+import { EWAY_BILL_LIMIT, documentRecordId, stageDef } from '../lib/stages'
 import type { StageDocumentStatus } from './types'
 
 const ENTITY = 'cc_orders:order_stage'
@@ -20,14 +20,12 @@ export function StageDocuments({ orderId, stageKey, documents, editable }: { ord
   }, [documents])
 
   const recount = async (key: string) => {
-    const call = await apiCall<{ total?: number; items?: unknown[] }>(
-      `/api/attachments?entityId=${encodeURIComponent(ENTITY)}&recordId=${encodeURIComponent(documentRecordId(orderId, stageKey, key))}&pageSize=1`,
-      undefined,
-      { fallback: { total: 0 } },
-    )
-    setCounts((prev) => ({ ...prev, [key]: call.result?.total ?? call.result?.items?.length ?? 0 }))
+    const query = new URLSearchParams({ type: 'order', id: orderId, entityId: ENTITY, recordId: documentRecordId(orderId, stageKey, key) })
+    const call = await apiCall<{ items?: unknown[] }>(`/api/cc_audit/files?${query.toString()}`, undefined, { fallback: { items: [] } })
+    setCounts((prev) => ({ ...prev, [key]: call.result?.items?.length ?? 0 }))
   }
 
+  const stageLabel = stageDef(stageKey)?.label ?? stageKey
   const needed = documents.filter((doc) => doc.needed)
   const missing = needed.filter((doc) => !counts[doc.key])
 
@@ -73,17 +71,17 @@ export function StageDocuments({ orderId, stageKey, documents, editable }: { ord
               </span>
             </div>
             {editable || count ? (
-              <AttachmentsSection entityId={ENTITY} recordId={documentRecordId(orderId, stageKey, doc.key)} showHeader={false} compact onChanged={() => void recount(doc.key)} />
+              <Attachments type="order" id={orderId} bare slot={{ entityId: ENTITY, recordId: documentRecordId(orderId, stageKey, doc.key) }} label={`${stageLabel}: ${doc.label}`} onChanged={() => void recount(doc.key)} />
             ) : null}
           </div>
         )
       })}
-      <AttachmentsSection
-        entityId={ENTITY}
-        recordId={`${orderId}:${stageKey}`}
+      <Attachments
+        type="order"
+        id={orderId}
+        slot={{ entityId: ENTITY, recordId: `${orderId}:${stageKey}` }}
         title={t('cc_orders.docs.other', 'Other documents')}
-        description={t('cc_orders.sheet.documentsHint', 'Attach sheets, photos, COA, approvals or anything else for this stage.')}
-        compact
+        hint={t('cc_orders.sheet.documentsHint', 'Attach sheets, photos, COA, approvals or anything else for this stage.')}
       />
     </div>
   )

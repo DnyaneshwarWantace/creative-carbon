@@ -47,6 +47,28 @@ export const notificationTypes: NotificationTypeDefinition[] = [
     linkHref: '/backend/orders/{sourceEntityId}',
     expiresAfterHours: 336,
   },
+  {
+    type: 'cc_orders.order.amended',
+    module: 'cc_orders',
+    titleKey: 'cc_orders.notifications.amended.title',
+    bodyKey: 'cc_orders.notifications.amended.body',
+    icon: 'file-pen',
+    severity: 'warning',
+    actions: openAction,
+    linkHref: '/backend/orders/{sourceEntityId}',
+    expiresAfterHours: 336,
+  },
+  {
+    type: 'cc_orders.order.held',
+    module: 'cc_orders',
+    titleKey: 'cc_orders.notifications.held.title',
+    bodyKey: 'cc_orders.notifications.held.body',
+    icon: 'pause',
+    severity: 'warning',
+    actions: openAction,
+    linkHref: '/backend/orders/{sourceEntityId}',
+    expiresAfterHours: 336,
+  },
 ]
 
 export default notificationTypes

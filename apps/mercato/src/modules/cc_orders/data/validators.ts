@@ -46,7 +46,7 @@ export const orderInputSchema = z.object({
   lines: z.array(orderLineInputSchema).min(1).max(50),
 })
 
-export const orderUpdateSchema = orderInputSchema.extend({ id: z.string().uuid(), revisionNote: optionalText(500) })
+export const orderUpdateSchema = orderInputSchema.extend({ id: z.string().uuid(), revisionNote: optionalText(500) }).superRefine(requireReasonFor([], 'revisionNote'))
 
 export const stageActionSchema = z.object({
   orderId: z.string().uuid(),
@@ -115,6 +115,7 @@ export const fulfilmentQuerySchema = z.object({ id: z.string().uuid(), lineId: z
 export const fulfilmentActionSchema = z.discriminatedUnion('action', [
   z.object({ action: z.literal('allocate'), orderId: z.string().uuid(), lineId: z.string().uuid(), lotId: z.string().uuid(), qty: z.coerce.number().positive().max(10_000_000), reason: z.string().trim().max(300).optional() }),
   z.object({ action: z.literal('release'), orderId: z.string().uuid(), allocationId: z.string().uuid() }),
+  z.object({ action: z.literal('undo'), orderId: z.string().uuid(), allocationId: z.string().uuid(), reason: z.string().trim().max(500).optional() }).superRefine(requireReasonFor([])),
   z.object({
     action: z.literal('pack'),
     orderId: z.string().uuid(),

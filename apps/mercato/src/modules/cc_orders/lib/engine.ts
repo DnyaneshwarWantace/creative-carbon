@@ -1,7 +1,7 @@
 import { resolveOrderAccess, trimEvents, trimStages } from './visibility'
 import { CcOrder, CcOrderEvent, CcOrderLine, CcOrderStage, type FieldChange } from '../data/entities'
 import type { StageActionInput } from '../data/validators'
-import { orderHeadline, STAGES, STOCK_STAGES, applyReopenHours, applyStageOverride, isFinished, missingRequired, missingSteps, reopenBlock, stageDef, stageReopenHours, stepStates, type ReopenInfo } from './stages'
+import { orderHeadline, STAGES, STOCK_STAGES, applyDayLimit, applyReopenHours, applyStageOverride, isFinished, missingRequired, missingSteps, reopenBlock, stageDef, stageReopenHours, stepStates, type ReopenInfo } from './stages'
 import { qcGate, reverseSaleOut, saleOut } from './fulfilment'
 import { effectiveStageDef, loadStageOverrides, type StageOverrides } from './stageSettings'
 import { paymentView, paymentsFor, received, recordAdvanceFromStage } from '../../cc_accounts/lib/service'
@@ -134,6 +134,7 @@ export async function applyStageAction(ctx: OrderContext, order: CcOrder, input:
   const def = effectiveStageDef(input.stageKey, overrides)
   if (!def) throw new OrderError('Unknown stage')
   if (order.status === 'cancelled') throw new OrderError('This order is cancelled', 409)
+  if (order.heldAt && !['revert', 'assign', 'save'].includes(input.action)) throw new OrderError(`The order is on hold: ${order.holdReason ?? ''}. Release it first.`, 409)
   const stages = await ctx.em.find(CcOrderStage, { orderId: order.id })
   const stage = stages.find((entry) => entry.stageKey === def.key)
   if (!stage) throw new OrderError('Stage not found', 404)
@@ -252,7 +253,10 @@ export async function applyStageAction(ctx: OrderContext, order: CcOrder, input:
       stage.completedByName = byName
       stage.holdReason = null
       stage.holdParty = null
-      logEvent(ctx, order, 'completed', def.key, note, byName, changed)
+      const took = stage.openedAt ? (stage.completedAt.getTime() - stage.openedAt.getTime()) / 86_400_000 : null
+      const allowed = applyDayLimit(def.key, overrides.get(def.key))
+      const timing = took === null ? null : `Took ${took < 1 ? `${Math.max(1, Math.round(took * 24))} h` : `${Math.round(took * 10) / 10} days`}${allowed ? ` of ${allowed} allowed${took > allowed ? ' (late)' : ''}` : ''}`
+      logEvent(ctx, order, 'completed', def.key, [timing, note].filter(Boolean).join(' · ') || null, byName, changed)
       if (def.key === 'advance' && (await recordAdvanceFromStage(ctx, order, stage.data ?? {}, byName))) {
         logEvent(ctx, order, 'payment', def.key, `Advance ₹${Number(stage.data?.advance_amount).toLocaleString('en-IN')} recorded in Accounts`, byName)
       }
@@ -419,7 +423,9 @@ export async function serializeOrder(ctx: OrderContext, order: CcOrder) {
     revisedAt: order.revisedAt ? order.revisedAt.toISOString() : null,
     revisedByName: order.revisedByName ?? null,
     revisionNote: order.revisionNote ?? null,
-    onHold: views.some((stage) => stage.status === 'on_hold'),
+    onHold: Boolean(order.heldAt) || views.some((stage) => stage.status === 'on_hold'),
+    revision: order.revision ?? 1,
+    held: order.heldAt ? { at: order.heldAt.toISOString(), reason: order.holdReason ?? null, by: order.heldByName ?? null } : null,
     createdByName: order.createdByName ?? null,
     createdAt: order.createdAt.toISOString(),
     updatedAt: order.updatedAt.toISOString(),

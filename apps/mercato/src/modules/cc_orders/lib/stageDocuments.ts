@@ -9,6 +9,7 @@ export async function documentCounts(ctx: OrderContext, orderId: string): Promis
   const rows = await ctx.em.getConnection().execute<Array<{ record_id: string; files: string | number }>>(
     `select record_id, count(*) as files from attachments
       where entity_id = ? and tenant_id = ? and organization_id = ? and record_id like ?
+        and coalesce(storage_metadata->'ccFile'->>'supersededBy', '') = ''
       group by record_id`,
     [STAGE_ATTACHMENT_ENTITY, ctx.tenantId, ctx.organizationId, `${orderId}:%`],
   )
