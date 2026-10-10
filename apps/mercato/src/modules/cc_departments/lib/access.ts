@@ -46,6 +46,7 @@ export const ACCESS_AREAS: AccessArea[] = [
       { feature: 'cc_crm.view', label: 'See enquiries and quotations', short: 'View' },
       { feature: 'cc_crm.manage', label: 'Log and follow up enquiries, make quotations', short: 'Enter' },
       { feature: 'cc_crm.convert', label: 'Convert a quotation to an order', short: 'Convert' },
+      { feature: 'cc_crm.merge', label: 'Merge duplicate customers and enquiries', short: 'Merge' },
     ],
   },
   {
@@ -71,6 +72,7 @@ export const ACCESS_AREAS: AccessArea[] = [
     abilities: [
       { feature: 'cc_accounts.view', label: 'See invoices, payments and dues', short: 'View' },
       { feature: 'cc_accounts.record', label: 'Make invoices, record and correct payments', short: 'Record' },
+      { feature: 'cc_accounts.credit_note', label: 'Raise credit notes against invoices', short: 'Credit note' },
     ],
   },
   {
@@ -92,6 +94,17 @@ export const ACCESS_AREAS: AccessArea[] = [
     abilities: [
       { feature: 'cc_production.prices.view', label: 'See price lists', short: 'View' },
       { feature: 'cc_production.prices.manage', label: 'Change price lists', short: 'Edit' },
+    ],
+  },
+  {
+    key: 'quality',
+    label: 'Quality',
+    department: 'Quality',
+    pages: 'Cutting, thickness, FG inspection, lab tests',
+    abilities: [
+      { feature: 'cc_production.quality.view', label: 'See inspections and lab tests', short: 'View' },
+      { feature: 'cc_production.quality.enter', label: 'Enter inspections and lab tests', short: 'Enter' },
+      { feature: 'cc_production.quality.release', label: 'Release or reject lots held by QC', short: 'Release' },
     ],
   },
   {
@@ -126,6 +139,7 @@ export const ACCESS_AREAS: AccessArea[] = [
     abilities: [
       { feature: 'cc_store.view', label: 'See stock, lots and the ledger', short: 'View' },
       { feature: 'cc_store.adjust', label: 'Add or remove stock by hand, move stock between stores', short: 'Adjust' },
+      { feature: 'cc_store.approve', label: 'Approve hand adjustments and count differences', short: 'Approve' },
     ],
   },
   {
@@ -141,6 +155,7 @@ export const ACCESS_AREAS: AccessArea[] = [
       { feature: 'cc_accounts.series', label: 'Change document number series', short: 'Numbering' },
       { feature: 'cc_accounts.tally', label: 'Send to Tally and change the Tally connection', short: 'Tally' },
       { feature: 'cc_orders.settings', label: 'Change workflow stages', short: 'Stages' },
+      { feature: 'cc_audit.view', label: 'See the full activity log of every record', short: 'Audit' },
     ],
   },
 ]
