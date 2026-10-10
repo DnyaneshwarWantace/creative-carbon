@@ -99,6 +99,13 @@ export async function setMemberRole(ctx: StoreContext, id: string, crmRole: CrmR
   const roles = crmRole ? [...kept, CRM_ROLE_NAMES[crmRole]] : kept
   if (!roles.length) throw new CrmError('This person would have no access at all. Remove their login in the ERP instead.', 409)
   await runCommand(ctx, 'auth.users.update', { id, roles })
+  if (member.crmRole !== crmRole) {
+    const label = (role: CrmRole | null) => (role === 'manager' ? 'CRM manager' : role === 'sales' ? 'Sales' : 'No CRM role')
+    const { recordActivity } = await import('../../cc_audit/lib/activity')
+    const { currentUserName } = await import('../../cc_orders/lib/server')
+    recordActivity(ctx.em, ctx, { recordType: 'sales_person', recordId: id, action: 'role_changed', kind: 'change', changes: [{ field: 'crmRole', label: 'CRM role', from: label(member.crmRole), to: label(crmRole) }], actorUserId: ctx.userId ?? null, actorName: await currentUserName(ctx) })
+    await ctx.em.flush()
+  }
 }
 
 export async function resetMemberPassword(ctx: StoreContext, id: string, password: string) {

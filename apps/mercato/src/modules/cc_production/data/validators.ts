@@ -45,6 +45,7 @@ export const masterWriteSchema = z.object({
   type: masterTypeSchema,
   id: z.string().uuid().optional(),
   values: z.record(z.string(), z.unknown()),
+  reason: z.string().trim().max(500).optional().nullable(),
 })
 
 export const masterDeleteSchema = z.object({ type: masterTypeSchema, id: z.string().uuid() })

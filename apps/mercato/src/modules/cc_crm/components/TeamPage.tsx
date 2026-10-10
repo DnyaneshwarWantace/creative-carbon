@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from 'react'
+import Link from 'next/link'
 import { KeyRound, ShieldCheck, UserPlus, Users } from 'lucide-react'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { cn } from '@open-mercato/shared/lib/utils'
@@ -254,7 +255,9 @@ export function TeamPage() {
                     <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary/10 text-sm font-semibold uppercase text-primary">{(member.name ?? member.email).slice(0, 1)}</span>
                     <div className="min-w-0">
                       <p className="truncate text-sm font-medium">
-                        {member.name ?? member.email}
+                        <Link href={`/backend/crm/team/${member.id}`} className="hover:underline">
+                          {member.name ?? member.email}
+                        </Link>
                         {member.isSelf ? <span className="ml-1.5 text-xs font-normal text-muted-foreground">({t('cc_crm.team.you', 'you')})</span> : null}
                       </p>
                       <p className="truncate text-xs text-muted-foreground">

@@ -9,6 +9,8 @@ export const RECORD_TYPES: Record<string, RecordTypeDef> = {
   order: { label: 'Order', table: 'cc_orders', viewFeature: 'cc_orders.view', legacy: 'order_events', path: '/backend/orders/', maker: ['created_by_name'] },
   dispatch: { label: 'Despatch', table: null, viewFeature: 'cc_orders.view', legacy: 'stage_events', path: '/backend/dispatch/' },
   enquiry: { label: 'Enquiry', table: 'cc_enquiries', viewFeature: 'cc_crm.view', legacy: 'history', path: '/backend/crm/enquiries/', maker: ['owner_name', 'by_name'] },
+  price_rate: { label: 'Price list rate', table: null, viewFeature: 'cc_production.prices.view', legacy: null, path: '/backend/masters/prices?rate=' },
+  sales_person: { label: 'Salesperson', table: null, viewFeature: 'cc_crm.view', legacy: null, path: '/backend/crm/team/' },
   follow_up: { label: 'Follow-up', table: 'cc_follow_ups', viewFeature: 'cc_crm.view', legacy: 'history', path: '/backend/crm/follow-ups/', maker: ['created_by_name'] },
   quotation: { label: 'Quotation', table: 'cc_quotations', viewFeature: 'cc_crm.view', legacy: 'history', path: '/backend/crm/quotations/', maker: ['by_name'] },
   customer: { label: 'Customer', table: null, viewFeature: 'customers.companies.view', legacy: null, path: '/backend/customers/companies/' },

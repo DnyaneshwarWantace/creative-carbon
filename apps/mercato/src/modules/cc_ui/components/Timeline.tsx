@@ -52,6 +52,7 @@ const LINK_HREF: Record<string, (id: string) => string> = {
   tally_push: (id) => `/backend/accounts/tally/${id}`,
   dispatch: (id) => `/backend/dispatch/${id}`,
   follow_up: (id) => `/backend/crm/follow-ups/${id}`,
+  sales_person: (id) => `/backend/crm/team/${id}`,
   enquiry: (id) => `/backend/crm/enquiries/${id}`,
   quotation: (id) => `/backend/crm/quotations/${id}`,
   vendor_bill: (id) => `/backend/accounts/vendor-bills/${id}`,

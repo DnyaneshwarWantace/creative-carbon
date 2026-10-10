@@ -8,6 +8,7 @@ import { masterDef, type MasterDef } from '../../lib/masterDefs'
 import { createMaster, deleteMaster, findMaster, listMasters, masterRow, updateMaster } from '../../lib/masters'
 import { plantErrorResponse, runPlantGuarded } from '../../lib/server'
 
+import { logRateChange } from '../../lib/rateHistory'
 export const metadata = {
   GET: { requireAuth: true },
   POST: { requireAuth: true },
@@ -43,9 +44,12 @@ async function POST(req: Request) {
   if (!(await allowed(ctx, def, true))) return forbidden(def, true)
   try {
     const byName = await currentUserName(ctx)
-    const result = await runPlantGuarded(ctx, req, { resourceKind: `cc_production.${def.type}`, resourceId: 'new', operation: 'create', payload: parsed.data }, async () =>
-      masterRow(ctx, def, await createMaster(ctx, def, parsed.data.values, byName)),
-    )
+    const result = await runPlantGuarded(ctx, req, { resourceKind: `cc_production.${def.type}`, resourceId: 'new', operation: 'create', payload: parsed.data }, async () => {
+      const entity = await createMaster(ctx, def, parsed.data.values, byName)
+      const row = await masterRow(ctx, def, entity)
+      if (def.type === 'prices') await logRateChange(ctx, entity.id, null, row, parsed.data.reason ?? null, byName)
+      return row
+    })
     if (result instanceof Response) return result
     return NextResponse.json(result, { status: 201 })
   } catch (error) {
@@ -64,9 +68,15 @@ async function PUT(req: Request) {
     const entity = await findMaster(ctx, def, parsed.data.id)
     enforceCommandOptimisticLock({ resourceKind: `cc_production.${def.type}`, resourceId: entity.id, current: entity.updatedAt, request: req })
     const byName = await currentUserName(ctx)
-    const result = await runPlantGuarded(ctx, req, { resourceKind: `cc_production.${def.type}`, resourceId: entity.id, operation: 'update', payload: parsed.data }, async () =>
-      masterRow(ctx, def, await updateMaster(ctx, def, entity, parsed.data.values, byName)),
-    )
+    const before = def.type === 'prices' ? await masterRow(ctx, def, entity) : null
+    if (before && parsed.data.values.ratePerKg !== undefined && Number(parsed.data.values.ratePerKg) !== Number(before.ratePerKg) && (parsed.data.reason ?? '').trim().length < 3) {
+      return NextResponse.json({ error: 'Write why the rate changes (at least 3 letters); the old rate is kept with its dates' }, { status: 400 })
+    }
+    const result = await runPlantGuarded(ctx, req, { resourceKind: `cc_production.${def.type}`, resourceId: entity.id, operation: 'update', payload: parsed.data }, async () => {
+      const row = await masterRow(ctx, def, await updateMaster(ctx, def, entity, parsed.data.values, byName))
+      if (before) await logRateChange(ctx, entity.id, before, row, parsed.data.reason ?? null, byName)
+      return row
+    })
     if (result instanceof Response) return result
     return NextResponse.json(result)
   } catch (error) {

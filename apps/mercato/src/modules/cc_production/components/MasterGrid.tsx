@@ -2,7 +2,8 @@
 
 import * as React from 'react'
 import Link from 'next/link'
-import { ArrowUpRight, Check, Plus, Search, Trash2, Upload } from 'lucide-react'
+import { useSearchParams } from 'next/navigation'
+import { ArrowUpRight, Check, History, Plus, Search, Trash2, Upload } from 'lucide-react'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { cn } from '@open-mercato/shared/lib/utils'
 import { Page, PageBody } from '@open-mercato/ui/backend/Page'
@@ -22,6 +23,8 @@ import { MASTER_DEFS, type MasterColumn, type MasterDef, type MasterType } from 
 import { Dropdown } from '../../cc_lists/components/Dropdown'
 import { PageLoading } from '../../cc_ui/components/PageLoading'
 import { recordHref } from '../../cc_ui/lib/links'
+import { CorrectDialog } from '../../cc_ui/components/CorrectDialog'
+import { RateHistorySheet } from './RateHistorySheet'
 
 const DETAIL_HREF: Partial<Record<MasterType, (id: string) => string>> = {
   moulds: (id) => recordHref.die(id),
@@ -132,6 +135,9 @@ function MasterTable({ def }: { def: MasterDef }) {
   const [drafts, setDrafts] = React.useState<Record<string, Draft>>({})
   const [fresh, setFresh] = React.useState<Draft>(() => toDraft(def, null))
   const [busy, setBusy] = React.useState<string | null>(null)
+  const [pendingRate, setPendingRate] = React.useState<Row | null>(null)
+  const searchParams = useSearchParams()
+  const [historyId, setHistoryId] = React.useState<string | null>(() => (def.type === 'prices' ? searchParams?.get('rate') ?? null : null))
   const [search, setSearch] = React.useState('')
   const [importText, setImportText] = React.useState('')
   const [report, setReport] = React.useState<ImportReport | null>(null)
@@ -182,13 +188,19 @@ function MasterTable({ def }: { def: MasterDef }) {
     }
   }
 
-  const save = async (row: Row) => {
+  const save = async (row: Row, reason?: string): Promise<boolean> => {
     const draft = drafts[row.id]
-    if (!draft) return
-    if (await send(row.id, 'PUT', { type: def.type, id: row.id, values: payload(def, draft) }, row.updatedAt)) {
+    if (!draft) return false
+    if (def.type === 'prices' && !reason && Number(draft.ratePerKg) !== Number(row.ratePerKg)) {
+      setPendingRate(row)
+      return false
+    }
+    if (await send(row.id, 'PUT', { type: def.type, id: row.id, values: payload(def, draft), ...(reason ? { reason } : {}) }, row.updatedAt)) {
       flash(t('cc_production.masters.saved', 'Saved.'), 'success')
       await load()
+      return true
     }
+    return false
   }
 
   const add = async () => {
@@ -319,6 +331,11 @@ function MasterTable({ def }: { def: MasterDef }) {
                   ))}
                   <td className="whitespace-nowrap border-b px-2 py-1 text-right">
                     <div className="flex justify-end gap-1">
+                      {def.type === 'prices' ? (
+                        <Button type="button" size="sm" variant="ghost" onClick={() => setHistoryId(row.id)} aria-label={t('cc_production.prices.history', 'Rate history')}>
+                          <History className="h-4 w-4" aria-hidden="true" />
+                        </Button>
+                      ) : null}
                       {detailHref ? (
                         <Button asChild size="sm" variant="ghost" aria-label={t('cc_production.masters.open', 'Open')}>
                           <Link href={detailHref(row.id)}>
@@ -375,6 +392,20 @@ function MasterTable({ def }: { def: MasterDef }) {
         </table>
       </div>
       <p className="text-xs text-muted-foreground">{t('cc_production.masters.count', '{count} rows', { count: rows.length })}</p>
+      {def.type === 'prices' ? (
+        <>
+          <CorrectDialog
+            open={Boolean(pendingRate)}
+            onOpenChange={(next) => !next && setPendingRate(null)}
+            destructive={false}
+            title={t('cc_production.prices.changeTitle', 'Change the rate?')}
+            undo={pendingRate ? [t('cc_production.prices.changeUndo', '{old} → {next} per kg; the old rate is kept with its dates', { old: String(pendingRate.ratePerKg ?? '—'), next: String(drafts[pendingRate.id]?.ratePerKg ?? '—') })] : []}
+            confirmLabel={t('cc_production.prices.changeConfirm', 'Change rate')}
+            onConfirm={(reason) => (pendingRate ? save(pendingRate, reason) : Promise.resolve(false))}
+          />
+          <RateHistorySheet rateId={historyId} onOpenChange={(next) => !next && setHistoryId(null)} />
+        </>
+      ) : null}
     </div>
   )
 }
