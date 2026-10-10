@@ -24,9 +24,29 @@ async function mouldingDay(request: APIRequestContext): Promise<MouldingDay> {
   return (await request.get(`/api/cc_production/moulding?date=${DATE}`)).json()
 }
 
+async function clearDay(request: APIRequestContext) {
+  const load = async () => (await mouldingDay(request)).shifts.find((entry) => entry.shift === 1)
+  let current = await load()
+  for (const entry of current?.entries.filter((candidate) => candidate.status === 'posted') ?? []) {
+    current = await load()
+    await request.post('/api/cc_production/moulding/action', { data: { entryDate: DATE, shift: 1, action: 'reopen', pressId: entry.pressId, reason: 'e2e cleanup' }, headers: { [LOCK]: current!.version } })
+  }
+  current = await load()
+  if (current?.entries.length) await request.put('/api/cc_production/moulding', { data: { entryDate: DATE, shift: 1, entries: [] }, headers: { [LOCK]: current.version } })
+  await request.put('/api/cc_production/plan', { data: { planDate: DATE, lines: [] } })
+}
+
 test.describe.serial('Stage 8 · stock, owner overview, offline, demo', () => {
   let presses: Array<{ id: string; number: number }>
   let chemicalLot: { lotId: string; productId: string }
+
+  test.beforeAll(async ({ request }) => {
+    await clearDay(request)
+  })
+
+  test.afterAll(async ({ request }) => {
+    await clearDay(request)
+  })
 
   test('fixtures: two moulding machines posted on a test day (Stage 6)', async ({ request }) => {
     const setup = (await (await request.get('/api/cc_production/moulding/setup')).json()) as { presses: Array<{ id: string; number: number }> }
