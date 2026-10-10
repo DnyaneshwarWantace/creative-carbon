@@ -187,6 +187,13 @@ test.describe.serial('Stage 3 · resin plant and the chemical register', () => {
     expect(draft.status).toBe('draft')
     expect(draft.resin).toBeNull()
     expect(await freeKg(request, 'Phenol')).toBe(Math.round((before + 1000) * 1000) / 1000)
+    const pickedLot = posted.materials.flatMap((line) => line.lots)[0]
+    const ledger = (await (await request.get(`/api/cc_store/stock/ledger?lotId=${pickedLot.lotId}&pageSize=100`)).json()) as { items: Array<{ id: string; reasonCode: string | null; quantity: number; reverses: string | null; reversedBy: string | null }> }
+    const counter = ledger.items.find((row) => row.reasonCode === 'resin_reopen' && row.reverses)
+    expect(counter, 'the reopen movement names the movement it reverses').toBeTruthy()
+    const original = ledger.items.find((row) => row.id === counter!.reverses)
+    expect(original?.reversedBy).toBe(counter!.id)
+    expect(original!.quantity).toBe(-counter!.quantity)
     const draftPreview = (await (await request.get(`/api/cc_production/resin/batches/preview?id=${posted.id}`)).json()) as { blockedBy: Array<{ label: string }> }
     expect(draftPreview.blockedBy[0]?.label).toMatch(/not posted/)
     const again = await act(request, draft, 'post')

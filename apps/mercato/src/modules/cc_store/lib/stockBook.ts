@@ -110,9 +110,9 @@ export async function stockBook(ctx: StoreContext, place: StockPlace, filter: { 
   return { place, label: PLACE_LABEL[place], summary, items, expiryWarningDays: EXPIRY_WARNING_DAYS }
 }
 
-type MovementRow = { id: string; type: string; quantity: string; location_from_id: string | null; location_to_id: string | null; product_id: string | null; lot_number: string | null; reason: string | null; reason_code: string | null; performed_by: string | null; performed_at: Date; metadata: Record<string, unknown> | null }
+type MovementRow = { id: string; type: string; quantity: string; location_from_id: string | null; location_to_id: string | null; product_id: string | null; lot_id: string | null; lot_number: string | null; reason: string | null; reason_code: string | null; performed_by: string | null; performed_at: Date; metadata: Record<string, unknown> | null }
 
-export async function stockLedger(ctx: StoreContext, filter: { place?: StockPlace; productId?: string; limit: number; offset: number }) {
+export async function stockLedger(ctx: StoreContext, filter: { place?: StockPlace; productId?: string; lotId?: string; limit: number; offset: number }) {
   const { byPlace, byId } = await placeLocations(ctx)
   const where: string[] = ['m.tenant_id = ?', 'm.organization_id = ?', 'm.deleted_at is null']
   const params: unknown[] = [ctx.tenantId, ctx.organizationId]
@@ -125,8 +125,12 @@ export async function stockLedger(ctx: StoreContext, filter: { place?: StockPlac
     where.push('v.product_id = ?')
     params.push(filter.productId)
   }
+  if (filter.lotId) {
+    where.push('m.lot_id = ?')
+    params.push(filter.lotId)
+  }
   const rows = await ctx.em.getConnection().execute<MovementRow[]>(
-    `select m.id, m.type, m.quantity, m.location_from_id, m.location_to_id, v.product_id, lot.lot_number, m.reason, m.reason_code, m.performed_by, m.performed_at, m.metadata
+    `select m.id, m.type, m.quantity, m.location_from_id, m.location_to_id, v.product_id, m.lot_id, lot.lot_number, m.reason, m.reason_code, m.performed_by, m.performed_at, m.metadata
        from wms_inventory_movements m
        left join catalog_product_variants v on v.id = m.catalog_variant_id
        left join wms_inventory_lots lot on lot.id = m.lot_id
@@ -160,7 +164,10 @@ export async function stockLedger(ctx: StoreContext, filter: { place?: StockPlac
         productId: row.product_id,
         title: product?.title ?? '(deleted product)',
         code: product?.code ?? null,
+        lotId: row.lot_id,
         lotNumber: row.lot_number,
+        reverses: typeof row.metadata?.reverses === 'string' ? row.metadata.reverses : null,
+        reversedBy: typeof row.metadata?.reversedBy === 'string' ? row.metadata.reversedBy : null,
         reason: row.reason,
         reasonCode: row.reason_code,
         by: row.performed_by ? names.get(row.performed_by) ?? null : null,

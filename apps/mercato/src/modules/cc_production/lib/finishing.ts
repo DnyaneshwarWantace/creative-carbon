@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto'
 import type { StoreContext } from '../../cc_store/lib/server'
 import { performerId, runCommand } from '../../cc_store/lib/server'
+import { linkReversals } from '../../cc_store/lib/counterEntries'
 import { PLACE_LABEL, type StockPlace } from '../../cc_products/lib/stock'
 import { activeOptions } from '../../cc_lists/lib/service'
 import { CuttingEntry, DamageEntry, FgDirectIn, FgInspection, ThicknessInspection, type CutSheet, type FgRow, type PlantHistoryEntry } from '../data/entities'
@@ -457,6 +458,7 @@ export async function reopenFgReport(ctx: StoreContext, report: FgInspection, by
     if (row.outputLotId && passQty) await consumeLots(ctx, stock, row.sourceProductId, [{ lotId: row.outputLotId, lotNumber: row.outputLotNumber, place: 'fg', kg: passQty }], { reason: 'FG inspection reopened', reasonCode: 'fg_reopen', performedAt, metadata })
     await runCommand(ctx, 'wms.inventory.adjust', { warehouseId: stock.warehouseId, locationId: stock.locationOf('floor'), catalogVariantId: stock.variants.get(row.sourceProductId), lotId: row.sourceLotId, delta: kg3(passQty + rejectQty), reason: 'FG inspection reopened', reasonCode: 'fg_reopen', referenceType: 'manual', referenceId: randomUUID(), performedBy: performerId(ctx), performedAt, metadata })
   }
+  await linkReversals(ctx, metadata)
   report.rows = report.rows.map((row) => ({ ...row, passKg: null, rejectKg: null, outputLotId: null, outputLotNumber: null }))
   report.status = 'draft'
   report.postedAt = null

@@ -3,7 +3,7 @@
 import * as React from 'react'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
-import { ArrowLeft } from 'lucide-react'
+import { ArrowLeft, Undo2 } from 'lucide-react'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { cn } from '@open-mercato/shared/lib/utils'
 import { Page, PageBody } from '@open-mercato/ui/backend/Page'
@@ -17,7 +17,7 @@ import { STORES, type StockPlace } from '../../cc_products/lib/stock'
 import { PageLoading } from '../../cc_ui/components/PageLoading'
 
 type Place = StockPlace | 'all'
-type Movement = { id: string; at: string; type: string; quantity: number; unit: string | null; from: string | null; to: string | null; productId: string | null; title: string; code: string | null; lotNumber: string | null; reason: string | null; reasonCode: string | null; by: string | null; orderNo: string | null; orderId: string | null }
+type Movement = { id: string; at: string; type: string; quantity: number; unit: string | null; from: string | null; to: string | null; productId: string | null; title: string; code: string | null; lotId: string | null; lotNumber: string | null; reverses: string | null; reversedBy: string | null; reason: string | null; reasonCode: string | null; by: string | null; orderNo: string | null; orderId: string | null }
 
 const PLACES: Array<{ value: Place; label: string }> = [{ value: 'all', label: 'All stores' }, ...STORES.map((store) => ({ value: store.key, label: store.label }))]
 
@@ -40,11 +40,29 @@ function kindOf(entry: Movement): string {
 
 const PAGE_SIZE = 50
 
+function CounterLink({ label, href }: { label: string; href: string | null }) {
+  const body = (
+    <>
+      <Undo2 className="h-3 w-3" aria-hidden="true" />
+      {label}
+    </>
+  )
+  const className = 'mt-1 flex w-fit items-center gap-1 rounded border border-status-warning-border bg-status-warning-bg px-1.5 py-0.5 text-status-warning-text'
+  return href ? (
+    <a href={href} className={cn(className, 'hover:underline')}>
+      {body}
+    </a>
+  ) : (
+    <span className={className}>{body}</span>
+  )
+}
+
 export function StockLedgerPage() {
   const t = useT()
   const params = useSearchParams()
   const initial = (params?.get('place') as Place | null) ?? 'all'
   const productId = params?.get('productId') ?? null
+  const lotId = params?.get('lotId') ?? null
   const [place, setPlace] = React.useState<Place>(PLACES.some((entry) => entry.value === initial) ? initial : 'all')
   const [items, setItems] = React.useState<Movement[] | null>(null)
   const [page, setPage] = React.useState(1)
@@ -57,6 +75,7 @@ export function StockLedgerPage() {
       const query = new URLSearchParams({ page: String(pageNumber), pageSize: String(PAGE_SIZE) })
       if (place !== 'all') query.set('place', place)
       if (productId) query.set('productId', productId)
+      if (lotId) query.set('lotId', lotId)
       const call = await apiCall<{ items?: Movement[]; hasMore?: boolean; error?: string }>(`/api/cc_store/stock/ledger?${query.toString()}`)
       if (!call.ok) {
         setError(call.result?.error ?? t('cc_store.ledger.loadError', 'Could not load the stock ledger.'))
@@ -66,7 +85,7 @@ export function StockLedgerPage() {
       setHasMore(Boolean(call.result?.hasMore))
       return call.result?.items ?? []
     },
-    [place, productId, t],
+    [place, productId, lotId, t],
   )
 
   React.useEffect(() => {
@@ -86,6 +105,9 @@ export function StockLedgerPage() {
   }
 
   const productTitle = productId && items?.[0]?.productId === productId ? items[0].title : null
+  const lotTitle = lotId && items?.[0] ? `${items[0].title} · ${items[0].lotNumber ?? ''}` : null
+  const shown = React.useMemo(() => new Set((items ?? []).map((row) => row.id)), [items])
+  const pairHref = (id: string) => (shown.has(id) ? `#m-${id}` : null)
 
   return (
     <Page>
@@ -97,7 +119,7 @@ export function StockLedgerPage() {
                 <ArrowLeft className="h-3 w-3" aria-hidden="true" />
                 {t('cc_store.ledger.back', 'Stock')}
               </Link>
-              <h1 className="text-2xl font-bold tracking-tight">{productTitle ? t('cc_store.ledger.titleFor', 'Stock ledger: {name}', { name: productTitle }) : t('cc_store.ledger.title', 'Stock ledger')}</h1>
+              <h1 className="text-2xl font-bold tracking-tight">{lotTitle ? t('cc_store.ledger.titleFor', 'Stock ledger: {name}', { name: lotTitle }) : productTitle ? t('cc_store.ledger.titleFor', 'Stock ledger: {name}', { name: productTitle }) : t('cc_store.ledger.title', 'Stock ledger')}</h1>
               <p className="max-w-3xl text-sm text-muted-foreground">{t('cc_store.ledger.lede', 'Every movement of stock, newest first: what came in, what went to production, what was used, moved or written off, and who did it.')}</p>
             </div>
             <ExportButton
@@ -148,7 +170,7 @@ export function StockLedgerPage() {
                 </thead>
                 <tbody className="divide-y">
                   {items.map((row) => (
-                    <tr key={row.id} className="align-top hover:bg-muted/30">
+                    <tr key={row.id} id={`m-${row.id}`} className="align-top hover:bg-muted/30 target:bg-status-warning-bg">
                       <td className="whitespace-nowrap px-3 py-2 text-xs tabular-nums text-muted-foreground">
                         {new Date(row.at).toLocaleString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
                         {row.by ? <span className="block">{row.by}</span> : null}
@@ -164,7 +186,14 @@ export function StockLedgerPage() {
                         )}
                         <span className="block text-xs text-muted-foreground">
                           {row.code ? <span className="font-mono">{row.code}</span> : null}
-                          {row.lotNumber ? `${row.code ? ' · ' : ''}${t('cc_store.ledger.batch', 'batch {lot}', { lot: row.lotNumber })}` : ''}
+                          {row.lotNumber && row.code ? ' · ' : ''}
+                          {row.lotNumber && row.lotId ? (
+                            <Link href={`/backend/store/ledger?lotId=${row.lotId}`} className="hover:underline">
+                              {t('cc_store.ledger.batch', 'batch {lot}', { lot: row.lotNumber })}
+                            </Link>
+                          ) : row.lotNumber ? (
+                            t('cc_store.ledger.batch', 'batch {lot}', { lot: row.lotNumber })
+                          ) : null}
                         </span>
                       </td>
                       <td className={cn('whitespace-nowrap px-3 py-2 text-right font-semibold tabular-nums', place !== 'all' && (row.quantity < 0 ? 'text-status-error-text' : 'text-status-success-text'))}>
@@ -179,6 +208,12 @@ export function StockLedgerPage() {
                           </Link>
                         ) : null}
                         <span className="text-muted-foreground">{row.reason ?? ''}</span>
+                        {row.reverses || row.reversedBy ? (
+                          <CounterLink
+                            label={row.reverses ? t('cc_store.ledger.reverses', 'Undoes an earlier entry') : t('cc_store.ledger.reversedBy', 'Undone later')}
+                            href={pairHref((row.reverses ?? row.reversedBy)!) ?? (row.lotId ? `/backend/store/ledger?lotId=${row.lotId}#m-${row.reverses ?? row.reversedBy}` : null)}
+                          />
+                        ) : null}
                       </td>
                     </tr>
                   ))}

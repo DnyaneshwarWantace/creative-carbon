@@ -15,8 +15,8 @@ async function GET(req: Request) {
   const parsed = ledgerQuerySchema.safeParse(Object.fromEntries(new URL(req.url).searchParams))
   if (!parsed.success) return NextResponse.json({ error: 'Invalid query' }, { status: 400 })
   try {
-    const { page, pageSize, place, productId } = parsed.data
-    const result = await stockLedger(ctx, { place, productId, limit: pageSize, offset: (page - 1) * pageSize })
+    const { page, pageSize, place, productId, lotId } = parsed.data
+    const result = await stockLedger(ctx, { place, productId, lotId, limit: pageSize, offset: (page - 1) * pageSize })
     return NextResponse.json({ ...result, page, pageSize })
   } catch (error) {
     return storeErrorResponse(error)

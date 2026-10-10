@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto'
 import { LOCATION_CODES, PLACE_LABEL, ccWarehouse, type StockPlace } from '../../cc_products/lib/stock'
 import { ensureStockRecords } from '../../cc_store/lib/stockSetup'
 import { performerId, runCommand, type StoreContext } from '../../cc_store/lib/server'
+import { isReversal, linkReversals } from '../../cc_store/lib/counterEntries'
 import { PlantError } from './server'
 
 const EPSILON = 0.0005
@@ -109,6 +110,7 @@ export async function consumeLots(ctx: StoreContext, stock: PlantStock, productI
       metadata: movement.metadata,
     })
   }
+  if (isReversal(movement.reasonCode)) await linkReversals(ctx, movement.metadata)
 }
 
 export async function returnLots(ctx: StoreContext, stock: PlantStock, productId: string, picks: PickedLot[], movement: Movement) {
@@ -130,6 +132,7 @@ export async function returnLots(ctx: StoreContext, stock: PlantStock, productId
       metadata: movement.metadata,
     })
   }
+  if (isReversal(movement.reasonCode)) await linkReversals(ctx, movement.metadata)
 }
 
 export async function produceLot(
