@@ -207,7 +207,7 @@
       <a class="pchip partial" href="#s9"><div class="pn">Stage 9<span>Wk 6–7</span></div><div class="pv">Order → Despatch</div></a>
       <a class="pchip partial" href="#s10"><div class="pn">Stage 10<span>Wk 7–8</span></div><div class="pv">CRM · Purchase</div></a>
       <a class="pchip done" href="#s11"><div class="pn">Stage 11<span>Wk 8</span></div><div class="pv">Documents · Tally</div></a>
-      <a class="pchip" href="#s12"><div class="pn">Stage 12<span>Wk 9–12</span></div><div class="pv">Go-live</div></a>
+      <a class="pchip partial" href="#s12"><div class="pn">Stage 12<span>Wk 9–12</span></div><div class="pv">Go-live</div></a>
     </div>
     <div class="legend">
       <span><i class="dot done"></i>Done</span>
@@ -1229,12 +1229,17 @@
 
 <!-- ============ STAGE 12 ============ -->
       <section id="s12">
-        <div class="mod-head"><h2>Stage 12 · Opening stock, parallel run, go-live</h2><span class="verdict planned">PLANNED</span><span class="when">Weeks 9–12</span></div>
+        <div class="mod-head"><h2>Stage 12 · Opening stock, parallel run, go-live</h2><span class="verdict partial">BUILT · ON-SITE DUE</span><span class="when">Weeks 9–12 · tools built 10 Oct 2026</span></div>
+        <div class="grid3">
+          <div class="box"><h4>Opening stock</h4><p>Upload centre → <b>Opening stock</b>: one row per lot per store (Excel template or pasted rows): store, item by name or code, lot, quantity, made / received on, expiry, QC status, thickness, size, grade, pieces, GSM. Checked first with the problems row by row (unknown store or item, resin only in the tank, a lot twice in the file); loaded once (a lot already in stock is refused); dated on the cutover day. No history import.</p></div>
+          <div class="box"><h4>Paper vs system</h4><p>Store → <b>Paper vs system</b>: at the end of each day the paper stock-book balance per item and store goes in next to the system figure; anything beyond 0.1% (at least 0.5) is flagged at once. Past days keep the figures they were saved with. The page counts the days in a row that agree, which is the proof needed before the final payment.</p></div>
+          <div class="box"><h4>Go-live checklist</h4><p>Overview → <b>Go-live</b>: worked out from the live data: company details, item master, customers and vendors, plant masters, a login in every department, Tally connected and tested, opening stock per store, no test data left, and the parallel-run streak against a target (14 days by default). On-site items are ticked by the person who did them: number series continue from the books, training, data-entry person, hosting and backups, paper books closed.</p></div>
+        </div>
         <div class="itemlist">
-          <div class="item planned"><span class="mark">○</span><span class="txt">Masters and opening stock on cutover day; no history import (registers are 80–90% accurate).</span></div>
-          <div class="item planned"><span class="mark">○</span><span class="txt">Paper and system side by side until stock agrees; training on site; data-entry person in place.</span></div>
-          <div class="item planned"><span class="mark">○</span><span class="txt">Hosting: cloud or a plant server, decided from the signal readings taken on the day.</span></div>
-          <div class="item planned"><span class="mark">○</span><span class="txt">Final payment is 60 days after delivery, so the parallel run has to prove stock matches.</span></div>
+          <div class="item done"><span class="mark">✓</span><span class="txt">Tested end to end with Stages 1–11: e2e stage-12 (opening stock checked, loaded once, into the right stores; a difference flagged and an agreeing book not; past days refused; checklist from the data and ticks with a name). Full suite 176 tests passing.</span></div>
+          <div class="item planned"><span class="mark">○</span><span class="txt">On site: cutover date set, masters and opening stock loaded from the books, a fresh database without test data, training per department, data-entry person in place.</span></div>
+          <div class="item planned"><span class="mark">○</span><span class="txt">Hosting: cloud or a plant server, decided from the signal readings taken on the day (the Tally bridge works with either).</span></div>
+          <div class="item planned"><span class="mark">○</span><span class="txt">Parallel run until Paper vs system agrees day after day; final payment is 60 days after delivery.</span></div>
         </div>
       </section>
 
