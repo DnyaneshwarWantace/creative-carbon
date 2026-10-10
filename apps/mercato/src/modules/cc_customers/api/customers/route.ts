@@ -6,6 +6,8 @@ import { enforceCommandOptimisticLock } from '@open-mercato/shared/lib/crud/opti
 import { runRouteMutationGuards } from '@open-mercato/shared/lib/crud/route-mutation-guard'
 import { resolveStoreContext, type StoreContext } from '../../../cc_store/lib/server'
 import { CustomerSaveError, customerSaveSchema, saveCustomer, validateCustomer } from '../../lib/saveCustomer'
+import { customerSnapshot, invoiceCount, logCustomerSave } from '../../lib/customerHistory'
+import { currentUserName, hasFeatures } from '../../../cc_orders/lib/server'
 
 export const metadata = {
   POST: { requireAuth: true, requireFeatures: ['customers.companies.manage'] },
@@ -58,7 +60,12 @@ async function POST(req: Request) {
   if (!parsed.success) return NextResponse.json({ error: 'Some fields need fixing', fields: Object.fromEntries(parsed.error.issues.map((issue) => [issue.path.join('.'), issue.message])) }, { status: 400 })
   if (parsed.data.id) return NextResponse.json({ error: 'Use PUT to change a customer' }, { status: 400 })
   try {
-    return await guarded(ctx, req, 'new', 'create', parsed.data, async () => NextResponse.json(await saveCustomer(ctx, parsed.data), { status: 201 }))
+    return await guarded(ctx, req, 'new', 'create', parsed.data, async () => {
+      const saved = await saveCustomer(ctx, parsed.data)
+      logCustomerSave(ctx, saved.id, null, await customerSnapshot(ctx, saved.id), { userName: await currentUserName(ctx), source: parsed.data.source === 'import' ? 'upload' : 'screen' })
+      await ctx.em.flush()
+      return NextResponse.json(saved, { status: 201 })
+    })
   } catch (error) {
     return errorResponse(error)
   }
@@ -74,7 +81,19 @@ async function PUT(req: Request) {
     const version = await currentVersion(ctx, parsed.data.id)
     if (!version) return NextResponse.json({ error: 'Customer not found' }, { status: 404 })
     enforceCommandOptimisticLock({ resourceKind: 'customers.company', resourceId: parsed.data.id, current: version, request: req })
-    return await guarded(ctx, req, parsed.data.id, 'update', parsed.data, async () => NextResponse.json(await saveCustomer(ctx, parsed.data)))
+    const id = parsed.data.id
+    const before = await customerSnapshot(ctx, id)
+    const nextGstin = (parsed.data.gstin ?? '').toUpperCase().replace(/\s/g, '') || null
+    if (before?.gstin && before.gstin !== nextGstin && (await invoiceCount(ctx, id)) > 0) {
+      if (!(await hasFeatures(ctx, ['cc_accounts.record']))) return NextResponse.json({ error: 'This customer already has invoices. A GSTIN change must be approved by Accounts; ask them to make it.', fields: { gstin: 'Needs Accounts approval: invoices exist' } }, { status: 403 })
+      if ((parsed.data.reason ?? '').trim().length < 3) return NextResponse.json({ error: 'Invoices exist for the old GSTIN. Write why it changes; it is kept in the history.', fields: { reason: 'Write why the GSTIN changes' } }, { status: 400 })
+    }
+    return await guarded(ctx, req, id, 'update', parsed.data, async () => {
+      const saved = await saveCustomer(ctx, parsed.data)
+      logCustomerSave(ctx, id, before, await customerSnapshot(ctx, id), { userName: await currentUserName(ctx), reason: parsed.data.reason?.trim() || null })
+      await ctx.em.flush()
+      return NextResponse.json(saved)
+    })
   } catch (error) {
     return errorResponse(error)
   }

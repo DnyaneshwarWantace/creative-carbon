@@ -26,7 +26,7 @@ export async function searchCustomers(search: string): Promise<PickerOption<Cust
   const params = new URLSearchParams({ page: '1', pageSize: '20', sortField: 'createdAt', sortDir: 'desc' })
   if (search) params.set('search', search)
   const call = await apiCall<{ items?: CompanyRow[] }>(`/api/customers/companies?${params.toString()}`, undefined, { fallback: { items: [] } })
-  return (call.result?.items ?? []).map((row) => {
+  return (call.result?.items ?? []).filter((row) => row.status !== 'inactive' && row.status !== 'merged').map((row) => {
     const customer = customerFromRow(row)
     return { id: customer.id, primary: customer.name, secondary: customer.gstin ? `GSTIN ${customer.gstin}` : null, value: customer }
   })

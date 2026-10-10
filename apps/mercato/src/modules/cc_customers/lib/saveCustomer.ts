@@ -52,6 +52,8 @@ export const customerSaveSchema = z.object({
   shipping: addressSchema.nullable().optional(),
   contacts: z.array(z.object({ id: z.string().uuid().optional().nullable(), name: text(150), phone: text(40), email: text(200) })).max(20).default([]),
   allowSameName: z.boolean().default(false),
+  reason: z.string().trim().max(500).optional().nullable(),
+  source: z.enum(['form', 'import']).optional(),
 })
 
 export type CustomerSaveInput = z.infer<typeof customerSaveSchema>

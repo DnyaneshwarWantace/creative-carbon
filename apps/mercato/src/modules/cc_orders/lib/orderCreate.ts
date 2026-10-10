@@ -2,7 +2,7 @@ import type { EntityManager } from '@mikro-orm/postgresql'
 import { CcOrder, CcOrderLine, CcOrderStage } from '../data/entities'
 import type { OrderInput } from '../data/validators'
 import { assignDefaultPeople, createStages, logEvent, openReadyStages } from './engine'
-import { OrderError, customerExists, loadProducts, nextOrderNo, type OrderContext } from './server'
+import { OrderError, customerStatus, loadProducts, nextOrderNo, type OrderContext } from './server'
 import { notifyStagesOpened } from './notify'
 
 export function clean(value: string | null | undefined): string | null {
@@ -20,7 +20,9 @@ export function cleanSpecs(specs: OrderInput['lines'][number]['specs']): Record<
 }
 
 export async function validateInput(ctx: OrderContext, input: OrderInput): Promise<void> {
-  if (!(await customerExists(ctx, input.customerId))) throw new OrderError('Customer not found', 404)
+  const status = await customerStatus(ctx, input.customerId)
+  if (status === undefined) throw new OrderError('Customer not found', 404)
+  if (status === 'inactive' || status === 'merged') throw new OrderError(status === 'merged' ? 'This customer was merged into another one. Pick that customer.' : 'This customer is set inactive. Set it active again first.', 409)
   const products = await loadProducts(
     ctx,
     input.lines.map((line) => line.productId),

@@ -162,6 +162,17 @@ export async function customerExists(ctx: OrderContext, customerId: string): Pro
   return Boolean(entity)
 }
 
+export async function customerStatus(ctx: OrderContext, customerId: string): Promise<string | null | undefined> {
+  const entity = await findOneWithDecryption(
+    ctx.em,
+    CustomerEntity,
+    { id: customerId, tenantId: ctx.tenantId, organizationId: ctx.organizationId, deletedAt: null },
+    undefined,
+    { tenantId: ctx.tenantId, organizationId: ctx.organizationId },
+  )
+  return entity ? (entity.status ?? null) : undefined
+}
+
 export async function loadProducts(ctx: OrderContext, ids: string[]): Promise<Map<string, ProductSummary>> {
   const unique = Array.from(new Set(ids.filter((id) => UUID_RE.test(id))))
   const result = new Map<string, ProductSummary>()

@@ -183,6 +183,7 @@ export function ImportPartiesPage({ kind }: { kind: Kind }) {
       billing: address('billing'),
       shipping: values.shipping_street ? address('shipping') : null,
       contacts: values.contact_name ? [{ name: values.contact_name, phone: values.contact_phone || '', email: values.contact_email || '' }] : [],
+      source: 'import',
     }
     const call = await apiCall<{ id?: string; error?: string; fields?: Record<string, string> }>('/api/cc_customers/customers', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) })
     if (!call.ok || !call.result?.id) {

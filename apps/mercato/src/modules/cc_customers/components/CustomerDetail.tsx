@@ -2,27 +2,25 @@
 
 import * as React from 'react'
 import { useGranted } from '../../cc_departments/components/useGranted'
-import { useListOptions } from '../../cc_lists/components/useListOptions'
 import Link from 'next/link'
-import { Building2, ClipboardList, Copy, FileText, FlaskConical, MapPin, MessageSquare, Package, Pencil, Plus, Receipt, Shapes, Wallet } from 'lucide-react'
+import { Building2, ClipboardList, Combine, Copy, FileText, FlaskConical, MapPin, MessageSquare, Package, Pencil, Plus, Power, Receipt, Shapes, Wallet } from 'lucide-react'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { cn } from '@open-mercato/shared/lib/utils'
 import { Button } from '@open-mercato/ui/primitives/button'
-import { Input } from '@open-mercato/ui/primitives/input'
-import { Label } from '@open-mercato/ui/primitives/label'
 import { Tabs, TabsList, TabsTrigger } from '@open-mercato/ui/primitives/tabs'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@open-mercato/ui/primitives/select'
-import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@open-mercato/ui/primitives/sheet'
 import { StatusBadge, type StatusBadgeVariant } from '@open-mercato/ui/primitives/status-badge'
-import { apiCall, withScopedApiRequestHeaders } from '@open-mercato/ui/backend/utils/apiCall'
-import { buildOptimisticLockHeader } from '@open-mercato/ui/backend/utils/optimisticLock'
-import { useGuardedMutation } from '@open-mercato/ui/backend/injection/useGuardedMutation'
+import { apiCall } from '@open-mercato/ui/backend/utils/apiCall'
 import { flash } from '@open-mercato/ui/backend/FlashMessages'
 import { CustomerStatement } from '../../cc_accounts/components/CustomerStatement'
-import { usePaymentTerms } from '../../cc_lists/components/usePaymentTerms'
 import { paymentTermLabel } from '../../cc_lists/lib/paymentTerms'
 import { FieldList, LinkRows, Panel, PanelEmpty, RecordColumns, RecordPage, RecordState, formatCount, formatDay, formatKg, type Fact } from '../../cc_ui/components/RecordPage'
 import { recordHref } from '../../cc_ui/lib/links'
+import { Timeline } from '../../cc_ui/components/Timeline'
+import { Comments } from '../../cc_ui/components/Comments'
+import { Attachments } from '../../cc_ui/components/Attachments'
+import { CorrectDialog } from '../../cc_ui/components/CorrectDialog'
+import { SearchPicker } from '../../cc_orders/components/SearchPicker'
+import { searchCustomers } from '../../cc_orders/components/loaders'
 
 type Row = Record<string, unknown> & { id: string }
 type Address = { id: string; name: string | null; purpose: string | null; address_line1: string | null; address_line2: string | null; city: string | null; region: string | null; postal_code: string | null; country: string | null; is_primary: boolean | null }
@@ -84,174 +82,6 @@ function daysUntil(value: string | null): number | null {
   return Math.round((target - today.getTime()) / 86400000)
 }
 
-type EditValues = {
-  displayName: string
-  legalName: string
-  category: string
-  gstType: string
-  gstin: string
-  paymentTerms: string
-  paymentRemarks: string
-  salesManager: string
-  email: string
-  phone: string
-}
-
-function EditSheet({ open, onOpenChange, company, onSaved }: { open: boolean; onOpenChange: (open: boolean) => void; company: Row; onSaved: () => Promise<void> }) {
-  const t = useT()
-  const { runMutation } = useGuardedMutation({ contextId: `cc-customer-${company.id}` })
-  const [values, setValues] = React.useState<EditValues | null>(null)
-  const [saving, setSaving] = React.useState(false)
-  const remarkOptions = useListOptions('payment_remarks', field(company, 'payment_remarks'))
-  const termOptions = usePaymentTerms(field(company, 'payment_terms'))
-
-  React.useEffect(() => {
-    if (!open) return
-    setValues({
-      displayName: readable(company.display_name) ?? field(company, 'legal_trade_name') ?? '',
-      legalName: field(company, 'legal_trade_name') ?? '',
-      category: field(company, 'customer_type_category') ?? 'business',
-      gstType: field(company, 'gst_registration_type') ?? 'unregistered',
-      gstin: field(company, 'gstin') ?? '',
-      paymentTerms: field(company, 'payment_terms') ?? '',
-      paymentRemarks: field(company, 'payment_remarks') ?? '',
-      salesManager: field(company, 'sales_manager') ?? '',
-      email: readable(company.primary_email) ?? '',
-      phone: readable(company.primary_phone) ?? '',
-    })
-  }, [open, company])
-
-  if (!values) return null
-  const set = (patch: Partial<EditValues>) => setValues((prev) => (prev ? { ...prev, ...patch } : prev))
-
-  const save = async () => {
-    if (!values.displayName.trim()) {
-      flash(t('cc_customers.errors.name', 'Enter the customer name.'), 'error')
-      return
-    }
-    setSaving(true)
-    try {
-      const body = {
-        id: company.id,
-        displayName: values.displayName.trim(),
-        primaryEmail: values.email.trim() || null,
-        primaryPhone: values.phone.trim() || null,
-        cf_legal_trade_name: values.legalName.trim() || null,
-        cf_customer_type_category: values.category,
-        cf_gst_registration_type: values.gstType,
-        cf_gstin: values.gstin.trim().toUpperCase() || null,
-        cf_payment_terms: values.paymentTerms || null,
-        cf_payment_remarks: values.paymentRemarks || null,
-        cf_sales_manager: values.salesManager.trim() || null,
-      }
-      const call = await runMutation({
-        context: { customerId: company.id },
-        mutationPayload: body,
-        operation: () =>
-          withScopedApiRequestHeaders(buildOptimisticLockHeader(String(company.updated_at ?? '')), () =>
-            apiCall<{ error?: string }>('/api/customers/companies', {
-              method: 'PUT',
-              headers: { 'content-type': 'application/json' },
-              body: JSON.stringify(body),
-            }),
-          ),
-      })
-      if (!call.ok) {
-        flash(call.result?.error ?? t('cc_customers.errors.save', 'Could not save the customer.'), 'error')
-        return
-      }
-      flash(t('cc_customers.flash.saved', 'Customer saved'), 'success')
-      onOpenChange(false)
-      await onSaved()
-    } catch {
-      flash(t('cc_customers.errors.save', 'Could not save the customer.'), 'error')
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  const input = (id: keyof EditValues, label: string, placeholder?: string) => (
-    <div className="space-y-1.5">
-      <Label htmlFor={`customer-${id}`} className="text-xs text-muted-foreground">
-        {label}
-      </Label>
-      <Input id={`customer-${id}`} value={values[id]} placeholder={placeholder} onChange={(event) => set({ [id]: event.target.value } as Partial<EditValues>)} />
-    </div>
-  )
-
-  const select = (id: keyof EditValues, label: string, options: Array<[string, string]>) => (
-    <div className="space-y-1.5">
-      <Label className="text-xs text-muted-foreground">{label}</Label>
-      <Select value={values[id] || '__none'} onValueChange={(next) => set({ [id]: next === '__none' ? '' : next } as Partial<EditValues>)}>
-        <SelectTrigger>
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="__none">—</SelectItem>
-          {options.map(([value, text]) => (
-            <SelectItem key={value} value={value}>
-              {text}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-    </div>
-  )
-
-  return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="flex w-full flex-col gap-0 p-0 sm:max-w-md">
-        <SheetHeader className="border-b p-4">
-          <SheetTitle>{t('cc_customers.edit.title', 'Customer details')}</SheetTitle>
-          <SheetDescription className="text-xs">{t('cc_customers.edit.hint', 'GST, payment terms and sales manager are filled into every new order for this customer.')}</SheetDescription>
-        </SheetHeader>
-        <div
-          className="flex-1 space-y-4 overflow-auto p-4"
-          onKeyDown={(event) => {
-            if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) {
-              event.preventDefault()
-              save()
-            }
-          }}
-        >
-          {input('displayName', t('cc_customers.edit.name', 'Customer name *'))}
-          {input('legalName', t('cc_customers.edit.legal', 'Legal / trade name'))}
-          <div className="grid grid-cols-2 gap-3">
-            {select('category', t('cc_customers.edit.category', 'Customer category'), [
-              ['business', 'Business'],
-              ['individual', 'Individual'],
-            ])}
-            {select(
-              'gstType',
-              t('cc_customers.edit.gstType', 'GST type'),
-              GST_TYPES.map((value) => [value, value.charAt(0).toUpperCase() + value.slice(1)]),
-            )}
-          </div>
-          {input('gstin', t('cc_customers.edit.gstin', 'GSTIN'), '27AAACR1234A1Z5')}
-          {select('paymentTerms', t('cc_customers.edit.terms', 'Payment terms'), termOptions.map((option): [string, string] => [option.value, option.label]))}
-          {select(
-            'paymentRemarks',
-            t('cc_customers.edit.remarks', 'Payment remarks'),
-            remarkOptions.map((value) => [value, value]),
-          )}
-          {input('salesManager', t('cc_customers.edit.manager', 'Sales manager'))}
-          <div className="grid grid-cols-2 gap-3">
-            {input('phone', t('cc_customers.edit.phone', 'Phone'))}
-            {input('email', t('cc_customers.edit.email', 'Email'))}
-          </div>
-        </div>
-        <div className="flex justify-end gap-2 border-t p-4">
-          <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>
-            {t('common.cancel', 'Cancel')}
-          </Button>
-          <Button type="button" onClick={save} disabled={saving}>
-            {saving ? t('cc_customers.edit.saving', 'Saving…') : t('cc_customers.edit.save', 'Save')}
-          </Button>
-        </div>
-      </SheetContent>
-    </Sheet>
-  )
-}
 
 export function CustomerDetail({ customerId }: { customerId: string }) {
   const t = useT()
@@ -261,7 +91,8 @@ export function CustomerDetail({ customerId }: { customerId: string }) {
   const [addresses, setAddresses] = React.useState<Address[]>([])
   const [orders, setOrders] = React.useState<OrderRow[] | null>(null)
   const [tab, setTab] = React.useState<OrderTab>('open')
-  const [editOpen, setEditOpen] = React.useState(false)
+  const [action, setAction] = React.useState<'deactivate' | 'activate' | 'merge' | null>(null)
+  const [mergeWith, setMergeWith] = React.useState<{ id: string; name: string } | null>(null)
   const [links, setLinks] = React.useState<Connections>(EMPTY_CONNECTIONS)
 
   const load = React.useCallback(async () => {
@@ -345,6 +176,20 @@ export function CustomerDetail({ customerId }: { customerId: string }) {
     { label: t('cc_customers.detail.last', 'Last order'), value: lastOrder ? formatDay(lastOrder.orderDate) : '—' },
   ]
 
+  const customerStatus = typeof company.status === 'string' ? company.status : null
+  const act = async (kind: 'deactivate' | 'activate' | 'merge', reason: string): Promise<boolean> => {
+    const body = { id: customerId, action: kind, reason, ...(kind === 'merge' ? { mergeId: mergeWith?.id } : {}) }
+    const call = await apiCall<{ ok?: boolean; moved?: string[]; error?: string }>('/api/cc_customers/customers/action', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) })
+    if (!call.ok) {
+      flash(call.result?.error ?? t('cc_customers.errors.action', 'Could not do that.'), 'error')
+      return false
+    }
+    flash(kind === 'merge' ? t('cc_customers.flash.merged', 'Merged. {moved}', { moved: (call.result?.moved ?? []).join(', ') || t('cc_customers.flash.nothingMoved', 'Nothing had to move.') }) : kind === 'activate' ? t('cc_customers.flash.activated', 'Customer is active again') : t('cc_customers.flash.deactivated', 'Customer set inactive'), 'success')
+    setMergeWith(null)
+    await load()
+    return true
+  }
+
   const docBadge = (status: string) => <StatusBadge variant={DOC_VARIANT[status] ?? 'neutral'}>{t(`cc_customers.docStatus.${status}`, status.replace(/_/g, ' '))}</StatusBadge>
 
   return (
@@ -354,7 +199,13 @@ export function CustomerDetail({ customerId }: { customerId: string }) {
         overline={[t('cc_customers.detail.overline', 'Customer'), field(company, 'gstin') ? `GSTIN ${field(company, 'gstin')}` : null].filter(Boolean).join(' · ')}
         title={name}
         mono={false}
-        badges={field(company, 'gst_registration_type') ? <StatusBadge variant="info">{field(company, 'gst_registration_type')}</StatusBadge> : null}
+        badges={
+          <>
+            {field(company, 'gst_registration_type') ? <StatusBadge variant="info">{field(company, 'gst_registration_type')}</StatusBadge> : null}
+            {customerStatus === 'inactive' ? <StatusBadge variant="neutral">{t('cc_customers.detail.inactive', 'Inactive')}</StatusBadge> : null}
+            {customerStatus === 'merged' ? <StatusBadge variant="warning">{t('cc_customers.detail.merged', 'Merged into another customer')}</StatusBadge> : null}
+          </>
+        }
         meta={field(company, 'sales_manager') ? t('cc_customers.detail.managedBy', 'Sales manager {name}', { name: field(company, 'sales_manager') ?? '' }) : undefined}
         alert={nameBroken ? <p className="rounded-md border border-status-warning-border bg-status-warning-bg px-3 py-2 text-sm text-status-warning-text">{t('cc_customers.detail.broken', 'The saved name could not be read. Open "Edit details" and save once to store it again.')}</p> : null}
         actions={
@@ -375,7 +226,19 @@ export function CustomerDetail({ customerId }: { customerId: string }) {
                 </Link>
               </Button>
             ) : null}
-            {granted.has('cc_orders.manage') ? (
+            {granted.has('cc_crm.merge') && customerStatus !== 'merged' ? (
+              <Button type="button" variant="outline" size="sm" onClick={() => setAction('merge')}>
+                <Combine className="mr-1.5 h-4 w-4" aria-hidden="true" />
+                {t('cc_customers.detail.merge', 'Merge a duplicate')}
+              </Button>
+            ) : null}
+            {granted.has('customers.companies.manage') && customerStatus !== 'merged' ? (
+              <Button type="button" variant="ghost" size="sm" onClick={() => setAction(customerStatus === 'inactive' ? 'activate' : 'deactivate')}>
+                <Power className="mr-1.5 h-4 w-4" aria-hidden="true" />
+                {customerStatus === 'inactive' ? t('cc_customers.detail.activate', 'Set active') : t('cc_customers.detail.deactivate', 'Set inactive')}
+              </Button>
+            ) : null}
+            {granted.has('cc_orders.manage') && customerStatus !== 'inactive' && customerStatus !== 'merged' ? (
               <Button asChild size="sm">
                 <Link href={`/backend/orders/new?customerId=${customerId}`}>
                   <Plus className="mr-1.5 h-4 w-4" aria-hidden="true" />
@@ -506,9 +369,9 @@ export function CustomerDetail({ customerId }: { customerId: string }) {
                 icon={Building2}
                 action={
                   granted.has('customers.companies.manage') ? (
-                    <button type="button" className="text-primary hover:underline" onClick={() => setEditOpen(true)}>
+                    <Link className="text-primary hover:underline" href={`/backend/customers/edit/${customerId}`}>
                       {t('cc_customers.detail.editShort', 'Edit')}
-                    </button>
+                    </Link>
                   ) : null
                 }
               >
@@ -618,8 +481,39 @@ export function CustomerDetail({ customerId }: { customerId: string }) {
             </>
           }
         />
+        <Attachments type="customer" id={customerId} hint={t('cc_customers.detail.filesHint', 'GST certificate, PAN, cancelled cheque, customer PO templates.')} />
+        <Comments type="customer" id={customerId} />
+        <Timeline type="customer" id={customerId} refreshKey={String(company.updated_at ?? '')} />
       </RecordPage>
-      <EditSheet open={editOpen} onOpenChange={setEditOpen} company={company} onSaved={load} />
+      <CorrectDialog
+        open={action === 'deactivate' || action === 'activate'}
+        onOpenChange={(next) => !next && setAction(null)}
+        destructive={action === 'deactivate'}
+        title={action === 'activate' ? t('cc_customers.detail.activateTitle', 'Set {name} active again?', { name }) : t('cc_customers.detail.deactivateTitle', 'Set {name} inactive?', { name })}
+        undo={action === 'activate' ? [t('cc_customers.detail.activateUndo', 'Shows again when booking orders and quotations')] : [t('cc_customers.detail.deactivateUndo', 'Hidden when booking new orders and quotations'), t('cc_customers.detail.deactivateKeep', 'Old orders, invoices and payments stay as they are')]}
+        confirmLabel={action === 'activate' ? t('cc_customers.detail.activate', 'Set active') : t('cc_customers.detail.deactivate', 'Set inactive')}
+        onConfirm={(reason) => act(action === 'activate' ? 'activate' : 'deactivate', reason)}
+      />
+      <CorrectDialog
+        open={action === 'merge'}
+        onOpenChange={(next) => !next && setAction(null)}
+        title={t('cc_customers.detail.mergeTitle', 'Merge a duplicate into {name}', { name })}
+        description={
+          <span className="mt-2 block space-y-2">
+            <span className="block">{t('cc_customers.detail.mergeHint', 'Pick the duplicate. Its enquiries, quotations, orders, proformas, invoices, lab reports and dies move to this customer; the duplicate is kept for history and hidden.')}</span>
+            <SearchPicker
+              value={mergeWith ? { id: mergeWith.id, primary: mergeWith.name, value: mergeWith } : null}
+              placeholder={t('cc_customers.detail.mergePick', 'Pick the duplicate customer')}
+              searchPlaceholder={t('cc_customers.detail.mergeSearch', 'Search name or GSTIN')}
+              load={async (query) => (await searchCustomers(query)).filter((option) => option.id !== customerId).map((option) => ({ ...option, value: { id: option.id, name: option.primary } }))}
+              onSelect={(option) => setMergeWith(option.value)}
+            />
+          </span>
+        }
+        undo={mergeWith ? [t('cc_customers.detail.mergeUndo', '{dup} is merged into {name}', { dup: mergeWith.name, name })] : []}
+        confirmLabel={t('cc_customers.detail.mergeConfirm', 'Merge')}
+        onConfirm={(reason) => (mergeWith ? act('merge', reason) : Promise.resolve(false))}
+      />
     </>
   )
 }
