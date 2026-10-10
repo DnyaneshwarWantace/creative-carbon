@@ -25,6 +25,7 @@ import { useGranted } from '../../cc_departments/components/useGranted'
 import { FieldList, LinkRows, Panel, RecordColumns, RecordPage, RecordState, type Fact } from '../../cc_ui/components/RecordPage'
 import { recordHref } from '../../cc_ui/lib/links'
 import { Timeline } from '../../cc_ui/components/Timeline'
+import { Attachments } from '../../cc_ui/components/Attachments'
 
 function steps(po: PoView): StepIndicatorStep[] {
   const order = ['draft', 'pending_approval', 'approved', 'partly_received', 'received']
@@ -363,6 +364,7 @@ export function PurchaseOrderPage({ poId }: { poId: string }) {
             </>
           }
         />
+        <Attachments type="po" id={po.id} />
         <Timeline type="po" id={po.id} refreshKey={po.history.length} />
       </RecordPage>
 

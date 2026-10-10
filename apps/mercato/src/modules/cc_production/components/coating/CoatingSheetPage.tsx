@@ -14,6 +14,7 @@ import { LinkRows, Panel, RecordColumns, RecordPage, RecordState, RegisterGrid, 
 import { PlantChain } from '../../../cc_ui/components/PlantChain'
 import { recordHref } from '../../../cc_ui/lib/links'
 import { Timeline } from '../../../cc_ui/components/Timeline'
+import { Attachments } from '../../../cc_ui/components/Attachments'
 
 export function CoatingSheetPage({ sheetId }: { sheetId: string }) {
   const t = useT()
@@ -204,6 +205,7 @@ export function CoatingSheetPage({ sheetId }: { sheetId: string }) {
           </>
         }
       />
+      <Attachments type="coating_sheet" id={sheet.id} />
       <Timeline type="coating_sheet" id={sheet.id} refreshKey={sheet.history.length} />
     </RecordPage>
   )

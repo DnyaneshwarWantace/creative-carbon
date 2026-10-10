@@ -20,6 +20,7 @@ import { QUOTE_LABEL, QUOTE_VARIANT, type Quotation } from './types'
 import { FieldList, LinkRows, Panel, RecordColumns, RecordPage, RecordState, type Fact } from '../../cc_ui/components/RecordPage'
 import { recordHref } from '../../cc_ui/lib/links'
 import { Timeline } from '../../cc_ui/components/Timeline'
+import { Attachments } from '../../cc_ui/components/Attachments'
 import { CorrectDialog } from '../../cc_ui/components/CorrectDialog'
 
 export function QuotationPage({ quotationId }: { quotationId: string }) {
@@ -286,6 +287,7 @@ export function QuotationPage({ quotationId }: { quotationId: string }) {
           </>
         }
       />
+      <Attachments type="quotation" id={quote.id} />
       <Timeline type="quotation" id={quote.id} refreshKey={quote.history.length} />
       <CorrectDialog
         open={reopening}

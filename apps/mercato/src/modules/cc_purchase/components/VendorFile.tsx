@@ -14,6 +14,7 @@ import { Panel, PanelEmpty, RecordColumns, RecordPage, RecordState, RegisterGrid
 import { recordHref } from '../../cc_ui/lib/links'
 import { VENDOR_CATEGORY_LABEL } from '../../cc_vendors/lib/categories'
 import { Timeline } from '../../cc_ui/components/Timeline'
+import { Attachments } from '../../cc_ui/components/Attachments'
 
 type VendorView = {
   id: string
@@ -331,6 +332,7 @@ export function VendorFile({ vendorId }: { vendorId: string }) {
             </>
           }
         />
+        <Attachments type="vendor" id={vendor.id} />
         <Timeline type="vendor" id={vendor.id} refreshKey={vendor.updatedAt} />
       </RecordPage>
     </>

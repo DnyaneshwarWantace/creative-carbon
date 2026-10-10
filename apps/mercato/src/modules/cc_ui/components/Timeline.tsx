@@ -37,6 +37,12 @@ const KIND_DOT: Record<Kind, string> = {
 
 const SOURCE_LABEL: Record<string, string> = { upload: 'Excel upload', phone: 'Phone', job: 'Automatic', api: 'API' }
 
+export const ACTIVITY_EVENT = 'cc:activity'
+
+export function announceActivity(type: string, id: string) {
+  window.dispatchEvent(new CustomEvent(ACTIVITY_EVENT, { detail: { type, id } }))
+}
+
 const LINK_HREF: Record<string, (id: string) => string> = {
   order: (id) => `/backend/orders/${id}`,
   lot: (id) => `/backend/stock/lots/${id}`,
@@ -93,6 +99,15 @@ export function Timeline({ type, id, refreshKey, title, footer }: { type: string
     },
     [type, id, kind, t],
   )
+
+  React.useEffect(() => {
+    const onActivity = (event: Event) => {
+      const detail = (event as CustomEvent<{ type: string; id: string }>).detail
+      if (detail?.type === type && detail.id === id) void load(1, false)
+    }
+    window.addEventListener(ACTIVITY_EVENT, onActivity)
+    return () => window.removeEventListener(ACTIVITY_EVENT, onActivity)
+  }, [type, id, load])
 
   React.useEffect(() => {
     setItems(null)
@@ -170,7 +185,11 @@ export function Timeline({ type, id, refreshKey, title, footer }: { type: string
                     {item.links.length ? (
                       <p className="mt-1 flex flex-wrap gap-2 text-xs">
                         {item.links.map((link) =>
-                          LINK_HREF[link.type] ? (
+                          link.type === 'file' ? (
+                            <a key={`${link.type}-${link.id}`} className="text-primary hover:underline" href={`/api/attachments/file/${link.id}`} target="_blank" rel="noopener">
+                              {link.label ?? link.type}
+                            </a>
+                          ) : LINK_HREF[link.type] ? (
                             <Link key={`${link.type}-${link.id}`} className="text-primary hover:underline" href={LINK_HREF[link.type](link.id)}>
                               {link.label ?? link.type}
                             </Link>

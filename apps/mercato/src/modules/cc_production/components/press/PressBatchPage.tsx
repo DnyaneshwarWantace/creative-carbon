@@ -21,6 +21,7 @@ import { FieldList, LinkRows, Panel, PanelEmpty, RecordColumns, RecordPage, Reco
 import { PlantChain } from '../../../cc_ui/components/PlantChain'
 import { recordHref } from '../../../cc_ui/lib/links'
 import { Timeline } from '../../../cc_ui/components/Timeline'
+import { Attachments } from '../../../cc_ui/components/Attachments'
 import { CorrectDialog } from '../../../cc_ui/components/CorrectDialog'
 
 type Action = 'post' | 'reopen' | 'cancel' | 'review'
@@ -268,6 +269,7 @@ export function PressBatchPage({ batchId }: { batchId: string }) {
             </>
           }
         />
+        <Attachments type="press_batch" id={batch.id} />
         <Timeline type="press_batch" id={batch.id} refreshKey={batch.history.length} />
       </RecordPage>
 

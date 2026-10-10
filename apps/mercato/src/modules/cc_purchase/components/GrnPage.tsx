@@ -21,6 +21,7 @@ import { PLACE_LABEL } from '../../cc_products/lib/stock'
 import { DocLink, FieldList, LinkRows, Panel, RecordColumns, RecordPage, RecordState, type Fact } from '../../cc_ui/components/RecordPage'
 import { recordHref, type DocumentLink } from '../../cc_ui/lib/links'
 import { Timeline } from '../../cc_ui/components/Timeline'
+import { Attachments } from '../../cc_ui/components/Attachments'
 
 type LotTrace = { lotId: string; lotNumber: string | null; usedBy: Array<{ document: DocumentLink; kg: number; at: string }> }
 
@@ -251,6 +252,7 @@ export function GrnPage({ grnId }: { grnId: string }) {
             </>
           }
         />
+        <Attachments type="grn" id={grn.id} />
         <Timeline type="grn" id={grn.id} refreshKey={grn.history.length} />
       </RecordPage>
 

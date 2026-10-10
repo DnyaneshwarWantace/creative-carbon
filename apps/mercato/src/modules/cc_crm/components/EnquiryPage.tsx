@@ -27,6 +27,7 @@ import { PageLoading } from '../../cc_ui/components/PageLoading'
 import { FieldList, Panel, RecordColumns, RecordPage, RecordState, RegisterGrid, type Fact } from '../../cc_ui/components/RecordPage'
 import { recordHref } from '../../cc_ui/lib/links'
 import { Timeline } from '../../cc_ui/components/Timeline'
+import { Attachments } from '../../cc_ui/components/Attachments'
 
 function localNow(): string {
   const now = new Date(Date.now() - new Date().getTimezoneOffset() * 60_000)
@@ -446,6 +447,7 @@ export function EnquiryPage({ enquiryId }: { enquiryId: string }) {
           )
         }
       />
+      <Attachments type="enquiry" id={enquiry.id} />
       <Timeline type="enquiry" id={enquiry.id} refreshKey={enquiry.history.length} />
     </RecordPage>
   )

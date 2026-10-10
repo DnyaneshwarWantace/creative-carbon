@@ -26,6 +26,7 @@ const UI_FEATURES = [
   'cc_production.quality.release',
   'cc_crm.merge',
   'cc_audit.view',
+  'attachments.manage',
   'customers.companies.manage',
   'cc_purchase.manage',
   'cc_purchase.indent',
