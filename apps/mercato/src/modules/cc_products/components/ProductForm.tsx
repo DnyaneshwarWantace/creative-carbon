@@ -196,6 +196,7 @@ export function ProductForm({ kind, productId }: { kind: ProductKind; productId?
   const [state, setState] = React.useState<FormState | null>(null)
   const [loadError, setLoadError] = React.useState<string | null>(null)
   const [saving, setSaving] = React.useState(false)
+  const [reason, setReason] = React.useState('')
   const [panelOpen, setPanelOpen] = React.useState(false)
   const [hidden, setHidden] = React.useState<Set<string>>(new Set())
   const [defs, setDefs] = React.useState<ProductFieldDef[]>([])
@@ -311,7 +312,7 @@ export function ProductForm({ kind, productId }: { kind: ProductKind; productId?
       uomRoundingScale: 3,
       customFieldsetCode: kind,
       categoryIds: loaded.rootCategoryId ? [loaded.rootCategoryId] : [],
-      isActive: true,
+      ...(productId ? {} : { isActive: true }),
       ...custom,
     }
     const profilePayload = {
@@ -330,7 +331,7 @@ export function ProductForm({ kind, productId }: { kind: ProductKind; productId?
         operation: async () => {
           let id = productId ?? null
           if (id) {
-            await withScopedApiRequestHeaders(buildOptimisticLockHeader(loaded.updatedAt), () =>
+            await withScopedApiRequestHeaders({ ...buildOptimisticLockHeader(loaded.updatedAt), ...(reason.trim() ? { 'x-cc-reason': encodeURIComponent(reason.trim()) } : {}) }, () =>
               updateCrud('catalog/products', { id, ...productPayload }),
             )
           } else {
@@ -343,14 +344,15 @@ export function ProductForm({ kind, productId }: { kind: ProductKind; productId?
             const productSku = text(read(createdCall.result?.items?.[0], 'sku')) || undefined
             await createCrud('catalog/variants', { productId: id, name: title, sku: productSku, isDefault: true, isActive: true })
           }
-          if (loaded.profileId) await updateCrud('wms/inventory-profiles', { id: loaded.profileId, ...profilePayload })
+          if (loaded.profileId) await withScopedApiRequestHeaders(reason.trim() ? { 'x-cc-reason': encodeURIComponent(reason.trim()) } : {}, () => updateCrud('wms/inventory-profiles', { id: loaded.profileId!, ...profilePayload }))
           else await createCrud('wms/inventory-profiles', { catalogProductId: id, ...profilePayload })
         },
       })
       flash(t('cc_products.flash.saved', '{kind} saved', { kind: config.singular }), 'success')
       router.push(savedId ? `/backend/products/${savedId}` : listHref)
-    } catch {
-      flash(t('cc_products.flash.saveFailed', 'Could not save. Check the fields and try again.'), 'error')
+    } catch (error) {
+      const message = error instanceof Error && error.message && !error.message.startsWith('[internal]') ? error.message : null
+      flash(message ?? t('cc_products.flash.saveFailed', 'Could not save. Check the fields and try again.'), 'error')
     } finally {
       setSaving(false)
     }
@@ -443,6 +445,12 @@ export function ProductForm({ kind, productId }: { kind: ProductKind; productId?
               </Button>
             </div>
           </div>
+          {productId ? (
+            <div className="max-w-xl space-y-1">
+              <Label htmlFor="product-change-reason">{t('cc_products.form.reason', 'Why is this changing? (kept in the history; needed to change the unit)')}</Label>
+              <Input id="product-change-reason" value={reason} onChange={(event) => setReason(event.target.value)} placeholder={t('cc_products.form.reasonHint', 'e.g. Supplier now sells by the drum')} />
+            </div>
+          ) : null}
 
           <div className="rounded-xl border bg-muted/30 p-1.5">
             <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-4">

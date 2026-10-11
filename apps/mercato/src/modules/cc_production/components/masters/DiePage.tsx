@@ -9,6 +9,9 @@ import { StatusBadge } from '@open-mercato/ui/primitives/status-badge'
 import { apiCall } from '@open-mercato/ui/backend/utils/apiCall'
 import { FieldList, LinkRows, Panel, RecordColumns, RecordPage, RecordState, RegisterGrid, formatCount, formatDay, formatKg, type Fact } from '../../../cc_ui/components/RecordPage'
 import { recordHref } from '../../../cc_ui/lib/links'
+import { Attachments } from '../../../cc_ui/components/Attachments'
+import { Comments } from '../../../cc_ui/components/Comments'
+import { Timeline } from '../../../cc_ui/components/Timeline'
 
 type DieView = {
   id: string
@@ -199,6 +202,9 @@ export function DiePage({ dieId }: { dieId: string }) {
           </Panel>
         }
       />
+      <Attachments type="die" id={dieId} title={t('cc_production.die.files', 'Die drawing and photos')} />
+      <Comments type="die" id={dieId} />
+      <Timeline type="die" id={dieId} />
     </RecordPage>
   )
 }

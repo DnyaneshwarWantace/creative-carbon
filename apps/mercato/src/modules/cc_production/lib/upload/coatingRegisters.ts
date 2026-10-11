@@ -3,7 +3,7 @@ import { coatingSheetInputSchema, type CoatingSheetInput } from '../../data/vali
 import { clothProducts, createSheet, defaultSlots, postSheet, tankResinLots, updateSheet } from '../coating'
 import { PlantError } from '../server'
 import type { StoreContext } from '../../../cc_store/lib/server'
-import type { UploadColumn, UploadRegister, UploadRow, UploadRowError } from './types'
+import type { UploadColumn, UploadRecord, UploadRegister, UploadRow, UploadRowError } from './types'
 
 const SHARED: UploadColumn[] = [
   { key: 'date', label: 'Date', kind: 'date', required: true, aliases: ['Dt', 'Dt.'] },
@@ -90,11 +90,12 @@ function existingInput(sheet: CoatingSheet | null, date: string, dryerId: string
   }
 }
 
-async function saveGroup(ctx: StoreContext, group: Group, input: CoatingSheetInput, existing: CoatingSheet | null, post: boolean, options: { dryRun: boolean; byName: string | null }) {
+async function saveGroup(ctx: StoreContext, group: Group, input: CoatingSheetInput, existing: CoatingSheet | null, post: boolean, options: { dryRun: boolean; byName: string | null }, records: UploadRecord[]) {
   const parsed = coatingSheetInputSchema.safeParse(input)
   if (!parsed.success) throw new PlantError(`Check ${parsed.error.issues[0]?.path.join('.') ?? 'the values'}`)
   if (options.dryRun) return existing ? 'updated' : 'created'
   const sheet = existing ? await updateSheet(ctx, existing, parsed.data, options.byName) : await createSheet(ctx, parsed.data, options.byName)
+  records.push({ type: 'coating_sheet', id: sheet.id, label: `${sheet.dryerCode} · ${sheet.sheetDate}`, created: !existing })
   if (post) await postSheet(ctx, sheet, options.byName)
   return existing ? 'updated' : 'created'
 }
@@ -111,6 +112,7 @@ async function runGroups(
   let created = 0
   let updated = 0
   let posted = 0
+  const records: UploadRecord[] = []
   for (const group of groupRows(rows, helpers.dryerFor, errors)) {
     const existing = await ctx.em.findOne(CoatingSheet, { tenantId: ctx.tenantId, organizationId: ctx.organizationId, dryerId: group.dryerId, sheetDate: group.date, deletedAt: null })
     if (existing?.status === 'posted') {
@@ -120,7 +122,7 @@ async function runGroups(
     const merged = await merge(group, existingInput(existing, group.date, group.dryerId), helpers, errors)
     if (!merged.ok) continue
     try {
-      const result = await saveGroup(ctx, group, merged.input, existing, merged.post, options)
+      const result = await saveGroup(ctx, group, merged.input, existing, merged.post, options, records)
       if (result === 'created') created += 1
       else updated += 1
       if (merged.post) posted += 1
@@ -130,6 +132,7 @@ async function runGroups(
     }
   }
   return {
+    records,
     created,
     updated,
     skipped: 0,

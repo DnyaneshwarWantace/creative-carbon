@@ -9,6 +9,7 @@ import { stageSettingSchema } from '../../data/validators'
 import { currentUserName, resolveOrderContext, userNames, type OrderContext } from '../../lib/server'
 import { overrideOf } from '../../lib/stageSettings'
 import { DEFAULT_REOPEN_HOURS, DEFAULT_SHARED_FIELDS, EXTRA_FIELD_TYPES, LOCKED_STEPS, STAGES, STAGE_DAY_LIMIT, STAGE_DOCUMENTS } from '../../lib/stages'
+import { logSettingsChange, readSetting } from '../../../cc_audit/lib/settings'
 
 export const metadata = {
   GET: { requireAuth: true },
@@ -80,6 +81,7 @@ async function PUT(req: Request) {
   try {
     const existing = await ctx.em.findOne(CcStageSetting, { tenantId: ctx.tenantId, organizationId: ctx.organizationId, stageKey: base.key })
     if (existing) enforceCommandOptimisticLock({ resourceKind: 'cc_orders.stage_setting', resourceId: existing.id, current: existing.updatedAt, request: req })
+    const before = await readSetting(ctx, 'stage', base.key)
     return await guarded(ctx, req, base.key, input as unknown as Record<string, unknown>, async () => {
       const row = existing ?? ctx.em.create(CcStageSetting, { organizationId: ctx.organizationId, tenantId: ctx.tenantId, stageKey: base.key })
       row.label = input.label?.trim() && input.label.trim() !== base.label ? input.label.trim() : null
@@ -97,6 +99,7 @@ async function PUT(req: Request) {
       row.updatedAt = new Date()
       ctx.em.persist(row)
       await ctx.em.flush()
+      await logSettingsChange(ctx, { area: 'stage', key: base.key, label: `${base.label} stage`, before, after: await readSetting(ctx, 'stage', base.key) })
       return NextResponse.json(await payload(ctx))
     })
   } catch (error) {
@@ -113,9 +116,11 @@ async function DELETE(req: Request) {
     const existing = await ctx.em.findOne(CcStageSetting, { tenantId: ctx.tenantId, organizationId: ctx.organizationId, stageKey })
     if (!existing) return NextResponse.json(await payload(ctx))
     enforceCommandOptimisticLock({ resourceKind: 'cc_orders.stage_setting', resourceId: existing.id, current: existing.updatedAt, request: req })
+    const before = await readSetting(ctx, 'stage', stageKey)
     return await guarded(ctx, req, stageKey, { stageKey, reset: true }, async () => {
       ctx.em.remove(existing)
       await ctx.em.flush()
+      await logSettingsChange(ctx, { area: 'stage', key: stageKey, label: `${STAGES.find((stage) => stage.key === stageKey)?.label ?? stageKey} stage (reset to defaults)`, before, after: null })
       return NextResponse.json(await payload(ctx))
     })
   } catch (error) {

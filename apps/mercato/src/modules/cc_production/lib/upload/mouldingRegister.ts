@@ -3,7 +3,7 @@ import { mouldingEntrySchema, type MouldingEntryInput } from '../../data/validat
 import { clothProducts } from '../coating'
 import { postShift, saveShift } from '../moulding'
 import { PlantError } from '../server'
-import type { UploadColumn, UploadRegister, UploadRow, UploadRowError } from './types'
+import type { UploadColumn, UploadRecord, UploadRegister, UploadRow, UploadRowError } from './types'
 
 const COLUMNS: UploadColumn[] = [
   { key: 'date', label: 'Date', kind: 'date', required: true, aliases: ['Dt', 'Dt.'] },
@@ -48,6 +48,7 @@ export const mouldingRegister: UploadRegister = {
       groups.set(key, group)
     }
     let created = 0
+    const records: UploadRecord[] = []
     let updated = 0
     let posted = 0
     for (const group of groups.values()) {
@@ -78,6 +79,8 @@ export const mouldingRegister: UploadRegister = {
           continue
         }
         await saveShift(ctx, group.date, group.shift, [...inputs.values()], options.byName)
+        const saved = await ctx.em.find(MouldingEntry, { ...scope, entryDate: group.date, shift: group.shift, deletedAt: null })
+        for (const item of saved) if (inputs.has(item.pressId)) records.push({ type: 'moulding_entry', id: item.id, label: `${group.date} · shift ${group.shift} · machine ${item.pressNumber}`, created: !existing.some((before) => before.pressId === item.pressId) })
         if (post) {
           const result = await postShift(ctx, group.date, group.shift, null, options.byName)
           posted += result.posted
@@ -89,6 +92,7 @@ export const mouldingRegister: UploadRegister = {
       }
     }
     return {
+      records,
       created,
       updated,
       skipped: 0,

@@ -5,7 +5,8 @@ import { enforceCommandOptimisticLock } from '@open-mercato/shared/lib/crud/opti
 import { currentUserName, hasFeatures, resolveOrderContext, type OrderContext } from '../../../cc_orders/lib/server'
 import { masterDeleteSchema, masterListQuerySchema, masterWriteSchema } from '../../data/validators'
 import { masterDef, type MasterDef } from '../../lib/masterDefs'
-import { createMaster, deleteMaster, findMaster, listMasters, masterRow, updateMaster } from '../../lib/masters'
+import { createMaster, deleteMaster, findMaster, listMasters, masterChangeAction, masterLabels, masterRecordType, masterRow, masterUsage, openOrdersForDie, updateMaster } from '../../lib/masters'
+import { diffSnapshot, recordActivity } from '../../../cc_audit/lib/activity'
 import { plantErrorResponse, runPlantGuarded } from '../../lib/server'
 
 import { logRateChange } from '../../lib/rateHistory'
@@ -47,6 +48,11 @@ async function POST(req: Request) {
     const result = await runPlantGuarded(ctx, req, { resourceKind: `cc_production.${def.type}`, resourceId: 'new', operation: 'create', payload: parsed.data }, async () => {
       const entity = await createMaster(ctx, def, parsed.data.values, byName)
       const row = await masterRow(ctx, def, entity)
+      const recordType = masterRecordType(def.type)
+      if (recordType) {
+        recordActivity(ctx.em, ctx, { recordType, recordId: entity.id, action: 'created', kind: 'change', summary: `${def.singular} added`, changes: diffSnapshot({}, row, masterLabels(def)).filter((change) => change.to !== null), actorUserId: ctx.userId ?? null, actorName: byName })
+        await ctx.em.flush()
+      }
       if (def.type === 'prices') await logRateChange(ctx, entity.id, null, row, parsed.data.reason ?? null, byName)
       return row
     })
@@ -68,13 +74,30 @@ async function PUT(req: Request) {
     const entity = await findMaster(ctx, def, parsed.data.id)
     enforceCommandOptimisticLock({ resourceKind: `cc_production.${def.type}`, resourceId: entity.id, current: entity.updatedAt, request: req })
     const byName = await currentUserName(ctx)
-    const before = def.type === 'prices' ? await masterRow(ctx, def, entity) : null
+    const snapshot = await masterRow(ctx, def, entity)
+    const recordType = masterRecordType(def.type)
+    const retiring = snapshot.isActive !== false && parsed.data.values.isActive === false
+    if (recordType && retiring && (parsed.data.reason ?? '').trim().length < 3) return NextResponse.json({ error: 'Write why it is taken out of use (kept in the history)' }, { status: 400 })
+    if (def.type === 'moulds' && retiring) {
+      const open = await openOrdersForDie(ctx, String(snapshot.dieNo ?? ''))
+      if (open.length) return NextResponse.json({ error: `Open orders name this die: ${open.join(', ')}. Finish or change them first.`, blockedBy: open }, { status: 409 })
+    }
+    const before = def.type === 'prices' ? snapshot : null
     if (before && parsed.data.values.ratePerKg !== undefined && Number(parsed.data.values.ratePerKg) !== Number(before.ratePerKg) && (parsed.data.reason ?? '').trim().length < 3) {
       return NextResponse.json({ error: 'Write why the rate changes (at least 3 letters); the old rate is kept with its dates' }, { status: 400 })
     }
     const result = await runPlantGuarded(ctx, req, { resourceKind: `cc_production.${def.type}`, resourceId: entity.id, operation: 'update', payload: parsed.data }, async () => {
       const row = await masterRow(ctx, def, await updateMaster(ctx, def, entity, parsed.data.values, byName))
       if (before) await logRateChange(ctx, entity.id, before, row, parsed.data.reason ?? null, byName)
+      if (recordType) {
+        const changes = diffSnapshot(snapshot, row, masterLabels(def))
+        if (changes.length) {
+          const action = masterChangeAction(def.type, snapshot, row)
+          const reason = (parsed.data.reason ?? '').trim() || null
+          recordActivity(ctx.em, ctx, { recordType, recordId: entity.id, action, kind: action === 'changed' && !reason ? 'change' : 'correction', summary: action === 'moved_customer' ? `Moved to ${row.customerName ?? 'no customer'}` : `${changes.length} field${changes.length === 1 ? '' : 's'} changed`, reason, changes, actorUserId: ctx.userId ?? null, actorName: byName })
+          await ctx.em.flush()
+        }
+      }
       return row
     })
     if (result instanceof Response) return result
@@ -94,6 +117,8 @@ async function DELETE(req: Request) {
   try {
     const entity = await findMaster(ctx, def, parsed.data.id)
     enforceCommandOptimisticLock({ resourceKind: `cc_production.${def.type}`, resourceId: entity.id, current: entity.updatedAt, request: req })
+    const used = await masterUsage(ctx, def.type, entity.id)
+    if (used) return NextResponse.json({ error: `This ${def.singular.toLowerCase()} is ${used}, so it cannot be deleted. Take it out of use (In use: No) instead; its history stays.` }, { status: 409 })
     const byName = await currentUserName(ctx)
     const result = await runPlantGuarded(ctx, req, { resourceKind: `cc_production.${def.type}`, resourceId: entity.id, operation: 'delete', payload: parsed.data }, async () => {
       await deleteMaster(ctx, entity, byName)

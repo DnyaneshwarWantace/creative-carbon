@@ -21,6 +21,7 @@ import { useGuardedMutation } from '@open-mercato/ui/backend/injection/useGuarde
 import { flash } from '@open-mercato/ui/backend/FlashMessages'
 import { ACCESS_AREAS, ROLE_LABELS, areaSummary, hasFeature, roleLabel, setAbility } from '../lib/access'
 import { PageLoading } from '../../cc_ui/components/PageLoading'
+import { AccessChangeLog, logAccess } from './AccessChangeLog'
 
 type Role = { id: string; name: string; usersCount: number; updatedAt: string | null }
 type RoleAcl = { isSuperAdmin: boolean; features: string[]; organizations: string[] | null; updatedAt: string | null }
@@ -120,6 +121,7 @@ function PersonDialog({ state, onClose, roles, acls, organizationId, onSaved }: 
       }
       userId = userId ?? userCall.result?.id ?? null
       if (userId && (custom || person)) {
+        await logAccess('user', userId, 'before')
         const aclBody = { userId, features: custom ? features : [] }
         const aclRequest = () => apiCall('/api/auth/users/acl', { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify(aclBody) })
         const aclCall = await runMutation({
@@ -132,6 +134,7 @@ function PersonDialog({ state, onClose, roles, acls, organizationId, onSaved }: 
           onSaved()
           return
         }
+        await logAccess('user', userId, 'after')
       }
       flash(
         person
@@ -260,6 +263,7 @@ export function AccessPage() {
   const [saving, setSaving] = React.useState(false)
   const [personDialog, setPersonDialog] = React.useState<PersonDialogState>(null)
   const [personal, setPersonal] = React.useState<Record<string, string[]>>({})
+  const [logKey, setLogKey] = React.useState(0)
 
   const load = React.useCallback(async () => {
     const [roleCall, userCall] = await Promise.all([
@@ -316,6 +320,7 @@ export function AccessPage() {
     const body = { roleId: selectedRole.id, features: draft }
     setSaving(true)
     try {
+      await logAccess('role', selectedRole.id, 'before')
       const request = () => apiCall('/api/auth/roles/acl', { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) })
       const call = await runMutation({
         context: { resourceKind: 'auth.role_acl', resourceId: selectedRole.id },
@@ -326,6 +331,8 @@ export function AccessPage() {
         flash(call.status === 409 ? t('cc_departments.access.conflict', 'Someone else changed this role. Reload to see their version.') : errorText(call.result, t('cc_departments.access.saveError', 'Could not save this role.')), 'error')
         return
       }
+      await logAccess('role', selectedRole.id, 'after')
+      setLogKey((value) => value + 1)
       const fresh = await apiCall<RoleAcl>(`/api/auth/roles/acl?roleId=${selectedRole.id}`)
       if (fresh.ok && fresh.result) setAcls((prev) => ({ ...prev, [selectedRole.id]: fresh.result as RoleAcl }))
       setDraft(null)
@@ -595,7 +602,10 @@ export function AccessPage() {
             </div>
           ) : null}
         </div>
-        <PersonDialog state={personDialog} onClose={() => setPersonDialog(null)} roles={roles} acls={acls} organizationId={orgId} onSaved={() => void load()} />
+        <div className="mt-5">
+          <AccessChangeLog refreshKey={`${logKey}-${people.length}`} onUndone={() => void load()} />
+        </div>
+        <PersonDialog state={personDialog} onClose={() => setPersonDialog(null)} roles={roles} acls={acls} organizationId={orgId} onSaved={() => { setLogKey((value) => value + 1); void load() }} />
       </PageBody>
     </Page>
   )

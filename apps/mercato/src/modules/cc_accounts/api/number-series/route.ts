@@ -8,6 +8,7 @@ import { numberSeriesInputSchema } from '../../data/validators'
 import { loadCompany } from '../../lib/documents'
 import { SERIES_DEFS, formatSeriesCode, lastSeriesNumber, mergeSeries, renderTemplate, type SeriesKey } from '../../lib/numberSeries'
 import { accountsErrorResponse, runGuarded } from '../../lib/server'
+import { logSettingsChange, readSetting } from '../../../cc_audit/lib/settings'
 
 export const metadata = {
   GET: { requireAuth: true, requireFeatures: ['cc_accounts.series'] },
@@ -70,10 +71,16 @@ async function PUT(req: Request) {
         if (clash) return NextResponse.json({ error: `${def.label} and ${clash} would get the same numbers. Give them different prefixes.` }, { status: 400 })
         prefixes.set(identity, def.label)
       }
+      const previous = mergeSeries(existing.numberSeries ?? null)
       const profile = existing as CompanyProfile
       profile.numberSeries = merged
       profile.updatedAt = new Date()
       await ctx.em.flush()
+      for (const def of SERIES_DEFS) {
+        if (JSON.stringify(previous[def.key]) === JSON.stringify(merged[def.key])) continue
+        const lastUsedAfter = def.kind === 'template' ? 0 : await lastSeriesNumber(ctx, def, merged[def.key], new Date())
+        await logSettingsChange(ctx, { area: 'series', key: def.key, label: def.label, before: { ...previous[def.key] }, after: { ...merged[def.key] }, meta: { lastUsedAfter } })
+      }
       return NextResponse.json(await view(ctx))
     })
   } catch (error) {

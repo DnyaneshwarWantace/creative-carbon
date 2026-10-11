@@ -8,6 +8,7 @@ import { DEFAULT_LEDGERS } from '../../../lib/tally'
 import { cleanTallyUrl, publicSettings, settingsView } from '../../../lib/tallyPush'
 import { AccountsError } from '../../../lib/service'
 import { accountsErrorResponse, runGuarded } from '../../../lib/server'
+import { logSettingsChange, readSetting } from '../../../../cc_audit/lib/settings'
 
 export const metadata = {
   GET: { requireAuth: true, requireFeatures: ['cc_accounts.view'] },
@@ -31,6 +32,7 @@ async function PUT(req: Request) {
       const profile = await ctx.em.findOne(CompanyProfile, { tenantId: ctx.tenantId, organizationId: ctx.organizationId })
       if (!profile) throw new AccountsError('Save the company details first (Accounts → Company details)')
       const current = settingsView(profile)
+      const before = await readSetting(ctx, 'tally', 'tally')
       const ledgers = { ...current.ledgers }
       for (const key of Object.keys(DEFAULT_LEDGERS) as Array<keyof typeof DEFAULT_LEDGERS>) {
         const value = parsed.data.ledgers?.[key]
@@ -44,6 +46,7 @@ async function PUT(req: Request) {
         ledgers,
       }
       await ctx.em.flush()
+      await logSettingsChange(ctx, { area: 'tally', key: 'tally', label: 'Tally connection and ledgers', before, after: await readSetting(ctx, 'tally', 'tally') })
       return NextResponse.json(publicSettings(profile))
     })
   } catch (error) {

@@ -2,7 +2,7 @@ import { Press, PressBatch } from '../../data/entities'
 import { pressBatchInputSchema } from '../../data/validators'
 import { createPressBatch, postPressBatch, updatePressBatch } from '../press'
 import { PlantError } from '../server'
-import type { UploadColumn, UploadRegister, UploadRow, UploadRowError } from './types'
+import type { UploadColumn, UploadRecord, UploadRegister, UploadRow, UploadRowError } from './types'
 
 const COLUMNS: UploadColumn[] = [
   { key: 'date', label: 'Date', kind: 'date', required: true, aliases: ['Dt', 'Dt.'] },
@@ -57,6 +57,7 @@ export const pressLoadingRegister: UploadRegister = {
       groups.set(key, group)
     }
     let created = 0
+    const records: UploadRecord[] = []
     let updated = 0
     let posted = 0
     for (const group of groups.values()) {
@@ -99,6 +100,7 @@ export const pressLoadingRegister: UploadRegister = {
           continue
         }
         const batch = existing ? await updatePressBatch(ctx, existing, parsed.data, options.byName) : await createPressBatch(ctx, parsed.data, options.byName, group.batchNo)
+        records.push({ type: 'press_batch', id: batch.id, label: batch.batchNo, created: !existing })
         if (existing) updated += 1
         else created += 1
         if (post) {
@@ -116,6 +118,7 @@ export const pressLoadingRegister: UploadRegister = {
       }
     }
     return {
+      records,
       created,
       updated,
       skipped: 0,

@@ -16,7 +16,10 @@ export type UploadColumn = {
 
 export type UploadRowError = { row: number; error: string }
 
+export type UploadRecord = { type: string; id: string; label: string; created: boolean; masterType?: string }
+
 export type UploadRunResult = {
+  records?: UploadRecord[]
   created: number
   updated: number
   skipped: number

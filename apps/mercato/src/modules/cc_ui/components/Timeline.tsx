@@ -63,6 +63,20 @@ const LINK_HREF: Record<string, (id: string) => string> = {
   po: (id) => `/backend/purchase/orders/${id}`,
   customer: (id) => `/backend/customers/companies/${id}`,
   vendor: (id) => `/backend/cc_vendors/${id}`,
+  resin_batch: (id) => `/backend/resin/batches/${id}`,
+  chemical_issue: (id) => `/backend/resin/issues/${id}`,
+  coating_sheet: (id) => `/backend/coating/${id}`,
+  press_batch: (id) => `/backend/press/batches/${id}`,
+  moulding_entry: (id) => `/backend/moulding/entries/${id}`,
+  cutting: (id) => `/backend/cutting/${id}`,
+  thickness: (id) => `/backend/quality/thickness/${id}`,
+  fg_inspection: (id) => `/backend/quality/fg-inspection/${id}`,
+  lab_test: (id) => `/backend/quality/lab/${id}`,
+  fg_direct_in: (id) => `/backend/fg/direct-in/${id}`,
+  damage: (id) => `/backend/fg/damage/${id}`,
+  die: (id) => `/backend/masters/moulds/${id}`,
+  product: (id) => `/backend/products/${id}`,
+  upload: (id) => `/backend/upload/history/${id}`,
 }
 
 function value(input: string | number | boolean | null): string {

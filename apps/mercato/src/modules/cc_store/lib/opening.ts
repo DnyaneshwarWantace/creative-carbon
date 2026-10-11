@@ -51,7 +51,7 @@ export type OpeningRow = {
   note?: string
 }
 
-export type OpeningResult = { created: number; failed: number; errors: Array<{ row: number; error: string }>; plan: string[] }
+export type OpeningResult = { created: number; failed: number; errors: Array<{ row: number; error: string }>; plan: string[]; lots?: Array<{ lotId: string; lotNumber: string }> }
 
 type Product = { id: string; title: string; kind: string | null; unit: string | null; code: string | null; sku: string | null }
 
@@ -189,6 +189,7 @@ export async function loadOpeningStock(ctx: StoreContext, cutoverDate: string, r
   const variants = await ensureStockRecords(ctx, [...new Set(ready.map((entry) => entry.product.id))])
   const performedAt = new Date(`${cutoverDate}T09:00:00+05:30`)
   let created = 0
+  const lots: Array<{ lotId: string; lotNumber: string }> = []
   for (const entry of ready) {
     try {
       const variantId = variants.get(entry.product.id)
@@ -220,11 +221,12 @@ export async function loadOpeningStock(ctx: StoreContext, cutoverDate: string, r
         metadata: entry.metadata,
       })
       created += 1
+      lots.push({ lotId: lot.lotId, lotNumber: entry.lotNumber })
     } catch (cause) {
       errors.push({ row: entry.row.row, error: cause instanceof Error ? cause.message : 'Could not load this row' })
     }
   }
-  return { created, failed: errors.length, errors, plan }
+  return { created, failed: errors.length, errors, plan, lots }
 }
 
 export async function openingSummary(ctx: StoreContext) {

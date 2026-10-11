@@ -289,10 +289,12 @@ export class PriceRate {
   notes?: string | null
 }
 
+export type UploadRecordRef = { type: string; id: string; label: string; created: boolean; masterType?: string; undone?: boolean }
+
 @Entity({ tableName: 'cc_upload_batches' })
 @Index({ name: 'cc_upload_batches_scope_idx', properties: ['organizationId', 'tenantId', 'registerKey'] })
 export class UploadBatch {
-  [OptionalProps]?: 'createdAt' | 'updatedAt' | 'byName' | 'registerDate' | 'errors'
+  [OptionalProps]?: 'createdAt' | 'updatedAt' | 'byName' | 'registerDate' | 'errors' | 'records' | 'status' | 'undoneAt' | 'undoneByName' | 'undoReason'
 
   @PrimaryKey({ type: 'uuid', defaultRaw: 'gen_random_uuid()' })
   id!: string
@@ -329,6 +331,21 @@ export class UploadBatch {
 
   @Property({ type: 'json', nullable: true })
   errors?: Array<{ row: number; error: string }> | null
+
+  @Property({ type: 'json', nullable: true })
+  records?: UploadRecordRef[] | null
+
+  @Property({ type: 'text', default: 'done' })
+  status: 'done' | 'undone' = 'done'
+
+  @Property({ name: 'undone_at', type: Date, nullable: true })
+  undoneAt?: Date | null
+
+  @Property({ name: 'undone_by_name', type: 'text', nullable: true })
+  undoneByName?: string | null
+
+  @Property({ name: 'undo_reason', type: 'text', nullable: true })
+  undoReason?: string | null
 
   @Property({ name: 'by_name', type: 'text', nullable: true })
   byName?: string | null
@@ -1345,13 +1362,15 @@ export class DamageEntry {
 
 export type PlanLine = { area: 'resin' | 'coating' | 'press' | 'moulding'; resource: string; item: string | null; plannedQty: number; unit: 'kg' | 'nos' | 'sheets'; note: string | null }
 
+export type PlanVersion = { version: number; lines: PlanLine[]; notes: string | null; byName: string | null; savedAt: string; replacedAt: string; replacedByName: string | null; reason: string | null }
+
 @Entity({ tableName: 'cc_production_plans' })
 @Index({
   name: 'cc_production_plans_day_unique_idx',
   expression: 'create unique index "cc_production_plans_day_unique_idx" on "cc_production_plans" ("organization_id", "plan_date")',
 })
 export class ProductionPlan {
-  [OptionalProps]?: 'createdAt' | 'updatedAt' | 'byName' | 'notes'
+  [OptionalProps]?: 'createdAt' | 'updatedAt' | 'byName' | 'notes' | 'versions'
 
   @PrimaryKey({ type: 'uuid', defaultRaw: 'gen_random_uuid()' })
   id!: string
@@ -1371,6 +1390,9 @@ export class ProductionPlan {
   @Property({ type: 'text', nullable: true })
   notes?: string | null
 
+  @Property({ type: 'json', nullable: true })
+  versions?: PlanVersion[] | null
+
   @Property({ name: 'by_name', type: 'text', nullable: true })
   byName?: string | null
 
@@ -1384,7 +1406,7 @@ export class ProductionPlan {
 @Entity({ tableName: 'cc_sync_clashes' })
 @Index({ name: 'cc_sync_clashes_scope_idx', properties: ['organizationId', 'tenantId', 'createdAt'] })
 export class SyncClash {
-  [OptionalProps]?: 'createdAt' | 'byName' | 'detail'
+  [OptionalProps]?: 'createdAt' | 'updatedAt' | 'byName' | 'detail' | 'recordType' | 'recordId' | 'path' | 'offlineVersion' | 'serverVersion' | 'queuedAt' | 'serverByName' | 'status' | 'kept' | 'resolvedAt' | 'resolvedByName' | 'resolveReason'
 
   @PrimaryKey({ type: 'uuid', defaultRaw: 'gen_random_uuid()' })
   id!: string
@@ -1404,9 +1426,48 @@ export class SyncClash {
   @Property({ type: 'text', nullable: true })
   detail?: string | null
 
+  @Property({ name: 'record_type', type: 'text', nullable: true })
+  recordType?: string | null
+
+  @Property({ name: 'record_id', type: 'text', nullable: true })
+  recordId?: string | null
+
+  @Property({ type: 'text', nullable: true })
+  path?: string | null
+
+  @Property({ name: 'offline_version', type: 'json', nullable: true })
+  offlineVersion?: Record<string, unknown> | null
+
+  @Property({ name: 'server_version', type: 'json', nullable: true })
+  serverVersion?: Record<string, unknown> | null
+
+  @Property({ name: 'server_by_name', type: 'text', nullable: true })
+  serverByName?: string | null
+
+  @Property({ name: 'queued_at', type: Date, nullable: true })
+  queuedAt?: Date | null
+
+  @Property({ type: 'text', default: 'open' })
+  status: 'open' | 'resolved' = 'open'
+
+  @Property({ type: 'text', nullable: true })
+  kept?: 'offline' | 'server' | null
+
+  @Property({ name: 'resolved_at', type: Date, nullable: true })
+  resolvedAt?: Date | null
+
+  @Property({ name: 'resolved_by_name', type: 'text', nullable: true })
+  resolvedByName?: string | null
+
+  @Property({ name: 'resolve_reason', type: 'text', nullable: true })
+  resolveReason?: string | null
+
   @Property({ name: 'by_name', type: 'text', nullable: true })
   byName?: string | null
 
   @Property({ name: 'created_at', type: Date, onCreate: () => new Date() })
   createdAt: Date = new Date()
+
+  @Property({ name: 'updated_at', type: Date, onCreate: () => new Date(), onUpdate: () => new Date() })
+  updatedAt: Date = new Date()
 }

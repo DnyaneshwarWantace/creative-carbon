@@ -88,17 +88,103 @@ export async function findPlan(ctx: StoreContext, date: string) {
 }
 
 export function planView(plan: ProductionPlan | null, date: string) {
-  return { id: plan?.id ?? null, planDate: date, lines: plan?.lines ?? [], notes: plan?.notes ?? null, byName: plan?.byName ?? null, updatedAt: plan?.updatedAt.toISOString() ?? null }
+  return { id: plan?.id ?? null, planDate: date, lines: plan?.lines ?? [], notes: plan?.notes ?? null, byName: plan?.byName ?? null, updatedAt: plan?.updatedAt.toISOString() ?? null, versions: (plan?.versions ?? []).length }
 }
 
-export async function savePlan(ctx: StoreContext, date: string, lines: PlanLine[], notes: string | null, byName: string | null) {
+export function istToday(): string {
+  return new Date(Date.now() + 5.5 * 3_600_000).toISOString().slice(0, 10)
+}
+
+const PLAN_LABELS = { lines: 'Line', notes: 'Notes' }
+
+export async function savePlan(ctx: StoreContext, date: string, lines: PlanLine[], notes: string | null, byName: string | null, reason: string | null = null) {
+  const today = istToday()
+  if (date < today) throw new PlantError(`The plan for ${date} is closed; the day is over. It is kept as it was.`, 409)
   let plan = await findPlan(ctx, date)
+  const { logEdit, recordActivity } = await import('../../cc_audit/lib/activity')
   if (!plan) {
     plan = ctx.em.create(ProductionPlan, { ...scope(ctx), planDate: date, lines, notes, byName })
     ctx.em.persist(plan)
-  } else Object.assign(plan, { lines, notes, byName })
+    await ctx.em.flush()
+    recordActivity(ctx.em, ctx, { recordType: 'plan', recordId: plan.id, action: 'written', kind: 'change', summary: `${lines.length} line${lines.length === 1 ? '' : 's'} planned for ${date}`, actorUserId: ctx.userId ?? null, actorName: byName })
+    await ctx.em.flush()
+    return plan
+  }
+  const sameDay = date === today
+  if (sameDay && (!reason || reason.trim().length < 3)) throw new PlantError('Write why the plan changes on the day itself; the old plan is kept', 400)
+  const before = { lines: plan.lines, notes: plan.notes ?? null }
+  const after = { lines, notes }
+  const versions = plan.versions ?? []
+  if (JSON.stringify(before) !== JSON.stringify(after)) {
+    plan.versions = [...versions, { version: versions.length + 1, lines: plan.lines, notes: plan.notes ?? null, byName: plan.byName ?? null, savedAt: plan.updatedAt.toISOString(), replacedAt: new Date().toISOString(), replacedByName: byName, reason: reason?.trim() || null }]
+  }
+  Object.assign(plan, { lines, notes, byName })
+  await ctx.em.flush()
+  const entry = logEdit(ctx.em, ctx, { recordType: 'plan', recordId: plan.id, before: JSON.parse(JSON.stringify(before)), after: JSON.parse(JSON.stringify(after)), byName, labels: PLAN_LABELS, action: 'changed' })
+  if (entry && sameDay) {
+    entry.kind = 'correction'
+    entry.reason = reason?.trim() ?? null
+  }
   await ctx.em.flush()
   return plan
+}
+
+export async function findPlanByIdOrDate(ctx: StoreContext, key: string) {
+  if (/^\d{4}-\d{2}-\d{2}$/.test(key)) return { plan: await findPlan(ctx, key), date: key }
+  const plan = await ctx.em.findOne(ProductionPlan, { ...scope(ctx), id: key })
+  if (!plan) throw new PlantError('Plan not found', 404)
+  return { plan, date: plan.planDate }
+}
+
+export async function planDetail(ctx: StoreContext, key: string) {
+  const { plan, date } = await findPlanByIdOrDate(ctx, key)
+  const rows = []
+  for (const line of plan?.lines ?? []) {
+    const actual = await actualFor(ctx, date, line)
+    rows.push({ ...line, actual, pct: line.plannedQty ? Math.round((actual / line.plannedQty) * 100) : null })
+  }
+  const [presses, mouldings, resins, sheets, orders] = await Promise.all([
+    ctx.em.find(PressBatch, { ...scope(ctx), batchDate: date, status: 'posted' }, { orderBy: { batchNo: 'asc' } }),
+    ctx.em.find(MouldingEntry, { ...scope(ctx), entryDate: date, status: 'posted', deletedAt: null }, { orderBy: { pressNumber: 'asc' } }),
+    ctx.em.find(ResinBatch, { ...scope(ctx), batchDate: date, status: 'posted', deletedAt: null }, { orderBy: { batchNo: 'asc' } }),
+    ctx.em.find(CoatingSheet, { ...scope(ctx), sheetDate: date, status: 'posted', deletedAt: null }, { orderBy: { dryerCode: 'asc' } }),
+    ctx.em.getConnection().execute<Array<{ id: string; order_no: string; status: string; delivery_date: string }>>(
+      `select id, order_no, status, delivery_date::text as delivery_date from cc_orders
+        where tenant_id = ? and organization_id = ? and deleted_at is null and delivery_date between ?::date and (?::date + interval '7 day') and status in ('booked', 'confirmed')
+        order by delivery_date asc limit 30`,
+      [ctx.tenantId, ctx.organizationId, date, date],
+    ),
+  ])
+  const today = istToday()
+  if (plan && date < today) {
+    const { recordActivity } = await import('../../cc_audit/lib/activity')
+    const [logged] = await ctx.em.getConnection().execute<Array<{ count: string }>>(`select count(*) as count from cc_activity_log where record_type = 'plan' and record_id = ? and action = 'compared'`, [plan.id])
+    if (!Number(logged?.count ?? 0)) {
+      recordActivity(ctx.em, ctx, {
+        recordType: 'plan',
+        recordId: plan.id,
+        action: 'compared',
+        kind: 'system',
+        source: 'job',
+        summary: 'Day end: planned against what was posted',
+        changes: rows.map((row, index) => ({ field: `lines[${index}]`, label: [row.area, row.resource, row.item].filter(Boolean).join(' · '), from: `${row.plannedQty} ${row.unit} planned`, to: `${row.actual} ${row.unit} made` })),
+      })
+      await ctx.em.flush()
+    }
+  }
+  return {
+    ...planView(plan, date),
+    status: date < today ? 'closed' : date === today ? 'today' : 'ahead',
+    rows,
+    versionList: (plan?.versions ?? []).map((version) => ({ version: version.version, lines: version.lines, notes: version.notes, byName: version.byName, savedAt: version.savedAt, replacedAt: version.replacedAt, replacedByName: version.replacedByName, reason: version.reason })),
+    made: [
+      ...resins.map((batch) => ({ type: 'resin_batch', id: batch.id, label: batch.batchNo, area: 'resin', qty: kg3(Number(batch.yieldKg ?? 0)), unit: 'kg' })),
+      ...sheets.map((sheet) => ({ type: 'coating_sheet', id: sheet.id, label: sheet.dryerCode, area: 'coating', qty: kg3(sheetFigures(sheet.rows, sheet.slots).bstageTotal), unit: 'kg' })),
+      ...presses.map((batch) => ({ type: 'press_batch', id: batch.id, label: batch.batchNo, area: 'press', qty: kg3(pressFigures(batch.daylights).totalKg), unit: 'kg' })),
+      ...mouldings.map((entry) => ({ type: 'moulding_entry', id: entry.id, label: `M/c ${entry.pressNumber} · ${entry.dieNo}`, area: 'moulding', qty: entry.productionNos, unit: 'nos' })),
+    ],
+    ordersDue: orders.map((order) => ({ id: order.id, orderNo: order.order_no, status: order.status, deliveryDate: order.delivery_date })),
+  }
 }
 
 async function shortfall(ctx: StoreContext) {
@@ -161,13 +247,6 @@ export async function ownerOverview(ctx: StoreContext, date: string) {
     },
     followUps: await overdueEnquiries(ctx, 12),
   }
-}
-
-export async function logClash(ctx: StoreContext, input: { screen: string; recordRef: string; detail: string | null }, byName: string | null) {
-  const clash = ctx.em.create(SyncClash, { ...scope(ctx), screen: input.screen, recordRef: input.recordRef, detail: input.detail, byName })
-  ctx.em.persist(clash)
-  await ctx.em.flush()
-  return clash
 }
 
 type ReorderRow = { product_id: string; reorder_point: string | null }

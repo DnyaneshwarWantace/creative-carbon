@@ -56,6 +56,18 @@ function FileLine({ file, old }: { file: FileItem; old?: boolean }) {
   )
 }
 
+export async function attachRecordFile(type: string, id: string, file: File, label: string | null): Promise<boolean> {
+  const form = new FormData()
+  form.set('entityId', 'cc_audit:record')
+  form.set('recordId', `${type}:${id}`)
+  form.set('file', file)
+  const sent = await apiCall<{ ok?: boolean; item?: { id: string } }>('/api/attachments', { method: 'POST', body: form }, { fallback: null })
+  const attachmentId = sent.result?.item?.id
+  if (!sent.ok || !attachmentId) return false
+  const noted = await apiCall<{ ok?: boolean }>('/api/cc_audit/files', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ type, id, attachmentId, label }) })
+  return noted.ok
+}
+
 export function Attachments({ type, id, title, hint, onChanged, slot, label: fixedLabel, bare }: { type: string; id: string; title?: string; hint?: string; onChanged?: () => void; slot?: { entityId: string; recordId: string }; label?: string; bare?: boolean }) {
   const t = useT()
   const granted = useGranted()

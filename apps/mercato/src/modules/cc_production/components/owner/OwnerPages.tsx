@@ -20,6 +20,7 @@ import { selectClass, useSend } from '../finishing/shared'
 import { OfflineBadge, usePlantPwa } from '../offline'
 import { PlantTable } from '../PlantTable'
 import { Dropdown } from '../../../cc_lists/components/Dropdown'
+import { CorrectDialog } from '../../../cc_ui/components/CorrectDialog'
 
 type PlanRow = { area: string; resource: string; item: string | null; plannedQty: number; unit: string; actual: number; pct: number | null }
 type Overview = {
@@ -141,14 +142,21 @@ export function OwnerOverviewPage() {
                 ) : (
                   <p className="text-sm text-muted-foreground">{t('cc_production.owner.noPlan', 'No plan was written for this day.')}</p>
                 )}
-                {granted.has('cc_production.plan.manage') ? (
-                  <Button asChild variant="outline" size="sm" className="mt-3">
-                    <Link href={`/backend/owner/plan?date=${date}`}>
-                      <ClipboardList className="mr-1.5 h-4 w-4" aria-hidden="true" />
-                      {t('cc_production.owner.writePlan', 'Write or change the plan')}
-                    </Link>
-                  </Button>
-                ) : null}
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {data.plan.exists ? (
+                    <Button asChild variant="outline" size="sm">
+                      <Link href={`/backend/owner/plan/${date}`}>{t('cc_production.owner.openPlan', 'Open the plan page')}</Link>
+                    </Button>
+                  ) : null}
+                  {granted.has('cc_production.plan.manage') ? (
+                    <Button asChild variant="outline" size="sm">
+                      <Link href={`/backend/owner/plan?date=${date}`}>
+                        <ClipboardList className="mr-1.5 h-4 w-4" aria-hidden="true" />
+                        {t('cc_production.owner.writePlan', 'Write or change the plan')}
+                      </Link>
+                    </Button>
+                  ) : null}
+                </div>
                 {data.shortfall.length ? (
                   <div className="mt-4">
                     <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">{t('cc_production.owner.shortfall', 'Orders short of finished stock')}</p>
@@ -251,10 +259,11 @@ export function OwnerOverviewPage() {
                     <div>
                       <p className="font-medium">{t('cc_production.owner.clashes', 'Offline saves that overwrote a change')}</p>
                       {data.breakdowns.clashes.map((clash) => (
-                        <p key={clash.id} className="text-xs text-muted-foreground">
+                        <Link key={clash.id} href={`/backend/sync/clashes/${clash.id}`} className="block text-xs text-muted-foreground hover:underline">
                           {clash.screen} · {clash.recordRef} · {clash.byName ?? '—'} · {when(clash.at)}
-                        </p>
+                        </Link>
                       ))}
+                      <Link href="/backend/sync/clashes" className="text-xs text-primary hover:underline">{t('cc_production.owner.allClashes', 'All sync clashes')}</Link>
                     </div>
                   ) : null}
                 </div>
@@ -298,13 +307,20 @@ export function PlanPage() {
     })
   }, [date])
 
-  const save = async () => {
-    const body = { planDate: date, notes: notes || null, lines: lines.filter((line) => line.plannedQty).map((line) => ({ area: line.area, resource: line.resource, item: line.item || null, plannedQty: Number(line.plannedQty), unit: line.unit })) }
-    const saved = await send<PlanView>('/api/cc_production/plan', 'PUT', body, plan?.updatedAt ?? null)
-    if (saved) {
-      setPlan(saved)
-      flash(t('cc_production.plan.saved', 'Plan saved.'), 'success')
+  const [asking, setAsking] = React.useState(false)
+  const sameDayChange = Boolean(plan?.id) && date === todayIso()
+  const closed = date < todayIso()
+  const save = async (reason: string | null = null) => {
+    if (sameDayChange && !reason) {
+      setAsking(true)
+      return false
     }
+    const body = { planDate: date, reason, notes: notes || null, lines: lines.filter((line) => line.plannedQty).map((line) => ({ area: line.area, resource: line.resource, item: line.item || null, plannedQty: Number(line.plannedQty), unit: line.unit })) }
+    const saved = await send<PlanView>('/api/cc_production/plan', 'PUT', body, plan?.updatedAt ?? null)
+    if (!saved) return false
+    setPlan(saved)
+    flash(t('cc_production.plan.saved', 'Plan saved.'), 'success')
+    return true
   }
 
   const update = (lineKey: string, patch: Partial<PlanLineDraft>) => setLines(lines.map((line) => (line.key === lineKey ? { ...line, ...patch } : line)))
@@ -350,13 +366,28 @@ export function PlanPage() {
               {t('cc_production.plan.add', 'Add a line')}
             </Button>
             <Input aria-label={t('cc_production.resin.notes', 'Remarks')} placeholder={t('cc_production.resin.notes', 'Remarks')} value={notes} onChange={(event) => setNotes(event.target.value)} />
-            <div className="flex justify-end">
-              <Button type="button" onClick={() => void save()}>
+            <div className="flex flex-wrap items-center justify-end gap-2">
+              {plan?.id ? (
+                <Button asChild variant="ghost" size="sm">
+                  <Link href={`/backend/owner/plan/${date}`}>{t('cc_production.owner.openPlan', 'Open the plan page')}</Link>
+                </Button>
+              ) : null}
+              {closed ? <span className="text-xs text-muted-foreground">{t('cc_production.plan.closedHint', 'The day is over; the plan is kept as it was.')}</span> : null}
+              <Button type="button" disabled={closed} onClick={() => void save()}>
                 {t('cc_production.resin.save', 'Save')}
               </Button>
             </div>
           </section>
         </div>
+        <CorrectDialog
+          open={asking}
+          onOpenChange={setAsking}
+          destructive={false}
+          title={t('cc_production.plan.changeTitle', 'Change today’s plan')}
+          description={t('cc_production.plan.changeHint', 'The plan is changed on the day itself. The old plan is kept as an earlier version.')}
+          confirmLabel={t('cc_production.resin.save', 'Save')}
+          onConfirm={(reason) => save(reason)}
+        />
       </PageBody>
     </Page>
   )

@@ -67,11 +67,19 @@ export async function runUpload(
       updatedRows: result.updated,
       failedRows: failedRows.length,
       errors: errors.slice(0, 500),
+      records: (result.records ?? []).slice(0, 2000),
       byName: options.byName,
     })
     ctx.em.persist(batch)
     await ctx.em.flush()
     batchId = batch.id
+    const { recordActivity } = await import('../../../cc_audit/lib/activity')
+    recordActivity(ctx.em, ctx, { recordType: 'upload', recordId: batch.id, action: 'uploaded', kind: 'document', source: 'upload', summary: `${options.fileName}: ${parsed.rows.length} rows, ${result.created} new, ${result.updated} updated, ${failedRows.length} to fix`, actorUserId: ctx.userId ?? null, actorName: options.byName, links: (result.records ?? []).slice(0, 50).map((record) => ({ type: record.type === 'master' ? (record.masterType === 'moulds' ? 'die' : 'master') : record.type, id: record.id, label: record.label })) })
+    if (/rows-to-fix/i.test(options.fileName)) {
+      const fixed = await ctx.em.findOne(UploadBatch, { ...scope, registerKey: register.key, failedRows: { $gt: 0 }, id: { $ne: batch.id } }, { orderBy: { createdAt: 'desc' } })
+      if (fixed) recordActivity(ctx.em, ctx, { recordType: 'upload', recordId: fixed.id, action: 'fixes_reuploaded', kind: 'document', source: 'upload', summary: `Rows to fix re-uploaded: ${result.created + result.updated} saved, ${failedRows.length} still to fix`, actorUserId: ctx.userId ?? null, actorName: options.byName, links: [{ type: 'upload', id: batch.id, label: options.fileName }] })
+    }
+    await ctx.em.flush()
   }
   return {
     register: register.key,
@@ -109,6 +117,7 @@ export async function uploadHistory(ctx: OrderContext, registerKey?: string) {
     errors: row.errors ?? [],
     byName: row.byName ?? null,
     at: row.createdAt.toISOString(),
+    status: row.status,
   }))
 }
 
@@ -132,6 +141,12 @@ export async function uploadDetail(ctx: OrderContext, id: string) {
     errors: row.errors ?? [],
     byName: row.byName ?? null,
     at: row.createdAt.toISOString(),
+    records: row.records ?? [],
+    status: row.status,
+    undoneAt: row.undoneAt ? row.undoneAt.toISOString() : null,
+    undoneByName: row.undoneByName ?? null,
+    undoReason: row.undoReason ?? null,
+    updatedAt: row.updatedAt.toISOString(),
   }
 }
 

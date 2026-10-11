@@ -7,6 +7,9 @@ import { StatusBadge, type StatusBadgeVariant } from '@open-mercato/ui/primitive
 import { apiCall } from '@open-mercato/ui/backend/utils/apiCall'
 import { FieldList, Panel, RecordColumns, RecordPage, RecordState, RegisterGrid, formatCount, formatDay, formatKg, type Fact } from '../../../cc_ui/components/RecordPage'
 import { recordHref, type MachineKind } from '../../../cc_ui/lib/links'
+import { Attachments } from '../../../cc_ui/components/Attachments'
+import { Comments } from '../../../cc_ui/components/Comments'
+import { Timeline } from '../../../cc_ui/components/Timeline'
 
 type WorkRow = { id: string; kind: 'resin' | 'coating' | 'press' | 'moulding'; date: string; label: string; detail: string | null; status: string; inputKg: number | null; outputKg: number | null; pieces: number | null; overCapacity: boolean }
 
@@ -142,6 +145,9 @@ export function MachinePage({ kind, machineId }: { kind: string; machineId: stri
           </Panel>
         }
       />
+      <Attachments type="machine" id={machineId} title={t('cc_production.machine.files', 'Manual and papers')} />
+      <Comments type="machine" id={machineId} />
+      <Timeline type="machine" id={machineId} />
     </RecordPage>
   )
 }

@@ -403,7 +403,7 @@ export const planLineSchema = z.object({
   note: optionalText(200),
 })
 
-export const planSaveSchema = z.object({ planDate: isoDate, lines: z.array(planLineSchema).max(80), notes: optionalText(1000) })
+export const planSaveSchema = z.object({ planDate: isoDate, lines: z.array(planLineSchema).max(80), notes: optionalText(1000), reason: z.string().trim().max(500).nullable().optional() })
 
 export const stockGridSchema = z.object({ kind: z.string().max(40).optional(), place: z.enum(['wh_a', 'wh_b', 'tank', 'floor', 'fg']).optional(), q: z.string().trim().max(100).optional() })
 
@@ -416,7 +416,17 @@ export const stocktakeSchema = z.object({
   note: optionalText(300),
 })
 
-export const clashSchema = z.object({ screen: z.string().trim().min(1).max(80), recordRef: z.string().trim().min(1).max(200), detail: optionalText(1000) })
+export const clashSchema = z.object({
+  screen: z.string().trim().min(1).max(80),
+  recordRef: z.string().trim().min(1).max(200),
+  detail: optionalText(1000),
+  path: z.string().trim().max(200).nullable().optional(),
+  method: z.enum(['POST', 'PUT']).nullable().optional(),
+  body: z.record(z.string(), z.unknown()).nullable().optional(),
+  queuedAt: z.string().datetime().nullable().optional(),
+})
+
+export const clashPickSchema = z.object({ id: z.string().uuid(), keep: z.enum(['offline', 'server']), reason: z.string().trim().max(500).optional() }).superRefine(requireReasonFor([]))
 
 export const thicknessActionSchema = z
   .object({

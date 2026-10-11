@@ -29,6 +29,7 @@ function masterRegister(def: MasterDef, department: string, paperRef: string | n
       const report = await importMasters(ctx, def, rows.map((row) => row.values), options.dryRun, options.byName)
       const sheetRow = (index: number) => rows[index - 2]?.sheetRow ?? index
       return {
+        records: (report.createdRows ?? []).map((row) => ({ type: 'master', masterType: def.type, id: row.id, label: row.label, created: true })),
         created: report.created,
         updated: report.updated,
         skipped: 0,

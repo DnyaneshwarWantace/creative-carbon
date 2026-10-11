@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 import Link from 'next/link'
-import { Download, ExternalLink, FileSpreadsheet, History, TriangleAlert, Upload } from 'lucide-react'
+import { Download, ExternalLink, FileSpreadsheet, History, ListChecks, TriangleAlert, Undo2, Upload } from 'lucide-react'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { cn } from '@open-mercato/shared/lib/utils'
 import { Page, PageBody } from '@open-mercato/ui/backend/Page'
@@ -14,6 +14,12 @@ import { apiCall } from '@open-mercato/ui/backend/utils/apiCall'
 import { useGuardedMutation } from '@open-mercato/ui/backend/injection/useGuardedMutation'
 import { flash } from '@open-mercato/ui/backend/FlashMessages'
 import { PageLoading } from '../../cc_ui/components/PageLoading'
+import { Attachments, attachRecordFile } from '../../cc_ui/components/Attachments'
+import { Comments } from '../../cc_ui/components/Comments'
+import { Timeline } from '../../cc_ui/components/Timeline'
+import { CorrectDialog, type CorrectionPreview } from '../../cc_ui/components/CorrectDialog'
+import { useGranted } from '../../cc_departments/components/useGranted'
+import { useSend } from './finishing/shared'
 import { Panel, RecordColumns, RecordPage, RecordState, RegisterGrid, FieldList, type Fact } from '../../cc_ui/components/RecordPage'
 
 export type RegisterTile = {
@@ -29,6 +35,7 @@ export type RegisterTile = {
 }
 
 type Report = {
+  batchId?: string | null
   dryRun: boolean
   fileName: string
   total: number
@@ -44,7 +51,24 @@ type Report = {
 }
 
 type HistoryRow = { id: string; register: string; fileName: string; registerDate: string | null; total: number; created: number; updated: number; failed: number; byName: string | null; at: string }
-type UploadView = HistoryRow & { registerLabel: string; department: string | null; paperRef: string | null; fileHash: string; errors: Array<{ row: number; error: string }> }
+type UploadRecordView = { type: string; id: string; label: string; created: boolean; masterType?: string; undone?: boolean }
+type UploadView = HistoryRow & { registerLabel: string; department: string | null; paperRef: string | null; fileHash: string; errors: Array<{ row: number; error: string }>; records: UploadRecordView[]; status: 'done' | 'undone'; undoneAt: string | null; undoneByName: string | null; undoReason: string | null; updatedAt: string }
+type UndoPreview = { unavailable: string | null; allowed: boolean; blockedBy: Array<{ label: string; href: string | null }>; undo: string[]; kept: string[] }
+
+const RECORD_PATH: Record<string, string> = {
+  resin_batch: '/backend/resin/batches/',
+  coating_sheet: '/backend/coating/',
+  press_batch: '/backend/press/batches/',
+  moulding_entry: '/backend/moulding/entries/',
+  lot: '/backend/stock/lots/',
+}
+
+function recordLink(record: UploadRecordView): string | null {
+  if (RECORD_PATH[record.type]) return `${RECORD_PATH[record.type]}${record.id}`
+  if (record.type === 'master' && record.masterType === 'moulds') return `/backend/masters/moulds/${record.id}`
+  if (record.type === 'master' && record.masterType && ['reactors', 'dryers', 'presses'].includes(record.masterType)) return `/backend/masters/plant/${record.masterType}/${record.id}`
+  return null
+}
 
 function registerHref(register: string, date: string | null): string {
   const dated = (path: string) => (date ? `${path}?date=${encodeURIComponent(date)}` : path)
@@ -191,10 +215,23 @@ export function UploadRegisterPage({ registerKey }: { registerKey: string }) {
         return
       }
       setReport(call.result)
+      if (!dryRun && call.result.batchId) void keepFiles(call.result.batchId, file, call.result.failedRows)
       if (!dryRun) flash(t('cc_production.upload.posted', 'Posted: {created} new, {updated} updated, {failed} to fix.', { created: call.result.created, updated: call.result.updated, failed: call.result.failed }), call.result.failed ? 'warning' : 'success')
     } finally {
       setBusy(false)
     }
+  }
+
+  const errorFile = async (rows: Report['failedRows']) => {
+    const call = await apiCall<Blob>('/api/cc_production/upload/errors', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ register: registerKey, rows }) }, { parse: (response) => response.blob() })
+    return call.ok && call.result ? call.result : null
+  }
+
+  const keepFiles = async (batchId: string, original: File, failedRows: Report['failedRows']) => {
+    await attachRecordFile('upload', batchId, original, t('cc_production.upload.originalFile', 'Original file'))
+    if (!failedRows.length) return
+    const blob = await errorFile(failedRows)
+    if (blob) await attachRecordFile('upload', batchId, new File([blob], `${tile?.label ?? registerKey}-rows-to-fix.xlsx`, { type: blob.type || 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }), t('cc_production.upload.fixFile', 'Rows to fix'))
   }
 
   const downloadErrors = async () => {
@@ -355,15 +392,42 @@ export function UploadHistory() {
 
 export function UploadDetail({ uploadId }: { uploadId: string }) {
   const t = useT()
+  const granted = useGranted()
+  const send = useSend(`cc-upload-detail-${uploadId}`)
   const [upload, setUpload] = React.useState<UploadView | null>(null)
   const [error, setError] = React.useState<string | null>(null)
+  const [preview, setPreview] = React.useState<UndoPreview | null>(null)
+  const [undoing, setUndoing] = React.useState(false)
+  const load = React.useCallback(async () => {
+    const [call, check] = await Promise.all([
+      apiCall<UploadView>(`/api/cc_production/upload/history?id=${encodeURIComponent(uploadId)}`),
+      apiCall<UndoPreview>(`/api/cc_production/upload/undo?id=${encodeURIComponent(uploadId)}`),
+    ])
+    if (!call.ok || !call.result) setError(t('cc_production.upload.loadOneError', 'Could not load this upload.'))
+    else setUpload(call.result)
+    setPreview(check.ok && check.result ? check.result : null)
+  }, [t, uploadId])
   React.useEffect(() => {
-    void apiCall<UploadView>(`/api/cc_production/upload/history?id=${encodeURIComponent(uploadId)}`).then((call) => {
-      if (!call.ok || !call.result) setError(t('cc_production.upload.loadOneError', 'Could not load this upload.'))
-      else setUpload(call.result)
-    })
+    void load()
+  }, [load])
+  const loadPreview = React.useCallback(async (): Promise<CorrectionPreview | null> => {
+    const check = await apiCall<UndoPreview>(`/api/cc_production/upload/undo?id=${encodeURIComponent(uploadId)}`)
+    if (!check.ok || !check.result) return null
+    return {
+      undo: [...check.result.undo.map((label) => t('cc_production.upload.undoLine', 'Reverses {label}', { label })), ...check.result.kept.map((label) => t('cc_production.upload.keepLine', 'Leaves {label} as it is (it already existed)', { label }))],
+      blockedBy: check.result.blockedBy,
+    }
   }, [t, uploadId])
   if (error || !upload) return <RecordState error={error} loadingLabel={t('cc_production.upload.loading', 'Loading…')} />
+  const undone = upload.status === 'undone'
+  const canUndo = Boolean(preview && !preview.unavailable && preview.allowed && granted.has('cc_production.upload.use'))
+  const undo = async (reason: string) => {
+    const result = await send<{ ok: boolean; undone: number }>('/api/cc_production/upload/undo', 'POST', { id: upload.id, reason }, upload.updatedAt)
+    if (!result) return false
+    flash(t('cc_production.upload.undoneDone', 'Upload undone: {count} records reversed.', { count: result.undone }), 'success')
+    await load()
+    return true
+  }
   const facts: Fact[] = [
     { label: t('cc_production.upload.colRows', 'Rows'), value: String(upload.total) },
     { label: t('cc_production.upload.colNew', 'New'), value: String(upload.created), tone: upload.created ? 'good' : undefined },
@@ -377,10 +441,24 @@ export function UploadDetail({ uploadId }: { uploadId: string }) {
       back={{ href: '/backend/upload/history', label: t('cc_production.upload.history', 'Upload history') }}
       overline={[upload.paperRef, upload.registerLabel].filter(Boolean).join(' · ')}
       title={upload.fileName}
-      badges={upload.failed ? <StatusBadge variant="warning">{t('cc_production.upload.someFailed', '{count} rows to fix', { count: upload.failed })}</StatusBadge> : <StatusBadge variant="success">{t('cc_production.upload.allIn', 'All rows in')}</StatusBadge>}
-      meta={when(upload.at)}
+      badges={
+        undone ? (
+          <StatusBadge variant="neutral">{t('cc_production.upload.undoneBadge', 'Undone')}</StatusBadge>
+        ) : upload.failed ? (
+          <StatusBadge variant="warning">{t('cc_production.upload.someFailed', '{count} rows to fix', { count: upload.failed })}</StatusBadge>
+        ) : (
+          <StatusBadge variant="success">{t('cc_production.upload.allIn', 'All rows in')}</StatusBadge>
+        )
+      }
+      meta={undone ? t('cc_production.upload.undoneMeta', 'Undone {when} by {name}: {reason}', { when: upload.undoneAt ? when(upload.undoneAt) : '—', name: upload.undoneByName ?? '—', reason: upload.undoReason ?? '' }) : when(upload.at)}
       actions={
         <>
+          {canUndo ? (
+            <Button type="button" variant="outline" size="sm" onClick={() => setUndoing(true)}>
+              <Undo2 className="mr-1.5 h-4 w-4" aria-hidden="true" />
+              {t('cc_production.upload.undo', 'Undo this upload')}
+            </Button>
+          ) : null}
           <Button asChild variant="outline" size="sm">
             <Link href={registerHref(upload.register, upload.registerDate)}>
               <ExternalLink className="mr-1.5 h-4 w-4" aria-hidden="true" />
@@ -399,6 +477,26 @@ export function UploadDetail({ uploadId }: { uploadId: string }) {
     >
       <RecordColumns
         main={
+          <>
+          <Panel title={t('cc_production.upload.made', 'Records this upload made or changed')} icon={ListChecks} count={upload.records.length} flush>
+            <RegisterGrid
+              rows={upload.records}
+              rowKey={(record) => `${record.type}-${record.id}`}
+              empty={t('cc_production.upload.noRecords', 'No record list (uploads before this page kept one).')}
+              columns={[
+                {
+                  key: 'label',
+                  label: t('cc_production.upload.record', 'Record'),
+                  render: (record) => {
+                    const href = recordLink(record)
+                    return href ? <Link className="underline-offset-2 hover:underline" href={href}>{record.label}</Link> : record.label
+                  },
+                },
+                { key: 'what', label: t('cc_production.upload.what', 'What'), render: (record) => (record.created ? t('cc_production.upload.new', 'New') : t('cc_production.upload.changed', 'Changed')) },
+                { key: 'state', label: '', render: (record) => (record.undone ? <StatusBadge variant="neutral">{t('cc_production.upload.reversed', 'Reversed')}</StatusBadge> : null) },
+              ]}
+            />
+          </Panel>
           <Panel title={t('cc_production.upload.toFix', 'Rows to fix')} icon={TriangleAlert} count={upload.errors.length} flush>
             <RegisterGrid
               rows={upload.errors}
@@ -410,6 +508,7 @@ export function UploadDetail({ uploadId }: { uploadId: string }) {
               ]}
             />
           </Panel>
+          </>
         }
         side={
           <Panel title={t('cc_production.upload.file', 'File')} icon={FileSpreadsheet}>
@@ -424,8 +523,21 @@ export function UploadDetail({ uploadId }: { uploadId: string }) {
               ]}
             />
             <p className="mt-3 text-xs text-muted-foreground">{t('cc_production.upload.sameFile', 'The fingerprint is kept, so uploading this same file again shows a warning that it was already uploaded.')}</p>
+            {preview?.unavailable && !undone ? <p className="mt-2 text-xs text-muted-foreground">{preview.unavailable}</p> : null}
           </Panel>
         }
+      />
+      <Attachments type="upload" id={upload.id} title={t('cc_production.upload.files', 'Original file and rows to fix')} />
+      <Comments type="upload" id={upload.id} />
+      <Timeline type="upload" id={upload.id} refreshKey={upload.status} />
+      <CorrectDialog
+        open={undoing}
+        onOpenChange={setUndoing}
+        title={t('cc_production.upload.undoTitle', 'Undo the whole upload')}
+        description={t('cc_production.upload.undoHint', 'Each record is reversed the way its own page does. Refused if any of them is already used further on.')}
+        confirmLabel={t('cc_production.upload.undo', 'Undo this upload')}
+        loadPreview={loadPreview}
+        onConfirm={undo}
       />
     </RecordPage>
   )

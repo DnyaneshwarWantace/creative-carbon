@@ -7,6 +7,7 @@ import { CompanyProfile } from '../../data/entities'
 import { companyInputSchema } from '../../data/validators'
 import { companyView, loadCompany } from '../../lib/documents'
 import { accountsErrorResponse, runGuarded } from '../../lib/server'
+import { logSettingsChange, readSetting } from '../../../cc_audit/lib/settings'
 
 export const metadata = {
   GET: { requireAuth: true, requireFeatures: ['cc_accounts.view'] },
@@ -27,6 +28,7 @@ async function PUT(req: Request) {
   try {
     const existing = await loadCompany(ctx)
     if (existing) enforceCommandOptimisticLock({ resourceKind: 'cc_accounts.company', resourceId: existing.id, current: existing.updatedAt, request: req })
+    const before = existing ? await readSetting(ctx, 'company', 'company') : null
     return await runGuarded(ctx, req, existing?.id ?? 'company', parsed.data, async () => {
       const profile = existing ?? ctx.em.create(CompanyProfile, { organizationId: ctx.organizationId, tenantId: ctx.tenantId, name: parsed.data.name })
       const clean = (value: string | null | undefined) => (value && value.trim() ? value.trim() : null)
@@ -54,6 +56,7 @@ async function PUT(req: Request) {
       profile.updatedAt = new Date()
       ctx.em.persist(profile)
       await ctx.em.flush()
+      if (before) await logSettingsChange(ctx, { area: 'company', key: 'company', label: 'Company details', before, after: await readSetting(ctx, 'company', 'company') })
       return NextResponse.json(companyView(profile))
     })
   } catch (error) {

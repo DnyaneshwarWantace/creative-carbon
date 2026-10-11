@@ -37,6 +37,6 @@ export const openingStockRegister: UploadRegister = {
       rows.map((row) => ({ row: row.sheetRow, ...(row.values as Record<string, string>), store: row.values.store ?? '', item: row.values.item ?? '', lot: row.values.lot ?? '', quantity: row.values.quantity ?? '' })),
       options,
     )
-    return { created: result.created, updated: 0, skipped: 0, failed: result.failed, errors: result.errors, plan: result.plan }
+    return { records: (result.lots ?? []).map((lot) => ({ type: 'lot', id: lot.lotId, label: lot.lotNumber, created: true })), created: result.created, updated: 0, skipped: 0, failed: result.failed, errors: result.errors, plan: result.plan }
   },
 }

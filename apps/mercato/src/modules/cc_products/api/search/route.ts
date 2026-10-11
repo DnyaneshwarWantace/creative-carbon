@@ -26,6 +26,7 @@ const querySchema = z.object({
     .string()
     .transform((value) => value.split(',').filter((id) => /^[0-9a-f-]{36}$/i.test(id)))
     .optional(),
+  includeInactive: z.enum(['true', 'false']).optional(),
 })
 
 const itemSchema = z.object({
@@ -54,6 +55,7 @@ async function GET(req: Request) {
     query: parsed.data.q,
     limit: parsed.data.limit,
     ids: parsed.data.ids,
+    activeOnly: !parsed.data.ids?.length && parsed.data.includeInactive !== 'true',
   })
   return NextResponse.json({ items })
 }

@@ -57,7 +57,7 @@ export async function flushQueue(): Promise<{ sent: number; clashes: number; fai
     let call = await sendOne(entry, true)
     if (call.status === 409) {
       clashes += 1
-      await apiCall('/api/cc_production/clash', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ screen: entry.screen, recordRef: entry.recordRef, detail: `Saved offline at ${new Date(entry.queuedAt).toLocaleString('en-IN')}; someone else changed it before it synced. The offline save was kept (last save wins).` }) })
+      await apiCall('/api/cc_production/clash', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ screen: entry.screen, recordRef: entry.recordRef, path: entry.path, method: entry.method, body: entry.body, queuedAt: entry.queuedAt, detail: `Saved offline at ${new Date(entry.queuedAt).toLocaleString('en-IN')}; someone else changed it before it synced. The offline save was kept (last save wins).` }) })
       call = await sendOne(entry, false)
     }
     if (call.ok && !call.result?.error) {

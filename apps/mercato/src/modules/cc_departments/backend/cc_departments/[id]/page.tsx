@@ -13,6 +13,7 @@ import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { RecordNotFoundState, ErrorMessage } from '@open-mercato/ui/backend/detail'
 import { AclEditor, type AclData } from '@open-mercato/core/modules/auth/components/AclEditor'
 import { DEPARTMENT_TYPES } from '../../../data/validators'
+import { AccessChangeLog, logAccess } from '../../../components/AccessChangeLog'
 
 type DepartmentData = {
   id: string
@@ -230,6 +231,7 @@ export default function EditDepartmentPage({ params }: { params?: { id?: string 
             await updateCrud('cc_departments/departments', payload)
 
             if (department.role_id) {
+              await logAccess('role', department.role_id, 'before')
               const aclLockHeader = buildOptimisticLockHeader(aclUpdatedAt)
               const saveRoleAcl = () => updateCrud('auth/roles/acl', { roleId: department.role_id, tenantId: department.tenant_id, ...aclData }, {
                 errorMessage: t('cc_departments.form.errors.aclUpdate', 'Failed to update department access control'),
@@ -239,12 +241,18 @@ export default function EditDepartmentPage({ params }: { params?: { id?: string 
               } else {
                 await saveRoleAcl()
               }
+              await logAccess('role', department.role_id, 'after')
             }
 
             flash(t('cc_departments.flash.updated', 'Department updated'), 'success')
             router.push('/backend/cc_departments')
           }}
         />
+        {department.role_id ? (
+          <div className="mt-6">
+            <AccessChangeLog subjectType="role" subjectId={department.role_id} />
+          </div>
+        ) : null}
       </PageBody>
     </Page>
   )

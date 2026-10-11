@@ -2,7 +2,7 @@ import { Reactor, ResinBatch } from '../../data/entities'
 import { resinBatchInputSchema } from '../../data/validators'
 import { createBatch, chemicalProducts, failBatch, nextBatchNo, postBatch, STANDARD_MATERIALS, updateBatch } from '../resin'
 import { PlantError } from '../server'
-import type { UploadColumn, UploadRegister, UploadRowError } from './types'
+import type { UploadColumn, UploadRecord, UploadRegister, UploadRowError } from './types'
 
 const materialKey = (name: string) => `kg_${name.toLowerCase().replace(/[^a-z0-9]+/g, '_')}`
 
@@ -64,6 +64,7 @@ export const resinBatchRegister: UploadRegister = {
     let updated = 0
     let posted = 0
     let failed = 0
+    const records: UploadRecord[] = []
 
     for (const row of rows) {
       const values = row.values
@@ -123,6 +124,7 @@ export const resinBatchRegister: UploadRegister = {
           continue
         }
         const batch = existing ? await updateBatch(ctx, existing, { ...input, batchNo }, options.byName) : await createBatch(ctx, { ...input, batchNo }, options.byName)
+        records.push({ type: 'resin_batch', id: batch.id, label: batch.batchNo, created: !existing })
         if (existing) updated += 1
         else created += 1
         if (wantsPost) {
@@ -144,6 +146,7 @@ export const resinBatchRegister: UploadRegister = {
       }
     }
     return {
+      records,
       created,
       updated,
       skipped: 0,

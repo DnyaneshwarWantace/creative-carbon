@@ -220,6 +220,7 @@ export type ImportReport = {
   failed: number
   unknownHeaders: string[]
   errors: Array<{ row: number; error: string; values: Record<string, unknown> }>
+  createdRows?: Array<{ id: string; label: string }>
 }
 
 export async function importMasters(scope: Scope, def: MasterDef, rows: Array<Record<string, unknown>>, dryRun: boolean, byName: string | null): Promise<ImportReport> {
@@ -234,6 +235,7 @@ export async function importMasters(scope: Scope, def: MasterDef, rows: Array<Re
   const byKey = new Map(existing.map((entity) => [uniqueKeyOf(def, record(entity)), entity]))
   const seen = new Set<string>()
   const report: ImportReport = { dryRun, total: rows.length, created: 0, updated: 0, failed: 0, unknownHeaders, errors: [] }
+  const fresh: Array<{ entity: PlantEntity; label: string }> = []
   for (const [index, row] of rows.entries()) {
     const values: Record<string, unknown> = {}
     for (const [header, raw] of Object.entries(row)) {
@@ -275,6 +277,7 @@ export async function importMasters(scope: Scope, def: MasterDef, rows: Array<Re
         apply(def, entity, parsed, byName)
         scope.em.persist(entity)
         byKey.set(key, entity)
+        fresh.push({ entity, label: describeKey(def, parsed) })
       }
     } catch (error) {
       report.failed += 1
@@ -282,5 +285,53 @@ export async function importMasters(scope: Scope, def: MasterDef, rows: Array<Re
     }
   }
   if (!dryRun) await scope.em.flush()
+  report.createdRows = fresh.map((item) => ({ id: item.entity.id, label: item.label }))
   return report
+}
+
+export const MASTER_USE: Partial<Record<MasterType, Array<{ table: string; column: string; label: string }>>> = {
+  reactors: [{ table: 'cc_resin_batches', column: 'reactor_id', label: 'resin batches' }],
+  dryers: [{ table: 'cc_coating_sheets', column: 'dryer_id', label: 'dryer sheets' }],
+  presses: [
+    { table: 'cc_press_batches', column: 'press_id', label: 'press batches' },
+    { table: 'cc_moulding_entries', column: 'press_id', label: 'moulding entries' },
+  ],
+  moulds: [{ table: 'cc_moulding_entries', column: 'mould_id', label: 'moulding entries' }],
+}
+
+export async function masterUsage(scope: Scope, type: MasterType, id: string): Promise<string | null> {
+  for (const use of MASTER_USE[type] ?? []) {
+    const [row] = await scope.em.getConnection().execute<Array<{ count: string }>>(`select count(*) as count from ${use.table} where ${use.column} = ? and tenant_id = ? and organization_id = ? and deleted_at is null`, [id, scope.tenantId, scope.organizationId])
+    if (Number(row?.count ?? 0) > 0) return `used on ${row.count} ${use.label}`
+  }
+  return null
+}
+
+export async function openOrdersForDie(scope: Scope, dieNo: string): Promise<string[]> {
+  const rows = await scope.em.getConnection().execute<Array<{ order_no: string }>>(
+    `select distinct o.order_no from cc_order_lines l join cc_orders o on o.id = l.order_id
+      where o.tenant_id = ? and o.organization_id = ? and o.deleted_at is null and o.status in ('booked', 'confirmed')
+        and upper(l.specs->'material'->>'die_no') = ?`,
+    [scope.tenantId, scope.organizationId, dieNo.toUpperCase()],
+  )
+  return rows.map((row) => row.order_no)
+}
+
+export function masterRecordType(type: MasterType): 'die' | 'machine' | null {
+  if (type === 'moulds') return 'die'
+  if (type === 'reactors' || type === 'dryers' || type === 'presses') return 'machine'
+  return null
+}
+
+export function masterChangeAction(type: MasterType, before: MasterRow, after: MasterRow): string {
+  if (before.isActive !== false && after.isActive === false) return 'retired'
+  if (before.isActive === false && after.isActive !== false) return 'back_in_service'
+  if (type === 'presses' && before.isWorking !== false && after.isWorking === false) return 'breakdown'
+  if (type === 'presses' && before.isWorking === false && after.isWorking !== false) return 'back_in_use'
+  if (type === 'moulds' && (before.customerId ?? null) !== (after.customerId ?? null)) return 'moved_customer'
+  return 'changed'
+}
+
+export function masterLabels(def: MasterDef): Record<string, string> {
+  return { ...Object.fromEntries(def.columns.map((column) => [column.key, column.label])), customerName: 'Customer' }
 }

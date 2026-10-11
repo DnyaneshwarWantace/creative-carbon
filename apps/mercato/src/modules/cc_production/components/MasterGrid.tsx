@@ -136,6 +136,7 @@ function MasterTable({ def }: { def: MasterDef }) {
   const [fresh, setFresh] = React.useState<Draft>(() => toDraft(def, null))
   const [busy, setBusy] = React.useState<string | null>(null)
   const [pendingRate, setPendingRate] = React.useState<Row | null>(null)
+  const [pendingRetire, setPendingRetire] = React.useState<Row | null>(null)
   const searchParams = useSearchParams()
   const [historyId, setHistoryId] = React.useState<string | null>(() => (def.type === 'prices' ? searchParams?.get('rate') ?? null : null))
   const [search, setSearch] = React.useState('')
@@ -193,6 +194,10 @@ function MasterTable({ def }: { def: MasterDef }) {
     if (!draft) return false
     if (def.type === 'prices' && !reason && Number(draft.ratePerKg) !== Number(row.ratePerKg)) {
       setPendingRate(row)
+      return false
+    }
+    if (['reactors', 'dryers', 'presses', 'moulds'].includes(def.type) && !reason && String(draft.isActive) === 'false' && row.isActive !== false) {
+      setPendingRetire(row)
       return false
     }
     if (await send(row.id, 'PUT', { type: def.type, id: row.id, values: payload(def, draft), ...(reason ? { reason } : {}) }, row.updatedAt)) {
@@ -392,6 +397,14 @@ function MasterTable({ def }: { def: MasterDef }) {
         </table>
       </div>
       <p className="text-xs text-muted-foreground">{t('cc_production.masters.count', '{count} rows', { count: rows.length })}</p>
+      <CorrectDialog
+        open={Boolean(pendingRetire)}
+        onOpenChange={(next) => !next && setPendingRetire(null)}
+        title={t('cc_production.masters.retireTitle', 'Take this out of use?')}
+        undo={[t('cc_production.masters.retireUndo', 'Hidden on new entries; old records keep it and its history'), ...(def.type === 'moulds' ? [t('cc_production.masters.retireBlock', 'Refused while an open order names the die')] : [])]}
+        confirmLabel={t('cc_production.masters.retire', 'Take out of use')}
+        onConfirm={(reason) => (pendingRetire ? save(pendingRetire, reason) : Promise.resolve(false))}
+      />
       {def.type === 'prices' ? (
         <>
           <CorrectDialog

@@ -8,6 +8,7 @@ import { CRM_LIST_KEYS } from '../../lib/lists'
 import { runListGuarded } from '../../lib/server'
 import { listQuerySchema, listSaveSchema } from '../../data/validators'
 import { ListError, cleanOptions, listDef, listVersion, listViews, resetList, saveList } from '../../lib/service'
+import { logSettingsChange, readSetting } from '../../../cc_audit/lib/settings'
 
 export const metadata = {
   GET: { requireAuth: true },
@@ -49,12 +50,14 @@ async function PUT(req: Request) {
     const options = 'options' in parsed.data ? cleanOptions(def, parsed.data.options) : null
     if (!options && def.fixed) throw new ListError(`${def.label} is fixed`, 409)
     const userName = await currentUserName(ctx)
+    const before = await readSetting(ctx, 'list', def.key)
     const result = await runListGuarded(ctx, req, def.key, parsed.data as Record<string, unknown>, async () => {
       if (options) await saveList(ctx, def, options, userName)
       else await resetList(ctx, def)
       const [saved] = await listViews(ctx, def.key)
       return saved
     })
+    if (!(result instanceof Response)) await logSettingsChange(ctx, { area: 'list', key: def.key, label: def.label, before, after: await readSetting(ctx, 'list', def.key) })
     if (result instanceof Response) return result
     return NextResponse.json(result)
   } catch (error) {

@@ -14,6 +14,12 @@ import { COMMON_FIELD_KEYS, fieldsForKind, loadProductFieldDefs, type ProductFie
 import { PRODUCT_KINDS } from '../lib/kinds'
 import { FieldList, LinkRows, Panel, RecordColumns, RecordPage, RecordState, RegisterGrid, DocLink, formatCount, formatDay, formatKg, type Fact } from '../../cc_ui/components/RecordPage'
 import { recordHref, type DocumentLink } from '../../cc_ui/lib/links'
+import { flash } from '@open-mercato/ui/backend/FlashMessages'
+import { Attachments } from '../../cc_ui/components/Attachments'
+import { Comments } from '../../cc_ui/components/Comments'
+import { Timeline } from '../../cc_ui/components/Timeline'
+import { CorrectDialog } from '../../cc_ui/components/CorrectDialog'
+import { useSend } from '../../cc_production/components/finishing/shared'
 
 type Row = Record<string, unknown> & { id: string }
 type StockDetail = {
@@ -62,6 +68,9 @@ export function ProductDetail({ productId }: { productId: string }) {
   const [stock, setStock] = React.useState<StockDetail | null>(null)
   const [orders, setOrders] = React.useState<OrderRow[] | null>(null)
   const [purchases, setPurchases] = React.useState<PurchaseRow[] | null>(null)
+  const [reloadKey, setReloadKey] = React.useState(0)
+  const [toggling, setToggling] = React.useState(false)
+  const send = useSend(`cc-product-${productId}`)
 
   const kind = (text(read(product, 'custom_fieldset_code')) as ProductKind) || null
   const config = kind && KIND_CONFIG[kind] ? KIND_CONFIG[kind] : null
@@ -118,7 +127,7 @@ export function ProductDetail({ productId }: { productId: string }) {
     return () => {
       cancelled = true
     }
-  }, [productId, t, granted])
+  }, [productId, t, granted, reloadKey])
 
   if (loadError || !product || !config || !kind) {
     return <RecordState error={loadError} loadingLabel={t('cc_products.detail.loading', 'Loading product…')} />
@@ -200,6 +209,11 @@ export function ProductDetail({ productId }: { productId: string }) {
                 <Plus className="mr-1.5 h-4 w-4" aria-hidden="true" />
                 {t('cc_products.orders.new', 'New order')}
               </Link>
+            </Button>
+          ) : null}
+          {granted.has('cc_production.masters.manage') ? (
+            <Button type="button" variant="outline" size="sm" onClick={() => setToggling(true)}>
+              {read(product, 'is_active') === false ? t('cc_products.detail.setActive', 'Set active') : t('cc_products.detail.setInactive', 'Set inactive')}
             </Button>
           ) : null}
           <Button asChild size="sm">
@@ -326,6 +340,25 @@ export function ProductDetail({ productId }: { productId: string }) {
             ) : null}
           </>
         }
+      />
+      <Attachments type="product" id={productId} title={t('cc_products.detail.files', 'Spec sheet, MSDS and other papers')} />
+      <Comments type="product" id={productId} />
+      <Timeline type="product" id={productId} refreshKey={reloadKey} />
+      <CorrectDialog
+        open={toggling}
+        onOpenChange={setToggling}
+        destructive={read(product, 'is_active') !== false}
+        title={read(product, 'is_active') === false ? t('cc_products.detail.setActive', 'Set active') : t('cc_products.detail.setInactive', 'Set inactive')}
+        confirmLabel={read(product, 'is_active') === false ? t('cc_products.detail.setActive', 'Set active') : t('cc_products.detail.setInactive', 'Set inactive')}
+        undo={read(product, 'is_active') === false ? [t('cc_products.detail.activeUndo', 'The item shows again on new entries')] : [t('cc_products.detail.inactiveUndo', 'Hidden on new entries; old records keep it'), t('cc_products.detail.inactiveBlock', 'Refused while any stock is on hand')]}
+        onConfirm={async (reason) => {
+          const active = read(product, 'is_active') === false
+          const result = await send<{ ok: boolean }>('/api/cc_products/active', 'POST', { id: productId, active, reason }, text(read(product, 'updated_at')) || null)
+          if (!result) return false
+          flash(active ? t('cc_products.detail.activated', 'Item is active again.') : t('cc_products.detail.deactivated', 'Item set inactive.'), 'success')
+          setReloadKey((value) => value + 1)
+          return true
+        }}
       />
     </RecordPage>
   )
