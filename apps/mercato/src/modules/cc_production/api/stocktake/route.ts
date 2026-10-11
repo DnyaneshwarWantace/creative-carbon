@@ -1,10 +1,11 @@
 import { NextResponse } from 'next/server'
 import { z } from 'zod'
 import type { OpenApiRouteDoc } from '@open-mercato/shared/lib/openapi'
-import { currentUserName } from '../../../cc_orders/lib/server'
+import { hasFeatures } from '../../../cc_orders/lib/server'
 import { resolveStoreContext } from '../../../cc_store/lib/server'
 import { stocktakeQuerySchema, stocktakeSchema } from '../../data/validators'
-import { postStocktake, stocktakeSheet } from '../../lib/owner'
+import { stocktakeSheet } from '../../lib/owner'
+import { approveStocktake, createStocktake, postStocktakeRecord } from '../../lib/stocktakes'
 import { plantErrorResponse, runPlantGuarded } from '../../lib/server'
 
 export const metadata = {
@@ -30,8 +31,13 @@ async function POST(req: Request) {
   const parsed = stocktakeSchema.safeParse(await req.json().catch(() => null))
   if (!parsed.success) return NextResponse.json({ error: 'Enter the counted quantity for the lots you counted' }, { status: 400 })
   try {
-    const byName = await currentUserName(ctx)
-    const result = await runPlantGuarded(ctx, req, { resourceKind: 'cc_production.stocktake', resourceId: parsed.data.place, operation: 'custom', payload: parsed.data }, () => postStocktake(ctx, parsed.data, byName))
+    const result = await runPlantGuarded(ctx, req, { resourceKind: 'cc_production.stocktake', resourceId: parsed.data.place, operation: 'custom', payload: parsed.data }, async () => {
+      const row = await createStocktake(ctx, { ...parsed.data, note: parsed.data.note ?? null })
+      if (!(await hasFeatures(ctx, ['cc_store.approve']))) return { id: row.id, code: row.code, status: row.status, pending: true, adjusted: 0, lines: row.lines }
+      await approveStocktake(ctx, row, 'Counted and approved by the store manager')
+      const adjusted = await postStocktakeRecord(ctx, row)
+      return { id: row.id, code: row.code, status: row.status, pending: false, adjusted, lines: row.lines }
+    })
     if (result instanceof Response) return result
     return NextResponse.json(result)
   } catch (error) {

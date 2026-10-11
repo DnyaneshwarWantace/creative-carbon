@@ -3,7 +3,7 @@ import { z } from 'zod'
 import type { OpenApiRouteDoc } from '@open-mercato/shared/lib/openapi'
 import { transferSchema } from '../../../data/validators'
 import { resolveStoreContext, runGuarded, storeErrorResponse } from '../../../lib/server'
-import { transferStock } from '../../../lib/stockBook'
+import { createAdjustment } from '../../../lib/adjustments'
 
 export const metadata = {
   POST: { requireAuth: true, requireFeatures: ['cc_store.adjust'] },
@@ -16,8 +16,8 @@ async function POST(req: Request) {
   if (!parsed.success) return NextResponse.json({ error: 'Check the quantity, batch and reason' }, { status: 400 })
   try {
     const result = await runGuarded(ctx, req, { resourceKind: 'cc_store.stock', resourceId: parsed.data.productId, operation: 'custom', payload: parsed.data as Record<string, unknown> }, async () => {
-      await transferStock(ctx, parsed.data)
-      return { ok: true }
+      const row = await createAdjustment(ctx, { kind: 'move', transfer: parsed.data, reason: 'Moved between stores' })
+      return { ok: true, id: row.id, code: row.code }
     })
     if (result instanceof Response) return result
     return NextResponse.json(result)

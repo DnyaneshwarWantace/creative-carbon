@@ -2,20 +2,29 @@
 
 import * as React from 'react'
 import Link from 'next/link'
-import { ArrowDownRight, ArrowUpLeft, ClipboardList, History, Printer, Tag } from 'lucide-react'
+import { ArrowDownRight, ArrowUpLeft, ClipboardList, History, PauseCircle, PlayCircle, Printer, Scale, Tag, Undo2 } from 'lucide-react'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { Button } from '@open-mercato/ui/primitives/button'
 import { StatusBadge } from '@open-mercato/ui/primitives/status-badge'
 import { apiCall } from '@open-mercato/ui/backend/utils/apiCall'
+import { flash } from '@open-mercato/ui/backend/FlashMessages'
+import { Input } from '@open-mercato/ui/primitives/input'
+import { useGranted } from '../../../cc_departments/components/useGranted'
+import { useListOptions } from '../../../cc_lists/components/useListOptions'
+import { Dropdown } from '../../../cc_lists/components/Dropdown'
+import { Timeline } from '../../../cc_ui/components/Timeline'
+import { Comments } from '../../../cc_ui/components/Comments'
+import { Attachments } from '../../../cc_ui/components/Attachments'
+import { CorrectDialog } from '../../../cc_ui/components/CorrectDialog'
 import { DocLink, FieldList, LinkRows, Panel, RecordColumns, RecordPage, RecordState, RegisterGrid, type Fact } from '../../../cc_ui/components/RecordPage'
 import { PlantChain, type ChainKey } from '../../../cc_ui/components/PlantChain'
 import { recordHref, type DocumentKind, type DocumentLink } from '../../../cc_ui/lib/links'
 import { day, kg, when } from '../resin/shared'
 
 type LotData = {
-  lot: { lotId: string; lotNumber: string; title: string; onHand: number; free: number; placeLabel: string; unit?: string; nosLeft?: number | null; status?: string; madeOn?: string | null; batchNo?: string | null; productId?: string }
+  lot: { lotId: string; lotNumber: string; title: string; onHand: number; free: number; place?: string | null; placeLabel: string; unit?: string; nosLeft?: number | null; status?: string; madeOn?: string | null; batchNo?: string | null; productId?: string }
   metadata: Record<string, unknown> | null
-  movements: Array<{ id: string; at: string; qty: number; place: string | null; reason: string | null; source: string | null; document: DocumentLink | null }>
+  movements: Array<{ id: string; at: string; qty: number; place: string | null; reason: string | null; source: string | null; document: DocumentLink | null; reverses?: string | null; reversedBy?: string | null; adjustmentId?: string | null }>
 }
 
 type FamilyLot = { lotId: string; lotNumber: string; title: string | null; madeBy: DocumentLink | null }
@@ -38,8 +47,14 @@ export function StockLotPage({ lotId }: { lotId: string }) {
   const [data, setData] = React.useState<LotData | null>(null)
   const [family, setFamily] = React.useState<Family | null>(null)
   const [error, setError] = React.useState<string | null>(null)
+  const granted = useGranted()
+  const canAdjust = granted.has('cc_store.adjust')
+  const reasons = useListOptions('stock_adjust_reasons')
+  const [mode, setMode] = React.useState<'hold' | 'release' | 'adjust' | null>(null)
+  const [adjust, setAdjust] = React.useState({ direction: 'out', quantity: '', reason: '' })
+  const [stamp, setStamp] = React.useState(0)
 
-  React.useEffect(() => {
+  const load = React.useCallback(() => {
     void apiCall<LotData>(`/api/cc_production/stock/lot?id=${encodeURIComponent(lotId)}`).then((call) => {
       if (!call.ok || !call.result) setError(t('cc_production.stock.lotError', 'Could not load this lot.'))
       else setData(call.result)
@@ -48,6 +63,27 @@ export function StockLotPage({ lotId }: { lotId: string }) {
       if (call.ok && call.result) setFamily(call.result)
     })
   }, [lotId, t])
+
+  React.useEffect(() => {
+    load()
+  }, [load])
+
+  const confirm = async (note: string): Promise<boolean> => {
+    if (!data) return false
+    const call =
+      mode === 'adjust'
+        ? await apiCall<{ ok?: boolean; status?: string; error?: string }>('/api/cc_store/stock/adjust', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ place: data.lot.place, productId: data.lot.productId, direction: adjust.direction, quantity: Number(adjust.quantity), lotId: data.lot.lotId, reason: adjust.reason, note }) })
+        : await apiCall<{ ok?: boolean; error?: string }>('/api/cc_store/lots', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ lotId: data.lot.lotId, status: mode === 'hold' ? 'hold' : 'available', reason: note }) })
+    if (!call.ok) {
+      flash(call.result?.error ?? t('cc_production.lot.actError', 'Could not save.'), 'error')
+      return false
+    }
+    flash(mode === 'adjust' ? ((call.result as { status?: string })?.status === 'pending' ? t('cc_production.lot.pending', 'Sent to the store manager for approval') : t('cc_production.lot.adjusted', 'Stock adjusted')) : mode === 'hold' ? t('cc_production.lot.heldFlash', 'Lot put on hold') : t('cc_production.lot.releasedFlash', 'Lot released'), 'success')
+    setAdjust({ direction: 'out', quantity: '', reason: '' })
+    setStamp((value) => value + 1)
+    load()
+    return true
+  }
 
   if (error || !data) return <RecordState error={error} loadingLabel={t('cc_production.resin.loading', 'Loading…')} />
 
@@ -101,10 +137,31 @@ export function StockLotPage({ lotId }: { lotId: string }) {
       }
       meta={madeBy ? <>{t('cc_production.lot.madeBy', 'Made by')} <DocLink doc={madeBy} /></> : undefined}
       actions={
-        <Button type="button" variant="outline" size="sm" onClick={() => window.print()}>
-          <Printer className="mr-1.5 h-4 w-4" aria-hidden="true" />
-          {t('cc_production.resin.print', 'Print')}
-        </Button>
+        <>
+          <Button type="button" variant="outline" size="sm" onClick={() => window.print()}>
+            <Printer className="mr-1.5 h-4 w-4" aria-hidden="true" />
+            {t('cc_production.resin.print', 'Print')}
+          </Button>
+          {canAdjust && data.lot.place && data.lot.productId ? (
+            <Button type="button" variant="outline" size="sm" onClick={() => setMode('adjust')}>
+              <Scale className="mr-1.5 h-4 w-4" aria-hidden="true" />
+              {t('cc_production.lot.adjust', 'Adjust kg')}
+            </Button>
+          ) : null}
+          {canAdjust && data.lot.onHand > 0 ? (
+            data.lot.status === 'hold' ? (
+              <Button type="button" variant="outline" size="sm" onClick={() => setMode('release')}>
+                <PlayCircle className="mr-1.5 h-4 w-4" aria-hidden="true" />
+                {t('cc_production.lot.release', 'Release')}
+              </Button>
+            ) : (
+              <Button type="button" variant="outline" size="sm" onClick={() => setMode('hold')}>
+                <PauseCircle className="mr-1.5 h-4 w-4" aria-hidden="true" />
+                {t('cc_production.lot.hold', 'Put on hold')}
+              </Button>
+            )
+          ) : null}
+        </>
       }
       chain={madeBy ? <PlantChain route={route} current={current} hrefs={{ [current]: madeBy.href }} /> : undefined}
       facts={facts}
@@ -120,7 +177,26 @@ export function StockLotPage({ lotId }: { lotId: string }) {
                 columns={[
                   { key: 'at', label: t('cc_production.bstage.when', 'When'), render: (move) => when(move.at) },
                   { key: 'doc', label: t('cc_production.bstage.document', 'Document'), render: (move) => (move.document ? <DocLink doc={move.document} /> : '—') },
-                  { key: 'reason', label: t('cc_production.bstage.detail', 'Detail'), render: (move) => <span className="whitespace-normal text-xs text-muted-foreground">{[move.reason, move.place].filter(Boolean).join(' · ') || '—'}</span> },
+                  {
+                    key: 'reason',
+                    label: t('cc_production.bstage.detail', 'Detail'),
+                    render: (move) => (
+                      <span className="whitespace-normal text-xs text-muted-foreground">
+                        {[move.reason, move.place].filter(Boolean).join(' · ') || '—'}
+                        {move.adjustmentId ? (
+                          <Link className="ml-1 text-primary hover:underline" href={`/backend/stock/adjustments/${move.adjustmentId}`}>
+                            {t('cc_production.lot.openAdjustment', 'adjustment')}
+                          </Link>
+                        ) : null}
+                        {move.reverses || move.reversedBy ? (
+                          <span className="ml-1 inline-flex items-center gap-1 rounded border border-status-warning-border bg-status-warning-bg px-1 text-status-warning-text">
+                            <Undo2 className="h-3 w-3" aria-hidden="true" />
+                            {move.reverses ? t('cc_production.lot.undoes', 'undoes an earlier entry') : t('cc_production.lot.undone', 'undone later')}
+                          </span>
+                        ) : null}
+                      </span>
+                    ),
+                  },
                   {
                     key: 'qty',
                     label: unitText,
@@ -189,6 +265,39 @@ export function StockLotPage({ lotId }: { lotId: string }) {
             ) : null}
           </>
         }
+      />
+      <Attachments type="lot" id={data.lot.lotId} hint={t('cc_production.lot.filesHint', 'COA, test reports, photos of the lot.')} />
+      <Comments type="lot" id={data.lot.lotId} />
+      <Timeline type="lot" id={data.lot.lotId} refreshKey={stamp} title={t('cc_production.lot.changes', 'Holds, releases, QC and adjustments')} />
+      <CorrectDialog
+        open={mode !== null}
+        onOpenChange={(next) => !next && setMode(null)}
+        destructive={mode === 'hold'}
+        title={mode === 'adjust' ? t('cc_production.lot.adjustTitle', 'Adjust {lot}', { lot: data.lot.lotNumber }) : mode === 'hold' ? t('cc_production.lot.holdTitle', 'Put {lot} on hold?', { lot: data.lot.lotNumber }) : t('cc_production.lot.releaseTitle', 'Release {lot}?', { lot: data.lot.lotNumber })}
+        description={
+          mode === 'adjust' ? (
+            <span className="mt-2 grid grid-cols-2 gap-2">
+              <Dropdown value={adjust.direction} onChange={(event) => setAdjust((prev) => ({ ...prev, direction: event.target.value }))} aria-label={t('cc_production.lot.direction', 'Add or remove')}>
+                <option value="out">{t('cc_production.lot.remove', 'Remove')}</option>
+                <option value="in">{t('cc_production.lot.add', 'Add')}</option>
+              </Dropdown>
+              <Input type="number" min={0} step="any" value={adjust.quantity} onChange={(event) => setAdjust((prev) => ({ ...prev, quantity: event.target.value }))} placeholder={unitText} aria-label={t('cc_production.lot.qty', 'Quantity')} />
+              <span className="col-span-2">
+                <Dropdown value={adjust.reason} onChange={(event) => setAdjust((prev) => ({ ...prev, reason: event.target.value }))} aria-label={t('cc_production.lot.reasonPick', 'Reason')}>
+                  <option value="">{t('cc_production.lot.reasonPick', 'Reason…')}</option>
+                  {reasons.map((option) => (
+                    <option key={option} value={option}>
+                      {option}
+                    </option>
+                  ))}
+                </Dropdown>
+              </span>
+            </span>
+          ) : undefined
+        }
+        undo={mode === 'adjust' ? [t('cc_production.lot.adjustUndo', 'A stock adjustment is posted with your note; over {limit} it waits for the store manager', { limit: 100 })] : mode === 'hold' ? [t('cc_production.lot.holdUndo', 'It cannot be issued or allocated until released')] : [t('cc_production.lot.releaseUndo', 'It can be used again')]}
+        confirmLabel={mode === 'adjust' ? t('cc_production.lot.adjust', 'Adjust kg') : mode === 'hold' ? t('cc_production.lot.hold', 'Put on hold') : t('cc_production.lot.release', 'Release')}
+        onConfirm={(note) => (mode === 'adjust' && (!adjust.reason || !(Number(adjust.quantity) > 0)) ? Promise.resolve(false) : confirm(note))}
       />
     </RecordPage>
   )

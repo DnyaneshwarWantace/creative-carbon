@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from 'react'
+import { StocktakeListPanel } from './StoreRecords'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { AlertTriangle, ArrowLeft, ClipboardList, Factory, Plus, Search, Trash2 } from 'lucide-react'
@@ -511,6 +512,7 @@ export function StocktakePage() {
   const [lots, setLots] = React.useState<LotRow[] | null>(null)
   const [counts, setCounts] = React.useState<Record<string, string>>({})
   const [busy, setBusy] = React.useState(false)
+  const [stamp, setStamp] = React.useState(0)
 
   const load = React.useCallback(async () => {
     setLots(null)
@@ -528,9 +530,10 @@ export function StocktakePage() {
   const post = async () => {
     setBusy(true)
     try {
-      const result = await send<{ adjusted: number }>('/api/cc_production/stocktake', 'POST', { place, countDate, lines: counted.map(([lotId, value]) => ({ lotId, counted: Number(value) })) })
+      const result = await send<{ adjusted: number; pending: boolean; id: string }>('/api/cc_production/stocktake', 'POST', { place, countDate, lines: counted.map(([lotId, value]) => ({ lotId, counted: Number(value) })) })
       if (result) {
-        flash(t('cc_production.stocktake.done', 'Posted. {count} lots adjusted to the count.', { count: result.adjusted }), 'success')
+        flash(result.pending ? t('cc_production.stocktake.sent', 'Count saved. The store manager approves it before it is posted.') : t('cc_production.stocktake.done', 'Posted. {count} lots adjusted to the count.', { count: result.adjusted }), 'success')
+        setStamp((value) => value + 1)
         await load()
       }
     } finally {
@@ -617,6 +620,7 @@ export function StocktakePage() {
               {t('cc_production.stocktake.post', 'Post the differences')}
             </Button>
           </div>
+          <StocktakeListPanel key={stamp} />
         </div>
       </PageBody>
     </Page>

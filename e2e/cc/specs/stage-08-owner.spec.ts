@@ -25,14 +25,16 @@ async function mouldingDay(request: APIRequestContext): Promise<MouldingDay> {
 }
 
 async function clearDay(request: APIRequestContext) {
-  const load = async () => (await mouldingDay(request)).shifts.find((entry) => entry.shift === 1)
-  let current = await load()
-  for (const entry of current?.entries.filter((candidate) => candidate.status === 'posted') ?? []) {
+  for (const shift of [1, 2]) {
+    const load = async () => (await mouldingDay(request)).shifts.find((entry) => entry.shift === shift)
+    let current = await load()
+    for (const entry of current?.entries.filter((candidate) => candidate.status === 'posted') ?? []) {
+      current = await load()
+      await request.post('/api/cc_production/moulding/action', { data: { entryDate: DATE, shift, action: 'reopen', pressId: entry.pressId, reason: 'e2e cleanup' }, headers: { [LOCK]: current!.version } })
+    }
     current = await load()
-    await request.post('/api/cc_production/moulding/action', { data: { entryDate: DATE, shift: 1, action: 'reopen', pressId: entry.pressId, reason: 'e2e cleanup' }, headers: { [LOCK]: current!.version } })
+    if (current?.entries.length) await request.put('/api/cc_production/moulding', { data: { entryDate: DATE, shift, entries: [] }, headers: { [LOCK]: current.version } })
   }
-  current = await load()
-  if (current?.entries.length) await request.put('/api/cc_production/moulding', { data: { entryDate: DATE, shift: 1, entries: [] }, headers: { [LOCK]: current.version } })
   await request.put('/api/cc_production/plan', { data: { planDate: DATE, lines: [] } })
 }
 
@@ -57,8 +59,8 @@ test.describe.serial('Stage 8 · stock, owner overview, offline, demo', () => {
         entryDate: DATE,
         shift: 1,
         entries: [
-          { pressId: machine(12), dieNo: '1142', orderQty: 100, articleWeightKg: 0.65, productionNos: 17 },
-          { pressId: machine(11), dieNo: '1221', orderQty: 50, articleWeightKg: 0.9, productionNos: 10 },
+          { pressId: machine(12), dieNo: '177', orderQty: 100, articleWeightKg: 0.65, productionNos: 17 },
+          { pressId: machine(11), dieNo: '7100', orderQty: 50, articleWeightKg: 0.9, productionNos: 10 },
         ],
       },
     })
@@ -71,7 +73,7 @@ test.describe.serial('Stage 8 · stock, owner overview, offline, demo', () => {
   test('the production plan is written for the day and the overview compares it with what was posted', async ({ request }) => {
     const before = (await (await request.get(`/api/cc_production/plan?date=${DATE}`)).json()) as { updatedAt: string | null; lines: unknown[] }
     expect(before.lines).toEqual([])
-    const plan = await request.put('/api/cc_production/plan', { data: { planDate: DATE, lines: [{ area: 'moulding', resource: '12', item: '1142', plannedQty: 30, unit: 'nos' }, { area: 'moulding', resource: '11', plannedQty: 10, unit: 'nos' }, { area: 'press', resource: '22', plannedQty: 900, unit: 'kg' }] } })
+    const plan = await request.put('/api/cc_production/plan', { data: { planDate: DATE, lines: [{ area: 'moulding', resource: '12', item: '177', plannedQty: 30, unit: 'nos' }, { area: 'moulding', resource: '11', plannedQty: 10, unit: 'nos' }, { area: 'press', resource: '22', plannedQty: 900, unit: 'kg' }] } })
     expect(plan.ok(), await plan.text()).toBeTruthy()
     const data = await owner(request, DATE)
     expect(data.produced.moulding).toEqual({ pieces: 27, kg: 20.05, machines: 2 })

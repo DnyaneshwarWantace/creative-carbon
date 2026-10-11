@@ -201,7 +201,7 @@ export type AdjustInput = {
   note?: string | null
 }
 
-export async function adjustStock(ctx: StoreContext, input: AdjustInput) {
+export async function adjustStock(ctx: StoreContext, input: AdjustInput, tag: Record<string, unknown> = {}): Promise<{ movementId: string | null; lotId: string | null }> {
   const reasons = await activeOptions(ctx, 'stock_adjust_reasons')
   if (!reasons.includes(input.reason)) throw new StoreError('Pick a reason from the list')
   if (!(input.quantity > 0)) throw new StoreError('Enter a quantity above zero')
@@ -213,7 +213,7 @@ export async function adjustStock(ctx: StoreContext, input: AdjustInput) {
   if (!variantId) throw new StoreError('That product has no stock record', 404)
   const byName = await currentUserName(ctx)
   const text = `${input.reason}${input.note ? ` · ${input.note}` : ''}`
-  const metadata = { source: 'cc_store.adjust', reason: input.reason, note: input.note ?? null, byName }
+  const metadata = { source: 'cc_store.adjust', reason: input.reason, note: input.note ?? null, byName, ...tag }
 
   if (input.direction === 'out') {
     if (!input.lotId) throw new StoreError('Pick the batch to take stock from')
@@ -233,7 +233,7 @@ export async function adjustStock(ctx: StoreContext, input: AdjustInput) {
       performedBy: performerId(ctx),
       metadata,
     })
-    return
+    return { movementId: await lastMovement(ctx, tag), lotId: input.lotId }
   }
 
   let lotId = input.lotId ?? null
@@ -266,11 +266,21 @@ export async function adjustStock(ctx: StoreContext, input: AdjustInput) {
     reason: text,
     metadata,
   })
+  return { movementId: await lastMovement(ctx, tag), lotId }
+}
+
+async function lastMovement(ctx: StoreContext, tag: Record<string, unknown>): Promise<string | null> {
+  if (typeof tag.adjustmentId !== 'string') return null
+  const [row] = await ctx.em.getConnection().execute<Array<{ id: string }>>(
+    `select id from wms_inventory_movements where tenant_id = ? and organization_id = ? and metadata->>'adjustmentId' = ? order by created_at desc limit 1`,
+    [ctx.tenantId, ctx.organizationId, tag.adjustmentId],
+  )
+  return row?.id ?? null
 }
 
 export type TransferInput = { productId: string; lotId: string | null; from: StockPlace; to: StockPlace; quantity: number; note?: string | null }
 
-export async function transferStock(ctx: StoreContext, input: TransferInput) {
+export async function transferStock(ctx: StoreContext, input: TransferInput, tag: Record<string, unknown> = {}): Promise<{ movementId: string | null; lotId: string | null }> {
   if (input.from === input.to) throw new StoreError('Pick two different places')
   if (!(input.quantity > 0)) throw new StoreError('Enter a quantity above zero')
   const { warehouseId, byPlace } = await placeLocations(ctx)
@@ -297,6 +307,49 @@ export async function transferStock(ctx: StoreContext, input: TransferInput) {
     referenceType: 'transfer',
     referenceId: randomUUID(),
     performedBy: performerId(ctx),
-    metadata: { source: 'cc_store.transfer', note: input.note ?? null, byName },
+    metadata: { source: 'cc_store.transfer', note: input.note ?? null, byName, ...tag },
   })
+  return { movementId: await lastMovement(ctx, tag), lotId: input.lotId }
+}
+
+export async function movementDetail(ctx: StoreContext, id: string) {
+  const { byId } = await placeLocations(ctx)
+  const connection = ctx.em.getConnection()
+  const [row] = await connection.execute<MovementRow[]>(
+    `select m.id, m.type, m.quantity, m.location_from_id, m.location_to_id, v.product_id, m.lot_id, lot.lot_number, m.reason, m.reason_code, m.performed_by, m.performed_at, m.metadata
+       from wms_inventory_movements m
+       left join catalog_product_variants v on v.id = m.catalog_variant_id
+       left join wms_inventory_lots lot on lot.id = m.lot_id
+      where m.id = ? and m.tenant_id = ? and m.organization_id = ? and m.deleted_at is null`,
+    [id, ctx.tenantId, ctx.organizationId],
+  )
+  if (!row) throw new StoreError('Movement not found', 404)
+  const [products, names] = await Promise.all([loadProducts(ctx, row.product_id ? [row.product_id] : []), userNames(ctx, row.performed_by ? [row.performed_by] : [])])
+  const product = row.product_id ? products.get(row.product_id) : undefined
+  const place = (value: string | null) => (value ? (byId.get(value) ? PLACE_LABEL[byId.get(value)!] : null) : null)
+  const pairId = typeof row.metadata?.reverses === 'string' ? row.metadata.reverses : typeof row.metadata?.reversedBy === 'string' ? row.metadata.reversedBy : null
+  const [pair] = pairId ? await connection.execute<Array<{ id: string; quantity: string; reason: string | null; performed_at: Date }>>('select id, quantity, reason, performed_at from wms_inventory_movements where id = ?', [pairId]) : []
+  const { movementDocument } = await import('../../cc_ui/lib/links')
+  return {
+    id: row.id,
+    type: row.type,
+    reasonCode: row.reason_code,
+    quantity: round(Number(row.quantity)),
+    unit: product?.unit ?? null,
+    from: place(row.location_from_id),
+    to: place(row.location_to_id),
+    productId: row.product_id,
+    title: product?.title ?? '(deleted product)',
+    lotId: row.lot_id ?? null,
+    lotNumber: row.lot_number,
+    reason: row.reason,
+    by: row.performed_by ? names.get(row.performed_by) ?? null : (typeof row.metadata?.byName === 'string' ? row.metadata.byName : null),
+    at: new Date(row.performed_at).toISOString(),
+    document: movementDocument(row.metadata),
+    adjustmentId: typeof row.metadata?.adjustmentId === 'string' ? row.metadata.adjustmentId : null,
+    stocktakeId: typeof row.metadata?.stocktakeId === 'string' ? row.metadata.stocktakeId : null,
+    reverses: typeof row.metadata?.reverses === 'string' ? row.metadata.reverses : null,
+    reversedBy: typeof row.metadata?.reversedBy === 'string' ? row.metadata.reversedBy : null,
+    pair: pair ? { id: pair.id, quantity: round(Number(pair.quantity)), reason: pair.reason, at: new Date(pair.performed_at).toISOString() } : null,
+  }
 }

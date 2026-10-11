@@ -524,6 +524,10 @@ export async function decideLine(ctx: StoreContext, grn: GoodsReceipt, lineId: s
   line.qcAt = new Date()
   line.qcByName = await currentUserName(ctx)
   line.qcByUserId = ctx.userId ?? null
+  if (line.lotId) {
+    const { recordActivity } = await import('../../cc_audit/lib/activity')
+    recordActivity(ctx.em, ctx, { recordType: 'lot', recordId: line.lotId, action: decision === 'passed' ? 'qc_passed' : 'qc_held', kind: 'stage', summary: decision === 'passed' ? `QC passed on receipt (${grn.code})` : `QC held on receipt (${grn.code})`, reason: note, changes: [{ field: 'status', label: 'Status', from: 'quarantine', to: decision === 'passed' ? 'available' : 'hold' }], links: [{ type: 'grn', id: grn.id, label: grn.code }], actorUserId: ctx.userId ?? null, actorName: line.qcByName })
+  }
   const lines = await ctx.em.find(GoodsReceiptLine, { grnId: grn.id })
   grn.status = grnStatus(lines)
   stamp(grn, decision === 'passed' ? 'qc_passed' : 'qc_failed', await currentUserName(ctx), note ?? line.lotNumber)

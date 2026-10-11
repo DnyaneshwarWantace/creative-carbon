@@ -15,6 +15,7 @@ import { ExportButton } from '../../cc_products/components/ExportButton'
 import { downloadCsv } from '../../cc_products/lib/csvExport'
 import { STORES, type StockPlace } from '../../cc_products/lib/stock'
 import { PageLoading } from '../../cc_ui/components/PageLoading'
+import { MovementDrawer } from './MovementDrawer'
 
 type Place = StockPlace | 'all'
 type Movement = { id: string; at: string; type: string; quantity: number; unit: string | null; from: string | null; to: string | null; productId: string | null; title: string; code: string | null; lotId: string | null; lotNumber: string | null; reverses: string | null; reversedBy: string | null; reason: string | null; reasonCode: string | null; by: string | null; orderNo: string | null; orderId: string | null }
@@ -69,6 +70,7 @@ export function StockLedgerPage() {
   const [hasMore, setHasMore] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
   const [loadingMore, setLoadingMore] = React.useState(false)
+  const [openId, setOpenId] = React.useState<string | null>(null)
 
   const fetchPage = React.useCallback(
     async (pageNumber: number) => {
@@ -175,7 +177,11 @@ export function StockLedgerPage() {
                         {new Date(row.at).toLocaleString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
                         {row.by ? <span className="block">{row.by}</span> : null}
                       </td>
-                      <td className="px-3 py-2 font-medium">{kindOf(row)}</td>
+                      <td className="px-3 py-2 font-medium">
+                        <button type="button" className="text-left hover:underline" onClick={() => setOpenId(row.id)}>
+                          {kindOf(row)}
+                        </button>
+                      </td>
                       <td className="px-3 py-2">
                         {row.productId ? (
                           <Link href={`/backend/store/ledger?productId=${row.productId}`} className="hover:underline">
@@ -236,6 +242,7 @@ export function StockLedgerPage() {
             </div>
           ) : null}
         </div>
+        <MovementDrawer movementId={openId} onOpenChange={(next) => !next && setOpenId(null)} />
       </PageBody>
     </Page>
   )

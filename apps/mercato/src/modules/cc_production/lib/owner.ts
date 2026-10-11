@@ -240,6 +240,9 @@ export async function lotDetail(ctx: StoreContext, lotId: string) {
         place: place ? PLACE_LABEL[place] : null,
         reason: row.reason,
         reasonCode: row.reason_code,
+        reverses: typeof row.metadata?.reverses === 'string' ? row.metadata.reverses : null,
+        reversedBy: typeof row.metadata?.reversedBy === 'string' ? row.metadata.reversedBy : null,
+        adjustmentId: typeof row.metadata?.adjustmentId === 'string' ? row.metadata.adjustmentId : null,
         source: typeof row.metadata?.source === 'string' ? row.metadata.source : null,
         document: movementDocument(row.metadata),
       }
