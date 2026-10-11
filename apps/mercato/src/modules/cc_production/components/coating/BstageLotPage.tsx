@@ -19,8 +19,11 @@ import { BAND_STYLE, type BstageCard } from './BstageBoardPage'
 import { DocLink, FieldList, Panel, RecordColumns, RecordPage, RecordState, RegisterGrid, type Fact } from '../../../cc_ui/components/RecordPage'
 import { PlantChain } from '../../../cc_ui/components/PlantChain'
 import { recordHref, type DocumentLink } from '../../../cc_ui/lib/links'
+import { Timeline } from '../../../cc_ui/components/Timeline'
+import { Comments } from '../../../cc_ui/components/Comments'
+import { CorrectDialog } from '../../../cc_ui/components/CorrectDialog'
 
-type LotView = BstageCard & { movements: Array<{ id: string; at: string; kg: number; reason: string | null; reasonCode: string | null; source: string | null; document: DocumentLink | null }> }
+type LotView = BstageCard & { movements: Array<{ id: string; at: string; kg: number; reason: string | null; reasonCode: string | null; source: string | null; document: DocumentLink | null; reverses?: string | null; reversedBy?: string | null; canUndoScrap?: boolean }> }
 
 export function BstageLotPage({ lotId }: { lotId: string }) {
   const t = useT()
@@ -32,6 +35,7 @@ export function BstageLotPage({ lotId }: { lotId: string }) {
   const [scrapKg, setScrapKg] = React.useState('')
   const [reason, setReason] = React.useState('')
   const [busy, setBusy] = React.useState(false)
+  const [undoing, setUndoing] = React.useState<string | null>(null)
   const [scrapReasons, setScrapReasons] = React.useState<string[]>([])
 
   React.useEffect(() => {
@@ -119,7 +123,21 @@ export function BstageLotPage({ lotId }: { lotId: string }) {
                 columns={[
                   { key: 'at', label: t('cc_production.bstage.when', 'When'), render: (movement) => when(movement.at) },
                   { key: 'doc', label: t('cc_production.bstage.document', 'Document'), render: (movement) => (movement.document ? <DocLink doc={movement.document} /> : movement.reasonCode ?? '—') },
-                  { key: 'reason', label: t('cc_production.bstage.detail', 'Detail'), render: (movement) => <span className="whitespace-normal text-xs text-muted-foreground">{movement.reason ?? '—'}</span> },
+                  {
+                    key: 'reason',
+                    label: t('cc_production.bstage.detail', 'Detail'),
+                    render: (movement) => (
+                      <span className="whitespace-normal text-xs text-muted-foreground">
+                        {movement.reason ?? '—'}
+                        {movement.reverses || movement.reversedBy ? <span className="ml-1 rounded border border-status-warning-border bg-status-warning-bg px-1 text-status-warning-text">{movement.reverses ? t('cc_production.lot.undoes', 'undoes an earlier entry') : t('cc_production.lot.undone', 'undone later')}</span> : null}
+                        {movement.canUndoScrap && granted.has('cc_production.bstage.manage') ? (
+                          <button type="button" className="ml-1 text-primary hover:underline" onClick={() => setUndoing(movement.id)}>
+                            {t('cc_production.bstage.undoScrap', 'Undo scrap')}
+                          </button>
+                        ) : null}
+                      </span>
+                    ),
+                  },
                   {
                     key: 'kg',
                     label: 'kg',
@@ -155,6 +173,26 @@ export function BstageLotPage({ lotId }: { lotId: string }) {
               />
             </Panel>
           }
+        />
+        <Comments type="lot" id={lot.lotId} />
+        <Timeline type="lot" id={lot.lotId} refreshKey={lot.movements.length} title={t('cc_production.lot.changes', 'Holds, releases, QC and adjustments')} />
+        <CorrectDialog
+          open={undoing !== null}
+          onOpenChange={(next) => !next && setUndoing(null)}
+          destructive={false}
+          title={t('cc_production.bstage.undoScrapTitle', 'Undo this scrap?')}
+          undo={[t('cc_production.bstage.undoScrapUndo', 'The kg come back into the lot by a linked counter-entry')]}
+          confirmLabel={t('cc_production.bstage.undoScrap', 'Undo scrap')}
+          onConfirm={async (why) => {
+            const call = await apiCall<LotView & { error?: string }>('/api/cc_production/bstage/unscrap', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ lotId: lot.lotId, movementId: undoing, reason: why }) })
+            if (!call.ok || !call.result || call.result.error) {
+              flash(call.result?.error ?? t('cc_production.bstage.undoError', 'Could not undo it.'), 'error')
+              return false
+            }
+            setLot(call.result)
+            flash(t('cc_production.bstage.undone', 'Scrap undone'), 'success')
+            return true
+          }}
         />
       </RecordPage>
 

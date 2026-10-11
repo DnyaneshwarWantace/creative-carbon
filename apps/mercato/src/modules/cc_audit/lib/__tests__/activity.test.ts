@@ -1,5 +1,5 @@
 import type { EntityManager } from '@mikro-orm/postgresql'
-import { diffFields, recordActivity } from '../activity'
+import { diffFields, diffSnapshot, recordActivity } from '../activity'
 
 describe('diffFields', () => {
   const fields = { name: { label: 'Name' }, rate: { label: 'Rate per kg', money: true }, phone: { label: 'Phone' } }
@@ -37,5 +37,23 @@ describe('recordActivity', () => {
     expect(em.persist).toHaveBeenCalledTimes(1)
     expect((em as unknown as { flush: jest.Mock }).flush).not.toHaveBeenCalled()
     expect(created[0]).toMatchObject({ tenantId: 't', organizationId: 'o', recordType: 'vendor', recordId: 'v1', action: 'edited', changes: null, actorName: 'Asha', source: 'screen', kind: 'change' })
+  })
+})
+
+describe('diffSnapshot', () => {
+  it('lists changed nested row values with readable labels and skips ids', () => {
+    const before = { notes: 'a', rows: [{ lotId: 'x', kg: 10, grade: 'A' }, { lotId: 'y', kg: 5, grade: 'B' }], readings: [1, 2] }
+    const after = { notes: 'a', rows: [{ lotId: 'z', kg: 12, grade: 'A' }], readings: [1, 3] }
+    const changes = diffSnapshot(before, after, { rows: 'Row' })
+    expect(changes).toEqual([
+      { field: 'rows[0].kg', label: 'Row 1 · Kg', from: 10, to: 12 },
+      { field: 'rows[1].kg', label: 'Row 2 · Kg', from: 5, to: null },
+      { field: 'rows[1].grade', label: 'Row 2 · Grade', from: 'B', to: null },
+      { field: 'readings', label: 'Readings', from: '1, 2', to: '1, 3' },
+    ])
+  })
+
+  it('returns nothing when nothing changed', () => {
+    expect(diffSnapshot({ a: 1, b: [{ c: '2' }] }, { a: 1, b: [{ c: '2' }] })).toEqual([])
   })
 })

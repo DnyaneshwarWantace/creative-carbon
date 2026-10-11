@@ -13,6 +13,7 @@ import { gradeMatches } from './press'
 import { PlantError } from './server'
 import { lotCode } from '../../cc_accounts/lib/numberSeries'
 import { consumeLots, freeLots, kg3, lotOnHand, movementTime, pickLots, plantStock, produceLot, returnLots } from './plantStock'
+import { logEdit, snapshot } from '../../cc_audit/lib/activity'
 
 const SOURCE = 'cc_production.moulding'
 const RAW_PLACES: StockPlace[] = ['wh_a', 'wh_b', 'floor']
@@ -171,8 +172,11 @@ export async function saveShift(ctx: StoreContext, date: string, shift: number, 
       updatedByName: byName,
     }
     if (current) {
+      const fields = Object.keys(values).filter((key) => key !== 'updatedByName') as Array<keyof MouldingEntry>
+      const before = snapshot(current, fields)
       Object.assign(current, values)
       current.history = [...(current.history ?? []), entry('edited', byName)]
+      logEdit(ctx.em, ctx, { recordType: 'moulding_entry', recordId: current.id, before, after: snapshot(current, fields), byName })
     } else {
       ctx.em.persist(ctx.em.create(MouldingEntry, { ...scope(ctx), entryDate: date, shift, pressId: press.id, ...values, history: [entry('created', byName)] }))
     }

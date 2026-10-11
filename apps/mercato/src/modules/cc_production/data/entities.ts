@@ -1062,7 +1062,7 @@ export class ThicknessInspection {
   outOfTolerance: number = 0
 
   @Property({ type: 'text' })
-  result!: 'pass' | 'hold'
+  result!: 'pass' | 'hold' | 'released'
 
   @Property({ type: 'text', nullable: true })
   inspector?: string | null
@@ -1132,10 +1132,13 @@ export class FgInspection {
   @Property({ name: 'deleted_at', type: Date, nullable: true })
   deletedAt?: Date | null
 }
+
+export type LabRevision = { revision: number; values: Record<string, unknown>; files: string[]; issuedAt: string | null; amendedAt: string; amendedByName: string | null; reason: string }
+
 @Entity({ tableName: 'cc_lab_tests' })
 @Index({ name: 'cc_lab_tests_scope_idx', properties: ['organizationId', 'tenantId', 'testDate'] })
 export class LabTest {
-  [OptionalProps]?: 'createdAt' | 'updatedAt' | 'deletedAt' | 'history' | 'byName' | 'lotRefs' | 'productId' | 'itemTitle' | 'customerId' | 'customerName' | 'standard' | 'result' | 'notes' | 'orderId' | 'orderNo' | 'reportNo' | 'testedBy' | 'testPoint'
+  [OptionalProps]?: 'createdAt' | 'updatedAt' | 'deletedAt' | 'history' | 'byName' | 'lotRefs' | 'productId' | 'itemTitle' | 'customerId' | 'customerName' | 'standard' | 'result' | 'notes' | 'orderId' | 'orderNo' | 'reportNo' | 'testedBy' | 'testPoint' | 'revision' | 'issuedAt' | 'issuedByName' | 'revisions'
 
   @PrimaryKey({ type: 'uuid', defaultRaw: 'gen_random_uuid()' })
   id!: string
@@ -1190,6 +1193,18 @@ export class LabTest {
 
   @Property({ type: 'text', nullable: true })
   notes?: string | null
+
+  @Property({ type: 'int', default: 0 })
+  revision: number = 0
+
+  @Property({ name: 'issued_at', type: Date, nullable: true })
+  issuedAt?: Date | null
+
+  @Property({ name: 'issued_by_name', type: 'text', nullable: true })
+  issuedByName?: string | null
+
+  @Property({ type: 'json', nullable: true })
+  revisions?: LabRevision[] | null
 
   @Property({ name: 'by_name', type: 'text', nullable: true })
   byName?: string | null
@@ -1274,7 +1289,7 @@ export class FgDirectIn {
 @Entity({ tableName: 'cc_damage_entries' })
 @Index({ name: 'cc_damage_entries_scope_idx', properties: ['organizationId', 'tenantId', 'entryDate'] })
 export class DamageEntry {
-  [OptionalProps]?: 'createdAt' | 'updatedAt' | 'deletedAt' | 'history' | 'byName' | 'lotNumber'
+  [OptionalProps]?: 'createdAt' | 'updatedAt' | 'deletedAt' | 'history' | 'byName' | 'lotNumber' | 'status'
 
   @PrimaryKey({ type: 'uuid', defaultRaw: 'gen_random_uuid()' })
   id!: string
@@ -1308,6 +1323,9 @@ export class DamageEntry {
 
   @Property({ type: 'text' })
   reason!: string
+
+  @Property({ type: 'text', default: 'posted' })
+  status: 'posted' | 'undone' = 'posted'
 
   @Property({ name: 'by_name', type: 'text', nullable: true })
   byName?: string | null

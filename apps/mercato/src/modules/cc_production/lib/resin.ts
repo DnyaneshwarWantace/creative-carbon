@@ -6,6 +6,7 @@ import { PlantError } from './server'
 import { activeOptions } from '../../cc_lists/lib/service'
 import { seriesCodeAt, seriesDate } from '../../cc_accounts/lib/numberSeries'
 import { consumeLots, freeLots, kg3, lotOnHand, movementTime, pickLots, plantStock, produceLot, returnLots, type PickedLot } from './plantStock'
+import { logEdit, snapshot } from '../../cc_audit/lib/activity'
 
 export const CHEMICAL_PLACES = ['wh_a', 'wh_b', 'floor'] as const
 
@@ -147,8 +148,11 @@ export async function createBatch(ctx: StoreContext, input: ResinBatchInput, byN
   return batch
 }
 
+const RESIN_FIELDS: Array<keyof ResinBatch> = ['batchNo', 'batchDate', 'reactorCode', 'grade', 'materials', 'process', 'tests', 'waterRemovedKg', 'yieldKg', 'notes']
+
 export async function updateBatch(ctx: StoreContext, batch: ResinBatch, input: ResinBatchInput, byName: string | null): Promise<ResinBatch> {
   if (batch.status !== 'draft') throw new PlantError('This batch is posted. Reopen it first to change it.', 409)
+  const before = snapshot(batch, RESIN_FIELDS)
   if (input.batchNo && input.batchNo.trim() !== batch.batchNo) {
     await ensureUniqueNo(ctx, input.batchNo.trim(), batch.id)
     batch.batchNo = input.batchNo.trim()
@@ -156,6 +160,7 @@ export async function updateBatch(ctx: StoreContext, batch: ResinBatch, input: R
   await applyInput(ctx, batch, input)
   batch.updatedByName = byName
   batch.history = [...(batch.history ?? []), historyEntry('edited', byName)]
+  logEdit(ctx.em, ctx, { recordType: 'resin_batch', recordId: batch.id, before, after: snapshot(batch, RESIN_FIELDS), byName, labels: { materials: 'Chemical' } })
   await ctx.em.flush()
   return batch
 }

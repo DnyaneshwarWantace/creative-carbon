@@ -328,6 +328,7 @@ export async function directInDetail(ctx: StoreContext, id: string) {
     lot: record.lotId ? traces.get(record.lotId) ?? null : null,
     history: historyOf(record.history),
     createdAt: record.createdAt.toISOString(),
+    updatedAt: record.updatedAt.toISOString(),
   }
 }
 
@@ -345,10 +346,12 @@ export async function damageDetail(ctx: StoreContext, id: string) {
     place: record.place,
     kg: Number(record.kg),
     reason: record.reason,
+    status: record.status,
     byName: record.byName ?? null,
     lot: traces.get(record.lotId) ?? null,
     history: historyOf(record.history),
     createdAt: record.createdAt.toISOString(),
+    updatedAt: record.updatedAt.toISOString(),
   }
 }
 

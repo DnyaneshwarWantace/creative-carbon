@@ -1,6 +1,8 @@
 export type LabResult = 'pass' | 'fail' | 'pending'
 
-export type LabReportFile = { id: string; fileName: string; fileSize: number; mimeType: string; createdAt: string }
+export type LabReportFile = { id: string; fileName: string; fileSize: number; mimeType: string; createdAt: string; superseded?: boolean; revision?: number | null }
+
+export type LabRevisionView = { revision: number; issuedAt: string | null; amendedAt: string; amendedByName: string | null; reason: string; values: Record<string, unknown> }
 
 export type LabTest = {
   id: string
@@ -22,6 +24,11 @@ export type LabTest = {
   byName: string | null
   history: Array<{ action: string; by: string | null; at: string; note: string | null }>
   reports?: LabReportFile[]
+  supersededReports?: LabReportFile[]
+  revision?: number
+  issuedAt?: string | null
+  issuedByName?: string | null
+  revisions?: LabRevisionView[]
   createdAt: string
   updatedAt: string
 }

@@ -11,6 +11,7 @@ import { activeOptions } from '../../cc_lists/lib/service'
 import { consumeLots, freeLots, kg3, lotOnHand, movementTime, pickLots, plantStock, produceLot, returnLots, type FreeLot, type PickedLot } from './plantStock'
 import { CHEMICAL_PLACES, chemicalProducts } from './resin'
 import { sheetFigures } from './coatingFigures'
+import { logEdit, snapshot } from '../../cc_audit/lib/activity'
 
 export { sheetFigures, type SheetFigures } from './coatingFigures'
 
@@ -166,15 +167,19 @@ export async function createSheet(ctx: StoreContext, input: CoatingSheetInput, b
   return sheet
 }
 
+const COATING_FIELDS: Array<keyof CoatingSheet> = ['sheetDate', 'dryerCode', 'rows', 'slots', 'notes']
+
 export async function updateSheet(ctx: StoreContext, sheet: CoatingSheet, input: CoatingSheetInput, byName: string | null) {
   if (sheet.status !== 'draft') throw new PlantError('This sheet is posted. Reopen it first to change it.', 409)
   if (input.dryerId !== sheet.dryerId || input.sheetDate !== sheet.sheetDate) {
     const clash = await ctx.em.findOne(CoatingSheet, { ...scope(ctx), dryerId: input.dryerId, sheetDate: input.sheetDate, deletedAt: null, id: { $ne: sheet.id } })
     if (clash) throw new PlantError('There is already a sheet for this dryer on this day', 409)
   }
+  const before = snapshot(sheet, COATING_FIELDS)
   await applyInput(ctx, sheet, input)
   sheet.updatedByName = byName
   sheet.history = [...(sheet.history ?? []), entry('edited', byName)]
+  logEdit(ctx.em, ctx, { recordType: 'coating_sheet', recordId: sheet.id, before, after: snapshot(sheet, COATING_FIELDS), byName, labels: { rows: 'Cloth row', slots: 'Slot' } })
   await ctx.em.flush()
   return sheet
 }

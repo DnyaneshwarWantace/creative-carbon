@@ -130,9 +130,14 @@ export async function bstageLot(ctx: StoreContext, lotId: string) {
       reasonCode: row.reason_code,
       source: typeof row.metadata?.source === 'string' ? row.metadata.source : null,
       document: movementDocument(row.metadata),
+      reverses: typeof row.metadata?.reverses === 'string' ? row.metadata.reverses : null,
+      reversedBy: typeof row.metadata?.reversedBy === 'string' ? row.metadata.reversedBy : null,
+      canUndoScrap: row.reason_code === 'bstage_scrap' && typeof row.metadata?.reversedBy !== 'string' && Date.now() - new Date(row.performed_at).getTime() <= SCRAP_UNDO_DAYS * 86_400_000,
     })),
   }
 }
+
+export const SCRAP_UNDO_DAYS = 7
 
 export async function scrapBstage(ctx: StoreContext, input: { lotId: string; kg?: number; reason: string }, byName: string | null) {
   const { rows } = await lotRows(ctx, input.lotId)
@@ -155,7 +160,44 @@ export async function scrapBstage(ctx: StoreContext, input: { lotId: string; kg?
     referenceType: 'manual',
     referenceId: randomUUID(),
     performedBy: performerId(ctx),
-    metadata: { source: 'cc_production.bstage_scrap', reason: input.reason, byName },
+    metadata: { source: 'cc_production.bstage_scrap', scrapId: randomUUID(), reason: input.reason, byName },
   })
+  const { recordActivity } = await import('../../cc_audit/lib/activity')
+  recordActivity(ctx.em, ctx, { recordType: 'lot', recordId: input.lotId, action: 'scrapped', kind: 'correction', summary: `${kg} kg written off as scrap`, reason: input.reason, actorUserId: ctx.userId ?? null, actorName: byName })
+  await ctx.em.flush()
+  return bstageLot(ctx, input.lotId)
+}
+
+export async function undoScrap(ctx: StoreContext, input: { lotId: string; movementId: string; reason: string }, byName: string | null) {
+  const [move] = await ctx.em.getConnection().execute<Array<{ id: string; quantity: string; reason_code: string | null; performed_at: Date; catalog_variant_id: string; location_to_id: string | null; location_from_id: string | null; metadata: Record<string, unknown> | null }>>(
+    `select id, quantity, reason_code, performed_at, catalog_variant_id, location_to_id, location_from_id, metadata from wms_inventory_movements where id = ? and lot_id = ? and tenant_id = ? and organization_id = ? and deleted_at is null`,
+    [input.movementId, input.lotId, ctx.tenantId, ctx.organizationId],
+  )
+  if (!move || move.reason_code !== 'bstage_scrap') throw new PlantError('That is not a scrap entry of this lot', 404)
+  if (typeof move.metadata?.reversedBy === 'string') throw new PlantError('This scrap is already undone', 409)
+  if (Date.now() - new Date(move.performed_at).getTime() > SCRAP_UNDO_DAYS * 86_400_000) throw new PlantError(`Scrapped more than ${SCRAP_UNDO_DAYS} days ago. It can no longer be undone.`, 409)
+  const stock = await plantStock(ctx, [])
+  const scrapId = typeof move.metadata?.scrapId === 'string' ? move.metadata.scrapId : randomUUID()
+  if (typeof move.metadata?.scrapId !== 'string') await ctx.em.getConnection().execute(`update wms_inventory_movements set metadata = coalesce(metadata, '{}'::jsonb) || jsonb_build_object('scrapId', ?::text) where id = ?`, [scrapId, move.id])
+  const kg = kg3(Math.abs(Number(move.quantity)))
+  const metadata = { source: 'cc_production.bstage_scrap', scrapId, byName }
+  await runCommand(ctx, 'wms.inventory.adjust', {
+    warehouseId: stock.warehouseId,
+    locationId: move.location_to_id ?? move.location_from_id,
+    catalogVariantId: move.catalog_variant_id,
+    lotId: input.lotId,
+    delta: kg,
+    reason: `Scrap undone · ${input.reason}`,
+    reasonCode: 'bstage_scrap_undo',
+    referenceType: 'manual',
+    referenceId: randomUUID(),
+    performedBy: performerId(ctx),
+    metadata,
+  })
+  const { linkReversals } = await import('../../cc_store/lib/counterEntries')
+  await linkReversals(ctx, metadata)
+  const { recordActivity } = await import('../../cc_audit/lib/activity')
+  recordActivity(ctx.em, ctx, { recordType: 'lot', recordId: input.lotId, action: 'scrap_undone', kind: 'correction', summary: `Scrap of ${kg} kg undone; the kg are back in the lot`, reason: input.reason, actorUserId: ctx.userId ?? null, actorName: byName })
+  await ctx.em.flush()
   return bstageLot(ctx, input.lotId)
 }

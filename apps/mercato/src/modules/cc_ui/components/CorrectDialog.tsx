@@ -24,6 +24,8 @@ export function CorrectDialog({
   undo,
   loadPreview,
   onConfirm,
+  children,
+  canConfirm = true,
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
@@ -34,6 +36,8 @@ export function CorrectDialog({
   undo?: string[]
   loadPreview?: () => Promise<CorrectionPreview | null>
   onConfirm: (reason: string) => Promise<boolean | void>
+  children?: React.ReactNode
+  canConfirm?: boolean
 }) {
   const t = useT()
   const [reason, setReason] = React.useState('')
@@ -59,7 +63,7 @@ export function CorrectDialog({
   }, [open, loadPreview])
 
   const blocked = Boolean(preview?.blockedBy.length)
-  const ready = reason.trim().length >= MIN_REASON && !blocked && !busy && !loading
+  const ready = canConfirm && reason.trim().length >= MIN_REASON && !blocked && !busy && !loading
   const items = preview?.undo ?? undo ?? []
 
   const confirm = async () => {
@@ -127,6 +131,7 @@ export function CorrectDialog({
             </ul>
           </div>
         ) : null}
+        {children}
         <div className="space-y-1.5">
           <Label htmlFor="correct-reason">{t('cc_ui.correct.reason', 'Why? (kept in the history)')} *</Label>
           <Textarea id="correct-reason" rows={3} autoFocus value={reason} disabled={busy || blocked} onChange={(event) => setReason(event.target.value)} placeholder={t('cc_ui.correct.reasonHint', 'e.g. Wrong weight typed, 112.5 should be 121.5')} />

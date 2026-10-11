@@ -3,7 +3,7 @@
 import * as React from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { CheckCircle2, CircleDashed, Download, ExternalLink, FileText, FlaskConical, Pencil, Printer, XCircle } from 'lucide-react'
+import { CheckCircle2, CircleDashed, Download, ExternalLink, FilePen, FileText, FlaskConical, History, Pencil, Printer, Send, XCircle } from 'lucide-react'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { cn } from '@open-mercato/shared/lib/utils'
 import { AttachmentsSection } from '@open-mercato/ui/backend/detail/AttachmentsSection'
@@ -21,6 +21,10 @@ import { PlantChain } from '../../../cc_ui/components/PlantChain'
 import { recordHref } from '../../../cc_ui/lib/links'
 import { Timeline } from '../../../cc_ui/components/Timeline'
 import { Comments } from '../../../cc_ui/components/Comments'
+import { CorrectDialog } from '../../../cc_ui/components/CorrectDialog'
+import { StatusBadge } from '@open-mercato/ui/primitives/status-badge'
+import { useSend } from '../finishing/shared'
+import { when } from '../resin/shared'
 
 const RESULT_STYLE: Record<LabResult, { label: string; tone: string; icon: typeof CheckCircle2 }> = {
   pass: { label: 'Pass', tone: 'border-status-success-border bg-status-success-bg text-status-success-text', icon: CheckCircle2 },
@@ -80,6 +84,9 @@ export function LabDetailPage({ testId }: { testId: string }) {
   const [error, setError] = React.useState<string | null>(null)
   const [company, setCompany] = React.useState<DocCompany | null>(null)
   const [previewId, setPreviewId] = React.useState<string | null>(null)
+  const [amending, setAmending] = React.useState(false)
+  const [issuing, setIssuing] = React.useState(false)
+  const send = useSend(`cc-lab-${testId}`)
 
   const load = React.useCallback(async () => {
     const call = await apiCall<LabTest>(`/api/cc_production/lab?id=${encodeURIComponent(testId)}`)
@@ -99,6 +106,21 @@ export function LabDetailPage({ testId }: { testId: string }) {
   const style = RESULT_STYLE[test.result]
   const ResultIcon = style.icon
   const reports = test.reports ?? []
+  const superseded = test.supersededReports ?? []
+  const issued = Boolean(test.issuedAt)
+  const revision = test.revision ?? 0
+  const act = async (body: Record<string, unknown>, done: string) => {
+    const result = await send<LabTest>('/api/cc_production/lab/action', 'POST', { id: test.id, ...body }, test.updatedAt)
+    if (!result) return false
+    flash(done, 'success')
+    await load()
+    return true
+  }
+  const issue = async () => {
+    setIssuing(true)
+    await act({ action: 'issue' }, t('cc_production.lab.issuedDone', 'Report marked as issued to the customer.'))
+    setIssuing(false)
+  }
   const preview = reports.find((file) => file.id === previewId) ?? null
   const facts: Fact[] = [
     { label: t('cc_production.lab.testedOn', 'Tested on'), value: day(test.testDate) },
@@ -150,10 +172,14 @@ export function LabDetailPage({ testId }: { testId: string }) {
       title={test.testType}
       mono={false}
       badges={
-        <span className={cn('inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs font-semibold', style.tone)}>
-          <ResultIcon className="h-3.5 w-3.5" aria-hidden="true" />
-          {t(`cc_production.lab.${test.result}`, style.label)}
-        </span>
+        <>
+          <span className={cn('inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs font-semibold', style.tone)}>
+            <ResultIcon className="h-3.5 w-3.5" aria-hidden="true" />
+            {t(`cc_production.lab.${test.result}`, style.label)}
+          </span>
+          {revision ? <StatusBadge variant="neutral">{t('cc_production.lab.rev', 'Rev {no}', { no: revision })}</StatusBadge> : null}
+          {issued ? <StatusBadge variant="success">{t('cc_production.lab.issuedBadge', 'Issued {when}', { when: when(test.issuedAt) })}</StatusBadge> : null}
+        </>
       }
       meta={
         test.result === 'pass'
@@ -185,10 +211,22 @@ export function LabDetailPage({ testId }: { testId: string }) {
             <Printer className="mr-1.5 h-4 w-4" aria-hidden="true" />
             {t('cc_production.lab.print', 'Print record')}
           </Button>
-          {canEnter ? (
+          {canEnter && !issued ? (
             <Button type="button" variant="outline" size="sm" onClick={() => router.push(`/backend/quality/lab/${test.id}/edit`)}>
               <Pencil className="mr-1.5 h-4 w-4" aria-hidden="true" />
               {t('cc_production.lab.edit', 'Edit')}
+            </Button>
+          ) : null}
+          {canEnter && !issued && test.result !== 'pending' && reports.length ? (
+            <Button type="button" variant="outline" size="sm" disabled={issuing} onClick={() => void issue()}>
+              <Send className="mr-1.5 h-4 w-4" aria-hidden="true" />
+              {t('cc_production.lab.issue', 'Mark issued to customer')}
+            </Button>
+          ) : null}
+          {canEnter && issued ? (
+            <Button type="button" variant="outline" size="sm" onClick={() => setAmending(true)}>
+              <FilePen className="mr-1.5 h-4 w-4" aria-hidden="true" />
+              {t('cc_production.lab.amend', 'Amend (new revision)')}
             </Button>
           ) : null}
         </>
@@ -238,7 +276,27 @@ export function LabDetailPage({ testId }: { testId: string }) {
                 ) : null}
               </Panel>
             ) : null}
-            {canEnter ? (
+            {superseded.length ? (
+              <Panel title={t('cc_production.lab.superseded', 'Earlier revisions (superseded)')} icon={History} count={superseded.length} flush>
+                <ul className="divide-y divide-border">
+                  {superseded.map((file) => (
+                    <li key={file.id} className="flex items-center gap-3 px-3 py-2 text-muted-foreground">
+                      <FileText className="h-4 w-4 shrink-0" aria-hidden="true" />
+                      <a className="min-w-0 flex-1 truncate text-sm line-through hover:underline" href={`/api/attachments/file/${file.id}`} target="_blank" rel="noopener">
+                        {file.fileName}
+                      </a>
+                      <StatusBadge variant="neutral">{t('cc_production.lab.rev', 'Rev {no}', { no: file.revision ?? 0 })}</StatusBadge>
+                      <Button asChild variant="ghost" size="icon" className="h-8 w-8" aria-label={t('cc_production.lab.download', 'Download report')}>
+                        <a href={`/api/attachments/file/${file.id}?download=1`}>
+                          <Download className="h-4 w-4" />
+                        </a>
+                      </Button>
+                    </li>
+                  ))}
+                </ul>
+              </Panel>
+            ) : null}
+            {canEnter && !issued ? (
               <section className="rounded-md border border-border bg-card p-3 shadow-sm">
                 <AttachmentsSection entityId={LAB_ENTITY} recordId={test.id} title={reports.length ? t('cc_production.lab.moreFiles', 'Add or remove files') : t('cc_production.lab.uploadTitle', 'Upload the lab test report')} onChanged={() => void load()} compact />
               </section>
@@ -259,6 +317,18 @@ export function LabDetailPage({ testId }: { testId: string }) {
       />
       <Comments type="lab_test" id={test.id} />
       <Timeline type="lab_test" id={test.id} refreshKey={test.history.length} />
+      <CorrectDialog
+        open={amending}
+        onOpenChange={setAmending}
+        destructive={false}
+        title={t('cc_production.lab.amendTitle', 'Amend the issued report')}
+        confirmLabel={t('cc_production.lab.amendConfirm', 'Start Rev {no}', { no: revision + 1 })}
+        undo={[
+          t('cc_production.lab.amendKeep', 'Keeps the current report file(s) as Rev {no}, marked superseded', { no: revision }),
+          t('cc_production.lab.amendOpen', 'Opens the record for changes; upload the new report and issue it again'),
+        ]}
+        onConfirm={(reason) => act({ action: 'amend', reason }, t('cc_production.lab.amended', 'Now on Rev {no}. Make the changes and upload the new report.', { no: revision + 1 }))}
+      />
     </RecordPage>
   )
 }

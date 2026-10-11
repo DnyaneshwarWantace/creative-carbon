@@ -2,10 +2,12 @@
 
 import * as React from 'react'
 import Link from 'next/link'
-import { ClipboardCheck, PackagePlus, Printer, Ruler, RotateCcw, Scissors, Trash2, TriangleAlert, Undo2, Waypoints } from 'lucide-react'
+import { ClipboardCheck, PackagePlus, PencilLine, Printer, Ruler, RotateCcw, Scissors, ShieldCheck, Trash2, TriangleAlert, Undo2, Waypoints } from 'lucide-react'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { cn } from '@open-mercato/shared/lib/utils'
 import { Button } from '@open-mercato/ui/primitives/button'
+import { Input } from '@open-mercato/ui/primitives/input'
+import { Label } from '@open-mercato/ui/primitives/label'
 import { StatusBadge } from '@open-mercato/ui/primitives/status-badge'
 import { apiCall } from '@open-mercato/ui/backend/utils/apiCall'
 import { flash } from '@open-mercato/ui/backend/FlashMessages'
@@ -118,7 +120,7 @@ type CuttingView = {
   updatedAt: string
   source: LotTrace | null
   output: LotTrace | null
-  thickness: Array<{ id: string; inspectDate: string; result: 'pass' | 'hold'; outOfTolerance: number }>
+  thickness: Array<{ id: string; inspectDate: string; result: 'pass' | 'hold' | 'released'; outOfTolerance: number }>
   fgReports: FgLink[]
   history: HistoryItem[]
 }
@@ -213,7 +215,7 @@ export function CuttingDetailPage({ recordId }: { recordId: string }) {
                   href: recordHref.thickness(row.id),
                   primary: day(row.inspectDate),
                   secondary: t('cc_production.thickness.outOf', '{count} of 12 out', { count: row.outOfTolerance }),
-                  badge: <StatusBadge variant={row.result === 'pass' ? 'success' : 'warning'}>{row.result === 'pass' ? t('cc_production.thickness.pass', 'Pass') : t('cc_production.thickness.hold', 'Hold')}</StatusBadge>,
+                  badge: <ThicknessResultBadge result={row.result} />,
                 }))}
               />
             </Panel>
@@ -248,20 +250,52 @@ type ThicknessView = {
   plusMm: number | null
   readings: number[]
   outOfTolerance: number
-  result: 'pass' | 'hold'
+  result: 'pass' | 'hold' | 'released'
   inspector: string | null
   notes: string | null
   byName: string | null
+  createdAt: string
+  updatedAt: string
   lot: LotTrace | null
   cutting: { id: string; entryDate: string; cutSize: string } | null
   fgReports: FgLink[]
   history: HistoryItem[]
 }
 
+function ThicknessResultBadge({ result }: { result: ThicknessView['result'] }) {
+  const t = useT()
+  if (result === 'pass') return <StatusBadge variant="success" dot>{t('cc_production.thickness.pass', 'Pass')}</StatusBadge>
+  if (result === 'released') return <StatusBadge variant="info" dot>{t('cc_production.thickness.released', 'Released')}</StatusBadge>
+  return <StatusBadge variant="warning" dot>{t('cc_production.thickness.hold', 'Hold')}</StatusBadge>
+}
+
+const THICKNESS_CORRECT_MS = 24 * 3_600_000
+
 export function ThicknessDetailPage({ recordId }: { recordId: string }) {
   const t = useT()
-  const { record: row, error } = useRecord<ThicknessView>('thickness', recordId, t('cc_production.thickness.loadError', 'Could not load this inspection.'))
+  const granted = useGranted()
+  const send = useSend(`cc-thickness-${recordId}`)
+  const { record: row, error, load } = useRecord<ThicknessView>('thickness', recordId, t('cc_production.thickness.loadError', 'Could not load this inspection.'))
+  const [correcting, setCorrecting] = React.useState(false)
+  const [releasing, setReleasing] = React.useState(false)
+  const [draft, setDraft] = React.useState<string[]>([])
   if (error || !row) return <RecordState error={error} loadingLabel={t('cc_production.resin.loading', 'Loading…')} />
+  const fgDone = row.fgReports.some((report) => report.status === 'posted')
+  const canCorrect = granted.has('cc_production.quality.enter') && !fgDone && Date.now() - new Date(row.createdAt).getTime() < THICKNESS_CORRECT_MS
+  const canRelease = granted.has('cc_production.quality.release') && row.result === 'hold'
+  const draftReadings = draft.map((value) => Number(value))
+  const draftValid = draft.length === 12 && draftReadings.every((value) => Number.isFinite(value) && value > 0) && draftReadings.some((value, index) => Math.abs(value - row.readings[index]) > 0.00001)
+  const openCorrect = () => {
+    setDraft(row.readings.map((value) => String(value)))
+    setCorrecting(true)
+  }
+  const act = async (body: Record<string, unknown>, done: string) => {
+    const result = await send<ThicknessView>('/api/cc_production/thickness/action', 'POST', { id: row.id, ...body }, row.updatedAt)
+    if (!result) return false
+    flash(done, 'success')
+    await load()
+    return true
+  }
   const low = row.minusMm === null ? null : row.targetMm - row.minusMm
   const high = row.plusMm === null ? null : row.targetMm + row.plusMm
   const out = (reading: number) => (low !== null && reading < low - 0.0001) || (high !== null && reading > high + 0.0001)
@@ -279,9 +313,25 @@ export function ThicknessDetailPage({ recordId }: { recordId: string }) {
       back={{ href: '/backend/quality/thickness', label: t('cc_production.nav.thickness', 'Thickness inspection') }}
       overline={[t('cc_production.thickness.overline', 'Thickness inspection'), row.grade, row.daylight ? t('cc_production.thickness.daylight', 'daylight {no}', { no: row.daylight }) : null].filter(Boolean).join(' · ')}
       title={row.lotRef}
-      badges={<StatusBadge variant={row.result === 'pass' ? 'success' : 'warning'} dot>{row.result === 'pass' ? t('cc_production.thickness.pass', 'Pass') : t('cc_production.thickness.hold', 'Hold')}</StatusBadge>}
+      badges={<ThicknessResultBadge result={row.result} />}
       meta={row.inspector ? t('cc_production.thickness.inspector', 'Checked by {name}', { name: row.inspector }) : undefined}
-      actions={<PrintButton />}
+      actions={
+        <>
+          <PrintButton />
+          {canCorrect ? (
+            <Button type="button" variant="outline" size="sm" onClick={openCorrect}>
+              <PencilLine className="mr-1.5 h-4 w-4" aria-hidden="true" />
+              {t('cc_production.thickness.correct', 'Correct readings')}
+            </Button>
+          ) : null}
+          {canRelease ? (
+            <Button type="button" variant="outline" size="sm" onClick={() => setReleasing(true)}>
+              <ShieldCheck className="mr-1.5 h-4 w-4" aria-hidden="true" />
+              {t('cc_production.thickness.release', 'Release hold')}
+            </Button>
+          ) : null}
+        </>
+      }
       chain={<PlantChain current="thickness" hrefs={{ cutting: row.cutting ? recordHref.cutting(row.cutting.id) : null, fg: row.fgReports[0] ? recordHref.fgInspection(row.fgReports[0].id) : null }} />}
       facts={facts}
     >
@@ -321,6 +371,34 @@ export function ThicknessDetailPage({ recordId }: { recordId: string }) {
       <Attachments type="thickness" id={row.id} />
       <Comments type="thickness" id={row.id} />
       <Timeline type="thickness" id={row.id} refreshKey={row.history.length} />
+      <CorrectDialog
+        open={correcting}
+        onOpenChange={setCorrecting}
+        destructive={false}
+        title={t('cc_production.thickness.correctTitle', 'Correct the readings')}
+        description={t('cc_production.thickness.correctHint', 'Allowed for 24 hours and only until the lot is through FG inspection. Pass or hold is worked out again.')}
+        confirmLabel={t('cc_production.thickness.correctSave', 'Save corrected readings')}
+        canConfirm={draftValid}
+        onConfirm={(reason) => act({ action: 'correct', readings: draftReadings, reason }, t('cc_production.thickness.corrected', 'Readings corrected.'))}
+      >
+        <div className="grid grid-cols-4 gap-2">
+          {draft.map((value, index) => (
+            <div key={index} className="space-y-1">
+              <Label htmlFor={`reading-${index}`} className="font-mono text-xs text-muted-foreground">{index + 1}</Label>
+              <Input id={`reading-${index}`} inputMode="decimal" value={value} onChange={(event) => setDraft((current) => current.map((item, position) => (position === index ? event.target.value : item)))} />
+            </div>
+          ))}
+        </div>
+      </CorrectDialog>
+      <CorrectDialog
+        open={releasing}
+        onOpenChange={setReleasing}
+        destructive={false}
+        title={t('cc_production.thickness.releaseTitle', 'Release the thickness hold')}
+        confirmLabel={t('cc_production.thickness.release', 'Release hold')}
+        undo={[t('cc_production.thickness.releaseUndo', 'Makes the lot free for FG inspection'), t('cc_production.thickness.releaseKeep', 'The readings stay as they are')]}
+        onConfirm={(reason) => act({ action: 'release', reason }, t('cc_production.thickness.releasedDone', 'Hold released.'))}
+      />
     </RecordPage>
   )
 }
@@ -493,12 +571,38 @@ type DirectInView = {
   byName: string | null
   lot: LotTrace | null
   history: HistoryItem[]
+  updatedAt: string
 }
+
+type DirectInDraft = { supplier: string; invoiceNo: string; sheetSize: string; thicknessMm: string }
 
 export function DirectInDetailPage({ recordId }: { recordId: string }) {
   const t = useT()
-  const { record, error } = useRecord<DirectInView>('direct_in', recordId, t('cc_production.direct.loadError', 'Could not load this entry.'))
+  const granted = useGranted()
+  const send = useSend(`cc-direct-in-${recordId}`)
+  const { record, error, load } = useRecord<DirectInView>('direct_in', recordId, t('cc_production.direct.loadError', 'Could not load this entry.'))
+  const [reversing, setReversing] = React.useState(false)
+  const [correcting, setCorrecting] = React.useState(false)
+  const [draft, setDraft] = React.useState<DirectInDraft>({ supplier: '', invoiceNo: '', sheetSize: '', thicknessMm: '' })
   if (error || !record) return <RecordState error={error} loadingLabel={t('cc_production.resin.loading', 'Loading…')} />
+  const canAdjust = granted.has('cc_store.adjust') && record.status === 'posted'
+  const act = async (body: Record<string, unknown>, done: string) => {
+    const result = await send<{ ok: boolean }>('/api/cc_production/fg-direct/action', 'POST', { id: record.id, ...body }, record.updatedAt)
+    if (!result) return false
+    flash(done, 'success')
+    await load()
+    return true
+  }
+  const openCorrect = () => {
+    setDraft({ supplier: record.supplier, invoiceNo: record.invoiceNo ?? '', sheetSize: record.sheetSize ?? '', thicknessMm: record.thicknessMm === null ? '' : String(record.thicknessMm) })
+    setCorrecting(true)
+  }
+  const draftFields: Array<[keyof DirectInDraft, string]> = [
+    ['supplier', t('cc_production.direct.supplier', 'Supplier')],
+    ['invoiceNo', t('cc_production.direct.invoice', 'Invoice No.')],
+    ['sheetSize', t('cc_production.fg.size', 'Size')],
+    ['thicknessMm', t('cc_production.direct.thickness', 'Thickness')],
+  ]
   const facts: Fact[] = [
     { label: t('cc_production.resin.date', 'Date'), value: day(record.inDate) },
     { label: t('cc_production.direct.supplier', 'Supplier'), value: record.supplier },
@@ -514,7 +618,23 @@ export function DirectInDetailPage({ recordId }: { recordId: string }) {
       title={record.lotNumber ?? record.itemTitle}
       badges={<StatusBadge variant={record.status === 'posted' ? 'success' : 'neutral'}>{record.status === 'posted' ? t('cc_production.direct.received', 'Received') : t('cc_production.cutting.reversedBadge', 'Reversed')}</StatusBadge>}
       meta={record.byName ? t('cc_production.cutting.by', 'Entered by {name}', { name: record.byName }) : undefined}
-      actions={<PrintButton />}
+      actions={
+        <>
+          <PrintButton />
+          {canAdjust ? (
+            <Button type="button" variant="outline" size="sm" onClick={openCorrect}>
+              <PencilLine className="mr-1.5 h-4 w-4" aria-hidden="true" />
+              {t('cc_production.direct.correct', 'Correct details')}
+            </Button>
+          ) : null}
+          {canAdjust ? (
+            <Button type="button" variant="outline" size="sm" onClick={() => setReversing(true)}>
+              <Undo2 className="mr-1.5 h-4 w-4" aria-hidden="true" />
+              {t('cc_production.direct.reverse', 'Reverse')}
+            </Button>
+          ) : null}
+        </>
+      }
       facts={facts}
     >
       <RecordColumns
@@ -541,6 +661,38 @@ export function DirectInDetailPage({ recordId }: { recordId: string }) {
       <Attachments type="fg_direct_in" id={record.id} />
       <Comments type="fg_direct_in" id={record.id} />
       <Timeline type="fg_direct_in" id={record.id} refreshKey={record.history.length} />
+      <CorrectDialog
+        open={reversing}
+        onOpenChange={setReversing}
+        title={t('cc_production.direct.reverseTitle', 'Reverse these bought-in goods')}
+        confirmLabel={t('cc_production.direct.reverse', 'Reverse')}
+        undo={[t('cc_production.direct.reverseUndo', 'Takes {lot} out of FG stock with a counter-entry', { lot: record.lotNumber ?? '—' }), t('cc_production.direct.reverseBlock', 'Refused if any of the lot is used or allocated')]}
+        onConfirm={(reason) => act({ action: 'reverse', reason }, t('cc_production.direct.reversed', 'Reversed. The lot is out of FG stock.'))}
+      />
+      <CorrectDialog
+        open={correcting}
+        onOpenChange={setCorrecting}
+        destructive={false}
+        title={t('cc_production.direct.correctTitle', 'Correct the entry details')}
+        description={t('cc_production.direct.correctHint', 'Quantities are not changed here. To fix a quantity, reverse the entry and enter it again.')}
+        confirmLabel={t('cc_production.direct.correctSave', 'Save')}
+        canConfirm={draft.supplier.trim().length > 0}
+        onConfirm={(reason) =>
+          act(
+            { action: 'correct', supplier: draft.supplier, invoiceNo: draft.invoiceNo.trim() || null, sheetSize: draft.sheetSize.trim() || null, thicknessMm: draft.thicknessMm.trim() ? Number(draft.thicknessMm) : null, reason },
+            t('cc_production.direct.corrected', 'Details corrected.'),
+          )
+        }
+      >
+        <div className="grid gap-3 sm:grid-cols-2">
+          {draftFields.map(([key, label]) => (
+            <div key={key} className="space-y-1">
+              <Label htmlFor={`direct-${key}`}>{label}</Label>
+              <Input id={`direct-${key}`} value={draft[key]} onChange={(event) => setDraft((current) => ({ ...current, [key]: event.target.value }))} />
+            </div>
+          ))}
+        </div>
+      </CorrectDialog>
     </RecordPage>
   )
 }
@@ -555,15 +707,31 @@ type DamageView = {
   place: string
   kg: number
   reason: string
+  status: 'posted' | 'undone'
   byName: string | null
   lot: LotTrace | null
   history: HistoryItem[]
+  createdAt: string
+  updatedAt: string
 }
+
+const DAMAGE_UNDO_MS = 7 * 86_400_000
 
 export function DamageDetailPage({ recordId }: { recordId: string }) {
   const t = useT()
-  const { record, error } = useRecord<DamageView>('damage', recordId, t('cc_production.damage.loadError', 'Could not load this entry.'))
+  const granted = useGranted()
+  const send = useSend(`cc-damage-${recordId}`)
+  const { record, error, load } = useRecord<DamageView>('damage', recordId, t('cc_production.damage.loadError', 'Could not load this entry.'))
+  const [undoing, setUndoing] = React.useState(false)
   if (error || !record) return <RecordState error={error} loadingLabel={t('cc_production.resin.loading', 'Loading…')} />
+  const canUndo = granted.has('cc_store.adjust') && record.status === 'posted' && Date.now() - new Date(record.createdAt).getTime() < DAMAGE_UNDO_MS
+  const undo = async (reason: string) => {
+    const result = await send<{ ok: boolean }>('/api/cc_production/damage/undo', 'POST', { id: record.id, reason }, record.updatedAt)
+    if (!result) return false
+    flash(t('cc_production.damage.undone', 'Write-off undone. The stock is back in the lot.'), 'success')
+    await load()
+    return true
+  }
   const facts: Fact[] = [
     { label: t('cc_production.resin.date', 'Date'), value: day(record.entryDate) },
     { label: t('cc_production.damage.qty', 'Written off'), value: kg(record.kg), tone: 'bad' },
@@ -575,9 +743,19 @@ export function DamageDetailPage({ recordId }: { recordId: string }) {
       back={{ href: '/backend/fg/direct-in', label: t('cc_production.nav.directIn', 'Bought-in & damaged') }}
       overline={t('cc_production.damage.overline', 'Damage · stock written off')}
       title={record.lotNumber ?? record.itemTitle}
-      badges={<StatusBadge variant="error">{t('cc_production.damage.badge', 'Damaged')}</StatusBadge>}
+      badges={record.status === 'undone' ? <StatusBadge variant="neutral">{t('cc_production.damage.undoneBadge', 'Undone')}</StatusBadge> : <StatusBadge variant="error">{t('cc_production.damage.badge', 'Damaged')}</StatusBadge>}
       meta={record.reason}
-      actions={<PrintButton />}
+      actions={
+        <>
+          <PrintButton />
+          {canUndo ? (
+            <Button type="button" variant="outline" size="sm" onClick={() => setUndoing(true)}>
+              <Undo2 className="mr-1.5 h-4 w-4" aria-hidden="true" />
+              {t('cc_production.damage.undo', 'Undo write-off')}
+            </Button>
+          ) : null}
+        </>
+      }
       facts={facts}
     >
       <RecordColumns
@@ -602,6 +780,14 @@ export function DamageDetailPage({ recordId }: { recordId: string }) {
       <Attachments type="damage" id={record.id} />
       <Comments type="damage" id={record.id} />
       <Timeline type="damage" id={record.id} refreshKey={record.history.length} />
+      <CorrectDialog
+        open={undoing}
+        onOpenChange={setUndoing}
+        title={t('cc_production.damage.undoTitle', 'Undo this write-off')}
+        confirmLabel={t('cc_production.damage.undo', 'Undo write-off')}
+        undo={[t('cc_production.damage.undoLine', 'Puts {qty} back in {lot} with a counter-entry', { qty: kg(record.kg), lot: record.lotNumber ?? '—' })]}
+        onConfirm={undo}
+      />
     </RecordPage>
   )
 }

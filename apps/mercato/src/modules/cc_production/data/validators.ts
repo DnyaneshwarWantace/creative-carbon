@@ -417,3 +417,30 @@ export const stocktakeSchema = z.object({
 })
 
 export const clashSchema = z.object({ screen: z.string().trim().min(1).max(80), recordRef: z.string().trim().min(1).max(200), detail: optionalText(1000) })
+
+export const thicknessActionSchema = z
+  .object({
+    id: z.string().uuid(),
+    action: z.enum(['correct', 'release']),
+    readings: z.array(z.coerce.number().positive().max(1000)).length(12).optional(),
+    reason: z.string().trim().max(500).optional(),
+  })
+  .superRefine(requireReasonFor(['correct', 'release']))
+
+export const directInActionSchema = z
+  .object({
+    id: z.string().uuid(),
+    action: z.enum(['reverse', 'correct']),
+    supplier: z.string().trim().min(1).max(200).optional(),
+    invoiceNo: z.string().trim().max(100).nullable().optional(),
+    sheetSize: z.string().trim().max(100).nullable().optional(),
+    thicknessMm: z.coerce.number().positive().max(1000).nullable().optional(),
+    reason: z.string().trim().max(500).optional(),
+  })
+  .superRefine(requireReasonFor(['reverse', 'correct']))
+
+export const damageUndoSchema = z.object({ id: z.string().uuid(), reason: z.string().trim().max(500).optional() }).superRefine(requireReasonFor([]))
+
+export const labActionSchema = z
+  .object({ id: z.string().uuid(), action: z.enum(['issue', 'amend']), reason: z.string().trim().max(500).optional() })
+  .superRefine(requireReasonFor(['amend']))

@@ -48,6 +48,59 @@ export function diffFields(before: Record<string, unknown> | null | undefined, a
   return changes
 }
 
+const SKIP_KEYS = new Set(['id', 'history', 'updatedAt', 'createdAt', 'deletedAt', 'warnings', 'updatedByName', 'byName', 'tenantId', 'organizationId'])
+const MAX_CHANGES = 60
+
+function humanLabel(key: string): string {
+  const words = key.replace(/([a-z0-9])([A-Z])/g, '$1 $2').replace(/_/g, ' ').toLowerCase()
+  return words.charAt(0).toUpperCase() + words.slice(1)
+}
+
+function flatten(value: unknown, path: string, label: string, out: Map<string, { label: string; value: string | number | boolean | null }>) {
+  if (Array.isArray(value)) {
+    if (value.every((item) => item === null || typeof item !== 'object')) {
+      out.set(path, { label, value: value.length ? value.map((item) => plain(item)).join(', ') : null })
+      return
+    }
+    value.forEach((item, index) => flatten(item, `${path}[${index}]`, `${label} ${index + 1}`, out))
+    return
+  }
+  if (value && typeof value === 'object' && !(value instanceof Date)) {
+    for (const [key, inner] of Object.entries(value as Record<string, unknown>)) {
+      if (SKIP_KEYS.has(key) || /Id$/.test(key) || key.endsWith('Ids')) continue
+      flatten(inner, path ? `${path}.${key}` : key, label ? `${label} · ${humanLabel(key)}` : humanLabel(key), out)
+    }
+    return
+  }
+  out.set(path, { label, value: typeof value === 'string' && /^-?(0|[1-9]\d*)(\.\d+)?$/.test(value) ? Number(value) : plain(value) })
+}
+
+export function diffSnapshot(before: Record<string, unknown>, after: Record<string, unknown>, labels: Record<string, string> = {}): ActivityChange[] {
+  const left = new Map<string, { label: string; value: string | number | boolean | null }>()
+  const right = new Map<string, { label: string; value: string | number | boolean | null }>()
+  for (const [key, value] of Object.entries(before)) if (!SKIP_KEYS.has(key)) flatten(value, key, labels[key] ?? humanLabel(key), left)
+  for (const [key, value] of Object.entries(after)) if (!SKIP_KEYS.has(key)) flatten(value, key, labels[key] ?? humanLabel(key), right)
+  const changes: ActivityChange[] = []
+  for (const path of new Set([...left.keys(), ...right.keys()])) {
+    const from = left.get(path)
+    const to = right.get(path)
+    if (same(from?.value ?? null, to?.value ?? null)) continue
+    changes.push({ field: path, label: (to ?? from)!.label, from: from?.value ?? null, to: to?.value ?? null })
+    if (changes.length >= MAX_CHANGES) break
+  }
+  return changes
+}
+
+export function snapshot<T extends object>(row: T, keys: Array<keyof T>): Record<string, unknown> {
+  return JSON.parse(JSON.stringify(Object.fromEntries(keys.map((key) => [key, row[key] ?? null])))) as Record<string, unknown>
+}
+
+export function logEdit(em: EntityManager, scope: Scope & { userId?: string | null }, input: { recordType: string; recordId: string; before: Record<string, unknown>; after: Record<string, unknown>; byName: string | null; labels?: Record<string, string>; action?: string }) {
+  const changes = diffSnapshot(input.before, input.after, input.labels)
+  if (!changes.length) return null
+  return recordActivity(em, scope, { recordType: input.recordType, recordId: input.recordId, action: input.action ?? 'edited', kind: 'change', summary: `${changes.length} field${changes.length === 1 ? '' : 's'} changed`, changes, actorUserId: scope.userId ?? null, actorName: input.byName })
+}
+
 export function recordActivity(em: EntityManager, scope: Scope, input: ActivityInput): ActivityEntry {
   const entry = em.create(ActivityEntry, {
     organizationId: scope.organizationId,

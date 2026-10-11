@@ -94,6 +94,11 @@ export const HISTORY_LABEL: Record<string, string> = {
   issued: 'Issued',
   cancelled: 'Cancelled',
   reviewed: 'Reviewed',
+  corrected: 'Corrected',
+  released: 'Hold released',
+  reversed: 'Reversed',
+  undone: 'Undone',
+  amended: 'Amended',
 }
 
 export function kg(value: number | null | undefined): string {

@@ -60,7 +60,7 @@ export type TimelineItem = {
   legacy: boolean
 }
 
-const CORRECTION = /reopen|cancel|void|revers|credit|correct|undo|scrap|return|fail|reject|revert/i
+const CORRECTION = /reopen|cancel|void|revers|credit|correct|undo|undone|scrap|return|fail|reject|revert|amend|release/i
 const STAGE = /stage|started|done|skip|hold|resume|advance|allocat|pack|despatch|dispatch|issued|posted|approved|submitted|sent|convert/i
 const DOCUMENT = /upload|attach|document|print|email|whatsapp/i
 

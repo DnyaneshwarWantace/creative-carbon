@@ -11,6 +11,7 @@ import { activeOptions } from '../../cc_lists/lib/service'
 import { formatSeriesCode, loadSeries, lotCode, seriesDate } from '../../cc_accounts/lib/numberSeries'
 import { pressFigures } from './pressFigures'
 import { consumeLots, kg3, lotOnHand, movementTime, pickLots, plantStock, produceLot, returnLots, type FreeLot } from './plantStock'
+import { logEdit, snapshot } from '../../cc_audit/lib/activity'
 
 export { pressFigures, type SizeLine } from './pressFigures'
 
@@ -130,13 +131,17 @@ export async function createPressBatch(ctx: StoreContext, input: PressBatchInput
   return batch
 }
 
+const PRESS_FIELDS: Array<keyof PressBatch> = ['batchDate', 'pressNumber', 'cycleNo', 'daylights', 'heating', 'checkedBy', 'remark']
+
 export async function updatePressBatch(ctx: StoreContext, batch: PressBatch, input: PressBatchInput, byName: string | null) {
   if (batch.status !== 'draft') throw new PlantError(batch.status === 'posted' ? 'This batch is posted. Reopen it first to change it.' : 'This batch is cancelled', 409)
   if (input.batchDate.slice(0, 7) !== batch.batchMonth) throw new PlantError(`${batch.batchNo} belongs to ${batch.batchMonth}; the date must stay in that month so the numbers have no gaps`, 409)
+  const before = snapshot(batch, PRESS_FIELDS)
   batch.batchDate = input.batchDate
   await applyInput(ctx, batch, input)
   batch.updatedByName = byName
   batch.history = [...(batch.history ?? []), entry('edited', byName)]
+  logEdit(ctx.em, ctx, { recordType: 'press_batch', recordId: batch.id, before, after: snapshot(batch, PRESS_FIELDS), byName, labels: { daylights: 'Daylight' } })
   await ctx.em.flush()
   return batch
 }

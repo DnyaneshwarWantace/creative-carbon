@@ -7,7 +7,9 @@ import { activeOptions } from '../../cc_lists/lib/service'
 import { CuttingEntry, DamageEntry, FgDirectIn, FgInspection, ThicknessInspection, type CutSheet, type FgRow, type PlantHistoryEntry } from '../data/entities'
 import { PlantError } from './server'
 import { lotCode } from '../../cc_accounts/lib/numberSeries'
-import { consumeLots, kg3, lotOnHand, movementTime, plantStock, produceLot } from './plantStock'
+import { consumeLots, kg3, lotOnHand, movementTime, plantStock, produceLot, returnLots } from './plantStock'
+import { logEdit, snapshot } from '../../cc_audit/lib/activity'
+import type { ActivityChange } from '../../cc_audit/data/entities'
 
 const SOURCE = 'cc_production.finishing'
 export const TRIM_BAND = { laminate: { min: 6, max: 10 }, moulded: { min: 3, max: 7 } }
@@ -305,6 +307,62 @@ export async function createThickness(
   return inspection
 }
 
+export const THICKNESS_CORRECT_HOURS = 24
+export const DAMAGE_UNDO_DAYS = 7
+
+function toleranceOf(row: ThicknessInspection) {
+  const target = Number(row.targetMm)
+  const minus = row.minusMm === null || row.minusMm === undefined ? null : Number(row.minusMm)
+  const plus = row.plusMm === null || row.plusMm === undefined ? null : Number(row.plusMm)
+  return { target, minus, plus }
+}
+
+function countOut(readings: number[], tolerance: { target: number; minus: number | null; plus: number | null }) {
+  if (tolerance.minus === null && tolerance.plus === null) return 0
+  return readings.filter((reading) => reading < tolerance.target - (tolerance.minus ?? 0) - 0.0001 || reading > tolerance.target + (tolerance.plus ?? 0) + 0.0001).length
+}
+
+async function postedFgReportFor(ctx: StoreContext, lotId: string) {
+  const [row] = await ctx.em.getConnection().execute<Array<{ id: string; report_date: string }>>(
+    `select id, report_date from cc_fg_inspections
+      where tenant_id = ? and organization_id = ? and deleted_at is null and status = 'posted' and rows @> ?::jsonb
+      order by report_date desc limit 1`,
+    [ctx.tenantId, ctx.organizationId, JSON.stringify([{ sourceLotId: lotId }])],
+  )
+  return row ?? null
+}
+
+export async function correctThickness(ctx: StoreContext, row: ThicknessInspection, readings: number[], byName: string | null) {
+  if (readings.length !== 12) throw new PlantError('Enter all 12 readings')
+  if (Date.now() - row.createdAt.getTime() > THICKNESS_CORRECT_HOURS * 3_600_000) throw new PlantError(`Readings can be corrected for ${THICKNESS_CORRECT_HOURS} hours after the inspection`, 409)
+  if (row.lotId) {
+    const report = await postedFgReportFor(ctx, row.lotId)
+    if (report) throw new PlantError(`The lot is already through FG inspection (${report.report_date}). Reopen that report first.`, 409)
+  }
+  const before = { readings: row.readings, outOfTolerance: row.outOfTolerance, result: row.result }
+  const outOfTolerance = countOut(readings, toleranceOf(row))
+  const result = outOfTolerance ? 'hold' : 'pass'
+  row.readings = readings
+  row.outOfTolerance = outOfTolerance
+  row.result = result
+  row.history = [...(row.history ?? []), entry('corrected', byName, `${outOfTolerance} of 12 out, ${result}`)]
+  await ctx.em.flush()
+  if (row.lotId && before.result !== result) await setLotStatus(ctx, row.lotId, result === 'pass' ? 'available' : 'hold', `Thickness corrected: ${result === 'pass' ? 'passed' : 'on hold'} (${outOfTolerance} of 12 out)`)
+  const changes: ActivityChange[] = readings.flatMap((reading, index) => (Math.abs(reading - Number(before.readings[index])) > 0.00001 ? [{ field: `readings[${index}]`, label: `Reading ${index + 1}`, from: Number(before.readings[index]), to: reading }] : []))
+  if (before.outOfTolerance !== outOfTolerance) changes.push({ field: 'outOfTolerance', label: 'Out of 12', from: before.outOfTolerance, to: outOfTolerance })
+  if (before.result !== result) changes.push({ field: 'result', label: 'Result', from: before.result, to: result })
+  return { row, changes }
+}
+
+export async function releaseThicknessHold(ctx: StoreContext, row: ThicknessInspection, byName: string | null, reason: string) {
+  if (row.result !== 'hold') throw new PlantError('This inspection is not on hold', 409)
+  row.result = 'released'
+  row.history = [...(row.history ?? []), entry('released', byName, reason)]
+  await ctx.em.flush()
+  if (row.lotId) await setLotStatus(ctx, row.lotId, 'available', `Thickness hold released by ${byName ?? 'quality'}: ${reason}`)
+  return row
+}
+
 export function thicknessView(row: ThicknessInspection) {
   return {
     id: row.id,
@@ -372,8 +430,11 @@ export async function saveFgReport(ctx: StoreContext, report: FgInspection | nul
     report = ctx.em.create(FgInspection, { ...scope(ctx), reportDate: input.reportDate, rows, inspector: input.inspector, approvedBy: input.approvedBy, byName, history: [entry('created', byName)] })
     ctx.em.persist(report)
   } else {
+    const fields: Array<keyof FgInspection> = ['reportDate', 'rows', 'inspector', 'approvedBy']
+    const before = snapshot(report, fields)
     Object.assign(report, { reportDate: input.reportDate, rows, inspector: input.inspector, approvedBy: input.approvedBy, byName })
     report.history = [...(report.history ?? []), entry('edited', byName)]
+    logEdit(ctx.em, ctx, { recordType: 'fg_inspection', recordId: report.id, before, after: snapshot(report, fields), byName, labels: { rows: 'Row' } })
   }
   await ctx.em.flush()
   return report
@@ -544,6 +605,48 @@ export async function recordDamage(ctx: StoreContext, input: { entryDate: string
   return record
 }
 
+export async function reverseDirectIn(ctx: StoreContext, record: FgDirectIn, byName: string | null) {
+  if (record.status !== 'posted' || !record.lotId) throw new PlantError('This entry is already reversed', 409)
+  const [lot] = await lotRows(ctx, { lotId: record.lotId })
+  const product = await ctx.em.getConnection().execute<Array<{ unit: string | null }>>('select default_unit as unit from catalog_products where id = ?', [record.productId])
+  const qty = product[0]?.unit === 'nos' ? Number(record.nos ?? 0) : Number(record.kg)
+  if (!lot || lot.onHand + 0.0005 < qty) throw new PlantError(`${record.lotNumber ?? 'The lot'} is already used. Reverse what used it first.`, 409)
+  if (lot.free + 0.0005 < qty) throw new PlantError(`${record.lotNumber ?? 'The lot'} is allocated to an order. Release the allocation first.`, 409)
+  const stock = await plantStock(ctx, [record.productId])
+  await consumeLots(ctx, stock, record.productId, [{ lotId: lot.lotId, lotNumber: lot.lotNumber, place: lot.place, kg: qty }], { reason: `Bought-in reversed · ${record.supplier}`, reasonCode: 'fg_direct_in_reverse', performedAt: new Date(), metadata: { source: SOURCE, directInId: record.id } })
+  record.status = 'reversed'
+  record.history = [...(record.history ?? []), entry('reversed', byName)]
+  await ctx.em.flush()
+  return record
+}
+
+export async function correctDirectIn(ctx: StoreContext, record: FgDirectIn, input: { supplier: string; invoiceNo: string | null; sheetSize: string | null; thicknessMm: number | null }, byName: string | null) {
+  const fields: Array<keyof FgDirectIn> = ['supplier', 'invoiceNo', 'sheetSize', 'thicknessMm']
+  const before = snapshot(record, fields)
+  record.supplier = input.supplier.trim()
+  record.invoiceNo = input.invoiceNo?.trim() || null
+  record.sheetSize = input.sheetSize?.trim() || null
+  record.thicknessMm = input.thicknessMm === null ? null : String(input.thicknessMm)
+  const after = snapshot(record, fields)
+  const { diffSnapshot } = await import('../../cc_audit/lib/activity')
+  const changes = diffSnapshot(before, after)
+  if (!changes.length) throw new PlantError('Nothing changed')
+  record.history = [...(record.history ?? []), entry('corrected', byName)]
+  await ctx.em.flush()
+  return changes
+}
+
+export async function undoDamage(ctx: StoreContext, record: DamageEntry, byName: string | null) {
+  if (record.status !== 'posted') throw new PlantError('This write-off is already undone', 409)
+  if (Date.now() - record.createdAt.getTime() > DAMAGE_UNDO_DAYS * 86_400_000) throw new PlantError(`Written off more than ${DAMAGE_UNDO_DAYS} days ago. It can no longer be undone.`, 409)
+  const stock = await plantStock(ctx, [record.productId])
+  await returnLots(ctx, stock, record.productId, [{ lotId: record.lotId, lotNumber: record.lotNumber ?? null, place: record.place as StockPlace, kg: Number(record.kg) }], { reason: `Damage write-off undone · ${record.reason}`, reasonCode: 'damaged_undo', performedAt: new Date(), metadata: { source: SOURCE, damageId: record.id } })
+  record.status = 'undone'
+  record.history = [...(record.history ?? []), entry('undone', byName)]
+  await ctx.em.flush()
+  return record
+}
+
 export async function listDirectAndDamage(ctx: StoreContext, month: string | null) {
   const where = (field: string) => ({ ...scope(ctx), deletedAt: null, ...(month ? { [field]: { $like: `${month}-%` } } : {}) })
   const [directIns, damages] = await Promise.all([
@@ -551,8 +654,8 @@ export async function listDirectAndDamage(ctx: StoreContext, month: string | nul
     ctx.em.find(DamageEntry, where('entryDate'), { orderBy: { entryDate: 'desc' }, limit: 200 }),
   ])
   return {
-    directIns: directIns.map((row) => ({ id: row.id, inDate: row.inDate, supplier: row.supplier, invoiceNo: row.invoiceNo ?? null, itemTitle: row.itemTitle, sheetSize: row.sheetSize ?? null, thicknessMm: row.thicknessMm ? Number(row.thicknessMm) : null, nos: row.nos ?? null, kg: Number(row.kg), lotNumber: row.lotNumber ?? null })),
-    damages: damages.map((row) => ({ id: row.id, entryDate: row.entryDate, itemTitle: row.itemTitle, lotNumber: row.lotNumber ?? null, place: row.place, kg: Number(row.kg), reason: row.reason, byName: row.byName ?? null })),
+    directIns: directIns.map((row) => ({ id: row.id, status: row.status, inDate: row.inDate, supplier: row.supplier, invoiceNo: row.invoiceNo ?? null, itemTitle: row.itemTitle, sheetSize: row.sheetSize ?? null, thicknessMm: row.thicknessMm ? Number(row.thicknessMm) : null, nos: row.nos ?? null, kg: Number(row.kg), lotNumber: row.lotNumber ?? null })),
+    damages: damages.map((row) => ({ id: row.id, status: row.status, entryDate: row.entryDate, itemTitle: row.itemTitle, lotNumber: row.lotNumber ?? null, place: row.place, kg: Number(row.kg), reason: row.reason, byName: row.byName ?? null })),
   }
 }
 
