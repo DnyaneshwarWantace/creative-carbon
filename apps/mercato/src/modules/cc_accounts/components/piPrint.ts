@@ -1,5 +1,6 @@
 import { rupeesInWords } from '../lib/amountWords'
 import type { CompanyView, PiView } from './types'
+import { REVISION_CSS, revisionTag, supersededBlock, type RevisionPrint } from '../../cc_ui/lib/printRevision'
 
 function esc(value: unknown): string {
   return String(value ?? '').replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char] ?? char)
@@ -18,7 +19,7 @@ function multiline(value: string | null): string {
   return esc(value ?? '').replace(/\n/g, '<br>')
 }
 
-export function buildPiHtml(pi: PiView, company: CompanyView, forPrint = true): string {
+export function buildPiHtml(pi: PiView & RevisionPrint, company: CompanyView, forPrint = true): string {
   const rows = pi.lines
     .map(
       (line, index) => `<tr>
@@ -41,6 +42,7 @@ export function buildPiHtml(pi: PiView, company: CompanyView, forPrint = true): 
     .wm{position:fixed;top:40%;left:0;right:0;text-align:center;font-size:96px;font-weight:800;color:rgba(120,113,108,.12);transform:rotate(-18deg);pointer-events:none}
     .top{display:flex;justify-content:space-between;gap:24px;border-bottom:2px solid #1c1917;padding-bottom:14px}
     h1{font-size:20px;margin:0 0 2px} .muted{color:#78716c;font-size:11px;line-height:1.45} .code,.mono{font-family:ui-monospace,Menlo,monospace;font-size:10px;color:#57534e}
+    ${REVISION_CSS}
     .doc{text-align:right} .kind{font-size:12px;text-transform:uppercase;letter-spacing:.12em;color:#78716c;font-weight:700} .no{font-family:ui-monospace,Menlo,monospace;font-size:16px;font-weight:700;margin-top:2px}
     .grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:16px 0}
     .box{border:1px solid #d6d3d1;border-radius:6px;padding:10px 12px} .box h3{margin:0 0 4px;font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:#78716c}
@@ -52,7 +54,7 @@ export function buildPiHtml(pi: PiView, company: CompanyView, forPrint = true): 
     .terms{margin-top:18px;display:grid;grid-template-columns:1fr 1fr;gap:14px}
     .sign{display:flex;justify-content:space-between;margin-top:48px} .sign div{width:40%;border-top:1px solid #a8a29e;padding-top:4px;text-align:center;color:#78716c}
     @media print{body{padding:12mm}}
-  </style></head><body>
+  </style></head><body>${supersededBlock(pi)}
   ${watermark}
   <div class="top">
     <div>
@@ -62,7 +64,7 @@ export function buildPiHtml(pi: PiView, company: CompanyView, forPrint = true): 
     </div>
     <div class="doc">
       <div class="kind">Proforma invoice</div>
-      <div class="no">${esc(pi.code)}</div>
+      <div class="no">${esc(pi.code)}${revisionTag(pi)}</div>
       <div class="muted">Date ${day(pi.piDate)}<br>Valid until ${day(pi.validUntil)}<br>Order ${esc(pi.orderNo)}</div>
     </div>
   </div>
@@ -93,7 +95,7 @@ export function buildPiHtml(pi: PiView, company: CompanyView, forPrint = true): 
   </body></html>`
 }
 
-export function printPi(pi: PiView, company: CompanyView): boolean {
+export function printPi(pi: PiView & RevisionPrint, company: CompanyView): boolean {
   const popup = window.open('', '_blank', 'width=980,height=1100')
   if (!popup) return false
   popup.document.open()

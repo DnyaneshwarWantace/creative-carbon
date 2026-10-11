@@ -1,4 +1,5 @@
 import type { PoView } from './shared'
+import { REVISION_CSS, revisionTag, supersededBlock, type RevisionPrint } from '../../cc_ui/lib/printRevision'
 
 function escapeHtml(value: string): string {
   return value.replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char] ?? char)
@@ -13,7 +14,7 @@ function day(value: string | null): string {
   return new Date(`${value}T00:00:00`).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
 }
 
-export function buildPurchaseOrderHtml(po: PoView): string {
+export function buildPurchaseOrderHtml(po: PoView & RevisionPrint): string {
   const rows = po.lines
     .map(
       (line, index) => `<tr>
@@ -32,6 +33,7 @@ export function buildPurchaseOrderHtml(po: PoView): string {
     *{box-sizing:border-box} body{font-family:-apple-system,Segoe UI,Helvetica,Arial,sans-serif;color:#1c1917;margin:0;padding:32px;font-size:12px}
     .top{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #1c1917;padding-bottom:14px}
     h1{font-size:20px;margin:0;letter-spacing:.02em} .muted{color:#78716c} .code{font-family:ui-monospace,Menlo,monospace;font-size:10px;color:#78716c}
+    ${REVISION_CSS}
     .doc{text-align:right} .doc .no{font-family:ui-monospace,Menlo,monospace;font-size:15px;font-weight:700}
     .grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:18px 0}
     .box{border:1px solid #d6d3d1;border-radius:6px;padding:10px 12px} .box h3{margin:0 0 4px;font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:#78716c}
@@ -41,11 +43,11 @@ export function buildPurchaseOrderHtml(po: PoView): string {
     .terms{margin-top:22px} .sign{display:flex;justify-content:space-between;margin-top:48px} .sign div{width:40%;border-top:1px solid #a8a29e;padding-top:4px;text-align:center;color:#78716c}
     .wm{position:fixed;top:40%;left:0;right:0;text-align:center;font-size:90px;color:rgba(0,0,0,.06);transform:rotate(-20deg);font-weight:800}
     @media print{body{padding:16mm}}
-  </style></head><body>
+  </style></head><body>${supersededBlock(po)}
   ${draft ? '<div class="wm">NOT APPROVED</div>' : ''}
   <div class="top">
     <div><h1>CREATIVE CARBON</h1><div class="muted">Purchase order</div></div>
-    <div class="doc"><div class="no">${escapeHtml(po.code)}</div><div class="muted">Date ${day(po.poDate)}</div>${po.expectedDate ? `<div class="muted">Deliver by ${day(po.expectedDate)}</div>` : ''}</div>
+    <div class="doc"><div class="no">${escapeHtml(po.code)}${revisionTag(po)}</div><div class="muted">Date ${day(po.poDate)}</div>${po.expectedDate ? `<div class="muted">Deliver by ${day(po.expectedDate)}</div>` : ''}</div>
   </div>
   <div class="grid">
     <div class="box"><h3>Vendor</h3><strong>${escapeHtml(po.vendorName)}</strong><div class="code">GSTIN ${escapeHtml(po.vendorGstin ?? '—')}</div></div>
@@ -59,7 +61,7 @@ export function buildPurchaseOrderHtml(po: PoView): string {
   </body></html>`
 }
 
-export function printPurchaseOrder(po: PoView): boolean {
+export function printPurchaseOrder(po: PoView & RevisionPrint): boolean {
   const popup = window.open('', '_blank', 'width=960,height=1100')
   if (!popup) return false
   popup.document.open()

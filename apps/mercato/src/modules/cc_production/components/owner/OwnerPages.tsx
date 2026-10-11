@@ -21,6 +21,7 @@ import { OfflineBadge, usePlantPwa } from '../offline'
 import { PlantTable } from '../PlantTable'
 import { Dropdown } from '../../../cc_lists/components/Dropdown'
 import { CorrectDialog } from '../../../cc_ui/components/CorrectDialog'
+import { CorrectionsPanel } from '../../../cc_ui/components/CorrectionsPanel'
 
 type PlanRow = { area: string; resource: string; item: string | null; plannedQty: number; unit: string; actual: number; pct: number | null }
 type Overview = {
@@ -193,6 +194,7 @@ export function OwnerOverviewPage() {
                 </Card>
               ) : null}
 
+              <CorrectionsPanel scope="plant" />
               <Card title={t('cc_production.owner.breakdowns', '3 · Breakdowns and risks')} tone={data.breakdowns.failedBatches.length || data.breakdowns.damaged.length || data.breakdowns.bstageAtRisk.length ? 'warning' : undefined}>
                 <div className="space-y-3 text-sm">
                   <div>

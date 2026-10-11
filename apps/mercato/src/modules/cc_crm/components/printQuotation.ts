@@ -1,5 +1,6 @@
 import { companyHeader, type DocCompany } from '../../cc_orders/components/printDocs'
 import type { Quotation } from './types'
+import { REVISION_CSS, revisionTag, supersededBlock, type RevisionPrint } from '../../cc_ui/lib/printRevision'
 
 function esc(value: unknown): string {
   return String(value ?? '').replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char] ?? char)
@@ -18,7 +19,7 @@ function day(value: string | null | undefined): string {
   return new Date(value.length === 10 ? `${value}T00:00:00` : value).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
 }
 
-export function buildQuotationHtml(quote: Quotation, company?: DocCompany | null): string {
+export function buildQuotationHtml(quote: Quotation & RevisionPrint, company?: DocCompany | null): string {
   const currency = quote.currency || 'INR'
   const symbol = currency === 'INR' ? '₹' : currency
   const exportTerms = quote.market === 'export'
@@ -49,6 +50,7 @@ export function buildQuotationHtml(quote: Quotation, company?: DocCompany | null
     *{box-sizing:border-box} body{font-family:-apple-system,Segoe UI,Helvetica,Arial,sans-serif;color:#1c1917;margin:0;padding:32px;font-size:12px}
     .top{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #1c1917;padding-bottom:14px}
     h1{font-size:20px;margin:0;letter-spacing:.02em} .muted{color:#78716c;font-size:11px} .code{font-family:ui-monospace,Menlo,monospace;font-size:10px;color:#57534e}
+    ${REVISION_CSS}
     .doc{text-align:right} .doc .kind{font-size:11px;text-transform:uppercase;letter-spacing:.1em;color:#78716c} .doc .no{font-family:ui-monospace,Menlo,monospace;font-size:15px;font-weight:700}
     .grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:18px 0}
     .box{border:1px solid #d6d3d1;border-radius:6px;padding:10px 12px} .box h3{margin:0 0 4px;font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:#78716c}
@@ -58,10 +60,10 @@ export function buildQuotationHtml(quote: Quotation, company?: DocCompany | null
     .totals .grand{border-top:1px solid #1c1917;font-weight:700;font-size:14px;padding-top:6px}
     ul{margin:4px 0 0;padding-left:16px} .sign{display:flex;justify-content:flex-end;margin-top:56px} .sign div{width:40%;border-top:1px solid #a8a29e;padding-top:4px;text-align:center;color:#78716c}
     @media print{body{padding:14mm}}
-  </style></head><body>
+  </style></head><body>${supersededBlock(quote)}
   <div class="top">
     ${companyHeader(company, 'Phenolic laminates, tubes, rods and moulded components')}
-    <div class="doc"><div class="kind">Quotation</div><div class="no">${esc(quote.quoteNo)}</div><div class="muted">${day(quote.quoteDate)}${quote.enquiryNo ? ` · Ref ${esc(quote.enquiryNo)}` : ''}</div></div>
+    <div class="doc"><div class="kind">Quotation</div><div class="no">${esc(quote.quoteNo)}${revisionTag(quote)}</div><div class="muted">${day(quote.quoteDate)}${quote.enquiryNo ? ` · Ref ${esc(quote.enquiryNo)}` : ''}</div></div>
   </div>
   <div class="grid">
     <div class="box"><h3>To</h3><strong>${esc(quote.customer?.name ?? '—')}</strong>${quote.billingAddress ? `<div class="muted">${esc(quote.billingAddress)}</div>` : ''}${quote.customer?.gstin ? `<div class="code">GSTIN ${esc(quote.customer.gstin)}</div>` : ''}${quote.customerPoRef ? `<div class="code">Your ref ${esc(quote.customerPoRef)}</div>` : ''}</div>
@@ -76,7 +78,7 @@ export function buildQuotationHtml(quote: Quotation, company?: DocCompany | null
   </body></html>`
 }
 
-export function printQuotation(quote: Quotation, company?: DocCompany | null): boolean {
+export function printQuotation(quote: Quotation & RevisionPrint, company?: DocCompany | null): boolean {
   const popup = window.open('', '_blank', 'width=960,height=1100')
   if (!popup) return false
   popup.document.open()

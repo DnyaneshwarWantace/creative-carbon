@@ -16,6 +16,7 @@ import { useGranted } from '../../../cc_departments/components/useGranted'
 import { day } from '../resin/shared'
 import { LAB_ENTITY, fileSize } from './LabForm'
 import type { LabReportFile, LabResult, LabTest } from './types'
+import { REVISION_CSS, revisionTag, supersededBlock, type RevisionPrint } from '../../../cc_ui/lib/printRevision'
 import { FieldList, Panel, RecordColumns, RecordPage, RecordState, type Fact } from '../../../cc_ui/components/RecordPage'
 import { PlantChain } from '../../../cc_ui/components/PlantChain'
 import { recordHref } from '../../../cc_ui/lib/links'
@@ -36,7 +37,7 @@ function esc(value: unknown): string {
   return String(value ?? '').replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char] ?? char)
 }
 
-function printSummary(test: LabTest, company: DocCompany | null): boolean {
+function printSummary(test: LabTest & RevisionPrint, company: DocCompany | null): boolean {
   const popup = window.open('', '_blank', 'width=900,height=1100')
   if (!popup) return false
   const rows: Array<[string, string]> = [
@@ -57,8 +58,9 @@ function printSummary(test: LabTest, company: DocCompany | null): boolean {
   .doc{text-align:right}.kind{font-size:11px;text-transform:uppercase;letter-spacing:.1em;color:#78716c}.no{font-family:ui-monospace,Menlo,monospace;font-size:15px;font-weight:700}
   .result{display:inline-block;margin-top:6px;padding:4px 12px;border-radius:999px;font-weight:700;border:1px solid #1c1917}
   table{width:100%;border-collapse:collapse;margin-top:20px}td{padding:8px 6px;border-bottom:1px solid #e7e5e4;vertical-align:top}td.k{width:32%;color:#78716c}
+  ${REVISION_CSS}
   .sign{display:flex;justify-content:space-between;margin-top:64px}.sign div{width:40%;border-top:1px solid #a8a29e;padding-top:4px;text-align:center;color:#78716c}@media print{body{padding:14mm}}</style></head><body>
-  <div class="top">${companyHeader(company, 'Quality control · lab test record')}<div class="doc"><div class="kind">Lab test record</div><div class="no">${esc(test.reportNo ?? '—')}</div><div class="result">${esc(RESULT_STYLE[test.result].label.toUpperCase())}</div></div></div>
+  ${supersededBlock(test)}<div class="top">${companyHeader(company, 'Quality control · lab test record')}<div class="doc"><div class="kind">Lab test record</div><div class="no">${esc(test.reportNo ?? '—')}${revisionTag(test)}</div><div class="result">${esc(RESULT_STYLE[test.result].label.toUpperCase())}</div></div></div>
   <table>${rows.map(([key, value]) => `<tr><td class="k">${esc(key)}</td><td>${esc(value)}</td></tr>`).join('')}</table>
   ${test.notes ? `<p style="margin-top:16px"><span class="muted">Remarks</span><br>${esc(test.notes)}</p>` : ''}
   <p class="muted" style="margin-top:16px">The laboratory's own report is attached to this record in the ERP.</p>
@@ -205,7 +207,7 @@ export function LabDetailPage({ testId }: { testId: string }) {
             variant="outline"
             size="sm"
             onClick={() => {
-              if (!printSummary(test, company)) flash(t('cc_production.lab.popup', 'Allow pop-ups to print.'), 'error')
+              if (!printSummary({ ...test, revision, showRevision: revision > 0 }, company)) flash(t('cc_production.lab.popup', 'Allow pop-ups to print.'), 'error')
             }}
           >
             <Printer className="mr-1.5 h-4 w-4" aria-hidden="true" />
@@ -274,6 +276,28 @@ export function LabDetailPage({ testId }: { testId: string }) {
                     <ReportPreview file={preview} />
                   </div>
                 ) : null}
+              </Panel>
+            ) : null}
+            {(test.revisions ?? []).length ? (
+              <Panel title={t('cc_production.lab.revisionsPanel', 'Earlier revisions')} icon={History} count={(test.revisions ?? []).length}>
+                <ul className="space-y-1 text-sm">
+                  {[...(test.revisions ?? [])].reverse().map((rev) => (
+                    <li key={rev.revision} className="flex flex-wrap items-center gap-2">
+                      <button
+                        type="button"
+                        className="inline-flex items-center gap-1 font-medium underline-offset-2 hover:underline"
+                        onClick={() => {
+                          const files = superseded.filter((file) => file.revision === rev.revision)
+                          if (!printSummary({ ...test, ...(rev.values as Partial<LabTest>), reports: files, revision: rev.revision, supersededBy: revision, showRevision: true }, company)) flash(t('cc_production.lab.popup', 'Allow pop-ups to print.'), 'error')
+                        }}
+                      >
+                        <Printer className="h-3.5 w-3.5" aria-hidden="true" />
+                        {t('cc_production.lab.rev', 'Rev {no}', { no: rev.revision })}
+                      </button>
+                      <span className="text-xs text-muted-foreground">{t('cc_production.lab.amendedBy', 'replaced {when} by {name}: {reason}', { when: when(rev.amendedAt), name: rev.amendedByName ?? '—', reason: rev.reason })}</span>
+                    </li>
+                  ))}
+                </ul>
               </Panel>
             ) : null}
             {superseded.length ? (

@@ -151,11 +151,17 @@ export function Timeline({ type, id, refreshKey, title, footer }: { type: string
   }, [items])
 
   const kinds = (Object.keys(KIND_LABEL) as Kind[]).filter((entry) => counts[entry])
+  const [printIt, setPrintIt] = React.useState(true)
 
   return (
+    <div className={cn('print:break-before-page', !printIt && 'print:hidden')} data-print-timeline={printIt ? 'yes' : 'no'}>
+    <label className="mb-1 flex items-center justify-end gap-1.5 text-xs text-muted-foreground print:hidden">
+      <input type="checkbox" checked={printIt} onChange={(event) => setPrintIt(event.target.checked)} />
+      {t('cc_ui.timeline.printIt', 'Print the history as a last page')}
+    </label>
     <Panel title={title ?? t('cc_ui.timeline.title', 'History')} icon={History} count={kind ? total : Object.values(counts).reduce((sum, value) => sum + value, 0)} flush>
       {kinds.length > 1 ? (
-        <div className="flex flex-wrap gap-1.5 border-b px-3 py-2" role="group" aria-label={t('cc_ui.timeline.filter', 'Show')}>
+        <div className="flex flex-wrap gap-1.5 border-b px-3 py-2 print:hidden" role="group" aria-label={t('cc_ui.timeline.filter', 'Show')}>
           {[null, ...kinds].map((entry) => (
             <button
               key={entry ?? 'all'}
@@ -230,7 +236,7 @@ export function Timeline({ type, id, refreshKey, title, footer }: { type: string
             </section>
           ))}
           {page < totalPages ? (
-            <div className="flex justify-center p-2">
+            <div className="flex justify-center p-2 print:hidden">
               <Button type="button" variant="ghost" size="sm" onClick={() => void load(page + 1, true)}>
                 {t('cc_ui.timeline.more', 'Show older')}
               </Button>
@@ -240,6 +246,7 @@ export function Timeline({ type, id, refreshKey, title, footer }: { type: string
       )}
       {footer ? <p className="border-t px-3 py-2 text-xs text-muted-foreground">{footer}</p> : null}
     </Panel>
+    </div>
   )
 }
 

@@ -149,6 +149,18 @@ export function PurchaseOrderPage({ poId }: { poId: string }) {
 
   if (error || !po) return <RecordState error={error} loadingLabel={t('cc_purchase.detail.loading', 'Loading purchase order…')} />
 
+  const printRevision = (rev: NonNullable<typeof po.revisions>[number]) => {
+    const lines = rev.lines.map((line, index) => {
+      const current = po.lines.find((entry) => entry.productId === line.productId)
+      const gstPercent = current?.gstPercent ?? 0
+      const amount = Math.round(line.quantity * line.rate * 100) / 100
+      return { ...(current ?? po.lines[0]), id: `${rev.revision}-${index}`, productId: line.productId, quantity: line.quantity, rate: line.rate, gstPercent, amount, gst: Math.round(amount * gstPercent) / 100, received: line.receivedQty }
+    })
+    const subtotal = lines.reduce((sum, line) => sum + line.amount, 0)
+    const gst = lines.reduce((sum, line) => sum + line.gst, 0)
+    printPurchaseOrder({ ...po, lines, subtotal, gst, total: subtotal + gst, status: rev.status, revision: rev.revision, supersededBy: po.revision ?? null })
+  }
+
   const editable = po.status === 'draft' || po.status === 'pending_approval'
   const receivable = po.status === 'approved' || po.status === 'partly_received'
   const nothingReceived = po.lines.every((line) => line.received <= 0)
@@ -391,7 +403,12 @@ export function PurchaseOrderPage({ poId }: { poId: string }) {
               empty=""
               rows={[...po.revisions].reverse().map((rev) => ({
                 key: String(rev.revision),
-                primary: t('cc_purchase.detail.revisionRow', 'Revision {n}', { n: rev.revision }),
+                primary: (
+                  <button type="button" className="inline-flex items-center gap-1 underline-offset-2 hover:underline" onClick={() => printRevision(rev)}>
+                    <Printer className="h-3.5 w-3.5" aria-hidden="true" />
+                    {t('cc_purchase.detail.revisionRow', 'Revision {n}', { n: rev.revision })}
+                  </button>
+                ),
                 secondary: [new Date(rev.at).toLocaleString('en-IN'), rev.by, rev.reason].filter(Boolean).join(' · '),
                 value: rev.lines.map((line) => `${line.quantity} @ ${line.rate}`).join(', '),
               }))}

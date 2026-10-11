@@ -130,7 +130,7 @@ export function Attachments({ type, id, title, hint, onChanged, slot, label: fix
   }
 
   return (
-    <section className={cn('space-y-3', !bare && 'rounded-lg border bg-card p-4')}>
+    <section className={cn('space-y-3 print:hidden', !bare && 'rounded-lg border bg-card p-4')}>
       <div className={cn('flex flex-wrap items-start justify-between gap-2', bare && 'hidden')}>
         <div>
           <h2 className="flex items-center gap-2 text-sm font-semibold">

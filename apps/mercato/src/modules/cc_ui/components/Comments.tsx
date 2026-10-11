@@ -84,7 +84,7 @@ export function Comments({ type, id }: { type: string; id: string }) {
   }
 
   return (
-    <section className="space-y-2 rounded-lg border bg-card p-4">
+    <section className="space-y-2 rounded-lg border bg-card p-4 print:hidden">
       <h2 className="flex items-center gap-2 text-sm font-semibold">
         <MessageSquare className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
         {t('cc_ui.comments.title', 'Comment')}

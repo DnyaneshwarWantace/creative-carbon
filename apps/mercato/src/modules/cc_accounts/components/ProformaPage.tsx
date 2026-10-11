@@ -300,7 +300,7 @@ export function ProformaPage({ id }: { id: string }) {
                           type="button"
                           variant="ghost"
                           size="sm"
-                          onClick={() => (printPi({ ...pi, ...rev, advanceAmount: rev.advancePercent ? Math.round(rev.totals.total * rev.advancePercent) / 100 : null, code: `${pi.code} (rev ${rev.revision})` }, company) ? null : flash(t('cc_accounts.pi.popup', 'Allow pop-ups to print'), 'error'))}
+                          onClick={() => (printPi({ ...pi, ...rev, advanceAmount: rev.advancePercent ? Math.round(rev.totals.total * rev.advancePercent) / 100 : null, code: pi.code, revision: rev.revision, supersededBy: pi.revision ?? null }, company) ? null : flash(t('cc_accounts.pi.popup', 'Allow pop-ups to print'), 'error'))}
                         >
                           <Printer className="h-3.5 w-3.5" aria-hidden="true" />
                           <span className="sr-only">{t('cc_accounts.pi.printRevision', 'Print revision {n}', { n: rev.revision })}</span>

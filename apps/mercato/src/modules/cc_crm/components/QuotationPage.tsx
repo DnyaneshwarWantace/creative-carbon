@@ -74,7 +74,7 @@ export function QuotationPage({ quotationId }: { quotationId: string }) {
       flash(t('cc_crm.errors.loadQuote', 'Could not load the quotation.'), 'error')
       return
     }
-    if (!printQuotation({ ...call.result, quoteNo: `${quote.quoteNo} (rev ${revision})` }, company)) flash(t('cc_crm.errors.popup', 'Allow pop-ups to print.'), 'error')
+    if (!printQuotation({ ...call.result, quoteNo: quote.quoteNo, revision, supersededBy: quote.revision ?? null }, company)) flash(t('cc_crm.errors.popup', 'Allow pop-ups to print.'), 'error')
   }
 
   if (error || !quote) return <RecordState error={error} loadingLabel={t('cc_crm.loading', 'Loading…')} />

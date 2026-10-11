@@ -13,6 +13,7 @@ import { useGranted } from '../../cc_departments/components/useGranted'
 import { formatDate, formatQty } from '../../cc_orders/components/format'
 import { STAGE_LABEL, type EnquiryStage } from './types'
 import { PageLoading } from '../../cc_ui/components/PageLoading'
+import { CorrectionsPanel } from '../../cc_ui/components/CorrectionsPanel'
 
 type FollowUp = { id: string; enquiryNo: string; partyName: string | null; subject: string; nextActionOn?: string | null; nextActionNote: string | null; ownerName: string | null }
 type Dashboard = {
@@ -115,6 +116,7 @@ export function CrmHomePage() {
                   )}
                 </Link>
               </div>
+              <CorrectionsPanel scope="crm" />
               <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
                 <Panel title={t('cc_crm.home.overdueTitle', 'Follow-ups overdue')} count={data.overdue.length} icon={<AlarmClock className="h-4 w-4" aria-hidden="true" />} tone={data.overdue.length ? 'error' : undefined}>
                   <FollowUpList rows={data.overdue} overdue empty={t('cc_crm.home.noOverdue', 'Nothing overdue.')} />
