@@ -3,7 +3,7 @@
 import type { StatusBadgeVariant } from '@open-mercato/ui/primitives/status-badge'
 
 export type PoStatus = 'draft' | 'pending_approval' | 'approved' | 'partly_received' | 'received' | 'cancelled'
-export type GrnStatus = 'under_test' | 'partly_approved' | 'approved' | 'rejected'
+export type GrnStatus = 'under_test' | 'partly_approved' | 'approved' | 'rejected' | 'cancelled'
 export type LineQc = 'pending' | 'passed' | 'failed' | 'returned'
 export type HistoryEntry = { action: string; by: string | null; at: string; note: string | null }
 
@@ -43,6 +43,10 @@ export type PoView = {
   approvedByName: string | null
   approvedAt: string | null
   history: HistoryEntry[]
+  revision?: number
+  revisions?: Array<{ revision: number; at: string; by: string | null; reason: string; status: PoStatus; lines: Array<{ productId: string; quantity: number; rate: number; receivedQty: number }> }>
+  shortClosedAt?: string | null
+  shortCloseReason?: string | null
   createdAt: string
   updatedAt: string
   lines: PoLineView[]
@@ -66,6 +70,8 @@ export type GrnLineView = {
   mfgDate: string | null
   expiryDate: string | null
   qcStatus: LineQc
+  qcAt?: string | null
+  qcByName?: string | null
   returnedQty: number
 }
 
@@ -103,6 +109,7 @@ export const GRN_STATUS: Record<GrnStatus, { label: string; variant: StatusBadge
   partly_approved: { label: 'Partly approved', variant: 'info' },
   approved: { label: 'Approved stock', variant: 'success' },
   rejected: { label: 'Rejected', variant: 'error' },
+  cancelled: { label: 'Cancelled', variant: 'neutral' },
 }
 
 export const LINE_QC: Record<LineQc, { label: string; variant: StatusBadgeVariant }> = {

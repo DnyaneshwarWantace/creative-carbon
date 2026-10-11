@@ -3,7 +3,7 @@
 import * as React from 'react'
 import { useGranted } from '../../cc_departments/components/useGranted'
 import Link from 'next/link'
-import { Boxes, FileText, Printer, Undo2, Waypoints } from 'lucide-react'
+import { Ban, Boxes, FileText, PencilLine, Printer, RotateCcw, Undo2, Waypoints } from 'lucide-react'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { cn } from '@open-mercato/shared/lib/utils'
 import { Button } from '@open-mercato/ui/primitives/button'
@@ -23,6 +23,8 @@ import { recordHref, type DocumentLink } from '../../cc_ui/lib/links'
 import { Timeline } from '../../cc_ui/components/Timeline'
 import { Comments } from '../../cc_ui/components/Comments'
 import { Attachments } from '../../cc_ui/components/Attachments'
+import { CorrectDialog } from '../../cc_ui/components/CorrectDialog'
+import { Input } from '@open-mercato/ui/primitives/input'
 
 type LotTrace = { lotId: string; lotNumber: string | null; usedBy: Array<{ document: DocumentLink; kg: number; at: string }> }
 
@@ -30,7 +32,7 @@ export function GrnPage({ grnId }: { grnId: string }) {
   const t = useT()
   const granted = useGranted()
   const canChange = !granted.ready || granted.has('cc_purchase.receive')
-  const { runMutation } = useGuardedMutation({ contextId: `cc-grn-${grnId}` })
+  const { runMutation, retryLastMutation } = useGuardedMutation({ contextId: `cc-grn-${grnId}` })
   const [grn, setGrn] = React.useState<GrnView | null>(null)
   const [error, setError] = React.useState<string | null>(null)
   const [returning, setReturning] = React.useState<GrnLineView | null>(null)
@@ -38,6 +40,10 @@ export function GrnPage({ grnId }: { grnId: string }) {
   const [note, setNote] = React.useState('')
   const [busy, setBusy] = React.useState(false)
   const [traces, setTraces] = React.useState<LotTrace[] | null>(null)
+  const [fix, setFix] = React.useState<{ kind: 'quantity' | 'undo_qc' | 'cancel'; line: GrnLineView | null } | null>(null)
+  const [fixQty, setFixQty] = React.useState('')
+  const canQc = granted.has('cc_production.quality.enter')
+  const canApprove = granted.has('cc_purchase.approve')
 
   const load = React.useCallback(async () => {
     const call = await apiCall<GrnView>(`/api/cc_purchase/grns?id=${encodeURIComponent(grnId)}`)
@@ -56,6 +62,27 @@ export function GrnPage({ grnId }: { grnId: string }) {
   React.useEffect(() => {
     load()
   }, [load])
+
+  const correct = async (reason: string): Promise<boolean> => {
+    if (!grn || !fix) return false
+    const body = { id: grn.id, action: fix.kind, reason, ...(fix.line ? { lineId: fix.line.id } : {}), ...(fix.kind === 'quantity' ? { quantity: Number(fixQty) } : {}) }
+    const call = await runMutation({
+      context: { formId: `cc-grn-${grn.id}`, resourceKind: 'cc_purchase.grn', resourceId: grn.id, retryLastMutation },
+      mutationPayload: body,
+      operation: () =>
+        withScopedApiRequestHeaders(buildOptimisticLockHeader(grn.updatedAt), () =>
+          apiCall<GrnView & { error?: string }>('/api/cc_purchase/grns/correct', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) }),
+        ),
+    })
+    if (!call.ok || !call.result || call.result.error) {
+      flash(call.result?.error ?? t('cc_purchase.grnDetail.fixError', 'Could not save the correction.'), 'error')
+      return false
+    }
+    setGrn(call.result)
+    flash(fix.kind === 'cancel' ? t('cc_purchase.grnDetail.cancelled', 'GRN cancelled; the lots are reversed') : fix.kind === 'undo_qc' ? t('cc_purchase.grnDetail.qcUndone', 'Back under QC') : t('cc_purchase.grnDetail.qtyFixed', 'Quantity corrected'), 'success')
+    await load()
+    return true
+  }
 
   const decide = async (line: GrnLineView, decision: 'passed' | 'failed', reason: string | null) => {
     if (!grn) return
@@ -146,10 +173,18 @@ export function GrnPage({ grnId }: { grnId: string }) {
           </>
         }
         actions={
-          <Button type="button" variant="outline" size="sm" onClick={() => window.print()}>
-            <Printer className="mr-1.5 h-4 w-4" aria-hidden="true" />
-            {t('cc_purchase.grnDetail.print', 'Print')}
-          </Button>
+          <>
+            <Button type="button" variant="outline" size="sm" onClick={() => window.print()}>
+              <Printer className="mr-1.5 h-4 w-4" aria-hidden="true" />
+              {t('cc_purchase.grnDetail.print', 'Print')}
+            </Button>
+            {canApprove && grn.status !== 'cancelled' ? (
+              <Button type="button" variant="destructive-ghost" size="sm" onClick={() => setFix({ kind: 'cancel', line: null })}>
+                <Ban className="mr-1.5 h-4 w-4" aria-hidden="true" />
+                {t('cc_purchase.grnDetail.cancel', 'Cancel GRN')}
+              </Button>
+            ) : null}
+          </>
         }
         alert={
           pending ? (
@@ -215,6 +250,26 @@ export function GrnPage({ grnId }: { grnId: string }) {
                           {t('cc_purchase.grnDetail.return', 'Return to vendor')}
                         </Button>
                       ) : null}
+                      {grn.status !== 'cancelled' && line.qcStatus !== 'returned' && canChange ? (
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => {
+                            setFixQty(String(line.quantity))
+                            setFix({ kind: 'quantity', line })
+                          }}
+                        >
+                          <PencilLine className="mr-1 h-3.5 w-3.5" aria-hidden="true" />
+                          {t('cc_purchase.grnDetail.fixQty', 'Correct qty')}
+                        </Button>
+                      ) : null}
+                      {(line.qcStatus === 'passed' || line.qcStatus === 'failed') && canQc && line.qcAt && Date.now() - Date.parse(line.qcAt) < 24 * 3600_000 ? (
+                        <Button type="button" size="sm" variant="ghost" onClick={() => setFix({ kind: 'undo_qc', line })}>
+                          <RotateCcw className="mr-1 h-3.5 w-3.5" aria-hidden="true" />
+                          {t('cc_purchase.grnDetail.undoQc', 'Undo QC')}
+                        </Button>
+                      ) : null}
                     </div>
                   </li>
                 ))}
@@ -255,7 +310,38 @@ export function GrnPage({ grnId }: { grnId: string }) {
         />
         <Attachments type="grn" id={grn.id} />
         <Comments type="grn" id={grn.id} />
-        <Timeline type="grn" id={grn.id} refreshKey={grn.history.length} />
+        <Timeline type="grn" id={grn.id} refreshKey={grn.updatedAt} />
+        <CorrectDialog
+          open={fix !== null}
+          onOpenChange={(next) => !next && setFix(null)}
+          destructive={fix?.kind === 'cancel'}
+          title={
+            fix?.kind === 'cancel'
+              ? t('cc_purchase.grnDetail.cancelTitle', 'Cancel {code}?', { code: grn.code })
+              : fix?.kind === 'undo_qc'
+                ? t('cc_purchase.grnDetail.undoQcTitle', 'Undo the QC result of {lot}?', { lot: fix.line?.lotNumber ?? '' })
+                : t('cc_purchase.grnDetail.fixQtyTitle', 'Correct the received quantity of {lot}', { lot: fix?.line?.lotNumber ?? '' })
+          }
+          description={
+            fix?.kind === 'quantity' ? (
+              <span className="mt-2 flex items-center gap-2">
+                <Input type="number" min={0} step="any" className="w-40" value={fixQty} onChange={(event) => setFixQty(event.target.value)} aria-label={t('cc_purchase.grnDetail.correctQty', 'Correct quantity')} />
+                <span className="text-sm">{fix.line?.unit}</span>
+              </span>
+            ) : undefined
+          }
+          undo={
+            fix?.kind === 'cancel'
+              ? [t('cc_purchase.grnDetail.cancelUndo', 'Every lot on it is taken back out of stock by a linked counter-entry'), t('cc_purchase.grnDetail.cancelPo', 'The quantity opens again on the PO')]
+              : fix?.kind === 'undo_qc'
+                ? [t('cc_purchase.grnDetail.undoQcUndo', 'The lot goes back under QC test and cannot be issued')]
+                : fix?.line
+                  ? [t('cc_purchase.grnDetail.fixQtyUndo', 'A stock adjustment of {delta} {unit} is made for the difference', { delta: String(Math.round((Number(fixQty || 0) - fix.line.quantity) * 10000) / 10000), unit: fix.line.unit })]
+                  : []
+          }
+          confirmLabel={fix?.kind === 'cancel' ? t('cc_purchase.grnDetail.cancel', 'Cancel GRN') : fix?.kind === 'undo_qc' ? t('cc_purchase.grnDetail.undoQc', 'Undo QC') : t('cc_purchase.grnDetail.saveQty', 'Save quantity')}
+          onConfirm={correct}
+        />
       </RecordPage>
 
         <Dialog open={returning !== null} onOpenChange={(value) => (!value ? setReturning(null) : undefined)}>

@@ -4,7 +4,7 @@ import type { OpenApiRouteDoc } from '@open-mercato/shared/lib/openapi'
 import { enforceCommandOptimisticLock } from '@open-mercato/shared/lib/crud/optimistic-lock-command'
 import { hasFeatures, resolveOrderContext } from '../../../../cc_orders/lib/server'
 import { indentActionSchema } from '../../../data/validators'
-import { actOnIndent, findIndent, indentViews } from '../../../lib/indents'
+import { actOnIndent, editIndentLines, findIndent, indentViews } from '../../../lib/indents'
 import { purchaseErrorResponse, runGuarded } from '../../../lib/server'
 import { logCorrection } from '../../../../cc_audit/lib/activity'
 import { reasonIssue } from '../../../../cc_audit/lib/reason'
@@ -18,17 +18,19 @@ async function POST(req: Request) {
   if ('error' in ctx) return NextResponse.json({ error: ctx.error }, { status: ctx.status })
   const parsed = indentActionSchema.safeParse(await req.json().catch(() => null))
   if (!parsed.success) return NextResponse.json({ error: reasonIssue(parsed.error) ?? 'Invalid action' }, { status: 400 })
-  const needed = parsed.data.action === 'cancel' ? ['cc_purchase.indent'] : ['cc_purchase.approve']
-  if (!(await hasFeatures(ctx, needed))) return NextResponse.json({ error: parsed.data.action === 'cancel' ? 'Only the person who can raise indents can cancel one' : 'Only an approver can approve or reject an indent' }, { status: 403 })
+  const needed = parsed.data.action === 'cancel' || parsed.data.action === 'edit' ? ['cc_purchase.indent'] : ['cc_purchase.approve']
+  if (!(await hasFeatures(ctx, needed))) return NextResponse.json({ error: parsed.data.action === 'cancel' || parsed.data.action === 'edit' ? 'Only the person who can raise indents can do this' : 'Only an approver can approve or reject an indent' }, { status: 403 })
+  if (parsed.data.action === 'edit' && !parsed.data.lines?.length) return NextResponse.json({ error: 'Give the quantities' }, { status: 400 })
   try {
     const indent = await findIndent(ctx, parsed.data.id)
     enforceCommandOptimisticLock({ resourceKind: 'cc_purchase.indent', resourceId: indent.id, current: indent.updatedAt, request: req })
     const result = await runGuarded(ctx, req, { resourceKind: 'cc_purchase.indent', resourceId: indent.id, operation: 'update', payload: parsed.data as Record<string, unknown> }, async () => {
-      await actOnIndent(ctx, indent, parsed.data.action, parsed.data.note ?? null)
+      if (parsed.data.action === 'edit') await editIndentLines(ctx, indent, parsed.data.lines ?? [], parsed.data.note!.trim())
+      else await actOnIndent(ctx, indent, parsed.data.action, parsed.data.note ?? null)
       return (await indentViews(ctx, [indent]))[0]
     })
     if (result instanceof Response) return result
-    if (parsed.data.action !== 'approve') await logCorrection(ctx, { recordType: 'indent', recordId: parsed.data.id, action: parsed.data.action === 'cancel' ? 'cancelled' : 'rejected', summary: parsed.data.action === 'cancel' ? 'Indent cancelled' : 'Indent rejected', reason: parsed.data.note ?? '' })
+    if (parsed.data.action === 'cancel' || parsed.data.action === 'reject') await logCorrection(ctx, { recordType: 'indent', recordId: parsed.data.id, action: parsed.data.action === 'cancel' ? 'cancelled' : 'rejected', summary: parsed.data.action === 'cancel' ? 'Indent cancelled' : 'Indent rejected', reason: parsed.data.note ?? '' })
     return NextResponse.json(result)
   } catch (error) {
     return purchaseErrorResponse(error)

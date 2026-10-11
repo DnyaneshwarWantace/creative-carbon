@@ -170,10 +170,29 @@ const updateVendorCommand: CommandHandler<VendorUpdateInput, { vendorId: string 
       { id: vendor.id, ...current },
     )
     const changes = diffFields({ ...current, isActive: vendor.isActive }, { ...checked, ...(parsed.isActive !== undefined ? { isActive: parsed.isActive } : {}) }, VENDOR_FIELDS)
+    const reason = parsed.reason?.trim() ?? ''
+    const connection = em.getConnection()
+    const scopeParams = [vendor.id, vendor.tenantId, vendor.organizationId]
+    if (current.gstNumber && (checked.gstNumber ?? null) !== current.gstNumber) {
+      const [open] = await connection.execute<Array<{ total: string }>>(`select count(*) as total from cc_vendor_bills where vendor_id = ? and tenant_id = ? and organization_id = ? and deleted_at is null and status in ('open', 'partly_paid')`, scopeParams)
+      if (Number(open?.total ?? 0) > 0) {
+        const rbac = ctx.container.resolve('rbacService') as { userHasAllFeatures: (userId: string, features: string[], scope: { tenantId: string | null; organizationId: string | null }) => Promise<boolean> }
+        const userId = ctx.auth?.sub ?? null
+        const accounts = userId ? await rbac.userHasAllFeatures(userId, ['cc_accounts.record'], { tenantId: vendor.tenantId, organizationId: vendor.organizationId }) : false
+        if (!accounts) throw new CrudHttpError(403, { error: 'This vendor has open bills. A GSTIN change must be approved by Accounts; ask them to make it.', fieldErrors: { gstNumber: 'Needs Accounts approval: open bills' } })
+        if (reason.length < 3) throw new CrudHttpError(400, { error: 'Open bills carry the old GSTIN. Write why it changes; it is kept in the history.', fieldErrors: { reason: 'Write why the GSTIN changes' } })
+      }
+    }
+    if (parsed.isActive === false && vendor.isActive) {
+      const [po] = await connection.execute<Array<{ code: string }>>(`select code from cc_pos where vendor_id = ? and tenant_id = ? and organization_id = ? and deleted_at is null and status in ('draft', 'pending_approval', 'approved', 'partly_received') limit 1`, scopeParams)
+      if (po) throw new CrudHttpError(409, { error: `Purchase order ${po.code} is still open. Close or cancel it first.` })
+      if (reason.length < 3) throw new CrudHttpError(400, { error: 'Write why the vendor is set inactive (at least 3 letters); it is kept in the history', fieldErrors: { reason: 'Write why' } })
+    }
     Object.assign(vendor, checked)
     if (changes.length) {
       const scope = { tenantId: vendor.tenantId, organizationId: vendor.organizationId }
-      recordActivity(em, scope, { recordType: 'vendor', recordId: vendor.id, action: 'edited', kind: 'change', summary: changes.length === 1 ? `${changes[0].label} changed` : `${changes.length} details changed`, changes, ...(await actorOf(em, ctx, scope)) })
+      const toggled = parsed.isActive !== undefined && parsed.isActive !== vendor.isActive
+      recordActivity(em, scope, { recordType: 'vendor', recordId: vendor.id, action: toggled ? (parsed.isActive ? 'activated' : 'deactivated') : 'edited', kind: toggled && !parsed.isActive ? 'correction' : 'change', summary: toggled ? (parsed.isActive ? 'Set active again' : 'Set inactive; hidden on new purchase orders') : changes.length === 1 ? `${changes[0].label} changed` : `${changes.length} details changed`, reason: reason || null, changes, ...(await actorOf(em, ctx, scope)) })
     }
     if (parsed.isActive !== undefined) vendor.isActive = parsed.isActive
 

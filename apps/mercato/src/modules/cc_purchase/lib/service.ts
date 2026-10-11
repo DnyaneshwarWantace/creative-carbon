@@ -84,8 +84,30 @@ async function writeLines(ctx: OrderContext, po: PurchaseOrder, lines: PoInput['
     if (!PURCHASED_KINDS.has(product.kind as ProductKind)) throw new PurchaseError(`${product.title} is not a material that is bought`)
   }
   const existing = await ctx.em.find(PurchaseOrderLine, { poId: po.id })
-  for (const line of existing) ctx.em.remove(line)
+  const changes: Array<{ field: string; label: string; from: number | null; to: number | null; money?: boolean }> = []
+  const title = (id: string) => products.get(id)?.title ?? 'Material'
+  for (const old of existing) {
+    const wanted = lines.find((line) => line.productId === old.productId)
+    if (!wanted) {
+      if (num(old.receivedQty) > EPSILON) throw new PurchaseError(`${title(old.productId)} is already partly received; it cannot be taken off the PO`, 409)
+      changes.push({ field: `line:${old.productId}:quantity`, label: `${title(old.productId)} qty`, from: num(old.quantity), to: null })
+      ctx.em.remove(old)
+    }
+  }
   lines.forEach((line, index) => {
+    const old = existing.find((entry) => entry.productId === line.productId)
+    if (old) {
+      if (round(line.quantity) + EPSILON < num(old.receivedQty)) throw new PurchaseError(`${title(line.productId)}: ${num(old.receivedQty)} is already received; the quantity cannot go below that`, 409)
+      if (num(old.quantity) !== round(line.quantity)) changes.push({ field: `line:${line.productId}:quantity`, label: `${title(line.productId)} qty`, from: num(old.quantity), to: round(line.quantity) })
+      if (num(old.rate) !== round(line.rate)) changes.push({ field: `line:${line.productId}:rate`, label: `${title(line.productId)} rate`, from: num(old.rate), to: round(line.rate), money: true })
+      old.position = index + 1
+      old.quantity = String(round(line.quantity))
+      old.rate = String(round(line.rate))
+      old.gstPercent = String(line.gstPercent)
+      old.notes = line.notes ?? null
+      return
+    }
+    if (existing.length) changes.push({ field: `line:${line.productId}:quantity`, label: `${title(line.productId)} qty`, from: null, to: round(line.quantity) })
     ctx.em.persist(
       ctx.em.create(PurchaseOrderLine, {
         organizationId: ctx.organizationId,
@@ -101,10 +123,12 @@ async function writeLines(ctx: OrderContext, po: PurchaseOrder, lines: PoInput['
       }),
     )
   })
+  return changes
 }
 
 export async function createPo(ctx: OrderContext, input: PoInput): Promise<PurchaseOrder> {
   const vendor = await findVendor(ctx, input.vendorId)
+  if (!vendor.isActive) throw new PurchaseError(`${vendor.name} is set inactive. Set it active again first.`, 409)
   const byName = await currentUserName(ctx)
   const po = ctx.em.create(PurchaseOrder, {
     organizationId: ctx.organizationId,
@@ -143,8 +167,13 @@ export async function updatePo(ctx: OrderContext, po: PurchaseOrder, input: PoIn
   po.terms = input.terms ?? null
   po.orderRefs = input.orderRefs
   if (input.submit && po.status === 'draft') po.status = 'pending_approval'
-  await writeLines(ctx, po, input.lines)
-  stamp(po, input.submit ? 'submitted' : 'edited', await currentUserName(ctx), null)
+  const changes = await writeLines(ctx, po, input.lines)
+  const byName = await currentUserName(ctx)
+  stamp(po, input.submit ? 'submitted' : 'edited', byName, null)
+  if (changes.length) {
+    const { recordActivity } = await import('../../cc_audit/lib/activity')
+    recordActivity(ctx.em, ctx, { recordType: 'po', recordId: po.id, action: 'edited', kind: 'change', summary: (po.revision ?? 1) > 1 ? `Revision ${po.revision} edited` : null, changes, actorUserId: ctx.userId ?? null, actorName: byName })
+  }
   po.updatedAt = new Date()
   await ctx.em.flush()
 }
@@ -163,10 +192,51 @@ export async function approvePo(ctx: OrderContext, po: PurchaseOrder, note: stri
   if (po.status !== 'pending_approval') throw new PurchaseError('This PO is not waiting for approval', 409)
   const byName = await currentUserName(ctx)
   po.status = 'approved'
+  po.status = receivedStatus(po, await ctx.em.find(PurchaseOrderLine, { poId: po.id }))
   po.approvedByName = byName
   po.approvedAt = new Date()
   stamp(po, 'approved', byName, note)
   po.updatedAt = new Date()
+  await ctx.em.flush()
+}
+
+export async function amendPo(ctx: OrderContext, po: PurchaseOrder, reason: string) {
+  if (po.status === 'received') throw new PurchaseError('Everything on this PO is received. Raise a new PO instead.', 409)
+  if (po.status === 'cancelled') throw new PurchaseError('This PO is cancelled', 409)
+  if (po.status === 'draft' || po.status === 'pending_approval') throw new PurchaseError('This PO is not approved yet; just edit it.', 409)
+  const lines = await ctx.em.find(PurchaseOrderLine, { poId: po.id }, { orderBy: { position: 'asc' } })
+  const byName = await currentUserName(ctx)
+  po.revisions = [...(po.revisions ?? []), { revision: po.revision ?? 1, at: new Date().toISOString(), by: byName, reason, status: po.status, expectedDate: po.expectedDate ?? null, terms: po.terms ?? null, lines: lines.map((line) => ({ productId: line.productId, quantity: num(line.quantity), rate: num(line.rate), gstPercent: num(line.gstPercent), receivedQty: num(line.receivedQty) })) }]
+  po.revision = (po.revision ?? 1) + 1
+  po.status = 'draft'
+  po.approvedByName = null
+  po.approvedAt = null
+  stamp(po, 'amended', byName, `Revision ${po.revision}: ${reason}`)
+  po.updatedAt = new Date()
+  const { recordActivity } = await import('../../cc_audit/lib/activity')
+  recordActivity(ctx.em, ctx, { recordType: 'po', recordId: po.id, action: 'amended', kind: 'change', summary: `Revision ${po.revision} opened for changes; it needs approval again. Revision ${po.revision - 1} is kept.`, reason, actorUserId: ctx.userId ?? null, actorName: byName })
+  await ctx.em.flush()
+}
+
+export async function shortClosePo(ctx: OrderContext, po: PurchaseOrder, reason: string) {
+  if (po.status !== 'approved' && po.status !== 'partly_received') throw new PurchaseError(po.status === 'received' ? 'Everything is already received' : 'Only an approved PO can be short-closed', 409)
+  const lines = await ctx.em.find(PurchaseOrderLine, { poId: po.id }, { orderBy: { position: 'asc' } })
+  const products = await loadProducts(ctx, lines.map((line) => line.productId))
+  const changes: Array<{ field: string; label: string; from: number | null; to: number | null }> = []
+  for (const line of lines) {
+    const pending = num(line.quantity) - num(line.receivedQty)
+    if (pending <= EPSILON) continue
+    changes.push({ field: `line:${line.productId}:quantity`, label: `${products.get(line.productId)?.title ?? 'Material'} qty`, from: num(line.quantity), to: num(line.receivedQty) })
+    line.quantity = String(round(num(line.receivedQty)))
+  }
+  const byName = await currentUserName(ctx)
+  po.status = 'received'
+  po.shortClosedAt = new Date()
+  po.shortCloseReason = reason
+  stamp(po, 'short_closed', byName, reason)
+  po.updatedAt = new Date()
+  const { recordActivity } = await import('../../cc_audit/lib/activity')
+  recordActivity(ctx.em, ctx, { recordType: 'po', recordId: po.id, action: 'short_closed', kind: 'correction', summary: 'Short-closed; the pending quantity is dropped', reason, changes, actorUserId: ctx.userId ?? null, actorName: byName })
   await ctx.em.flush()
 }
 
@@ -226,6 +296,10 @@ export async function poView(ctx: OrderContext, po: PurchaseOrder) {
     createdByName: po.createdByName ?? null,
     approvedByName: po.approvedByName ?? null,
     approvedAt: po.approvedAt ? po.approvedAt.toISOString() : null,
+    revision: po.revision ?? 1,
+    revisions: po.revisions ?? [],
+    shortClosedAt: po.shortClosedAt ? po.shortClosedAt.toISOString() : null,
+    shortCloseReason: po.shortCloseReason ?? null,
     history: po.history ?? [],
     createdAt: po.createdAt.toISOString(),
     updatedAt: po.updatedAt.toISOString(),
@@ -383,6 +457,8 @@ export async function createGrn(ctx: StoreContext, input: GrnInput): Promise<Goo
   po.status = receivedStatus(po, poLines)
   stamp(po, 'goods_received', byName, grn.code)
   po.updatedAt = new Date()
+  const { recordActivity } = await import('../../cc_audit/lib/activity')
+  recordActivity(ctx.em, ctx, { recordType: 'po', recordId: po.id, action: 'goods_received', kind: 'stage', summary: `${grn.code}: ${input.lines.length} line(s) received${input.invoiceNo ? ` · invoice ${input.invoiceNo}` : ''}`, links: [{ type: 'grn', id: grn.id, label: grn.code }], actorUserId: ctx.userId ?? null, actorName: byName })
   await ctx.em.flush()
   return grn
 }
@@ -445,6 +521,9 @@ export async function decideLine(ctx: StoreContext, grn: GoodsReceipt, lineId: s
     })
   }
   line.qcStatus = decision
+  line.qcAt = new Date()
+  line.qcByName = await currentUserName(ctx)
+  line.qcByUserId = ctx.userId ?? null
   const lines = await ctx.em.find(GoodsReceiptLine, { grnId: grn.id })
   grn.status = grnStatus(lines)
   stamp(grn, decision === 'passed' ? 'qc_passed' : 'qc_failed', await currentUserName(ctx), note ?? line.lotNumber)
@@ -531,6 +610,8 @@ export async function grnView(ctx: OrderContext, grn: GoodsReceipt) {
         mfgDate: line.mfgDate ?? null,
         expiryDate: line.expiryDate ?? null,
         qcStatus: line.qcStatus,
+        qcAt: line.qcAt ? line.qcAt.toISOString() : null,
+        qcByName: line.qcByName ?? null,
         returnedQty: num(line.returnedQty),
       }
     }),

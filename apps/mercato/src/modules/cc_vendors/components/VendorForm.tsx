@@ -94,6 +94,7 @@ export function VendorForm({ vendorId }: { vendorId?: string }) {
   const [saving, setSaving] = React.useState(false)
   const [version, setVersion] = React.useState<string | null>(null)
   const [form, setForm] = React.useState<FormState>(EMPTY)
+  const [reason, setReason] = React.useState('')
   const [errors, setErrors] = React.useState<Record<string, string>>({})
   const termOptions = useListOptions('payment_terms')
   const backHref = vendorId ? `/backend/cc_vendors/${vendorId}` : '/backend/cc_vendors'
@@ -158,7 +159,7 @@ export function VendorForm({ vendorId }: { vendorId?: string }) {
       flash(t('cc_vendors.form.fix', 'Some fields need fixing.'), 'error')
       return
     }
-    const body = { ...(vendorId ? { id: vendorId } : {}), ...form, gstNumber: gstin }
+    const body = { ...(vendorId ? { id: vendorId, reason: reason.trim() || null } : {}), ...form, gstNumber: gstin }
     setSaving(true)
     try {
       const call = await runMutation({
@@ -282,6 +283,11 @@ export function VendorForm({ vendorId }: { vendorId?: string }) {
                   <input type="checkbox" className="h-4 w-4 rounded-sm border-input" checked={form.isActive} onChange={(event) => patch({ isActive: event.target.checked })} />
                   {t('cc_vendors.form.field.isActive', 'Active (shown when raising a PO)')}
                 </label>
+                {vendorId ? (
+                  <Field label={t('cc_vendors.form.field.reason', 'Why the change (kept in the history)')} error={errors.reason} hint={t('cc_vendors.form.reasonHint', 'Needed when you set the vendor inactive, or change the GSTIN while bills are open')} htmlFor="ve-reason">
+                    <Input id="ve-reason" value={reason} onChange={(event) => setReason(event.target.value)} />
+                  </Field>
+                ) : null}
               </Section>
 
               <div className="hidden lg:block">

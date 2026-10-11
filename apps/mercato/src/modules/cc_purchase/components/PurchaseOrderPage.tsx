@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 import Link from 'next/link'
-import { Boxes, Building2, CheckCircle2, CircleSlash, FileStack, PackageOpen, Pencil, Printer, Send } from 'lucide-react'
+import { Boxes, Building2, CheckCircle2, CircleSlash, FilePen, FileStack, History, PackageOpen, Pencil, Printer, Scissors, Send } from 'lucide-react'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { cn } from '@open-mercato/shared/lib/utils'
 import { Button } from '@open-mercato/ui/primitives/button'
@@ -23,6 +23,7 @@ import { dateText, rupeeText } from '../../cc_products/lib/whatsapp'
 import { EmailPoButton } from './EmailPoDialog'
 import { useGranted } from '../../cc_departments/components/useGranted'
 import { FieldList, LinkRows, Panel, RecordColumns, RecordPage, RecordState, type Fact } from '../../cc_ui/components/RecordPage'
+import { CorrectDialog } from '../../cc_ui/components/CorrectDialog'
 import { recordHref } from '../../cc_ui/lib/links'
 import { Timeline } from '../../cc_ui/components/Timeline'
 import { Comments } from '../../cc_ui/components/Comments'
@@ -105,6 +106,7 @@ export function PurchaseOrderPage({ poId }: { poId: string }) {
   const [busy, setBusy] = React.useState(false)
   const granted = useGranted()
   const [dialog, setDialog] = React.useState<'approve' | 'cancel' | null>(null)
+  const [fix, setFix] = React.useState<'amend' | 'short_close' | null>(null)
   const [note, setNote] = React.useState('')
 
   const load = React.useCallback(async () => {
@@ -178,9 +180,13 @@ export function PurchaseOrderPage({ poId }: { poId: string }) {
         overline={t('cc_purchase.detail.overline', 'Purchase order')}
         title={po.code}
         badges={
-          <StatusBadge variant={PO_STATUS[po.status].variant} dot>
-            {PO_STATUS[po.status].label}
-          </StatusBadge>
+          <>
+            <StatusBadge variant={PO_STATUS[po.status].variant} dot>
+              {PO_STATUS[po.status].label}
+            </StatusBadge>
+            {(po.revision ?? 1) > 1 ? <StatusBadge variant="info">{t('cc_purchase.detail.rev', 'Rev {n}', { n: po.revision ?? 1 })}</StatusBadge> : null}
+            {po.shortClosedAt ? <StatusBadge variant="neutral">{t('cc_purchase.detail.shortClosed', 'Short-closed')}</StatusBadge> : null}
+          </>
         }
         meta={
           <>
@@ -198,6 +204,18 @@ export function PurchaseOrderPage({ poId }: { poId: string }) {
               <Printer className="mr-1.5 h-4 w-4" aria-hidden="true" />
               {t('cc_purchase.detail.print', 'Print PO')}
             </Button>
+            {(po.status === 'approved' || po.status === 'partly_received') && granted.has('cc_purchase.manage') ? (
+              <Button type="button" variant="outline" size="sm" onClick={() => setFix('amend')} disabled={busy}>
+                <FilePen className="mr-1.5 h-4 w-4" aria-hidden="true" />
+                {t('cc_purchase.detail.amend', 'Amend')}
+              </Button>
+            ) : null}
+            {(po.status === 'approved' || po.status === 'partly_received') && granted.has('cc_purchase.approve') ? (
+              <Button type="button" variant="outline" size="sm" onClick={() => setFix('short_close')} disabled={busy}>
+                <Scissors className="mr-1.5 h-4 w-4" aria-hidden="true" />
+                {t('cc_purchase.detail.shortClose', 'Short-close')}
+              </Button>
+            ) : null}
             {nothingReceived && po.status !== 'cancelled' ? (
               <Button type="button" variant="outline" size="sm" onClick={() => setDialog('cancel')} disabled={busy}>
                 <CircleSlash className="mr-1.5 h-4 w-4" aria-hidden="true" />
@@ -367,7 +385,33 @@ export function PurchaseOrderPage({ poId }: { poId: string }) {
         />
         <Attachments type="po" id={po.id} />
         <Comments type="po" id={po.id} />
-        <Timeline type="po" id={po.id} refreshKey={po.history.length} />
+        {po.revisions?.length ? (
+          <Panel title={t('cc_purchase.detail.revisions', 'Earlier revisions')} icon={History} count={po.revisions.length} flush>
+            <LinkRows
+              empty=""
+              rows={[...po.revisions].reverse().map((rev) => ({
+                key: String(rev.revision),
+                primary: t('cc_purchase.detail.revisionRow', 'Revision {n}', { n: rev.revision }),
+                secondary: [new Date(rev.at).toLocaleString('en-IN'), rev.by, rev.reason].filter(Boolean).join(' · '),
+                value: rev.lines.map((line) => `${line.quantity} @ ${line.rate}`).join(', '),
+              }))}
+            />
+          </Panel>
+        ) : null}
+        <Timeline type="po" id={po.id} refreshKey={po.updatedAt} />
+        <CorrectDialog
+          open={fix !== null}
+          onOpenChange={(next) => !next && setFix(null)}
+          destructive={fix === 'short_close'}
+          title={fix === 'amend' ? t('cc_purchase.detail.amendTitle', 'Amend {code}?', { code: po.code }) : t('cc_purchase.detail.shortCloseTitle', 'Short-close {code}?', { code: po.code })}
+          undo={
+            fix === 'amend'
+              ? [t('cc_purchase.detail.amendKeep', 'Revision {n} is kept as it was approved', { n: po.revision ?? 1 }), t('cc_purchase.detail.amendDraft', 'Revision {n} opens as a draft; it needs approval again before more goods come in', { n: (po.revision ?? 1) + 1 }), t('cc_purchase.detail.amendReceived', 'Quantities already received stay')]
+              : [t('cc_purchase.detail.shortCloseUndo', 'The quantity still to come is dropped; the PO is closed as received')]
+          }
+          confirmLabel={fix === 'amend' ? t('cc_purchase.detail.amend', 'Amend') : t('cc_purchase.detail.shortClose', 'Short-close')}
+          onConfirm={(reason) => act(fix === 'amend' ? '/api/cc_purchase/orders/amend' : '/api/cc_purchase/orders/short-close', { note: reason }, fix === 'amend' ? t('cc_purchase.detail.amended', 'New revision opened; edit it and send it for approval') : t('cc_purchase.detail.shortClosed', 'Short-closed'))}
+        />
       </RecordPage>
 
         <Dialog open={dialog !== null} onOpenChange={(value) => (!value ? setDialog(null) : undefined)}>

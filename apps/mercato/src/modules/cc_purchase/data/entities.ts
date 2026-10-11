@@ -3,7 +3,8 @@ import { OptionalProps } from '@mikro-orm/core'
 import type { StoreKey } from '../../cc_products/lib/stock'
 
 export type PoStatus = 'draft' | 'pending_approval' | 'approved' | 'partly_received' | 'received' | 'cancelled'
-export type GrnStatus = 'under_test' | 'partly_approved' | 'approved' | 'rejected'
+export type PoRevision = { revision: number; at: string; by: string | null; reason: string; status: PoStatus; expectedDate: string | null; terms: string | null; lines: Array<{ productId: string; quantity: number; rate: number; gstPercent: number; receivedQty: number }> }
+export type GrnStatus = 'under_test' | 'partly_approved' | 'approved' | 'rejected' | 'cancelled'
 export type LineQc = 'pending' | 'passed' | 'failed' | 'returned'
 export type History = { action: string; by: string | null; at: string; note: string | null }
 
@@ -22,6 +23,10 @@ export class PurchaseOrder {
     | 'approvedByName'
     | 'approvedAt'
     | 'history'
+    | 'revision'
+    | 'revisions'
+    | 'shortClosedAt'
+    | 'shortCloseReason'
     | 'createdAt'
     | 'updatedAt'
     | 'deletedAt'
@@ -76,6 +81,18 @@ export class PurchaseOrder {
 
   @Property({ type: 'json', nullable: true })
   history?: History[] | null
+
+  @Property({ type: 'integer', default: 1 })
+  revision: number = 1
+
+  @Property({ type: 'json', nullable: true })
+  revisions?: PoRevision[] | null
+
+  @Property({ name: 'short_closed_at', type: Date, nullable: true })
+  shortClosedAt?: Date | null
+
+  @Property({ name: 'short_close_reason', type: 'text', nullable: true })
+  shortCloseReason?: string | null
 
   @Property({ name: 'created_at', type: Date, onCreate: () => new Date() })
   createdAt: Date = new Date()
@@ -205,7 +222,7 @@ export class GoodsReceipt {
 @Index({ name: 'cc_grn_lines_grn_idx', properties: ['grnId'] })
 @Index({ name: 'cc_grn_lines_check_idx', properties: ['qcCheckId'] })
 export class GoodsReceiptLine {
-  [OptionalProps]?: 'poLineId' | 'rate' | 'gstPercent' | 'lotId' | 'mfgDate' | 'expiryDate' | 'qcCheckId' | 'qcStatus' | 'returnedQty' | 'createdAt' | 'updatedAt'
+  [OptionalProps]?: 'poLineId' | 'rate' | 'gstPercent' | 'lotId' | 'mfgDate' | 'expiryDate' | 'qcCheckId' | 'qcStatus' | 'qcAt' | 'qcByName' | 'qcByUserId' | 'returnedQty' | 'createdAt' | 'updatedAt'
 
   @PrimaryKey({ type: 'uuid', defaultRaw: 'gen_random_uuid()' })
   id!: string
@@ -260,6 +277,15 @@ export class GoodsReceiptLine {
 
   @Property({ name: 'qc_status', type: 'text', default: 'pending' })
   qcStatus: LineQc = 'pending'
+
+  @Property({ name: 'qc_at', type: Date, nullable: true })
+  qcAt?: Date | null
+
+  @Property({ name: 'qc_by_name', type: 'text', nullable: true })
+  qcByName?: string | null
+
+  @Property({ name: 'qc_by_user_id', type: 'uuid', nullable: true })
+  qcByUserId?: string | null
 
   @Property({ name: 'returned_qty', type: 'decimal', precision: 14, scale: 4, default: '0' })
   returnedQty: string = '0'

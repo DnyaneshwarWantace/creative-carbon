@@ -49,6 +49,7 @@ export const vendorCreateSchema = scopedSchema.extend({
 export const vendorUpdateSchema = z
   .object({
     id: uuid(),
+    reason: z.string().trim().max(500).optional().nullable(),
   })
   .merge(vendorCreateSchema.partial())
 

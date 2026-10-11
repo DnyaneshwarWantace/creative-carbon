@@ -6,7 +6,7 @@ import { ClipboardList, FileStack, Pencil, Printer, ShoppingCart } from 'lucide-
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { Button } from '@open-mercato/ui/primitives/button'
 import { StatusBadge, type StatusBadgeVariant } from '@open-mercato/ui/primitives/status-badge'
-import { apiCall } from '@open-mercato/ui/backend/utils/apiCall'
+import { apiCall, withScopedApiRequestHeaders } from '@open-mercato/ui/backend/utils/apiCall'
 import { useGranted } from '../../cc_departments/components/useGranted'
 import { FieldList, LinkRows, Panel, RecordColumns, RecordPage, RecordState, RegisterGrid, type Fact } from '../../cc_ui/components/RecordPage'
 import { recordHref } from '../../cc_ui/lib/links'
@@ -14,6 +14,10 @@ import { HISTORY_LABEL, day, qty } from './shared'
 import { Timeline } from '../../cc_ui/components/Timeline'
 import { Comments } from '../../cc_ui/components/Comments'
 import { Attachments } from '../../cc_ui/components/Attachments'
+import { CorrectDialog } from '../../cc_ui/components/CorrectDialog'
+import { Input } from '@open-mercato/ui/primitives/input'
+import { buildOptimisticLockHeader } from '@open-mercato/ui/backend/utils/optimisticLock'
+import { flash } from '@open-mercato/ui/backend/FlashMessages'
 
 type IndentStatus = 'submitted' | 'approved' | 'rejected' | 'ordered' | 'cancelled'
 
@@ -59,6 +63,8 @@ export function IndentPage({ indentId }: { indentId: string }) {
   const granted = useGranted()
   const [indent, setIndent] = React.useState<IndentView | null>(null)
   const [error, setError] = React.useState<string | null>(null)
+  const [editing, setEditing] = React.useState<Record<string, string> | null>(null)
+  const [confirming, setConfirming] = React.useState(false)
 
   React.useEffect(() => {
     void apiCall<IndentView>(`/api/cc_purchase/indents?id=${encodeURIComponent(indentId)}`).then((call) => {
@@ -66,6 +72,22 @@ export function IndentPage({ indentId }: { indentId: string }) {
       else setIndent(call.result)
     })
   }, [indentId, t])
+
+  const saveQuantities = async (reason: string): Promise<boolean> => {
+    if (!indent || !editing) return false
+    const lines = indent.lines.map((line) => ({ productId: line.productId, quantity: Number(editing[line.productId] ?? line.quantity) })).filter((line) => line.quantity > 0)
+    const call = await withScopedApiRequestHeaders(buildOptimisticLockHeader(indent.updatedAt), () =>
+      apiCall<IndentView & { error?: string }>('/api/cc_purchase/indents/action', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ id: indent.id, action: 'edit', lines, note: reason }) }),
+    )
+    if (!call.ok || !call.result || call.result.error) {
+      flash(call.result?.error ?? t('cc_purchase.indent.editError', 'Could not change the quantities.'), 'error')
+      return false
+    }
+    setIndent(call.result)
+    setEditing(null)
+    flash(t('cc_purchase.indent.edited', 'Quantities changed; the old ones are in the history'), 'success')
+    return true
+  }
 
   if (error || !indent) return <RecordState error={error} loadingLabel={t('cc_purchase.indent.loading', 'Loading indent…')} />
 
@@ -102,6 +124,23 @@ export function IndentPage({ indentId }: { indentId: string }) {
               {t('cc_purchase.indent.openInList', 'Approve / order in the list')}
             </Link>
           </Button>
+          {indent.status === 'submitted' && granted.has('cc_purchase.indent') ? (
+            editing ? (
+              <>
+                <Button type="button" variant="ghost" size="sm" onClick={() => setEditing(null)}>
+                  {t('common.cancel', 'Cancel')}
+                </Button>
+                <Button type="button" size="sm" onClick={() => setConfirming(true)}>
+                  {t('cc_purchase.indent.saveQty', 'Save quantities')}
+                </Button>
+              </>
+            ) : (
+              <Button type="button" variant="outline" size="sm" onClick={() => setEditing(Object.fromEntries(indent.lines.map((line) => [line.productId, String(line.quantity)])))}>
+                <Pencil className="mr-1.5 h-4 w-4" aria-hidden="true" />
+                {t('cc_purchase.indent.editQty', 'Change quantities')}
+              </Button>
+            )
+          ) : null}
           {indent.status === 'approved' && granted.has('cc_purchase.manage') ? (
             <Button asChild size="sm">
               <Link href={poHref(indent)}>
@@ -128,7 +167,17 @@ export function IndentPage({ indentId }: { indentId: string }) {
                   { key: 'item', label: t('cc_purchase.indent.item', 'Item'), render: (line) => line.title },
                   { key: 'code', label: t('cc_purchase.indent.code', 'Code'), mono: true, render: (line) => line.code ?? '—' },
                   { key: 'note', label: t('cc_purchase.indent.note', 'Note'), render: (line) => line.note ?? '—' },
-                  { key: 'qty', label: t('cc_purchase.indent.qty', 'Qty'), align: 'right', render: (line) => qty(line.quantity, line.unit) },
+                  {
+                    key: 'qty',
+                    label: t('cc_purchase.indent.qty', 'Qty'),
+                    align: 'right',
+                    render: (line) =>
+                      editing ? (
+                        <Input type="number" min={0} step="any" className="ml-auto h-8 w-28 text-right" value={editing[line.productId] ?? ''} onChange={(event) => setEditing((prev) => ({ ...(prev ?? {}), [line.productId]: event.target.value }))} aria-label={line.title} />
+                      ) : (
+                        qty(line.quantity, line.unit)
+                      ),
+                  },
                 ]}
               />
             </Panel>
@@ -165,7 +214,16 @@ export function IndentPage({ indentId }: { indentId: string }) {
       />
       <Attachments type="indent" id={indent.id} />
       <Comments type="indent" id={indent.id} />
-      <Timeline type="indent" id={indent.id} refreshKey={indent.history.length} />
+      <Timeline type="indent" id={indent.id} refreshKey={indent.updatedAt} />
+      <CorrectDialog
+        open={confirming}
+        onOpenChange={setConfirming}
+        destructive={false}
+        title={t('cc_purchase.indent.editTitle', 'Change the quantities?')}
+        undo={[t('cc_purchase.indent.editKeep', 'The old quantities stay in the history'), t('cc_purchase.indent.editZero', 'A line set to 0 is taken off the indent')]}
+        confirmLabel={t('cc_purchase.indent.saveQty', 'Save quantities')}
+        onConfirm={saveQuantities}
+      />
     </RecordPage>
   )
 }

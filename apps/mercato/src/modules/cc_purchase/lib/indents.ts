@@ -62,6 +62,35 @@ export async function createIndent(ctx: OrderContext, input: IndentInput): Promi
   return indent
 }
 
+export async function editIndentLines(ctx: OrderContext, indent: PurchaseIndent, lines: Array<{ productId: string; quantity: number }>, reason: string) {
+  if (indent.status !== 'submitted') throw new PurchaseError(indent.status === 'approved' ? 'This indent is approved. Quantities can no longer change; cancel it and raise a new one.' : 'This indent is closed', 409)
+  const products = await loadProducts(ctx, [...indent.lines.map((line) => line.productId), ...lines.map((line) => line.productId)])
+  const name = (id: string) => products.get(id)?.title ?? 'Material'
+  const changes: Array<{ field: string; label: string; from: number | null; to: number | null }> = []
+  const next = indent.lines
+    .filter((line) => lines.some((wanted) => wanted.productId === line.productId))
+    .map((line) => {
+      const wanted = lines.find((entry) => entry.productId === line.productId)!
+      if (Number(wanted.quantity) !== Number(line.quantity)) changes.push({ field: `line:${line.productId}`, label: `${name(line.productId)} qty`, from: Number(line.quantity), to: Number(wanted.quantity) })
+      return { ...line, quantity: Number(wanted.quantity) }
+    })
+  for (const line of indent.lines) if (!lines.some((wanted) => wanted.productId === line.productId)) changes.push({ field: `line:${line.productId}`, label: `${name(line.productId)} qty`, from: Number(line.quantity), to: null })
+  for (const wanted of lines) {
+    if (indent.lines.some((line) => line.productId === wanted.productId)) continue
+    if (!products.has(wanted.productId) || !PURCHASED_KINDS.has((products.get(wanted.productId)?.kind ?? '') as ProductKind)) throw new PurchaseError('Only raw or packing material can be indented')
+    next.push({ productId: wanted.productId, quantity: Number(wanted.quantity), unit: products.get(wanted.productId)?.unit ?? null, note: null })
+    changes.push({ field: `line:${wanted.productId}`, label: `${name(wanted.productId)} qty`, from: null, to: Number(wanted.quantity) })
+  }
+  if (!changes.length) throw new PurchaseError('Nothing changed')
+  const byName = await currentUserName(ctx)
+  indent.lines = next
+  stamp(indent, 'edited', byName, reason)
+  indent.updatedAt = new Date()
+  const { recordActivity } = await import('../../cc_audit/lib/activity')
+  recordActivity(ctx.em, ctx, { recordType: 'indent', recordId: indent.id, action: 'edited', kind: 'change', summary: 'Quantities changed before approval', reason, changes, actorUserId: ctx.userId ?? null, actorName: byName })
+  await ctx.em.flush()
+}
+
 export async function actOnIndent(ctx: OrderContext, indent: PurchaseIndent, action: 'approve' | 'reject' | 'cancel', note: string | null) {
   const byName = await currentUserName(ctx)
   if (action === 'approve') {

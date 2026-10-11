@@ -112,9 +112,10 @@ export const indentInputSchema = z.object({
 
 export const indentActionSchema = z.object({
   id: z.string().uuid(),
-  action: z.enum(['approve', 'reject', 'cancel']),
+  action: z.enum(['approve', 'reject', 'cancel', 'edit']),
   note: z.string().trim().max(1000).optional().nullable(),
-}).superRefine(requireReasonFor(['reject', 'cancel'], 'note'))
+  lines: z.array(z.object({ productId: z.string().uuid(), quantity: z.coerce.number().positive().max(100_000_000) })).min(1).max(200).optional(),
+}).superRefine(requireReasonFor(['reject', 'cancel', 'edit'], 'note'))
 
 export const indentListSchema = z.object({
   id: z.string().uuid().optional(),
