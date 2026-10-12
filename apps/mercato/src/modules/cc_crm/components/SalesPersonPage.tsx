@@ -15,7 +15,8 @@ import { LinkRows, Panel, RecordColumns, RecordPage, RecordState, formatDay, typ
 import { Timeline } from '../../cc_ui/components/Timeline'
 import { Comments } from '../../cc_ui/components/Comments'
 import { CorrectDialog } from '../../cc_ui/components/CorrectDialog'
-import { QUOTE_LABEL, QUOTE_VARIANT, STAGE_LABEL, STAGE_VARIANT, type EnquiryStage, type QuotationStatus } from './types'
+import { stageBadge, useStages } from './pipeline/stageUi'
+import { QUOTE_LABEL, QUOTE_VARIANT, type EnquiryStage, type QuotationStatus } from './types'
 
 type Person = {
   id: string
@@ -38,6 +39,7 @@ const ROLE_LABEL: Record<string, string> = { manager: 'CRM manager', sales: 'Sal
 
 export function SalesPersonPage({ id }: { id: string }) {
   const t = useT()
+  const { stages } = useStages()
   const granted = useGranted()
   const canTeam = granted.has('cc_crm.team')
   const [person, setPerson] = React.useState<Person | null>(null)
@@ -109,7 +111,7 @@ export function SalesPersonPage({ id }: { id: string }) {
                   secondary: [row.partyName, row.subject].filter(Boolean).join(' · '),
                   valueHint: row.nextActionOn ? formatDay(row.nextActionOn) : undefined,
                   value: '',
-                  badge: <StatusBadge variant={STAGE_VARIANT[row.stage]}>{t(`cc_crm.stage.${row.stage}`, STAGE_LABEL[row.stage])}</StatusBadge>,
+                  badge: <StatusBadge variant={stageBadge(stages, row.stage).variant}>{stageBadge(stages, row.stage).label}</StatusBadge>,
                 }))}
               />
             </Panel>

@@ -25,10 +25,12 @@ export const viewport: Viewport = {
   initialScale: 1,
   viewportFit: 'cover',
   themeColor: [
-    { media: '(prefers-color-scheme: light)', color: '#1a1d21' },
+    { media: '(prefers-color-scheme: light)', color: '#ffffff' },
     { media: '(prefers-color-scheme: dark)', color: '#0b0d10' },
   ],
 }
+
+import { THEME_INIT_SCRIPT } from '@open-mercato/ui/theme/theme-init-script'
 
 export default async function RootLayout({
   children,
@@ -41,8 +43,9 @@ export default async function RootLayout({
   const demoModeEnabled = process.env.DEMO_MODE !== 'false'
   const noticeBarsEnabled = process.env.OM_INTEGRATION_TEST !== 'true'
   return (
-    <html lang={locale} className={`light ${ccSans.variable} ${ccMono.variable}`} suppressHydrationWarning>
+    <html lang={locale} className={`${ccSans.variable} ${ccMono.variable}`} suppressHydrationWarning>
       <body className="antialiased bg-background text-foreground" suppressHydrationWarning data-gramm="false">
+        <script id="om-theme-init" dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
         <AppProviders locale={locale} dict={dict} localeLocked={localeLocked} demoModeEnabled={demoModeEnabled} noticeBarsEnabled={noticeBarsEnabled}>
           {children}
         </AppProviders>

@@ -8,7 +8,7 @@ export const CRM_FEATURE = 'cc_crm.view'
 export const ERP_FEATURE = 'cc_departments.erp'
 
 export const CRM_PREFIXES = ['/backend/crm', '/backend/customers', '/backend/orders/new', '/backend/work/sales', '/backend/masters/prices']
-const SHARED_PATTERNS = [/^\/backend\/orders\/[0-9a-f-]{36}(\/.*)?$/i, /^\/backend\/profile(\/.*)?$/, /^\/backend\/notifications(\/.*)?$/]
+const SHARED_PATTERNS = [/^\/backend\/orders\/[0-9a-f-]{36}(\/.*)?$/i, /^\/backend\/customers\/companies\/[0-9a-f-]{36}(\/.*)?$/i, /^\/backend\/profile(\/.*)?$/, /^\/backend\/notifications(\/.*)?$/]
 
 function under(path: string, prefix: string): boolean {
   return path === prefix || path.startsWith(`${prefix}/`)

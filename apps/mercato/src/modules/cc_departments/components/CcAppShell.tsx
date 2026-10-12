@@ -13,6 +13,7 @@ import { usePlantPwa } from '../../cc_production/components/offline'
 type AppShellProps = React.ComponentProps<typeof AppShell>
 
 const SEEDED_KEY = 'cc:sidebarFolded'
+const LAST_WORKSPACE_KEY = 'cc:lastWorkspace'
 
 function useFoldSidebarOnFirstVisit(pathname: string | null) {
   React.useEffect(() => {
@@ -73,8 +74,22 @@ export function CcAppShell({ adminNavApi, rightHeaderSlot, productName, children
   const router = useRouter()
   useFoldSidebarOnFirstVisit(pathname)
   const access = workspaceAccess
-  const workspace = workspaceOf(pathname, access)
   const kind = pathKind(pathname)
+  const [cameFrom, setCameFrom] = React.useState<Workspace | null>(null)
+  React.useEffect(() => {
+    try {
+      if (kind === 'shared') {
+        const stored = window.sessionStorage.getItem(LAST_WORKSPACE_KEY)
+        setCameFrom(stored === 'crm' || stored === 'erp' ? stored : null)
+      } else {
+        window.sessionStorage.setItem(LAST_WORKSPACE_KEY, kind)
+        setCameFrom(null)
+      }
+    } catch {
+      setCameFrom(null)
+    }
+  }, [kind])
+  const workspace: Workspace = kind === 'shared' && cameFrom && access[cameFrom] ? cameFrom : workspaceOf(pathname, access)
   const allowed = allowedOn(kind, access)
   const home = homeFor(access)
   const redirectTo = !allowed && home && home !== pathname ? home : null

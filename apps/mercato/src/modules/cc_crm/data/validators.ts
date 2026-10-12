@@ -38,7 +38,8 @@ export const enquiryActionSchema = z.object({
   kind: z.enum(['call', 'visit', 'sample', 'quote_chase', 'other']).optional().nullable(),
   ownerName: text(120),
   reason: text(500),
-  stage: z.enum(ENQUIRY_STAGES).optional(),
+  stage: z.string().trim().min(1).max(60).optional(),
+  answers: z.record(z.string(), z.union([z.string().max(1000), z.number(), z.boolean(), z.null()])).optional(),
   lostReason: text(200),
   nextActionOn: isoDate.optional().nullable(),
   nextActionNote: text(500),
@@ -47,7 +48,7 @@ export const enquiryActionSchema = z.object({
 
 export const enquiryListSchema = z.object({
   id: z.string().uuid().optional(),
-  stage: z.enum([...ENQUIRY_STAGES, 'open', 'overdue', 'all']).default('open'),
+  stage: z.string().trim().min(1).max(60).default('open'),
   search: z.string().trim().max(200).optional(),
 })
 

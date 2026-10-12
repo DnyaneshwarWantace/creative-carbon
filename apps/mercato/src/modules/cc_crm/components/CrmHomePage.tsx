@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 import Link from 'next/link'
-import { AlarmClock, CalendarCheck, FileClock, Plus } from 'lucide-react'
+import { AlarmClock, CalendarCheck, FileClock, KanbanSquare, Plus } from 'lucide-react'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { cn } from '@open-mercato/shared/lib/utils'
 import { Page, PageBody } from '@open-mercato/ui/backend/Page'
@@ -11,7 +11,7 @@ import { Button } from '@open-mercato/ui/primitives/button'
 import { apiCall } from '@open-mercato/ui/backend/utils/apiCall'
 import { useGranted } from '../../cc_departments/components/useGranted'
 import { formatDate, formatQty } from '../../cc_orders/components/format'
-import { STAGE_LABEL, type EnquiryStage } from './types'
+import { TONE_DOT, useStages } from './pipeline/stageUi'
 import { PageLoading } from '../../cc_ui/components/PageLoading'
 import { CorrectionsPanel } from '../../cc_ui/components/CorrectionsPanel'
 
@@ -25,8 +25,6 @@ type Dashboard = {
   dueToday: FollowUp[]
   expiring: Array<{ id: string; quoteNo: string; customerName: string; validUntil: string | null; status: string; currency: string; totalAmount: number }>
 }
-
-const PIPELINE: EnquiryStage[] = ['new', 'quoted', 'negotiating', 'won', 'lost']
 
 function Panel({ title, count, icon, tone, children }: { title: string; count: number; icon: React.ReactNode; tone?: 'error'; children: React.ReactNode }) {
   return (
@@ -63,6 +61,7 @@ export function CrmHomePage() {
   const t = useT()
   const granted = useGranted()
   const [data, setData] = React.useState<Dashboard | null>(null)
+  const { stages } = useStages()
 
   React.useEffect(() => {
     apiCall<Dashboard>('/api/cc_crm/dashboard').then((call) => setData(call.ok ? (call.ok ? (call.result ?? null) : null) : null))
@@ -78,7 +77,13 @@ export function CrmHomePage() {
               <p className="text-sm text-muted-foreground">{t('cc_crm.home.subtitle', 'Enquiries, follow-ups and quotations. Orders booked here are worked by Accounts, store, QC and despatch in the ERP.')}</p>
             </div>
             {granted.has('cc_crm.manage') ? (
-              <div className="flex gap-2">
+              <div className="flex flex-wrap gap-2">
+                <Button asChild variant="outline">
+                  <Link href="/backend/crm/pipeline">
+                    <KanbanSquare className="mr-1.5 h-4 w-4" />
+                    {t('cc_crm.pipeline.open', 'Pipeline board')}
+                  </Link>
+                </Button>
                 <Button asChild variant="outline">
                   <Link href="/backend/crm/quotations/new">{t('cc_crm.quotations.new', 'New quotation')}</Link>
                 </Button>
@@ -95,27 +100,38 @@ export function CrmHomePage() {
             <PageLoading label={t('cc_crm.loading', 'Loading…')} />
           ) : (
             <>
-              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
-                {PIPELINE.map((stage) => (
-                  <Link key={stage} href={`/backend/crm/enquiries?stage=${stage}`} className="rounded-xl border bg-card p-4 shadow-xs hover:bg-accent/40">
-                    <div className="text-xs text-muted-foreground">{t(`cc_crm.stage.${stage}`, STAGE_LABEL[stage])}</div>
-                    <div className="text-2xl font-bold tabular-nums">{data.pipeline[stage] ?? 0}</div>
-                    {stage === 'won' || stage === 'lost' ? <div className="text-xs text-muted-foreground">{t('cc_crm.home.thisMonth', '{count} this month', { count: data.month[stage] ?? 0 })}</div> : null}
+              <section className="rounded-xl border bg-card p-4 shadow-xs">
+                <div className="mb-3 flex items-center justify-between gap-2">
+                  <h2 className="text-sm font-semibold">{t('cc_crm.home.pipeline', 'Pipeline')}</h2>
+                  <Link href="/backend/crm/pipeline" className="text-xs font-medium text-primary underline-offset-2 hover:underline">
+                    {t('cc_crm.home.openBoard', 'Open the board')}
                   </Link>
-                ))}
-                <Link href="/backend/crm/quotations" className="rounded-xl border bg-card p-4 shadow-xs hover:bg-accent/40">
-                  <div className="text-xs text-muted-foreground">{t('cc_crm.home.openQuotes', 'Open quotations')}</div>
-                  {data.openQuotes.length ? (
-                    data.openQuotes.map((row) => (
-                      <div key={row.currency} className="text-sm font-semibold tabular-nums">
-                        {row.currency} {formatQty(row.total, 0)} <span className="text-xs font-normal text-muted-foreground">({row.count})</span>
+                </div>
+                <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
+                  {(stages ?? []).map((stage, index) => (
+                    <Link key={stage.key} href={`/backend/crm/enquiries?stage=${stage.key}`} className="group relative rounded-lg border border-border bg-background p-3 hover:border-primary">
+                      <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                        <span className={cn('h-2 w-2 shrink-0 rounded-full', TONE_DOT[stage.tone] ?? TONE_DOT.neutral)} aria-hidden="true" />
+                        <span className="truncate">{stage.kind === 'open' ? `${index + 1}. ` : ''}{stage.label}</span>
                       </div>
-                    ))
-                  ) : (
-                    <div className="text-2xl font-bold">0</div>
-                  )}
-                </Link>
-              </div>
+                      <div className="mt-1 text-2xl font-bold tabular-nums group-hover:text-primary">{data.pipeline[stage.key] ?? 0}</div>
+                      {stage.kind !== 'open' ? <div className="text-xs text-muted-foreground">{t('cc_crm.home.thisMonth', '{count} this month', { count: data.month[stage.key] ?? 0 })}</div> : null}
+                    </Link>
+                  ))}
+                  <Link href="/backend/crm/quotations" className="rounded-lg border border-border bg-background p-3 hover:border-primary">
+                    <div className="text-xs text-muted-foreground">{t('cc_crm.home.openQuotes', 'Open quotations')}</div>
+                    {data.openQuotes.length ? (
+                      data.openQuotes.map((row) => (
+                        <div key={row.currency} className="mt-1 text-sm font-semibold tabular-nums">
+                          {row.currency} {formatQty(row.total, 0)} <span className="text-xs font-normal text-muted-foreground">({row.count})</span>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="mt-1 text-2xl font-bold">0</div>
+                    )}
+                  </Link>
+                </div>
+              </section>
               <CorrectionsPanel scope="crm" />
               <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
                 <Panel title={t('cc_crm.home.overdueTitle', 'Follow-ups overdue')} count={data.overdue.length} icon={<AlarmClock className="h-4 w-4" aria-hidden="true" />} tone={data.overdue.length ? 'error' : undefined}>

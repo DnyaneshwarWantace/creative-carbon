@@ -864,114 +864,50 @@ footer.backdrop-blur.justify-end {
   display: none;
 }
 
-/* ── Creative Carbon · "Carbon & copper" theme ─────────────────────────────
-   Carbon-grey surfaces, a warm copper accent, sharper corners, Archivo text and
-   IBM Plex Mono figures. Overrides the stock platform tokens so the app does not
-   look like any other Open Mercato install. */
+/* ── Creative Carbon: page building blocks (keep the platform colours; brand blue accent) ── */
 :root {
   --font-geist-sans: var(--cc-font-sans), ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
   --font-geist-mono: var(--cc-font-mono), ui-monospace, "SF Mono", Menlo, monospace;
-  --radius: 0.375rem;
-
-  --cc-carbon: oklch(0.205 0.008 250);
-  --cc-carbon-2: oklch(0.255 0.01 250);
-  --cc-carbon-3: oklch(0.315 0.012 250);
-  --cc-carbon-line: oklch(0.36 0.012 250);
-  --cc-copper: oklch(0.62 0.115 55);
-  --cc-copper-strong: oklch(0.53 0.115 52);
-  --cc-copper-soft: oklch(0.955 0.025 65);
-  --cc-steel: oklch(0.58 0.02 250);
-
-  --background: oklch(0.972 0.004 75);
-  --foreground: oklch(0.205 0.008 250);
-  --card: oklch(0.995 0.002 75);
-  --card-foreground: oklch(0.205 0.008 250);
-  --popover: oklch(0.995 0.002 75);
-  --popover-foreground: oklch(0.205 0.008 250);
-  --primary: oklch(0.53 0.115 52);
-  --primary-foreground: oklch(0.99 0 0);
-  --primary-hover: oklch(0.47 0.11 50);
-  --secondary: oklch(0.94 0.006 75);
-  --secondary-foreground: oklch(0.205 0.008 250);
-  --muted: oklch(0.945 0.006 75);
-  --muted-foreground: oklch(0.47 0.012 250);
-  --accent: oklch(0.94 0.018 65);
-  --accent-foreground: oklch(0.32 0.06 50);
-  --border: oklch(0.885 0.008 70);
-  --input: oklch(0.86 0.008 70);
-  --ring: oklch(0.62 0.115 55);
-
-  --sidebar: var(--cc-carbon);
-  --sidebar-foreground: oklch(0.9 0.006 75);
-  --sidebar-primary: var(--cc-copper);
-  --sidebar-primary-foreground: oklch(0.99 0 0);
-  --sidebar-accent: var(--cc-carbon-2);
-  --sidebar-accent-foreground: oklch(0.97 0.004 75);
-  --sidebar-border: var(--cc-carbon-line);
-  --sidebar-ring: var(--cc-copper);
-}
-
-/* Sidebar: carbon panel, copper marker on the active item. */
-.cc-shell > * > * > aside {
-  --background: var(--cc-carbon);
-  --foreground: oklch(0.97 0.004 75);
-  --muted: var(--cc-carbon-2);
-  --muted-foreground: oklch(0.74 0.01 250);
-  --border: var(--cc-carbon-line);
-  --input: var(--cc-carbon-line);
-  --accent: var(--cc-carbon-2);
-  --accent-foreground: oklch(0.97 0.004 75);
-  --card: var(--cc-carbon-2);
-  --popover: var(--cc-carbon-2);
-  --popover-foreground: oklch(0.97 0.004 75);
-  background: var(--cc-carbon);
-  color: oklch(0.97 0.004 75);
-  border-right-color: var(--cc-carbon);
-}
-.cc-shell > * > * > aside nav[data-testid='sidebar'] a span.bg-foreground {
-  background: var(--cc-copper);
-}
-.cc-shell > * > * > aside nav[data-testid='sidebar'] a.bg-muted {
-  background: var(--cc-carbon-3);
-  color: oklch(0.99 0 0);
-}
-.cc-shell > * > * > aside input {
-  background: var(--cc-carbon-2);
-  color: oklch(0.95 0.004 75);
-}
-
-/* Top bar: light, with a copper rule under it. */
-.cc-shell > * > * > * > header.sticky {
-  background: oklch(0.995 0.002 75 / 0.92);
-  backdrop-filter: blur(6px);
-  border-bottom: 1px solid var(--border);
-  box-shadow: inset 0 -2px 0 var(--cc-copper);
-}
-
-/* Numbers read like a plant register. */
-.cc-shell .font-mono,
-.cc-shell .tabular-nums {
-  font-variant-numeric: tabular-nums slashed-zero;
+  --cc-carbon: oklch(0.255 0.03 255);
+  --cc-carbon-2: oklch(0.3 0.035 255);
+  --cc-carbon-3: oklch(0.35 0.04 255);
+  --cc-carbon-line: oklch(0.4 0.04 255);
+  --cc-accent: oklch(0.5 0.12 255);
+  --cc-accent-bright: oklch(0.72 0.12 245);
+  --cc-accent-soft: oklch(0.95 0.025 250);
 }
 
 /* ── Creative Carbon building blocks ── */
 .cc-band {
-  --background: var(--cc-carbon);
-  --foreground: oklch(0.97 0.004 75);
-  --muted: var(--cc-carbon-2);
-  --muted-foreground: oklch(0.76 0.01 250);
-  --border: var(--cc-carbon-line);
-  --input: var(--cc-carbon-line);
-  --accent: var(--cc-carbon-3);
-  --accent-foreground: oklch(0.99 0 0);
-  --card: var(--cc-carbon-2);
-  --card-foreground: oklch(0.97 0.004 75);
-  background:
-    linear-gradient(135deg, oklch(1 0 0 / 0.035) 25%, transparent 25%) 0 0 / 6px 6px,
-    var(--cc-carbon);
-  color: oklch(0.97 0.004 75);
+  --background: oklch(1 0 0);
+  --foreground: oklch(0.18 0.008 250);
+  --muted: oklch(0.97 0.005 70);
+  --muted-foreground: oklch(0.47 0.012 250);
+  --border: oklch(0.90 0.008 70);
+  --input: oklch(0.88 0.008 70);
+  --accent: oklch(0.96 0.012 65);
+  --accent-foreground: oklch(0.25 0.008 250);
+  --card: oklch(0.98 0.004 70);
+  --card-foreground: oklch(0.18 0.008 250);
+  background: oklch(1 0 0);
+  color: oklch(0.18 0.008 250);
   border-radius: var(--radius);
-  box-shadow: inset 0 -3px 0 var(--cc-copper);
+  border: 1px solid oklch(0.90 0.008 70);
+  box-shadow: 0 1px 4px rgb(0 0 0 / 0.05), inset 0 -3px 0 var(--cc-accent);
+}
+.dark .cc-band {
+  --background: oklch(0.205 0.008 250);
+  --foreground: oklch(0.97 0.004 75);
+  --muted: oklch(0.255 0.01 250);
+  --muted-foreground: oklch(0.65 0.01 250);
+  --border: oklch(0.32 0.012 250);
+  --input: oklch(0.30 0.012 250);
+  --card: oklch(0.235 0.01 250);
+  --card-foreground: oklch(0.97 0.004 75);
+  background: oklch(0.205 0.008 250);
+  color: oklch(0.97 0.004 75);
+  border-color: oklch(0.32 0.012 250);
+  box-shadow: 0 1px 4px rgb(0 0 0 / 0.25), inset 0 -3px 0 var(--cc-accent);
 }
 .cc-overline {
   font-family: var(--font-geist-mono);
@@ -979,7 +915,7 @@ footer.backdrop-blur.justify-end {
   font-weight: 600;
   letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: var(--cc-copper);
+  color: var(--cc-accent);
 }
 .cc-figure {
   font-family: var(--font-geist-mono);
@@ -994,8 +930,12 @@ footer.backdrop-blur.justify-end {
   padding: 0.625rem 0.75rem;
 }
 .cc-band .cc-tile {
-  background: oklch(1 0 0 / 0.04);
-  border-color: var(--cc-carbon-line);
+  background: oklch(0.98 0.005 70);
+  border-color: oklch(0.88 0.008 70);
+}
+.dark .cc-band .cc-tile {
+  background: oklch(0.235 0.01 250);
+  border-color: oklch(0.32 0.012 250);
 }
 
 /* Stage rail: numbered nodes on a line. */
@@ -1013,13 +953,14 @@ footer.backdrop-blur.justify-end {
   color: var(--muted-foreground);
   transition: transform 120ms ease;
 }
-.cc-rail-node[data-status='done'] { background: var(--cc-copper); border-color: var(--cc-copper); color: oklch(0.99 0 0); }
+.cc-rail-node[data-status='done'] { background: var(--cc-accent); border-color: var(--cc-accent); color: oklch(0.99 0 0); }
 .cc-rail-node[data-status='skipped'] { background: var(--muted); border-color: var(--border); color: var(--muted-foreground); }
-.cc-rail-node[data-status='open'] { background: var(--cc-carbon); border-color: var(--cc-copper); color: oklch(0.99 0 0); box-shadow: 0 0 0 4px var(--cc-copper-soft); }
+.cc-rail-node[data-status='open'] { background: var(--cc-accent); border-color: var(--cc-accent); color: oklch(0.99 0 0); box-shadow: 0 0 0 4px var(--cc-accent-soft); }
 .cc-rail-node[data-status='on_hold'] { background: var(--status-error-solid); border-color: var(--status-error-solid); color: oklch(0.99 0 0); }
 .cc-rail-node[data-status='waiting'] { border-style: dashed; }
 .cc-rail-line { height: 3px; border-radius: 9999px; background: var(--border); }
-.cc-rail-line[data-done='true'] { background: var(--cc-copper); }
-.cc-text-copper { color: var(--cc-copper); }
-.cc-link { font-weight: 600; text-decoration: underline; text-decoration-color: var(--cc-copper); text-decoration-thickness: 2px; text-underline-offset: 4px; }
-.cc-link:hover { color: var(--cc-copper); }
+.cc-rail-line[data-done='true'] { background: var(--cc-accent); }
+.cc-text-accent { color: var(--cc-accent); }
+.cc-band .cc-text-accent, .cc-band .cc-overline { color: var(--cc-accent-bright); }
+.cc-link { font-weight: 600; text-decoration: underline; text-decoration-color: var(--cc-accent); text-decoration-thickness: 2px; text-underline-offset: 4px; }
+.cc-link:hover { color: var(--cc-accent); }

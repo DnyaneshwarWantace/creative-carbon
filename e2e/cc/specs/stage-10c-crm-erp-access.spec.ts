@@ -119,7 +119,7 @@ test.describe.serial('CRM and ERP access: separate sides, one login', () => {
     expect((await manager.get('/backend/crm/lists')).status()).toBe(200)
     expect((await manager.get('/backend/crm/team')).status()).toBe(200)
     const nav = (await (await manager.get('/api/cc_departments/nav?workspace=crm')).json()) as { groups: Array<{ name: string; items: Array<{ title: string }> }> }
-    expect(nav.groups.map((group) => group.name)).toEqual(['Overview', 'Sales pipeline', 'Customers & orders', 'CRM settings'])
+    expect(nav.groups.map((group) => group.name)).toEqual(['Overview', 'Sales', 'Orders', 'CRM settings'])
     expect(nav.groups.find((group) => group.name === 'CRM settings')!.items.map((item) => item.title)).toEqual(expect.arrayContaining(['Dropdown lists', 'Team & access']))
     await manager.dispose()
     const sales = await loginAs(playwright, crmEmail, 'Next!Pass9word')

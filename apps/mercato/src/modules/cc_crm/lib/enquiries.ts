@@ -6,6 +6,7 @@ import type { EnquiryAction, EnquiryInput } from '../data/validators'
 import { CrmError, entry, todayIst } from './server'
 import { closePlanned, followUpAction, planFollowUp, syncEnquiryNext } from './followUps'
 import { diffFields, recordActivity } from '../../cc_audit/lib/activity'
+import { CLOSED_STAGES, checkAnswers, stageByKey, stagePositions } from './stages'
 
 const REOPEN_DAYS = 90
 
@@ -32,14 +33,14 @@ function enquiryFields(row: CcEnquiry): Record<string, unknown> {
   return { source: row.source, customerId: row.customerId ?? null, companyName: row.companyName ?? null, contactName: row.contactName ?? null, phone: row.phone ?? null, email: row.email ?? null, place: row.place ?? null, subject: row.subject, details: row.details ?? null, ownerName: row.ownerName ?? null }
 }
 
-const OPEN_STAGES: EnquiryStage[] = ['new', 'quoted', 'negotiating']
+const isOpenStage = (stage: string) => !CLOSED_STAGES.includes(stage)
 
 function scope(ctx: OrderContext) {
   return { tenantId: ctx.tenantId, organizationId: ctx.organizationId }
 }
 
 export function isOverdue(row: Pick<CcEnquiry, 'stage' | 'nextActionOn'>, today = todayIst()): boolean {
-  return OPEN_STAGES.includes(row.stage) && Boolean(row.nextActionOn) && String(row.nextActionOn) < today
+  return isOpenStage(row.stage) && Boolean(row.nextActionOn) && String(row.nextActionOn) < today
 }
 
 export function enquiryView(row: CcEnquiry, customerName: string | null) {
@@ -63,6 +64,7 @@ export function enquiryView(row: CcEnquiry, customerName: string | null) {
     nextActionOn: row.nextActionOn ?? null,
     nextActionNote: row.nextActionNote ?? null,
     lostReason: row.lostReason ?? null,
+    stageAnswers: row.stageAnswers ?? {},
     orderId: row.orderId ?? null,
     overdue: isOverdue(row),
     byName: row.byName ?? null,
@@ -170,16 +172,37 @@ export async function saveEnquiry(ctx: OrderContext, existing: CcEnquiry | null,
 export async function enquiryAction(ctx: OrderContext, row: CcEnquiry, action: EnquiryAction, byName: string | null) {
   if (action.action === 'stage') {
     if (!action.stage) throw new CrmError('Pick the stage')
-    if (action.stage === 'lost' && !action.lostReason) throw new CrmError('Pick why the enquiry was lost')
+    if (action.stage === row.stage) throw new CrmError('The enquiry is already in that stage', 409)
+    const target = await stageByKey(ctx, action.stage)
+    const given = { ...(action.answers ?? {}), ...(action.stage === 'lost' && action.lostReason && !action.answers?.lost_reason ? { lost_reason: action.lostReason } : {}) }
+    const answers = checkAnswers(target, given)
+    const lostReason = action.stage === 'lost' ? String(answers.lost_reason ?? action.lostReason ?? '').trim() : ''
+    if (action.stage === 'lost' && !lostReason) throw new CrmError('Pick why the enquiry was lost')
     const from = row.stage
+    const fromLabel = (await stageByKey(ctx, from).catch(() => null))?.label ?? from
     row.stage = action.stage
-    row.lostReason = action.stage === 'lost' ? action.lostReason : null
+    row.lostReason = action.stage === 'lost' ? lostReason : null
+    row.stageAnswers = { ...(row.stageAnswers ?? {}), [action.stage]: { answers, at: new Date().toISOString(), by: byName } }
     if (action.stage === 'won' || action.stage === 'lost') {
       row.nextActionOn = null
       row.nextActionNote = null
       await closePlanned(ctx, row.id, `Enquiry ${action.stage}`, byName)
     }
-    row.history = [...(row.history ?? []), entry('stage', byName, [`${from} → ${action.stage}`, action.lostReason, action.note].filter(Boolean).join(' · '))]
+    const answered = target.questions.filter((question) => answers[question.key] !== null && answers[question.key] !== '')
+    row.history = [...(row.history ?? []), entry('stage', byName, [`${from} → ${action.stage}`, ...answered.map((question) => `${question.label}: ${answers[question.key] === true ? 'Yes' : answers[question.key] === false ? 'No' : answers[question.key]}`), action.note].filter(Boolean).join(' · '))]
+    recordActivity(ctx.em, ctx, {
+      recordType: 'enquiry',
+      recordId: row.id,
+      action: 'stage_moved',
+      kind: 'stage',
+      summary: `${fromLabel} → ${target.label}`,
+      changes: [
+        { field: 'stage', label: 'Stage', from: fromLabel, to: target.label },
+        ...answered.map((question) => ({ field: `answers.${question.key}`, label: question.label, from: null, to: answers[question.key] })),
+      ],
+      actorUserId: ctx.userId ?? null,
+      actorName: byName,
+    })
   } else if (action.action === 'follow_up') {
     if (!action.nextActionOn) throw new CrmError('Pick the next follow-up date')
     const note = action.nextActionNote ?? action.note ?? null
@@ -249,8 +272,8 @@ export async function markEnquiry(ctx: OrderContext, enquiryId: string | null | 
   if (!enquiryId) return
   const row = await ctx.em.findOne(CcEnquiry, { id: enquiryId, ...scope(ctx), deletedAt: null })
   if (!row) return
-  const order = ['new', 'quoted', 'negotiating', 'won', 'lost']
-  if (stage !== 'won' && order.indexOf(row.stage) >= order.indexOf(stage)) return
+  const positions = await stagePositions(ctx)
+  if (stage !== 'won' && (positions.get(row.stage) ?? 0) >= (positions.get(stage) ?? 0)) return
   row.stage = stage
   if (orderId) row.orderId = orderId
   if (stage === 'won') {
@@ -265,8 +288,8 @@ export async function markEnquiry(ctx: OrderContext, enquiryId: string | null | 
 export async function listEnquiries(ctx: OrderContext, query: { stage: string; search?: string }) {
   const today = todayIst()
   const where: Record<string, unknown> = { ...scope(ctx), deletedAt: null }
-  if (query.stage === 'open') where.stage = { $in: OPEN_STAGES }
-  else if (query.stage === 'overdue') Object.assign(where, { stage: { $in: OPEN_STAGES }, nextActionOn: { $lt: today, $ne: null } })
+  if (query.stage === 'open') where.stage = { $nin: CLOSED_STAGES }
+  else if (query.stage === 'overdue') Object.assign(where, { stage: { $nin: CLOSED_STAGES }, nextActionOn: { $lt: today, $ne: null } })
   else if (query.stage !== 'all') where.stage = query.stage
   if (query.search) {
     const like = `%${query.search}%`
@@ -275,7 +298,7 @@ export async function listEnquiries(ctx: OrderContext, query: { stage: string; s
   const rows = await ctx.em.find(CcEnquiry, where, { orderBy: { receivedAt: 'desc' }, limit: 500 })
   const name = await customerNames(ctx, rows)
   const counts = await ctx.em.getConnection().execute<Array<{ stage: string; total: string; overdue: string }>>(
-    `select stage, count(*) as total, count(*) filter (where next_action_on is not null and next_action_on < ? and stage in ('new','quoted','negotiating')) as overdue
+    `select stage, count(*) as total, count(*) filter (where next_action_on is not null and next_action_on < ? and stage not in ('won','lost')) as overdue
        from cc_enquiries where tenant_id = ? and organization_id = ? and deleted_at is null group by stage`,
     [today, ctx.tenantId, ctx.organizationId],
   )
@@ -288,7 +311,52 @@ export async function listEnquiries(ctx: OrderContext, query: { stage: string; s
 
 export async function overdueEnquiries(ctx: OrderContext, limit = 20) {
   const today = todayIst()
-  const rows = await ctx.em.find(CcEnquiry, { ...scope(ctx), deletedAt: null, stage: { $in: OPEN_STAGES }, nextActionOn: { $lt: today, $ne: null } }, { orderBy: { nextActionOn: 'asc' }, limit })
+  const rows = await ctx.em.find(CcEnquiry, { ...scope(ctx), deletedAt: null, stage: { $nin: CLOSED_STAGES }, nextActionOn: { $lt: today, $ne: null } }, { orderBy: { nextActionOn: 'asc' }, limit })
   const name = await customerNames(ctx, rows)
   return rows.map((row) => ({ id: row.id, enquiryNo: row.enquiryNo, partyName: name(row) ?? row.companyName ?? row.contactName ?? null, subject: row.subject, stage: row.stage, ownerName: row.ownerName ?? null, nextActionOn: row.nextActionOn ?? null, nextActionNote: row.nextActionNote ?? null }))
+}
+
+export async function boardEnquiries(ctx: OrderContext, query: { owner?: string | null; search?: string | null; closedDays?: number }) {
+  const since = new Date(Date.now() - (query.closedDays ?? 30) * 86_400_000)
+  const where: Record<string, unknown> = { ...scope(ctx), deletedAt: null, $or: [{ stage: { $nin: CLOSED_STAGES } }, { updatedAt: { $gte: since } }] }
+  if (query.owner) where.ownerName = query.owner
+  const rows = await ctx.em.find(CcEnquiry, where, { orderBy: { receivedAt: 'desc' }, limit: 600 })
+  const term = query.search?.trim().toLowerCase()
+  const name = await customerNames(ctx, rows)
+  const ids = rows.map((row) => row.id)
+  const quotes = ids.length
+    ? await ctx.em.getConnection().execute<Array<{ enquiry_id: string; total: string; currency: string; quote_no: string; status: string }>>(
+        `select distinct on (enquiry_id) enquiry_id, total_amount as total, currency, quote_no, status from cc_quotations
+          where tenant_id = ? and organization_id = ? and deleted_at is null and enquiry_id = any(?::uuid[]) and status not in ('withdrawn', 'rejected')
+          order by enquiry_id, created_at desc`,
+        [ctx.tenantId, ctx.organizationId, `{${ids.join(',')}}`],
+      )
+    : []
+  const quoteOf = new Map(quotes.map((row) => [row.enquiry_id, row]))
+  const today = todayIst()
+  return rows
+    .map((row) => {
+      const quote = quoteOf.get(row.id)
+      const partyName = name(row) ?? row.companyName ?? row.contactName ?? null
+      return {
+        id: row.id,
+        enquiryNo: row.enquiryNo,
+        subject: row.subject,
+        partyName,
+        source: row.source,
+        ownerName: row.ownerName ?? null,
+        stage: row.stage,
+        receivedAt: row.receivedAt.toISOString(),
+        nextActionOn: row.nextActionOn ?? null,
+        nextActionNote: row.nextActionNote ?? null,
+        overdue: isOverdue(row, today),
+        dueToday: isOpenStage(row.stage) && row.nextActionOn === today,
+        lostReason: row.lostReason ?? null,
+        orderId: row.orderId ?? null,
+        quote: quote ? { no: quote.quote_no, total: Number(quote.total), currency: quote.currency, status: quote.status } : null,
+        daysInPipeline: Math.max(0, Math.floor((Date.now() - row.receivedAt.getTime()) / 86_400_000)),
+        updatedAt: row.updatedAt.toISOString(),
+      }
+    })
+    .filter((row) => !term || [row.enquiryNo, row.subject, row.partyName ?? '', row.ownerName ?? ''].some((value) => value.toLowerCase().includes(term)))
 }

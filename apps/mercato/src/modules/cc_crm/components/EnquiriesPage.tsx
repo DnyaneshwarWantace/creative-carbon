@@ -15,24 +15,26 @@ import { apiCall } from '@open-mercato/ui/backend/utils/apiCall'
 import { PlantTable } from '../../cc_production/components/PlantTable'
 import { useGranted } from '../../cc_departments/components/useGranted'
 import { formatDate, formatDateTime } from '../../cc_orders/components/format'
-import { STAGE_LABEL, STAGE_VARIANT, type Enquiry } from './types'
+import { type Enquiry } from './types'
+import { TONE_DOT, stageBadge, useStages } from './pipeline/stageUi'
 import { PageLoading } from '../../cc_ui/components/PageLoading'
 
 type ListResult = { items: Enquiry[]; counts: Record<string, number>; overdue: number }
 
-const TABS = ['open', 'overdue', 'new', 'quoted', 'negotiating', 'won', 'lost', 'all'] as const
 
 export function EnquiriesPage() {
   const t = useT()
   const granted = useGranted()
-  const [tab, setTab] = React.useState<(typeof TABS)[number]>('open')
+  const [tab, setTab] = React.useState('open')
+  const { stages } = useStages()
+  const tabs = React.useMemo(() => ['open', 'overdue', ...(stages ?? []).map((stage) => stage.key), 'all'], [stages])
+  const stageOf = React.useCallback((key: string) => stages?.find((stage) => stage.key === key), [stages])
   const [search, setSearch] = React.useState('')
   const [data, setData] = React.useState<ListResult | null>(null)
 
   React.useEffect(() => {
     const requested = new URLSearchParams(window.location.search).get('stage')
-    const match = TABS.find((key) => key === requested)
-    if (match) setTab(match)
+    if (requested) setTab(requested)
   }, [])
 
   React.useEffect(() => {
@@ -51,7 +53,8 @@ export function EnquiriesPage() {
   }, [tab, search])
 
   const counts = data?.counts ?? {}
-  const tabCount = (key: string) => (key === 'open' ? (counts.new ?? 0) + (counts.quoted ?? 0) + (counts.negotiating ?? 0) : key === 'overdue' ? (data?.overdue ?? 0) : key === 'all' ? Object.values(counts).reduce((sum, value) => sum + value, 0) : (counts[key] ?? 0))
+  const openKeys = (stages ?? []).filter((stage) => stage.kind === 'open').map((stage) => stage.key)
+  const tabCount = (key: string) => (key === 'open' ? openKeys.reduce((sum, stageKey) => sum + (counts[stageKey] ?? 0), 0) : key === 'overdue' ? (data?.overdue ?? 0) : key === 'all' ? Object.values(counts).reduce((sum, value) => sum + value, 0) : (counts[key] ?? 0))
   const tabLabel: Record<string, string> = { open: t('cc_crm.tab.open', 'Open'), overdue: t('cc_crm.tab.overdue', 'Follow-up overdue'), all: t('cc_crm.tab.all', 'All') }
 
   return (
@@ -63,6 +66,10 @@ export function EnquiriesPage() {
               <h1 className="text-xl font-bold">{t('cc_crm.enquiries.title', 'Enquiries')}</h1>
               <p className="text-sm text-muted-foreground">{t('cc_crm.enquiries.subtitle', 'Every enquiry from IndiaMART, WhatsApp, email, phone, walk-in or referral, with its next follow-up. Overdue follow-ups go to the owner overview.')}</p>
             </div>
+            <div className="flex flex-wrap gap-2">
+            <Button asChild variant="outline">
+              <Link href="/backend/crm/pipeline">{t('cc_crm.pipeline.open', 'Pipeline board')}</Link>
+            </Button>
             {granted.has('cc_crm.manage') ? (
               <Button asChild>
                 <Link href="/backend/crm/enquiries/new">
@@ -71,9 +78,10 @@ export function EnquiriesPage() {
                 </Link>
               </Button>
             ) : null}
+            </div>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            {TABS.map((key) => (
+            {tabs.map((key) => (
               <button
                 key={key}
                 type="button"
@@ -81,7 +89,8 @@ export function EnquiriesPage() {
                 aria-pressed={tab === key}
                 className={cn('inline-flex h-8 items-center gap-1.5 rounded-full border px-3 text-xs font-medium', tab === key ? 'border-primary bg-primary text-primary-foreground' : 'border-border bg-card text-muted-foreground hover:text-foreground', key === 'overdue' && tabCount(key) > 0 && tab !== key && 'border-status-error-border text-status-error-text')}
               >
-                {tabLabel[key] ?? t(`cc_crm.stage.${key}`, STAGE_LABEL[key as keyof typeof STAGE_LABEL])} <span className={cn('rounded-full px-1.5 text-overline tabular-nums', tab === key ? 'bg-primary-foreground/20' : 'bg-muted')}>{tabCount(key)}</span>
+                {stageOf(key) ? <span className={cn('h-2 w-2 rounded-full', TONE_DOT[stageOf(key)!.tone] ?? TONE_DOT.neutral)} aria-hidden="true" /> : null}
+                {tabLabel[key] ?? stageOf(key)?.label ?? key} <span className={cn('rounded-full px-1.5 text-overline tabular-nums', tab === key ? 'bg-primary-foreground/20' : 'bg-muted')}>{tabCount(key)}</span>
               </button>
             ))}
             <div className="relative ml-auto w-full sm:w-72">
@@ -107,7 +116,7 @@ export function EnquiriesPage() {
                   { key: 'contact', label: t('cc_crm.enquiries.contact', 'Contact'), hidden: true, render: (row) => [row.contactName, row.phone, row.email].filter(Boolean).join(' · ') },
                   { key: 'subject', label: t('cc_crm.enquiries.subject', 'Asked for'), render: (row) => <span className="line-clamp-2 max-w-md">{row.subject}</span> },
                   { key: 'owner', label: t('cc_crm.enquiries.owner', 'Owner'), render: (row) => row.ownerName ?? '—' },
-                  { key: 'stage', label: t('cc_crm.enquiries.stage', 'Stage'), render: (row) => <StatusBadge variant={STAGE_VARIANT[row.stage]}>{t(`cc_crm.stage.${row.stage}`, STAGE_LABEL[row.stage])}</StatusBadge> },
+                  { key: 'stage', label: t('cc_crm.enquiries.stage', 'Stage'), render: (row) => <StatusBadge variant={stageBadge(stages, row.stage).variant}>{stageBadge(stages, row.stage).label}</StatusBadge> },
                   { key: 'next', label: t('cc_crm.enquiries.next', 'Next follow-up'), render: (row) => (row.nextActionOn ? <span className={cn(row.overdue && 'font-semibold text-status-error-text')}>{formatDate(row.nextActionOn)}{row.nextActionNote ? <span className="block text-xs font-normal text-muted-foreground">{row.nextActionNote}</span> : null}</span> : '—') },
                   { key: 'lost', label: t('cc_crm.enquiries.lostReason', 'Lost reason'), hidden: true, render: (row) => row.lostReason ?? '' },
                 ]}

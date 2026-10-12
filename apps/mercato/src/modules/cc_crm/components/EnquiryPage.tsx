@@ -21,7 +21,7 @@ import { formatDate, formatDateTime, formatQty } from '../../cc_orders/component
 import { useListOptions } from '../../cc_lists/components/useListOptions'
 import { useGranted } from '../../cc_departments/components/useGranted'
 import { useSend, selectClass } from '../../cc_production/components/finishing/shared'
-import { QUOTE_LABEL, QUOTE_VARIANT, STAGE_LABEL, STAGE_VARIANT, type Enquiry, type EnquiryStage } from './types'
+import { QUOTE_LABEL, QUOTE_VARIANT, type Enquiry, type EnquiryStage } from './types'
 import { Dropdown } from '../../cc_lists/components/Dropdown'
 import { PageLoading } from '../../cc_ui/components/PageLoading'
 import { FieldList, Panel, RecordColumns, RecordPage, RecordState, RegisterGrid, type Fact } from '../../cc_ui/components/RecordPage'
@@ -30,6 +30,8 @@ import { Timeline } from '../../cc_ui/components/Timeline'
 import { Comments } from '../../cc_ui/components/Comments'
 import { Attachments } from '../../cc_ui/components/Attachments'
 import { CorrectDialog } from '../../cc_ui/components/CorrectDialog'
+import { StageMoveDialog, type MoveTarget } from './pipeline/StageMoveDialog'
+import { TONE_DOT, formatAnswer, needsQuestions, stageBadge, useStages, type PipelineStage } from './pipeline/stageUi'
 
 function localNow(): string {
   const now = new Date(Date.now() - new Date().getTimezoneOffset() * 60_000)
@@ -237,8 +239,6 @@ export function EnquiryEdit({ enquiryId }: { enquiryId: string }) {
   return <EnquiryForm enquiry={enquiry} />
 }
 
-const NEXT_STAGES: EnquiryStage[] = ['new', 'quoted', 'negotiating', 'won', 'lost']
-
 const FOLLOW_KINDS = [
   { value: 'call', label: 'Call' },
   { value: 'visit', label: 'Visit' },
@@ -252,7 +252,8 @@ export function EnquiryPage({ enquiryId }: { enquiryId: string }) {
   const granted = useGranted()
   const canManage = granted.has('cc_crm.manage')
   const send = useSend(`cc-enquiry-${enquiryId}`)
-  const lostReasons = useListOptions('lost_reasons')
+  const { stages } = useStages()
+  const [moving, setMoving] = React.useState<MoveTarget | null>(null)
   const [enquiry, setEnquiry] = React.useState<Enquiry | null>(null)
   const [error, setError] = React.useState<string | null>(null)
   const [followUp, setFollowUp] = React.useState({ on: addDays(2), note: '', kind: 'call' })
@@ -261,7 +262,6 @@ export function EnquiryPage({ enquiryId }: { enquiryId: string }) {
   const [people, setPeople] = React.useState<Array<{ id: string; name: string }>>([])
   const canTeam = granted.has('cc_crm.team')
   const [note, setNote] = React.useState('')
-  const [lostReason, setLostReason] = React.useState('')
   const [busy, setBusy] = React.useState(false)
 
   const load = React.useCallback(async () => {
@@ -312,7 +312,7 @@ export function EnquiryPage({ enquiryId }: { enquiryId: string }) {
       title={enquiry.enquiryNo}
       badges={
         <>
-          <StatusBadge variant={STAGE_VARIANT[enquiry.stage]}>{t(`cc_crm.stage.${enquiry.stage}`, STAGE_LABEL[enquiry.stage])}</StatusBadge>
+          <StatusBadge variant={stageBadge(stages, enquiry.stage).variant}>{stageBadge(stages, enquiry.stage).label}</StatusBadge>
           {enquiry.overdue ? <StatusBadge variant="error">{t('cc_crm.enquiries.overdue', 'Follow-up overdue')}</StatusBadge> : null}
         </>
       }
@@ -456,30 +456,74 @@ export function EnquiryPage({ enquiryId }: { enquiryId: string }) {
 
               <Panel title={t('cc_crm.enquiries.stage', 'Stage')} icon={Flag}>
                 <div className="space-y-3">
-                  <div className="flex flex-wrap gap-1.5">
-                    {NEXT_STAGES.filter((stage) => stage !== enquiry.stage && stage !== 'lost').map((stage) => (
-                      <Button key={stage} type="button" size="sm" variant="outline" disabled={busy} onClick={() => act({ action: 'stage', stage }, t('cc_crm.flash.stage', 'Stage changed'))}>
-                        {t(`cc_crm.stage.${stage}`, STAGE_LABEL[stage])}
-                      </Button>
-                    ))}
-                  </div>
-                  {enquiry.stage === 'lost' ? null : (
-                    <div className="flex gap-2">
-                      <Dropdown value={lostReason} onChange={(event) => setLostReason(event.target.value)} aria-label={t('cc_crm.enquiries.lostReason', 'Lost reason')}>
-                        <option value="">{t('cc_crm.enquiries.lostPick', 'Lost because…')}</option>
-                        {lostReasons.map((option) => (
-                          <option key={option} value={option}>
-                            {option}
-                          </option>
-                        ))}
-                      </Dropdown>
-                      <Button type="button" size="sm" variant="outline" disabled={busy || !lostReason} onClick={() => act({ action: 'stage', stage: 'lost', lostReason }, t('cc_crm.flash.lost', 'Marked lost'))}>
-                        {t('cc_crm.actions.lost', 'Mark lost')}
-                      </Button>
-                    </div>
-                  )}
+                  <ol className="space-y-1">
+                    {(stages ?? []).map((stage) => {
+                      const current = stage.key === enquiry.stage
+                      const reached = (stages ?? []).findIndex((entry) => entry.key === enquiry.stage) >= (stages ?? []).findIndex((entry) => entry.key === stage.key)
+                      return (
+                        <li key={stage.key}>
+                          <button
+                            type="button"
+                            disabled={busy || current || !canManage || closed}
+                            onClick={() => {
+                              const target: MoveTarget = { enquiry: { id: enquiry.id, enquiryNo: enquiry.enquiryNo, partyName: enquiry.partyName ?? null, subject: enquiry.subject, updatedAt: enquiry.updatedAt }, from: stages?.find((entry) => entry.key === enquiry.stage) ?? null, to: stage }
+                              if (needsQuestions(stage)) setMoving(target)
+                              else void act({ action: 'stage', stage: stage.key }, t('cc_crm.flash.stageTo', 'Moved to {stage}', { stage: stage.label }))
+                            }}
+                            className={cn(
+                              'flex w-full items-center gap-2 rounded-md border px-2.5 py-1.5 text-left text-sm transition-colors',
+                              current ? 'border-primary bg-primary text-primary-foreground' : reached && stage.kind === 'open' ? 'border-border bg-muted/50' : 'border-dashed border-border hover:bg-muted',
+                              (busy || !canManage || closed) && !current && 'cursor-default opacity-70',
+                            )}
+                          >
+                            <span className={cn('h-2.5 w-2.5 shrink-0 rounded-full', TONE_DOT[stage.tone] ?? TONE_DOT.neutral)} />
+                            <span className="flex-1 font-medium">{stage.label}</span>
+                            {stage.questions.length && !current ? <span className="text-xs opacity-70">{t('cc_crm.enquiries.asks', 'asks {count}', { count: stage.questions.length })}</span> : null}
+                            {current ? <span className="text-xs">{t('cc_crm.enquiries.now', 'now')}</span> : null}
+                          </button>
+                        </li>
+                      )
+                    })}
+                  </ol>
+                  {closed ? <p className="text-xs text-muted-foreground">{t('cc_crm.enquiries.closedHint', 'Closed. Use Reopen or Undo won (below) to bring it back.')}</p> : null}
                 </div>
               </Panel>
+
+              {enquiry.stageAnswers && Object.keys(enquiry.stageAnswers).length ? (
+                <Panel title={t('cc_crm.enquiries.stageAnswers', 'Stage answers')} icon={MessageSquare}>
+                  <div className="space-y-3">
+                    {(stages ?? [])
+                      .filter((stage: PipelineStage) => enquiry.stageAnswers?.[stage.key])
+                      .map((stage: PipelineStage) => {
+                        const record = enquiry.stageAnswers![stage.key]
+                        const answered = stage.questions.filter((question) => record.answers[question.key] !== null && record.answers[question.key] !== undefined && record.answers[question.key] !== '')
+                        return (
+                          <div key={stage.key} className="space-y-1">
+                            <p className="flex items-center gap-1.5 text-xs font-semibold">
+                              <span className={cn('h-2 w-2 rounded-full', TONE_DOT[stage.tone] ?? TONE_DOT.neutral)} />
+                              {stage.label}
+                              <span className="font-normal text-muted-foreground">
+                                · {record.by ?? '—'} · {formatDateTime(record.at)}
+                              </span>
+                            </p>
+                            {answered.length ? (
+                              <dl className="grid grid-cols-2 gap-x-3 gap-y-1 text-xs">
+                                {answered.map((question) => (
+                                  <React.Fragment key={question.key}>
+                                    <dt className="text-muted-foreground">{question.label}</dt>
+                                    <dd>{formatAnswer(question, record.answers[question.key])}</dd>
+                                  </React.Fragment>
+                                ))}
+                              </dl>
+                            ) : (
+                              <p className="text-xs text-muted-foreground">{t('cc_crm.enquiries.noAnswers', 'Moved here; nothing filled in.')}</p>
+                            )}
+                          </div>
+                        )
+                      })}
+                  </div>
+                </Panel>
+              ) : null}
 
               <Panel title={t('cc_crm.actions.note', 'Add a note')} icon={MessageSquare}>
                 <div className="space-y-3">
@@ -550,6 +594,16 @@ export function EnquiryPage({ enquiryId }: { enquiryId: string }) {
           const ok = await act({ action: fix, reason, ...(fix === 'reassign' ? { ownerName: newOwner } : {}) }, t('cc_crm.flash.corrected', 'Saved'))
           if (ok) setNewOwner('')
           return ok
+        }}
+      />
+      <StageMoveDialog
+        target={moving}
+        onCancel={() => setMoving(null)}
+        onConfirm={async (answers) => {
+          if (!moving) return false
+          const done = await act({ action: 'stage', stage: moving.to.key, answers }, t('cc_crm.flash.stageTo', 'Moved to {stage}', { stage: moving.to.label }))
+          if (done) setMoving(null)
+          return done
         }}
       />
     </RecordPage>

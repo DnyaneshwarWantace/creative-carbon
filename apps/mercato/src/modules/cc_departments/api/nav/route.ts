@@ -18,13 +18,13 @@ function flatten(groups: BackendChromeNavGroup[]): BackendChromeNavItem[] {
 }
 
 const CRM_SECTIONS: Array<{ id: string; name: string; match: (href: string) => boolean }> = [
-  { id: 'cc-crm.nav.overview', name: 'Overview', match: (href) => href === '/backend/crm' },
-  { id: 'cc-crm.nav.pipeline', name: 'Sales pipeline', match: (href) => href.startsWith('/backend/crm/enquiries') || href.startsWith('/backend/crm/quotations') },
-  { id: 'cc-crm.nav.customers', name: 'Customers & orders', match: (href) => href.startsWith('/backend/customers') || href.startsWith('/backend/orders/new') || href.startsWith('/backend/work/sales') },
+  { id: 'cc-crm.nav.overview', name: 'Overview', match: (href) => ['/backend/crm', '/backend/crm/pipeline', '/backend/crm/follow-ups'].includes(href) },
+  { id: 'cc-crm.nav.sales', name: 'Sales', match: (href) => href.startsWith('/backend/crm/enquiries') || href.startsWith('/backend/crm/quotations') || href.startsWith('/backend/customers') },
+  { id: 'cc-crm.nav.orders', name: 'Orders', match: (href) => href.startsWith('/backend/orders/new') || href.startsWith('/backend/work/sales') },
   { id: 'cc-crm.nav.settings', name: 'CRM settings', match: () => true },
 ]
 
-const CRM_ORDER = ['/backend/crm', '/backend/crm/enquiries', '/backend/crm/quotations', '/backend/customers/companies', '/backend/orders/new', '/backend/work/sales', '/backend/crm/lists', '/backend/masters/prices', '/backend/crm/team']
+const CRM_ORDER = ['/backend/crm', '/backend/crm/pipeline', '/backend/crm/follow-ups', '/backend/crm/enquiries', '/backend/crm/quotations', '/backend/customers/companies', '/backend/orders/new', '/backend/work/sales', '/backend/crm/stages', '/backend/crm/lists', '/backend/masters/prices', '/backend/crm/team']
 
 function crmRank(href: string): number {
   const index = CRM_ORDER.indexOf(href)
@@ -33,6 +33,9 @@ function crmRank(href: string): number {
 
 const CRM_TITLES: Record<string, string> = {
   '/backend/crm': 'CRM home',
+  '/backend/crm/pipeline': 'Pipeline board',
+  '/backend/crm/follow-ups': 'Follow-ups',
+  '/backend/crm/stages': 'Pipeline stages',
   '/backend/customers/companies': 'Customers',
   '/backend/orders/new': 'Book an order',
   '/backend/work/sales': 'Orders to confirm',
@@ -43,7 +46,7 @@ function crmGroups(groups: BackendChromeNavGroup[]): BackendChromeNavGroup[] {
   const items = flatten(groups)
     .filter((item) => isCrmPath(item.href) && !item.hidden)
     .filter((item) => (seen.has(item.href) ? false : (seen.add(item.href), true)))
-    .map((item) => ({ ...item, title: CRM_TITLES[item.href] ?? item.title, children: (item.children ?? []).filter((child) => isCrmPath(child.href)) }))
+    .map((item) => ({ ...item, title: CRM_TITLES[item.href] ?? item.title, children: [] }))
     .sort((left, right) => crmRank(left.href) - crmRank(right.href) || (left.order ?? 0) - (right.order ?? 0))
   const placed = new Set<string>()
   return CRM_SECTIONS.map((section) => {

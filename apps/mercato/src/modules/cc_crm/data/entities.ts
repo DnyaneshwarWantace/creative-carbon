@@ -3,12 +3,17 @@ import { OptionalProps } from '@mikro-orm/core'
 
 export type CrmHistoryEntry = { action: string; by: string | null; at: string; note: string | null }
 
-export type EnquiryStage = 'new' | 'quoted' | 'negotiating' | 'won' | 'lost'
+export type BuiltInStage = 'new' | 'quoted' | 'negotiating' | 'won' | 'lost'
+export type EnquiryStage = string
+export type StageKind = 'open' | 'won' | 'lost'
+export type StageQuestionType = 'text' | 'textarea' | 'number' | 'date' | 'select' | 'yesno'
+export type StageQuestion = { key: string; label: string; type: StageQuestionType; required: boolean; options?: string[]; hint?: string | null }
+export type StageAnswerRecord = { answers: Record<string, string | number | boolean | null>; at: string; by: string | null }
 
 @Entity({ tableName: 'cc_enquiries' })
 @Index({ name: 'cc_enquiries_scope_idx', properties: ['organizationId', 'tenantId', 'stage'] })
 export class CcEnquiry {
-  [OptionalProps]?: 'createdAt' | 'updatedAt' | 'deletedAt' | 'history' | 'stage' | 'customerId' | 'companyName' | 'contactName' | 'phone' | 'email' | 'place' | 'details' | 'ownerName' | 'nextActionOn' | 'nextActionNote' | 'lostReason' | 'orderId' | 'byName'
+  [OptionalProps]?: 'createdAt' | 'updatedAt' | 'deletedAt' | 'history' | 'stage' | 'customerId' | 'companyName' | 'contactName' | 'phone' | 'email' | 'place' | 'details' | 'ownerName' | 'nextActionOn' | 'nextActionNote' | 'lostReason' | 'orderId' | 'byName' | 'stageAnswers'
 
   @PrimaryKey({ type: 'uuid', defaultRaw: 'gen_random_uuid()' })
   id!: string
@@ -57,6 +62,9 @@ export class CcEnquiry {
 
   @Property({ type: 'text', default: 'new' })
   stage: EnquiryStage = 'new'
+
+  @Property({ name: 'stage_answers', type: 'json', nullable: true })
+  stageAnswers?: Record<string, StageAnswerRecord> | null
 
   @Property({ name: 'next_action_on', type: 'text', nullable: true })
   nextActionOn?: string | null
@@ -226,6 +234,58 @@ export class CcFollowUp {
 
   @Property({ type: 'json', default: '[]' })
   history: CrmHistoryEntry[] = []
+
+  @Property({ name: 'created_at', type: Date, onCreate: () => new Date() })
+  createdAt: Date = new Date()
+
+  @Property({ name: 'updated_at', type: Date, onCreate: () => new Date(), onUpdate: () => new Date() })
+  updatedAt: Date = new Date()
+
+  @Property({ name: 'deleted_at', type: Date, nullable: true })
+  deletedAt?: Date | null
+}
+
+
+@Entity({ tableName: 'cc_crm_stages' })
+@Index({ name: 'cc_crm_stages_scope_idx', properties: ['organizationId', 'tenantId', 'position'] })
+export class CrmStage {
+  [OptionalProps]?: 'createdAt' | 'updatedAt' | 'deletedAt' | 'questions' | 'tone' | 'system' | 'isActive' | 'description'
+
+  @PrimaryKey({ type: 'uuid', defaultRaw: 'gen_random_uuid()' })
+  id!: string
+
+  @Property({ name: 'organization_id', type: 'uuid' })
+  organizationId!: string
+
+  @Property({ name: 'tenant_id', type: 'uuid' })
+  tenantId!: string
+
+  @Property({ name: 'stage_key', type: 'text' })
+  key!: string
+
+  @Property({ type: 'text' })
+  label!: string
+
+  @Property({ type: 'text', nullable: true })
+  description?: string | null
+
+  @Property({ type: 'text', default: 'open' })
+  kind: StageKind = 'open'
+
+  @Property({ type: 'text', default: 'neutral' })
+  tone: string = 'neutral'
+
+  @Property({ type: 'int' })
+  position!: number
+
+  @Property({ type: 'boolean', default: false })
+  system: boolean = false
+
+  @Property({ name: 'is_active', type: 'boolean', default: true })
+  isActive: boolean = true
+
+  @Property({ type: 'json', nullable: true })
+  questions?: StageQuestion[] | null
 
   @Property({ name: 'created_at', type: Date, onCreate: () => new Date() })
   createdAt: Date = new Date()

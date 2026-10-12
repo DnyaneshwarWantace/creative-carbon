@@ -311,8 +311,8 @@ export function OrderView({ orderId }: { orderId: string }) {
       <PageBody>
         <div className="mx-auto max-w-7xl space-y-5 pb-16">
           <header className="cc-band overflow-hidden">
-            <div className="flex flex-col gap-4 px-4 pb-4 pt-4 sm:px-6 lg:flex-row lg:items-start lg:justify-between">
-            <div className="min-w-0 space-y-1">
+            <div className="flex flex-col gap-3 px-5 pt-5 pb-3 sm:px-6 lg:flex-row lg:items-center lg:justify-between">
+              <div className="min-w-0 space-y-1.5">
                 <div className="flex items-center gap-3">
                   <Link href="/backend/orders" className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground">
                     <ArrowLeft className="h-3 w-3" />
@@ -320,8 +320,8 @@ export function OrderView({ orderId }: { orderId: string }) {
                   </Link>
                   <span className="cc-overline">{t('cc_orders.view.overline', 'Sales order')}</span>
                 </div>
-                          <div className="flex flex-wrap items-center gap-2">
-                  <h1 className="font-mono text-xl font-bold">{order.orderNo}</h1>
+                <div className="flex flex-wrap items-center gap-2">
+                  <h1 className="font-mono text-2xl font-bold tracking-tight">{order.orderNo}</h1>
                   <StatusBadge variant={ORDER_VARIANT[order.status] ?? 'neutral'} dot>
                     {statusLabel}
                   </StatusBadge>
@@ -386,7 +386,7 @@ export function OrderView({ orderId }: { orderId: string }) {
                 ) : null}
               </div>
             </div>
-          <div className="grid grid-cols-2 gap-2 px-4 pb-5 sm:grid-cols-3 sm:px-6 lg:grid-cols-6">
+            <div className="grid grid-cols-2 gap-2 px-5 pb-5 sm:grid-cols-3 sm:px-6 lg:grid-cols-6">
             <div className="cc-tile">
               <div className="text-xs text-muted-foreground">{t('cc_orders.view.figOrdered', 'Ordered on')}</div>
               <div className="cc-figure text-base">{formatDate(order.orderDate)}</div>
@@ -414,21 +414,27 @@ export function OrderView({ orderId }: { orderId: string }) {
                 </div>
                 <div className="cc-tile">
                   <div className="text-xs text-muted-foreground">{t('cc_orders.view.due', 'Due')}</div>
-                  <div className={cn('cc-figure text-base', order.payments.due > 0 ? 'cc-text-copper' : '')}>₹ {formatQty(order.payments.due, 0)}</div>
+                  <div className={cn('cc-figure text-base', order.payments.due > 0 ? 'cc-text-accent' : '')}>₹ {formatQty(order.payments.due, 0)}</div>
                 </div>
               </>
             ) : null}
           </div>
           </header>
 
-          <Card>
-            <CardHeader className="border-b bg-muted/20 pb-3">
-              <CardTitle className="text-sm font-bold">{t('cc_orders.view.stages', 'Stages')}</CardTitle>
-              <CardDescription className="text-xs">
-                {t('cc_orders.view.stagesHintRail', 'Copper = done · ringed = in progress · red = on hold · dashed = coming. Click a stage to open its work.')}
-              </CardDescription>
+          {/* ── Stages Rail ─────────────────────────────────────────────── */}
+          <Card className="overflow-hidden shadow-sm">
+            <CardHeader className="border-b bg-muted/30 pb-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Layers className="h-4 w-4 text-primary" />
+                  <CardTitle className="text-sm font-bold">{t('cc_orders.view.stages', 'Stages')}</CardTitle>
+                </div>
+                <CardDescription className="text-xs">
+                  {t('cc_orders.view.stagesHintRail', 'Blue = done · ringed = in progress · red = on hold · dashed = coming. Click a stage to open its work.')}
+                </CardDescription>
+              </div>
             </CardHeader>
-            <CardContent className="p-3">
+            <CardContent className="p-4">
               <HorizontalScroll showButtons showGradients step={340}>
                 <div className="flex min-w-max items-start py-2 px-1">
                   {RAIL.map((block) => (

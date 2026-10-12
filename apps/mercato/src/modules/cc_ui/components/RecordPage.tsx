@@ -14,7 +14,7 @@ export type Tone = 'good' | 'warn' | 'bad'
 
 const TONE_ON_CARBON: Record<Tone, string> = {
   good: 'text-status-success-icon',
-  warn: 'cc-text-copper',
+  warn: 'cc-text-accent',
   bad: 'text-status-error-icon',
 }
 

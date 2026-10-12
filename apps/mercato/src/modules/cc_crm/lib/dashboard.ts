@@ -21,7 +21,7 @@ export async function crmDashboard(ctx: OrderContext) {
       `select stage, count(*) as total from cc_enquiries where tenant_id = ? and organization_id = ? and deleted_at is null and stage in ('won','lost') and updated_at >= ?::date group by stage`,
       [ctx.tenantId, ctx.organizationId, monthStart],
     ),
-    ctx.em.find(CcEnquiry, { ...scope, stage: { $in: ['new', 'quoted', 'negotiating'] }, nextActionOn: today }, { orderBy: { receivedAt: 'asc' }, limit: 20 }),
+    ctx.em.find(CcEnquiry, { ...scope, stage: { $nin: ['won', 'lost'] }, nextActionOn: today }, { orderBy: { receivedAt: 'asc' }, limit: 20 }),
     ctx.em.find(CcQuotation, { ...scope, status: { $in: ['draft', 'sent', 'accepted'] }, validUntil: { $gte: today, $lte: addDays(today, 7) } }, { orderBy: { validUntil: 'asc' }, limit: 20 }),
     connection.execute<Array<{ currency: string; total: string; count: string }>>(
       `select currency, sum(total_amount) as total, count(*) as count from cc_quotations where tenant_id = ? and organization_id = ? and deleted_at is null and status in ('draft','sent','accepted') group by currency`,

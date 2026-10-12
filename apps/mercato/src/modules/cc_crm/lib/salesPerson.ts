@@ -7,7 +7,7 @@ import { CcEnquiry, CcFollowUp, CcQuotation } from '../data/entities'
 import { listTeam } from './team'
 import { CrmError, entry, todayIst } from './server'
 
-const OPEN_STAGES = ['new', 'quoted', 'negotiating'] as const
+const CLOSED = ['won', 'lost']
 const DAY_MS = 86_400_000
 
 function scope(ctx: StoreContext) {
@@ -36,7 +36,7 @@ export async function personView(ctx: StoreContext, id: string) {
   }
   const today = todayIst()
   const owned = enquiries.filter((row) => row.ownerName === name)
-  const open = owned.filter((row) => (OPEN_STAGES as readonly string[]).includes(row.stage))
+  const open = owned.filter((row) => !CLOSED.includes(row.stage))
   const won = owned.filter((row) => row.stage === 'won')
   const planned = followUps.filter((row) => row.ownerName === name && row.status === 'planned')
   const missed = planned.filter((row) => row.dueOn < today)
@@ -84,7 +84,7 @@ export async function handOver(ctx: StoreContext, id: string, toName: string, re
   if (!target) throw new CrmError('Pick a person from the team')
   if (target.id === id) throw new CrmError('Pick another person')
   const actor = { actorUserId: ctx.userId ?? null, actorName: byName }
-  const enquiries = await ctx.em.find(CcEnquiry, { ...scope(ctx), deletedAt: null, ownerName: from, stage: { $in: [...OPEN_STAGES] } })
+  const enquiries = await ctx.em.find(CcEnquiry, { ...scope(ctx), deletedAt: null, ownerName: from, stage: { $nin: CLOSED } })
   for (const row of enquiries) {
     row.ownerName = toName
     row.history = [...(row.history ?? []), entry('owner', byName, `${from} → ${toName} (hand-over) · ${reason}`)]

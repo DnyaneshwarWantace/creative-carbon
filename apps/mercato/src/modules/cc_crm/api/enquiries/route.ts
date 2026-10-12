@@ -4,7 +4,7 @@ import type { OpenApiRouteDoc } from '@open-mercato/shared/lib/openapi'
 import { enforceCommandOptimisticLock } from '@open-mercato/shared/lib/crud/optimistic-lock-command'
 import { currentUserName, resolveOrderContext } from '../../../cc_orders/lib/server'
 import { enquiryInputSchema, enquiryListSchema, enquiryUpdateSchema } from '../../data/validators'
-import { enquiryDetail, findEnquiry, listEnquiries, saveEnquiry } from '../../lib/enquiries'
+import { boardEnquiries, enquiryDetail, findEnquiry, listEnquiries, saveEnquiry } from '../../lib/enquiries'
 import { crmErrorResponse, runCrmGuarded } from '../../lib/server'
 
 export const metadata = {
@@ -22,6 +22,8 @@ async function GET(req: Request) {
   if (!parsed.success) return NextResponse.json({ error: 'Invalid query' }, { status: 400 })
   try {
     if (parsed.data.id) return NextResponse.json(await enquiryDetail(ctx, await findEnquiry(ctx, parsed.data.id)))
+    const params = new URL(req.url).searchParams
+    if (params.get('board') === '1') return NextResponse.json({ items: await boardEnquiries(ctx, { owner: params.get('owner'), search: params.get('search'), closedDays: Number(params.get('closedDays') ?? 30) || 30 }) })
     return NextResponse.json(await listEnquiries(ctx, parsed.data))
   } catch (error) {
     return crmErrorResponse(error)

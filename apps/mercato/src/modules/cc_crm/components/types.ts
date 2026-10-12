@@ -1,6 +1,6 @@
 import type { Order } from '../../cc_orders/components/types'
 
-export type EnquiryStage = 'new' | 'quoted' | 'negotiating' | 'won' | 'lost'
+export type EnquiryStage = string
 
 export type HistoryEntry = { action: string; by: string | null; at: string; note: string | null }
 
@@ -21,6 +21,7 @@ export type Enquiry = {
   details: string | null
   ownerName: string | null
   stage: EnquiryStage
+  stageAnswers?: Record<string, { answers: Record<string, string | number | boolean | null>; at: string; by: string | null }>
   nextActionOn: string | null
   nextActionNote: string | null
   lostReason: string | null
@@ -75,7 +76,7 @@ export type Quotation = Omit<Order, 'status' | 'stages' | 'payments' | 'events' 
   history: HistoryEntry[]
 }
 
-export const STAGE_LABEL: Record<EnquiryStage, string> = { new: 'New', quoted: 'Quoted', negotiating: 'Negotiating', won: 'Won', lost: 'Lost' }
-export const STAGE_VARIANT: Record<EnquiryStage, 'info' | 'warning' | 'success' | 'error' | 'neutral'> = { new: 'info', quoted: 'warning', negotiating: 'warning', won: 'success', lost: 'neutral' }
+export const STAGE_LABEL: Record<string, string> = { new: 'New', quoted: 'Quoted', negotiating: 'Negotiating', won: 'Won', lost: 'Lost' }
+export const STAGE_VARIANT: Record<string, 'info' | 'warning' | 'success' | 'error' | 'neutral'> = { new: 'info', quoted: 'warning', negotiating: 'warning', won: 'success', lost: 'neutral' }
 export const QUOTE_LABEL: Record<QuotationStatus, string> = { draft: 'Draft', sent: 'Sent', accepted: 'Accepted', rejected: 'Rejected', converted: 'Order made', withdrawn: 'Withdrawn' }
 export const QUOTE_VARIANT: Record<QuotationStatus, 'info' | 'warning' | 'success' | 'error' | 'neutral'> = { draft: 'neutral', sent: 'info', accepted: 'success', rejected: 'error', converted: 'success', withdrawn: 'neutral' }
