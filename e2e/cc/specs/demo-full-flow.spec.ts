@@ -10,6 +10,14 @@ const USERS_FILE = path.resolve(process.cwd(), '..', 'cc-demo-users.txt')
 const stamp = Date.now()
 const tag = String(stamp).slice(-5)
 
+function sheetSpecs(title: string, thickness: number | string, qty: number) {
+  const [grade, weave] = title.split(' ')
+  return {
+    material: { form: 'Sheet', grade, weave, sheet_size: title.startsWith('Graphite') || title.startsWith('Fabric 6x6') ? '4x4' : '8x4', thickness_mm: String(thickness), pieces: String(Math.max(1, Math.round(qty / 50))) },
+    packing: { pack_type: 'PP wrap + LDP stitch (local)', marking: 'Grade, thickness and lot no. on each sheet', test_standard: 'IS 2036', remarks: 'Edges trimmed square; no delamination' },
+  }
+}
+
 function day(offset: number): string {
   return new Date(Date.now() + 5.5 * 3_600_000 + offset * 86_400_000).toISOString().slice(0, 10)
 }
@@ -135,7 +143,7 @@ test.describe.serial('Demo · one order from the vendor to the customer, done by
     enquiryId = enquiry.id
     const followUps = (await ok<{ items: Array<{ id: string; status: string }> }>('sales', 'GET', `/api/cc_crm/follow-ups?enquiryId=${enquiryId}`)).items.filter((item) => item.status === 'planned' || item.status === 'open')
     if (followUps[0]) await ok('sales', 'POST', '/api/cc_crm/follow-ups/action', { id: followUps[0].id, action: 'done', outcome: 'Spoke to Mr Patel: needs 200 kg by month end, IS 2036' }, `/api/cc_crm/follow-ups?id=${followUps[0].id}`)
-    const quote = await ok<{ id: string; quoteNo: string }>('sales', 'POST', '/api/cc_crm/quotations', { orderDate: day(-12), validUntil: day(3), enquiryId, customerId, lines: [{ productId: ids.product, quantity: 200, rate: 310, gstPercent: 18, specs: { material: { form: 'Sheet', thickness: '12' } } }] })
+    const quote = await ok<{ id: string; quoteNo: string }>('sales', 'POST', '/api/cc_crm/quotations', { orderDate: day(-12), validUntil: day(3), enquiryId, customerId, lines: [{ productId: ids.product, quantity: 200, rate: 310, gstPercent: 18, specs: sheetSpecs('Fabric 10x10 Sheet', 12, 200) }] })
     quoteId = quote.id
     await ok('sales', 'POST', '/api/cc_crm/quotations/action', { id: quoteId, action: 'sent', sentTo: 'Mr Jignesh Patel', channel: 'email' }, `/api/cc_crm/quotations?id=${quoteId}`)
     await ok('sales', 'POST', '/api/cc_crm/quotations/action', { id: quoteId, action: 'accepted' }, `/api/cc_crm/quotations?id=${quoteId}`)

@@ -60,15 +60,29 @@ const UI_FEATURES = [
 
 let cache: Promise<Set<string>> | null = null
 
+const CHECK_LIMIT = 50
+
+export function featureBatches(features: string[], size = CHECK_LIMIT): string[][] {
+  const batches: string[][] = []
+  for (let index = 0; index < features.length; index += size) batches.push(features.slice(index, index + size))
+  return batches
+}
+
+async function checkBatch(features: string[]): Promise<{ ok: boolean; granted: string[] } | null> {
+  const call = await apiCall<{ ok?: boolean; granted?: string[] }>(
+    '/api/auth/feature-check',
+    { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ features }) },
+    { fallback: { ok: false, granted: [] } },
+  )
+  if (!call.ok) return null
+  return { ok: Boolean(call.result?.ok), granted: call.result?.ok ? features : call.result?.granted ?? [] }
+}
+
 function load(): Promise<Set<string>> {
   if (!cache) {
-    cache = apiCall<{ ok?: boolean; granted?: string[] }>(
-      '/api/auth/feature-check',
-      { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ features: UI_FEATURES }) },
-      { fallback: { ok: false, granted: [] } },
-    ).then((call) => {
-      if (!call.ok) cache = null
-      return new Set(call.result?.ok ? UI_FEATURES : call.result?.granted ?? [])
+    cache = Promise.all(featureBatches(UI_FEATURES).map(checkBatch)).then((results) => {
+      if (results.some((result) => result === null)) cache = null
+      return new Set(results.flatMap((result) => result?.granted ?? []))
     })
   }
   return cache

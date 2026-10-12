@@ -96,11 +96,12 @@ export function CustomerDetail({ customerId }: { customerId: string }) {
   const [links, setLinks] = React.useState<Connections>(EMPTY_CONNECTIONS)
 
   const load = React.useCallback(async () => {
+    const safe = <T,>(path: string, fallback: T) => apiCall<T>(path, undefined, { fallback }).catch(() => ({ ok: false, status: 403, result: fallback }))
     const [companyCall, addressCall, orderCall, linksCall] = await Promise.all([
-      apiCall<{ items?: Row[] }>(`/api/customers/companies?id=${encodeURIComponent(customerId)}&pageSize=1`, undefined, { fallback: { items: [] } }),
-      apiCall<{ items?: Address[] }>(`/api/customers/addresses?entityId=${encodeURIComponent(customerId)}&pageSize=20`, undefined, { fallback: { items: [] } }),
-      apiCall<{ items?: OrderRow[] }>(`/api/cc_orders/orders?customerId=${encodeURIComponent(customerId)}&pageSize=100`, undefined, { fallback: { items: [] } }),
-      apiCall<Connections>(`/api/cc_customers/connections?id=${encodeURIComponent(customerId)}`, undefined, { fallback: EMPTY_CONNECTIONS }),
+      safe<{ items?: Row[] }>(`/api/customers/companies?id=${encodeURIComponent(customerId)}&pageSize=1`, { items: [] }),
+      safe<{ items?: Address[] }>(`/api/customers/addresses?entityId=${encodeURIComponent(customerId)}&pageSize=20`, { items: [] }),
+      safe<{ items?: OrderRow[] }>(`/api/cc_orders/orders?customerId=${encodeURIComponent(customerId)}&pageSize=100`, { items: [] }),
+      safe<Connections>(`/api/cc_customers/connections?id=${encodeURIComponent(customerId)}`, EMPTY_CONNECTIONS),
     ])
     const row = companyCall.result?.items?.[0]
     if (!row) {

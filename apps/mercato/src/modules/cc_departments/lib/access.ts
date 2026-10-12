@@ -20,6 +20,7 @@ export const ACCESS_AREAS: AccessArea[] = [
     label: 'Customers',
     department: 'Sales',
     pages: 'Customer list, customer file and statement',
+    requires: ['customers.activities.view'],
     abilities: [
       { feature: 'customers.companies.view', label: 'See customers', short: 'View' },
       { feature: 'customers.companies.manage', label: 'Add and edit customers', short: 'Edit' },

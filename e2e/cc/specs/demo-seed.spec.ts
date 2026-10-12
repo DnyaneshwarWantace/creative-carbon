@@ -7,6 +7,14 @@ const LOCK = 'x-om-ext-optimistic-lock-expected-updated-at'
 const BASE = process.env.CC_BASE_URL ?? 'http://localhost:3010'
 const USERS_FILE = path.resolve(process.cwd(), '..', 'cc-demo-users.txt')
 
+function sheetSpecs(title: string, thickness: number | string, qty: number) {
+  const [grade, weave] = title.split(' ')
+  return {
+    material: { form: 'Sheet', grade, weave, sheet_size: title.startsWith('Graphite') || title.startsWith('Fabric 6x6') ? '4x4' : '8x4', thickness_mm: String(thickness), pieces: String(Math.max(1, Math.round(qty / 50))) },
+    packing: { pack_type: 'PP wrap + LDP stitch (local)', marking: 'Grade, thickness and lot no. on each sheet', test_standard: 'IS 2036', remarks: 'Edges trimmed square; no delamination' },
+  }
+}
+
 function day(offset: number): string {
   return new Date(Date.now() + 5.5 * 3_600_000 + offset * 86_400_000).toISOString().slice(0, 10)
 }
@@ -218,7 +226,7 @@ test.describe.serial('Demo data · a month of activity across CRM, orders, purch
         await soft('Lost enquiry', 'sales', 'POST', '/api/cc_crm/enquiries/action', { id: enquiry.id, action: 'stage', stage: 'lost', lostReason: 'Price too high' }, `/api/cc_crm/enquiries?id=${enquiry.id}`)
         continue
       }
-      const quote = await ok<{ id: string }>('sales', 'POST', '/api/cc_crm/quotations', { orderDate: day(-plan.ago + 1), validUntil: day(-plan.ago + 16), enquiryId: enquiry.id, customerId, lines: [{ productId: product[plan.item], quantity: plan.qty, rate: plan.rate, gstPercent: 18, specs: { material: { form: 'Sheet', thickness: String(plan.thickness) } } }] })
+      const quote = await ok<{ id: string }>('sales', 'POST', '/api/cc_crm/quotations', { orderDate: day(-plan.ago + 1), validUntil: day(-plan.ago + 16), enquiryId: enquiry.id, customerId, lines: [{ productId: product[plan.item], quantity: plan.qty, rate: plan.rate, gstPercent: 18, specs: sheetSpecs(plan.item, plan.thickness, plan.qty) }] })
       if (plan.fate === 'quoted') continue
       await ok('sales', 'POST', '/api/cc_crm/quotations/action', { id: quote.id, action: 'sent', sentTo: 'Purchase manager', channel: 'email' }, `/api/cc_crm/quotations?id=${quote.id}`)
       if (plan.fate === 'negotiating') continue
@@ -297,8 +305,8 @@ test.describe.serial('Demo data · a month of activity across CRM, orders, purch
 
   test('two direct orders: a moulded-parts order waiting for production and one on hold', async () => {
     const moulded = Object.keys(product).find((title) => title.startsWith('Moulded 177')) ?? Object.keys(product).find((title) => title.startsWith('Moulded'))!
-    const first = await ok<{ id: string; orderNo: string }>('sales', 'POST', '/api/cc_orders/orders', { orderDate: day(-4), deliveryDate: day(10), customerId: customer['Ruby Rotating Machines'], lines: [{ productId: product[moulded], quantity: 2000, rate: 14.5, gstPercent: 18, specs: { material: { form: 'Moulded', die_no: '177' } } }] })
-    const second = await ok<{ id: string; orderNo: string }>('sales', 'POST', '/api/cc_orders/orders', { orderDate: day(-2), deliveryDate: day(15), customerId: customer['Coastal Power Equipments'], lines: [{ productId: product['Fabric 10x10 Sheet'], quantity: 350, rate: 302, gstPercent: 18, specs: { material: { form: 'Sheet', thickness: '40' } } }] })
+    const first = await ok<{ id: string; orderNo: string }>('sales', 'POST', '/api/cc_orders/orders', { orderDate: day(-4), deliveryDate: day(10), customerId: customer['Ruby Rotating Machines'], lines: [{ productId: product[moulded], quantity: 2000, rate: 14.5, gstPercent: 18, specs: { material: { form: 'Moulded part', die_no: '177', pieces: '2000' }, packing: { pack_type: 'PP wrap + LDP stitch (local)', marking: 'Die no. and lot no. on every carton', test_standard: 'Customer spec', remarks: 'Deburr all edges' } } }] })
+    const second = await ok<{ id: string; orderNo: string }>('sales', 'POST', '/api/cc_orders/orders', { orderDate: day(-2), deliveryDate: day(15), customerId: customer['Coastal Power Equipments'], lines: [{ productId: product['Fabric 10x10 Sheet'], quantity: 350, rate: 302, gstPercent: 18, specs: sheetSpecs('Fabric 10x10 Sheet', 40, 350) }] })
     await soft('Hold order', 'sales', 'POST', '/api/cc_orders/orders/hold', { id: second.id, action: 'hold', reason: 'Customer revising drawing; confirm thickness before advance' }, `/api/cc_orders/orders?id=${second.id}`)
     note(`Direct orders ${first.orderNo} (2000 moulded parts, die 177) and ${second.orderNo} (on hold)`)
   })
