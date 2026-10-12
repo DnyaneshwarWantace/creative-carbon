@@ -1,10 +1,14 @@
 import type { Metadata, Viewport } from 'next'
 import './globals.css'
+import { Archivo, IBM_Plex_Mono } from 'next/font/google'
 import '@/lib/i18n/register-dictionary-loader'
 import { AppProviders } from '@/components/AppProviders'
 
 import { detectLocale, loadDictionary } from '@open-mercato/shared/lib/i18n/server'
 import { resolveForcedLocale } from '@open-mercato/shared/lib/i18n/locale'
+
+const ccSans = Archivo({ subsets: ['latin'], variable: '--cc-font-sans', display: 'swap' })
+const ccMono = IBM_Plex_Mono({ subsets: ['latin'], weight: ['400', '500', '600'], variable: '--cc-font-mono', display: 'swap' })
 
 export const metadata: Metadata = {
   title: { default: 'Creative Carbon Composites ERP', template: '%s · Creative Carbon' },
@@ -21,7 +25,7 @@ export const viewport: Viewport = {
   initialScale: 1,
   viewportFit: 'cover',
   themeColor: [
-    { media: '(prefers-color-scheme: light)', color: '#ffffff' },
+    { media: '(prefers-color-scheme: light)', color: '#1a1d21' },
     { media: '(prefers-color-scheme: dark)', color: '#0b0d10' },
   ],
 }
@@ -37,7 +41,7 @@ export default async function RootLayout({
   const demoModeEnabled = process.env.DEMO_MODE !== 'false'
   const noticeBarsEnabled = process.env.OM_INTEGRATION_TEST !== 'true'
   return (
-    <html lang={locale} className="light" suppressHydrationWarning>
+    <html lang={locale} className={`light ${ccSans.variable} ${ccMono.variable}`} suppressHydrationWarning>
       <body className="antialiased bg-background text-foreground" suppressHydrationWarning data-gramm="false">
         <AppProviders locale={locale} dict={dict} localeLocked={localeLocked} demoModeEnabled={demoModeEnabled} noticeBarsEnabled={noticeBarsEnabled}>
           {children}

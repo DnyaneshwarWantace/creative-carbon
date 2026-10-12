@@ -71,26 +71,25 @@ function StageCard({ order, stage, onOpen }: { order: Order; stage: Stage; onOpe
   const t = useT()
   useStageSettings()
   const progress = subStageProgress(order, stage)
+  const number = order.stages.findIndex((entry) => entry.key === stage.key) + 1
+  const started = stage.status !== 'waiting'
   return (
     <button
       type="button"
       onClick={onOpen}
       title={stage.status === 'waiting' ? 'Opens when the earlier stages are done' : undefined}
-      className={cn(
-        'w-full rounded-lg border p-2.5 text-left transition-shadow',
-        stage.status === 'waiting' ? 'cursor-default' : 'hover:shadow-sm',
-        stage.status === 'open' && !stage.locked && 'ring-2 ring-status-warning-border',
-        stage.locked && 'opacity-80',
-        STAGE_TONE[stage.status] ?? STAGE_TONE.waiting,
-      )}
+      className={cn('group flex w-full flex-col items-center pb-1 text-center', stage.status === 'waiting' ? 'cursor-default' : '', stage.locked && 'opacity-80')}
     >
-      <div className="flex items-start justify-between gap-1">
-        <span className="text-xs font-semibold leading-tight">{stage.label}</span>
-        {stage.status === 'done' ? <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-status-success-icon" /> : null}
-        {stage.status === 'waiting' || stage.locked ? <Lock className="h-3 w-3 shrink-0 text-muted-foreground" aria-label={stage.locked ? t('cc_orders.locked.with', 'Details with {department}', { department: stage.department }) : undefined} /> : null}
+      <div className="flex w-full items-center" aria-hidden="true">
+        <span className={cn('cc-rail-line flex-1', number === 1 && 'invisible')} data-done={started && number > 1 ? 'true' : 'false'} />
+        <span className={cn('cc-rail-node mx-1', stage.status !== 'waiting' && 'group-hover:scale-110')} data-status={stage.status}>
+          {stage.status === 'done' ? <CheckCircle2 className="h-4 w-4" /> : stage.status === 'waiting' || stage.locked ? <Lock className="h-3 w-3" /> : number}
+        </span>
+        <span className={cn('cc-rail-line flex-1', number === order.stages.length && 'invisible')} data-done={stage.status === 'done' || stage.status === 'skipped' ? 'true' : 'false'} />
       </div>
-      <div className="mt-1 text-xs text-muted-foreground">{stage.department}</div>
-      <div className="mt-1.5 truncate text-xs">
+      <span className={cn('mt-2 text-xs font-semibold leading-tight', stage.status === 'open' && 'text-foreground', stage.status === 'waiting' && 'text-muted-foreground')}>{stage.label}</span>
+      <span className="text-xs text-muted-foreground">{stage.department}</span>
+      <span className="mt-1 max-w-full truncate text-xs">
         {stage.status === 'open' ? (
           <span className={cn('mr-1 rounded-sm px-1 font-semibold', stage.data?.__started ? 'bg-status-info-bg text-status-info-text' : 'bg-status-warning-bg text-status-warning-text')}>
             {stage.data?.__started ? t('cc_orders.workState.in_progress', 'In progress') : t('cc_orders.workState.pending', 'Pending')}
@@ -101,25 +100,22 @@ function StageCard({ order, stage, onOpen }: { order: Order; stage: Stage; onOpe
           : stage.status === 'skipped'
             ? t('cc_orders.rail.skipped', 'Skipped')
             : stage.responsibleName ?? (stage.status === 'done' ? stage.completedByName : null) ?? t('cc_orders.rail.unassigned', 'Not assigned')}
-      </div>
-      {progress.total && stage.status !== 'waiting' && stage.status !== 'skipped' ? (
-        <div className="mt-1.5 space-y-1">
-          <div className="flex h-1 overflow-hidden rounded-full bg-input" aria-hidden="true">
+      </span>
+      {progress.total && started && stage.status !== 'skipped' ? (
+        <span className="mt-1 flex w-20 items-center gap-1.5" title={progress.current ?? undefined}>
+          <span className="flex h-1 flex-1 overflow-hidden rounded-full bg-input" aria-hidden="true">
             <span className={cn('h-full rounded-full', stage.status === 'done' ? 'bg-status-success-icon' : 'bg-status-warning-icon')} style={{ width: `${(progress.done / progress.total) * 100}%` }} />
-          </div>
-          <div className="truncate text-xs">
-            <span className="tabular-nums">
-              {progress.done}/{progress.total}
-            </span>
-            {progress.current ? <span className="text-muted-foreground"> · {progress.current}</span> : null}
-          </div>
-        </div>
+          </span>
+          <span className="cc-figure text-xs">
+            {progress.done}/{progress.total}
+          </span>
+        </span>
       ) : null}
-      {stage.days != null && stage.status !== 'waiting' ? (
-        <div className={cn('text-xs', stage.status === 'on_hold' ? 'font-semibold text-status-error-text' : 'text-muted-foreground')}>
+      {stage.days != null && started ? (
+        <span className={cn('cc-figure text-xs', stage.status === 'on_hold' ? 'text-status-error-text' : 'text-muted-foreground')}>
           {stage.status === 'on_hold' ? `${stage.holdParty ?? t('cc_orders.rail.hold', 'On hold')} · ` : ''}
           {t('cc_orders.rail.days', '{days} d', { days: formatQty(stage.days, 1) })}
-        </div>
+        </span>
       ) : null}
     </button>
   )
@@ -314,94 +310,131 @@ export function OrderView({ orderId }: { orderId: string }) {
     <Page>
       <PageBody>
         <div className="mx-auto max-w-7xl space-y-5 pb-16">
-          <div className="flex flex-col gap-4 border-b pb-4 lg:flex-row lg:items-start lg:justify-between">
+          <header className="cc-band overflow-hidden">
+            <div className="flex flex-col gap-4 px-4 pb-4 pt-4 sm:px-6 lg:flex-row lg:items-start lg:justify-between">
             <div className="min-w-0 space-y-1">
-              <Link href="/backend/orders" className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground">
-                <ArrowLeft className="h-3 w-3" />
-                {t('cc_orders.back', 'Order book')}
-              </Link>
-              <div className="flex flex-wrap items-center gap-2">
-                <h1 className="font-mono text-xl font-bold">{order.orderNo}</h1>
-                <StatusBadge variant={ORDER_VARIANT[order.status] ?? 'neutral'} dot>
-                  {statusLabel}
-                </StatusBadge>
-                {order.onHold ? <StatusBadge variant="error">{t('cc_orders.status.on_hold', 'On hold')}</StatusBadge> : null}
-                {(order.revision ?? 1) > 1 ? <StatusBadge variant="info">{t('cc_orders.view.revision', 'Rev {n}', { n: order.revision ?? 1 })}</StatusBadge> : null}
-                {order.priority === 'urgent' ? <StatusBadge variant="error">{t('cc_orders.priority.urgent', 'Urgent')}</StatusBadge> : null}
-                {order.headline === 'delivered' ? <StatusBadge variant="success">{t('cc_orders.headline.delivered', 'Delivered')}</StatusBadge> : null}
-                {order.headline === 'updated' ? (
-                  <span title={[order.revisedByName, order.revisedAt ? formatDateTime(order.revisedAt) : null, order.revisionNote].filter(Boolean).join(' · ')}>
-                    <StatusBadge variant="info">{t('cc_orders.headline.updated', 'Updated')}</StatusBadge>
-                  </span>
-                ) : null}
-                {order.orderType !== 'new' ? <StatusBadge variant="info">{t(`cc_orders.type.${order.orderType}`, order.orderType)}</StatusBadge> : null}
-              </div>
-              <p className="text-sm">
-                {limited ? (
-                  <span className="font-semibold">{order.customer?.name || t('cc_orders.view.customer', 'Customer')}</span>
-                ) : (
-                  <Link href={`/backend/customers/companies/${order.customerId}`} className="font-semibold text-primary hover:underline">
-                    {order.customer?.name || t('cc_orders.view.customer', 'Customer')}
+                <div className="flex items-center gap-3">
+                  <Link href="/backend/orders" className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground">
+                    <ArrowLeft className="h-3 w-3" />
+                    {t('cc_orders.back', 'Order book')}
                   </Link>
-                )}
-                <span className="text-muted-foreground">
-                  {' · '}
-                  {t('cc_orders.view.progress', '{done} of {total} stages done', { done, total: order.stages.length })}
-                  {current.length ? ` · ${t('cc_orders.view.now', 'Now: {stages}', { stages: current.map((stage) => stage.label).join(' + ') })}` : ''}
-                </span>
-              </p>
-            </div>
-            <div className="flex flex-wrap items-center gap-2">
-              {limited ? null : <WhatsAppMenu phone={order.customer?.phone} recipient={order.customer?.name ?? t('cc_orders.view.customer', 'Customer')} messages={customerMessages(order)} />}
-              <ExportButton
-                size="sm"
-                label={t('cc_orders.view.export', 'Export order file')}
-                onExport={() => openServerExport(`/api/cc_orders/orders/export?orderId=${encodeURIComponent(order.id)}`)}
-              />
-              {granted.has('cc_orders.manage') ? (
-              <Button asChild variant="outline" size="sm">
-                <Link href={`/backend/orders/new?copyFrom=${order.id}`}>
-                  <Copy className="mr-1.5 h-4 w-4" />
-                  {t('cc_orders.view.repeat', 'Repeat order')}
-                </Link>
-              </Button>
-              ) : null}
-              {order.status !== 'cancelled' && order.status !== 'completed' && granted.has('cc_orders.manage') ? (
-                <>
-                  <Button type="button" variant="outline" size="sm" onClick={() => setHoldOpen(true)}>
-                    {order.held ? <PlayCircle className="mr-1.5 h-4 w-4" /> : <PauseCircle className="mr-1.5 h-4 w-4" />}
-                    {order.held ? t('cc_orders.view.release', 'Release hold') : t('cc_orders.view.hold', 'Put on hold')}
-                  </Button>
-                  <Button type="button" variant="destructive-ghost" size="sm" onClick={() => setCancelOpen(true)}>
-                    <Ban className="mr-1.5 h-4 w-4" />
-                    {t('cc_orders.view.cancel', 'Cancel order')}
-                  </Button>
-                  <Button asChild size="sm">
-                    <Link href={`/backend/orders/${order.id}/edit`}>
-                      <Pencil className="mr-1.5 h-4 w-4" />
-                      {t('cc_orders.view.edit', 'Edit order')}
+                  <span className="cc-overline">{t('cc_orders.view.overline', 'Sales order')}</span>
+                </div>
+                          <div className="flex flex-wrap items-center gap-2">
+                  <h1 className="font-mono text-xl font-bold">{order.orderNo}</h1>
+                  <StatusBadge variant={ORDER_VARIANT[order.status] ?? 'neutral'} dot>
+                    {statusLabel}
+                  </StatusBadge>
+                  {order.onHold ? <StatusBadge variant="error">{t('cc_orders.status.on_hold', 'On hold')}</StatusBadge> : null}
+                  {(order.revision ?? 1) > 1 ? <StatusBadge variant="info">{t('cc_orders.view.revision', 'Rev {n}', { n: order.revision ?? 1 })}</StatusBadge> : null}
+                  {order.priority === 'urgent' ? <StatusBadge variant="error">{t('cc_orders.priority.urgent', 'Urgent')}</StatusBadge> : null}
+                  {order.headline === 'delivered' ? <StatusBadge variant="success">{t('cc_orders.headline.delivered', 'Delivered')}</StatusBadge> : null}
+                  {order.headline === 'updated' ? (
+                    <span title={[order.revisedByName, order.revisedAt ? formatDateTime(order.revisedAt) : null, order.revisionNote].filter(Boolean).join(' · ')}>
+                      <StatusBadge variant="info">{t('cc_orders.headline.updated', 'Updated')}</StatusBadge>
+                    </span>
+                  ) : null}
+                  {order.orderType !== 'new' ? <StatusBadge variant="info">{t(`cc_orders.type.${order.orderType}`, order.orderType)}</StatusBadge> : null}
+                </div>
+                <p className="text-sm">
+                  {limited ? (
+                    <span className="font-semibold">{order.customer?.name || t('cc_orders.view.customer', 'Customer')}</span>
+                  ) : (
+                    <Link href={`/backend/customers/companies/${order.customerId}`} className="font-semibold text-primary hover:underline">
+                      {order.customer?.name || t('cc_orders.view.customer', 'Customer')}
                     </Link>
-                  </Button>
-                </>
+                  )}
+                  <span className="text-muted-foreground">
+                    {' · '}
+                    {t('cc_orders.view.progress', '{done} of {total} stages done', { done, total: order.stages.length })}
+                    {current.length ? ` · ${t('cc_orders.view.now', 'Now: {stages}', { stages: current.map((stage) => stage.label).join(' + ') })}` : ''}
+                  </span>
+                </p>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                {limited ? null : <WhatsAppMenu phone={order.customer?.phone} recipient={order.customer?.name ?? t('cc_orders.view.customer', 'Customer')} messages={customerMessages(order)} />}
+                <ExportButton
+                  size="sm"
+                  label={t('cc_orders.view.export', 'Export order file')}
+                  onExport={() => openServerExport(`/api/cc_orders/orders/export?orderId=${encodeURIComponent(order.id)}`)}
+                />
+                {granted.has('cc_orders.manage') ? (
+                <Button asChild variant="outline" size="sm">
+                  <Link href={`/backend/orders/new?copyFrom=${order.id}`}>
+                    <Copy className="mr-1.5 h-4 w-4" />
+                    {t('cc_orders.view.repeat', 'Repeat order')}
+                  </Link>
+                </Button>
+                ) : null}
+                {order.status !== 'cancelled' && order.status !== 'completed' && granted.has('cc_orders.manage') ? (
+                  <>
+                    <Button type="button" variant="outline" size="sm" onClick={() => setHoldOpen(true)}>
+                      {order.held ? <PlayCircle className="mr-1.5 h-4 w-4" /> : <PauseCircle className="mr-1.5 h-4 w-4" />}
+                      {order.held ? t('cc_orders.view.release', 'Release hold') : t('cc_orders.view.hold', 'Put on hold')}
+                    </Button>
+                    <Button type="button" variant="destructive-ghost" size="sm" onClick={() => setCancelOpen(true)}>
+                      <Ban className="mr-1.5 h-4 w-4" />
+                      {t('cc_orders.view.cancel', 'Cancel order')}
+                    </Button>
+                    <Button asChild size="sm">
+                      <Link href={`/backend/orders/${order.id}/edit`}>
+                        <Pencil className="mr-1.5 h-4 w-4" />
+                        {t('cc_orders.view.edit', 'Edit order')}
+                      </Link>
+                    </Button>
+                  </>
+                ) : null}
+              </div>
+            </div>
+          <div className="grid grid-cols-2 gap-2 px-4 pb-5 sm:grid-cols-3 sm:px-6 lg:grid-cols-6">
+            <div className="cc-tile">
+              <div className="text-xs text-muted-foreground">{t('cc_orders.view.figOrdered', 'Ordered on')}</div>
+              <div className="cc-figure text-base">{formatDate(order.orderDate)}</div>
+            </div>
+            <div className="cc-tile">
+              <div className="text-xs text-muted-foreground">{t('cc_orders.view.figDelivery', 'Delivery')}</div>
+              <div className="cc-figure text-base">{order.deliveryDate ? formatDate(order.deliveryDate) : '—'}</div>
+              {deliveryIn !== null && order.status !== 'completed' && order.status !== 'cancelled' ? (
+                <div className={cn('text-xs', deliveryIn < 0 ? 'text-status-error-icon' : 'text-muted-foreground')}>{deliveryIn < 0 ? t('cc_orders.view.lateBy', '{days} d late', { days: -deliveryIn }) : t('cc_orders.view.dueIn', 'in {days} d', { days: deliveryIn })}</div>
               ) : null}
             </div>
+            <div className="cc-tile">
+              <div className="text-xs text-muted-foreground">{t('cc_orders.view.figQty', 'Quantity')}</div>
+              <div className="cc-figure text-base">{[totalKg ? `${formatQty(totalKg, 3)} kg` : null, totalPieces ? `${formatQty(totalPieces, 0)} pcs` : null].filter(Boolean).join(' + ') || '—'}</div>
+            </div>
+            {order.canSeeMoney && order.totals && order.payments ? (
+              <>
+                <div className="cc-tile">
+                  <div className="text-xs text-muted-foreground">{t('cc_orders.view.orderValue', 'Order value')}</div>
+                  <div className="cc-figure text-base">₹ {formatQty(order.totals.total, 0)}</div>
+                </div>
+                <div className="cc-tile">
+                  <div className="text-xs text-muted-foreground">{t('cc_orders.view.received', 'Received')}</div>
+                  <div className="cc-figure text-base text-status-success-icon">₹ {formatQty(order.payments.received, 0)}</div>
+                </div>
+                <div className="cc-tile">
+                  <div className="text-xs text-muted-foreground">{t('cc_orders.view.due', 'Due')}</div>
+                  <div className={cn('cc-figure text-base', order.payments.due > 0 ? 'cc-text-copper' : '')}>₹ {formatQty(order.payments.due, 0)}</div>
+                </div>
+              </>
+            ) : null}
           </div>
+          </header>
 
           <Card>
             <CardHeader className="border-b bg-muted/20 pb-3">
               <CardTitle className="text-sm font-bold">{t('cc_orders.view.stages', 'Stages')}</CardTitle>
               <CardDescription className="text-xs">
-                {t('cc_orders.view.stagesHint', 'Green = done · Orange = in progress · Red = on hold · Grey = coming. Click a stage to open its work.')}
+                {t('cc_orders.view.stagesHintRail', 'Copper = done · ringed = in progress · red = on hold · dashed = coming. Click a stage to open its work.')}
               </CardDescription>
             </CardHeader>
             <CardContent className="p-3">
               <HorizontalScroll showButtons showGradients step={340}>
-                <div className="flex min-w-max items-stretch gap-2 py-1 px-1">
-                  {RAIL.map((block, index) => (
+                <div className="flex min-w-max items-start py-2 px-1">
+                  {RAIL.map((block) => (
                     <React.Fragment key={block.kind === 'single' ? block.key : 'arms'}>
-                      {index > 0 ? <div className="flex items-center text-muted-foreground">›</div> : null}
                       {block.kind === 'single' ? (
-                        <div className="flex w-36 flex-col justify-center">
+                        <div className="flex w-36 flex-col">
                           {stagesByKey.get(block.key) ? (
                             <StageCard order={order} stage={stagesByKey.get(block.key)!} onOpen={() => goToStage(block.key)} />
                           ) : null}

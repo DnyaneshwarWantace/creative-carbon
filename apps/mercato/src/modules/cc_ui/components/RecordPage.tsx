@@ -12,6 +12,12 @@ import { DOCUMENT_KIND_LABEL, type DocumentLink } from '../lib/links'
 
 export type Tone = 'good' | 'warn' | 'bad'
 
+const TONE_ON_CARBON: Record<Tone, string> = {
+  good: 'text-status-success-icon',
+  warn: 'cc-text-copper',
+  bad: 'text-status-error-icon',
+}
+
 const TONE_TEXT: Record<Tone, string> = {
   good: 'text-status-success-text',
   warn: 'text-status-warning-text',
@@ -62,14 +68,14 @@ export function RecordPage({
             </Link>
             {actions ? <div className="flex flex-wrap gap-2">{actions}</div> : null}
           </div>
-          <article className="overflow-hidden rounded-md border border-foreground/70 bg-card shadow-sm">
-            <header className="bg-foreground px-4 py-3 text-background sm:px-5">
-              {overline ? <p className="font-mono text-overline font-semibold uppercase tracking-widest opacity-70">{overline}</p> : null}
-              <div className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-1.5">
-                <h1 className={cn('break-words text-2xl font-bold tracking-tight', mono && 'font-mono')}>{title}</h1>
+          <article className="cc-band overflow-hidden">
+            <header className="px-4 pb-3 pt-4 sm:px-6">
+              {overline ? <p className="cc-overline">{overline}</p> : null}
+              <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1.5">
+                <h1 className={cn('break-words text-2xl font-bold tracking-tight sm:text-3xl', mono && 'cc-figure')}>{title}</h1>
                 {badges}
               </div>
-              {meta ? <p className="mt-1 text-xs opacity-70">{meta}</p> : null}
+              {meta ? <p className="mt-1 text-sm text-muted-foreground">{meta}</p> : null}
             </header>
             {facts && facts.length ? <LedgerFacts facts={facts} /> : null}
           </article>
@@ -95,11 +101,11 @@ export type Fact = { label: string; value: React.ReactNode; hint?: React.ReactNo
 
 function LedgerFacts({ facts }: { facts: Fact[] }) {
   return (
-    <dl className="grid grid-cols-2 border-t border-foreground/70 sm:grid-cols-3 lg:grid-cols-6">
+    <dl className="grid grid-cols-2 gap-2 px-4 pb-5 sm:grid-cols-3 sm:px-6 lg:grid-cols-6">
       {facts.map((fact) => (
-        <div key={fact.label} className="min-w-0 border-b border-r border-border px-4 py-2.5">
-          <dt className="truncate font-mono text-overline uppercase tracking-widest text-muted-foreground">{fact.label}</dt>
-          <dd className={cn('mt-0.5 truncate font-mono text-lg font-semibold tabular-nums', fact.tone && TONE_TEXT[fact.tone])}>{fact.value}</dd>
+        <div key={fact.label} className="cc-tile min-w-0">
+          <dt className="truncate text-xs text-muted-foreground">{fact.label}</dt>
+          <dd className={cn('cc-figure mt-0.5 truncate text-lg', fact.tone && TONE_ON_CARBON[fact.tone])}>{fact.value}</dd>
           {fact.hint ? <dd className="truncate text-xs text-muted-foreground">{fact.hint}</dd> : null}
         </div>
       ))}

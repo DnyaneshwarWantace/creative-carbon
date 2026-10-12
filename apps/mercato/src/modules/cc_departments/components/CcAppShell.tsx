@@ -86,6 +86,7 @@ export function CcAppShell({ adminNavApi, rightHeaderSlot, productName, children
   const tabBar = allowed && !hidesTabBar(pathname)
 
   return (
+    <div className="cc-shell contents" data-workspace={workspace}>
     <AppShell
       {...props}
       productName={workspace === 'crm' ? `${productName ?? ''} · CRM` : productName}
@@ -101,6 +102,7 @@ export function CcAppShell({ adminNavApi, rightHeaderSlot, productName, children
       {allowed ? <div className={tabBar ? 'pb-24 lg:pb-0' : undefined}>{children}</div> : redirectTo ? null : <WorkspaceDenied home={home} />}
       {tabBar ? <MobileTabBar workspace={workspace} /> : null}
     </AppShell>
+    </div>
   )
 }
 
