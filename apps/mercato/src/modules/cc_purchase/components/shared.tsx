@@ -1,5 +1,7 @@
 "use client"
 
+import type { PoPrintDetails } from '../lib/poPrint'
+
 import type { StatusBadgeVariant } from '@open-mercato/ui/primitives/status-badge'
 
 export type PoStatus = 'draft' | 'pending_approval' | 'approved' | 'partly_received' | 'received' | 'cancelled'
@@ -26,6 +28,8 @@ export type PoLineView = {
 
 export type PoView = {
   vendorEmail?: string | null
+  vendorAddress?: string | null
+  printDetails?: PoPrintDetails
   id: string
   code: string
   vendorId: string

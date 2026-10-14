@@ -17,7 +17,9 @@ import { buildOptimisticLockHeader } from '@open-mercato/ui/backend/utils/optimi
 import { useGuardedMutation } from '@open-mercato/ui/backend/injection/useGuardedMutation'
 import { flash } from '@open-mercato/ui/backend/FlashMessages'
 import { GRN_STATUS, HISTORY_LABEL, PO_STATUS, day, money, qty, when, type PoView } from './shared'
-import { printPurchaseOrder } from './printPo'
+import { buildPoLetterHtml, printPurchaseOrder } from './printPo'
+import { PoPrintPanel } from './PoPrintPanel'
+import type { PrintCompany } from '../../cc_ui/lib/printKit'
 import { WhatsAppMenu, type WhatsAppMessage } from '../../cc_products/components/WhatsAppMenu'
 import { dateText, rupeeText } from '../../cc_products/lib/whatsapp'
 import { EmailPoButton } from './EmailPoDialog'
@@ -108,6 +110,10 @@ export function PurchaseOrderPage({ poId }: { poId: string }) {
   const [dialog, setDialog] = React.useState<'approve' | 'cancel' | null>(null)
   const [fix, setFix] = React.useState<'amend' | 'short_close' | null>(null)
   const [note, setNote] = React.useState('')
+  const [company, setCompany] = React.useState<PrintCompany | null>(null)
+  React.useEffect(() => {
+    void apiCall<PrintCompany>('/api/cc_accounts/company').then((call) => setCompany(call.ok ? (call.result ?? null) : null))
+  }, [])
 
   const load = React.useCallback(async () => {
     const call = await apiCall<PoView>(`/api/cc_purchase/orders?id=${encodeURIComponent(poId)}`)
@@ -122,7 +128,7 @@ export function PurchaseOrderPage({ poId }: { poId: string }) {
     load()
   }, [load])
 
-  const act = async (path: string, body: Record<string, unknown>, done: string) => {
+  const act = async (path: string, body: Record<string, unknown>, done: string, method: 'POST' | 'PUT' = 'POST') => {
     if (!po) return false
     setBusy(true)
     try {
@@ -131,7 +137,7 @@ export function PurchaseOrderPage({ poId }: { poId: string }) {
         mutationPayload: body,
         operation: () =>
           withScopedApiRequestHeaders(buildOptimisticLockHeader(po.updatedAt), () =>
-            apiCall<PoView & { error?: string }>(path, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ id: po.id, ...body }) }),
+            apiCall<PoView & { error?: string }>(path, { method, headers: { 'content-type': 'application/json' }, body: JSON.stringify({ id: po.id, ...body }) }),
           ),
       })
       if (!call.ok || !call.result || call.result.error) {
@@ -158,7 +164,7 @@ export function PurchaseOrderPage({ poId }: { poId: string }) {
     })
     const subtotal = lines.reduce((sum, line) => sum + line.amount, 0)
     const gst = lines.reduce((sum, line) => sum + line.gst, 0)
-    printPurchaseOrder({ ...po, lines, subtotal, gst, total: subtotal + gst, status: rev.status, revision: rev.revision, supersededBy: po.revision ?? null })
+    printPurchaseOrder({ ...po, lines, subtotal, gst, total: subtotal + gst, status: rev.status, revision: rev.revision, supersededBy: po.revision ?? null }, company)
   }
 
   const editable = po.status === 'draft' || po.status === 'pending_approval'
@@ -212,7 +218,7 @@ export function PurchaseOrderPage({ poId }: { poId: string }) {
           <>
             <WhatsAppMenu phone={po.vendorPhone} recipient={po.vendorContact ? `${po.vendorContact} (${po.vendorName})` : po.vendorName} messages={vendorMessages(po)} />
             {(po.status === 'approved' || po.status === 'partly_received') && granted.has('cc_purchase.manage') ? <EmailPoButton po={po} onSent={() => void load()} /> : null}
-            <Button type="button" variant="outline" size="sm" onClick={() => printPurchaseOrder(po)}>
+            <Button type="button" variant="outline" size="sm" onClick={() => printPurchaseOrder(po, company)}>
               <Printer className="mr-1.5 h-4 w-4" aria-hidden="true" />
               {t('cc_purchase.detail.print', 'Print PO')}
             </Button>
@@ -368,10 +374,23 @@ export function PurchaseOrderPage({ poId }: { poId: string }) {
                   }))}
                 />
               </Panel>
+              {po.printDetails && company ? (
+                <div className="overflow-hidden rounded-lg border bg-card shadow-xs">
+                  <iframe title={t('cc_purchase.print.preview', 'Printed purchase order preview')} srcDoc={buildPoLetterHtml(po, company, false)} className="h-screen w-full bg-background" />
+                </div>
+              ) : null}
             </>
           }
           side={
             <>
+              {po.printDetails ? (
+                <PoPrintPanel
+                  details={po.printDetails}
+                  editable={granted.has('cc_purchase.manage') && po.status !== 'cancelled'}
+                  busy={busy}
+                  onSave={(printDetails) => act('/api/cc_purchase/orders/print-details', { printDetails }, t('cc_purchase.print.saved', 'Print details saved'), 'PUT')}
+                />
+              ) : null}
               <Panel title={t('cc_purchase.detail.vendor', 'Vendor')} icon={Building2}>
                 <Link className="font-semibold hover:underline" href={recordHref.vendor(po.vendorId)}>
                   {po.vendorName}

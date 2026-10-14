@@ -37,6 +37,8 @@ export function NewGrnPage() {
   const [invoiceDate, setInvoiceDate] = React.useState('')
   const [vehicleNo, setVehicleNo] = React.useState('')
   const [notes, setNotes] = React.useState('')
+  const [tcReceived, setTcReceived] = React.useState(false)
+  const [tcMissingReason, setTcMissingReason] = React.useState('')
   const [busy, setBusy] = React.useState(false)
 
   React.useEffect(() => {
@@ -81,6 +83,7 @@ export function NewGrnPage() {
       invoiceDate: invoiceDate || null,
       vehicleNo: vehicleNo.trim() || null,
       notes: notes.trim() || null,
+      ...(po.printDetails?.needsTc ? { tcReceived, tcMissingReason: tcReceived ? null : tcMissingReason.trim() || null } : {}),
       lines: chosen.map(([poLineId, draft]) => ({
         poLineId,
         quantity: Number(draft.quantity),
@@ -253,6 +256,23 @@ export function NewGrnPage() {
               <p className="px-5 py-8 text-sm text-muted-foreground">{t('cc_purchase.grn.allIn', 'Everything on this PO has arrived.')}</p>
             )}
           </section>
+
+          {po.printDetails?.needsTc ? (
+            <section className="space-y-3 rounded-xl border border-status-warning-border bg-status-warning-bg p-5 shadow-sm">
+              <label className="flex items-center gap-2 text-sm font-medium">
+                <Checkbox checked={tcReceived} onCheckedChange={(checked) => setTcReceived(checked === true)} />
+                {t('cc_purchase.grn.tcReceived', 'The supplier’s test certificate came with the goods')}
+              </label>
+              {!tcReceived ? (
+                <div className="space-y-1">
+                  <Label htmlFor="grn-tc-reason" className="text-xs">
+                    {t('cc_purchase.grn.tcMissing', 'The PO asks for a test certificate. Why is it missing?')}
+                  </Label>
+                  <Input id="grn-tc-reason" value={tcMissingReason} onChange={(event) => setTcMissingReason(event.target.value)} />
+                </div>
+              ) : null}
+            </section>
+          ) : null}
 
           <section className="rounded-xl border border-border bg-card p-5 shadow-sm">
             <Label htmlFor="grn-notes">{t('cc_purchase.grn.notes', 'Notes (damage, short)')}</Label>

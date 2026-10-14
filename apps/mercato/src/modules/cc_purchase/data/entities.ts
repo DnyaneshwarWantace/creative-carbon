@@ -94,6 +94,9 @@ export class PurchaseOrder {
   @Property({ name: 'short_close_reason', type: 'text', nullable: true })
   shortCloseReason?: string | null
 
+  @Property({ name: 'print_details', type: 'json', nullable: true })
+  printDetails?: Record<string, unknown> | null
+
   @Property({ name: 'created_at', type: Date, onCreate: () => new Date() })
   createdAt: Date = new Date()
 

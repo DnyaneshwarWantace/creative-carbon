@@ -1,3 +1,4 @@
+import { defaultPoPrint, poPrintOf } from './poPrint'
 import { randomUUID } from 'node:crypto'
 import type { EntityManager } from '@mikro-orm/postgresql'
 import { Vendor } from '../../cc_vendors/data/entities'
@@ -257,6 +258,7 @@ export async function poView(ctx: OrderContext, po: PurchaseOrder) {
     ctx.em.findOne(Vendor, { id: po.vendorId, tenantId: ctx.tenantId, organizationId: ctx.organizationId }),
   ])
   const products = await loadProducts(ctx, lines.map((line) => line.productId))
+  const ownState = (await loadCompany(ctx))?.gstin?.slice(0, 2) ?? null
   const view = lines.map((line) => {
     const amount = num(line.quantity) * num(line.rate)
     return {
@@ -287,6 +289,8 @@ export async function poView(ctx: OrderContext, po: PurchaseOrder) {
     vendorPhone: vendor?.contactPhone ?? null,
     vendorContact: vendor?.contactPerson ?? null,
     vendorEmail: vendor?.contactEmail ?? null,
+    vendorAddress: vendor?.address ?? null,
+    printDetails: poPrintOf(po.printDetails, () => defaultPoPrint({ interState: Boolean(ownState && po.vendorGstin && po.vendorGstin.slice(0, 2) !== ownState), terms: po.terms ?? null })),
     poDate: po.poDate,
     expectedDate: po.expectedDate ?? null,
     status: po.status,
@@ -423,6 +427,9 @@ export async function createGrn(ctx: StoreContext, input: GrnInput): Promise<Goo
     }
   }
   await stockTargets(ctx, [...new Set(poLines.filter((line) => merged.has(line.id)).map((line) => line.productId))])
+  const print = poPrintOf(po.printDetails, () => defaultPoPrint({ interState: false, terms: null }))
+  const tcNote = input.tcMissingReason?.trim() ?? ''
+  if (print.needsTc && !input.tcReceived && tcNote.length < 3) throw new PurchaseError('This PO asks the supplier for a test certificate. Tick that it came with the goods, or write why it is missing.')
 
   const byName = await currentUserName(ctx)
   const grn = ctx.em.create(GoodsReceipt, {
@@ -439,7 +446,7 @@ export async function createGrn(ctx: StoreContext, input: GrnInput): Promise<Goo
     vehicleNo: input.vehicleNo?.trim() || null,
     notes: input.notes ?? null,
     receivedByName: byName,
-    history: [{ action: 'received', by: byName, at: new Date().toISOString(), note: input.invoiceNo ? `Invoice ${input.invoiceNo}` : null }],
+    history: [{ action: 'received', by: byName, at: new Date().toISOString(), note: [input.invoiceNo ? `Invoice ${input.invoiceNo}` : null, print.needsTc ? (input.tcReceived ? 'Supplier test certificate received' : `No test certificate: ${tcNote}`) : null].filter(Boolean).join(' · ') || null }],
   })
   ctx.em.persist(grn)
   await ctx.em.flush()

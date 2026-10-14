@@ -45,6 +45,8 @@ export const grnInputSchema = z.object({
   invoiceDate: day.optional().nullable(),
   vehicleNo: z.string().trim().max(60).optional().nullable(),
   notes: z.string().trim().max(2000).optional().nullable(),
+  tcReceived: z.boolean().optional(),
+  tcMissingReason: z.string().trim().max(500).optional().nullable(),
   lines: z
     .array(
       z.object({
