@@ -23,3 +23,7 @@ export function cleanPrintTerms(value: PoPrintTerms | null | undefined): PoPrint
   }
   return Object.keys(out).length ? out : null
 }
+
+export function requiresSupplierTc(specialInstruction: string | null | undefined): boolean {
+  return /test\s*certificate|\bMTC\b|\bTC\b|\bCOA\b|certificate of analysis/i.test(specialInstruction ?? '')
+}

@@ -89,6 +89,7 @@ export type GrnView = {
   invoiceNo: string | null
   invoiceDate: string | null
   vehicleNo?: string | null
+  supplierTc?: { required: boolean; tcNo: string | null; waivedReason: string | null }
   status: GrnStatus
   notes: string | null
   receivedByName: string | null

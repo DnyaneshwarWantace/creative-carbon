@@ -25,6 +25,7 @@ import { Comments } from '../../cc_ui/components/Comments'
 import { Attachments } from '../../cc_ui/components/Attachments'
 import { CorrectDialog } from '../../cc_ui/components/CorrectDialog'
 import { Input } from '@open-mercato/ui/primitives/input'
+import { GrnSupplierTc } from './GrnSupplierTc'
 
 type LotTrace = { lotId: string; lotNumber: string | null; usedBy: Array<{ document: DocumentLink; kg: number; at: string }> }
 
@@ -278,6 +279,7 @@ export function GrnPage({ grnId }: { grnId: string }) {
           }
           side={
             <>
+              <GrnSupplierTc grn={grn} canEdit={granted.has('cc_purchase.receive')} onChanged={setGrn} />
               <Panel title={t('cc_purchase.grnDetail.paper', 'Vendor paperwork')} icon={FileText}>
                 <FieldList
                   columns={1}

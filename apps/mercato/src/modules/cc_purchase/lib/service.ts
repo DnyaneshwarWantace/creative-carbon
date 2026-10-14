@@ -8,7 +8,7 @@ import { ensureStockRecords } from '../../cc_store/lib/stockSetup'
 import { GoodsReceipt, GoodsReceiptLine, PurchaseOrder, PurchaseOrderLine, type GrnStatus, type PoStatus } from '../data/entities'
 import type { DirectGrnInput, GrnInput, PoInput } from '../data/validators'
 import { linkIndentsToPo, notifyApprovers } from './indents'
-import { cleanPrintTerms } from './printTerms'
+import { cleanPrintTerms, requiresSupplierTc } from './printTerms'
 import { loadCompany } from '../../cc_accounts/lib/documents'
 import { nextSeriesCode } from '../../cc_accounts/lib/numberSeries'
 import { PURCHASED_KINDS, type ProductKind } from '../../cc_products/lib/kinds'
@@ -511,12 +511,28 @@ export async function createDirectGrn(ctx: StoreContext, input: DirectGrnInput):
   return grn
 }
 
+export async function supplierTcRequired(ctx: OrderContext, grn: GoodsReceipt): Promise<boolean> {
+  if (!grn.poId) return false
+  const po = await ctx.em.findOne(PurchaseOrder, { id: grn.poId })
+  return requiresSupplierTc(po?.printTerms?.specialInstruction)
+}
+
+export async function setSupplierTc(ctx: OrderContext, grn: GoodsReceipt, tcNo: string | null, waivedReason: string | null) {
+  grn.supplierTcNo = tcNo
+  grn.supplierTcWaivedReason = tcNo ? null : waivedReason
+  grn.updatedAt = new Date()
+  await ctx.em.flush()
+}
+
 export async function decideLine(ctx: StoreContext, grn: GoodsReceipt, lineId: string, decision: 'passed' | 'failed', note: string | null) {
   const line = await ctx.em.findOne(GoodsReceiptLine, { id: lineId, grnId: grn.id })
   if (!line) throw new PurchaseError('Line not found', 404)
   if (line.qcStatus === 'returned') throw new PurchaseError('This batch was already returned to the vendor', 409)
   if (line.qcStatus === decision) return
   if (decision === 'failed' && !note) throw new PurchaseError('Write why the material is on hold')
+  if (decision === 'passed' && (await supplierTcRequired(ctx, grn)) && !(grn.supplierTcNo ?? '').trim() && !(grn.supplierTcWaivedReason ?? '').trim()) {
+    throw new PurchaseError('The purchase order asks the supplier for a test certificate. Write its number under "Supplier test certificate", or the reason it is not needed, before passing.', 409)
+  }
   if (line.lotId) {
     await runCommand(ctx, 'wms.lots.update', {
       id: line.lotId,
@@ -595,6 +611,7 @@ export async function grnView(ctx: OrderContext, grn: GoodsReceipt) {
     invoiceNo: grn.invoiceNo ?? null,
     invoiceDate: grn.invoiceDate ?? null,
     vehicleNo: grn.vehicleNo ?? null,
+    supplierTc: { required: await supplierTcRequired(ctx, grn), tcNo: grn.supplierTcNo ?? null, waivedReason: grn.supplierTcWaivedReason ?? null },
     status: grn.status,
     notes: grn.notes ?? null,
     receivedByName: grn.receivedByName ?? null,
