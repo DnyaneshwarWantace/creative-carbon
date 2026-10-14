@@ -12,6 +12,7 @@ import { recordHref } from '../../../cc_ui/lib/links'
 import { Attachments } from '../../../cc_ui/components/Attachments'
 import { Comments } from '../../../cc_ui/components/Comments'
 import { Timeline } from '../../../cc_ui/components/Timeline'
+import { DIE_FAMILIES, type DieFamilyKey } from '../../lib/dieFamilies'
 
 type DieView = {
   id: string
@@ -26,6 +27,14 @@ type DieView = {
   customerMouldNo: string | null
   storeLocation: string | null
   heatUpMinutes: number | null
+  family: DieFamilyKey | null
+  dimensions: Record<string, number | string> | null
+  weightKg: number | null
+  cavities: number | null
+  chartNo: number | null
+  chartPage: string | null
+  customerRef: string | null
+  drawingNo: string | null
   isActive: boolean
   updatedByName: string | null
   updatedAt: string
@@ -113,6 +122,18 @@ export function DiePage({ dieId }: { dieId: string }) {
       <RecordColumns
         main={
           <>
+            {die.dimensions && Object.keys(die.dimensions).length ? (
+              <Panel title={t('cc_production.die.dimensions', 'Sizes from the die chart (mm)')} icon={Shapes}>
+                <div className="grid grid-cols-3 gap-2 sm:grid-cols-6">
+                  {(die.family ? DIE_FAMILIES[die.family].dimensions.filter((key) => key in die.dimensions!) : Object.keys(die.dimensions)).map((key) => (
+                    <div key={key} className="rounded-md border bg-background px-2 py-1.5 text-center">
+                      <div className="font-mono text-xs text-muted-foreground">{key}</div>
+                      <div className="font-mono text-base font-semibold tabular-nums">{die.dimensions![key]}</div>
+                    </div>
+                  ))}
+                </div>
+              </Panel>
+            ) : null}
             <Panel title={t('cc_production.die.details', 'Die details')} icon={Shapes}>
               <FieldList
                 fields={[
@@ -133,6 +154,12 @@ export function DiePage({ dieId }: { dieId: string }) {
                   [t('cc_production.die.customerMouldNo', 'Customer mould No.'), die.customerMouldNo],
                   [t('cc_production.die.store', 'Kept at'), die.storeLocation],
                   [t('cc_production.die.heatUp', 'Heat-up time'), die.heatUpMinutes !== null ? `${die.heatUpMinutes} min` : null],
+                  [t('cc_production.die.family', 'Chart family'), die.family ? DIE_FAMILIES[die.family].label : null],
+                  [t('cc_production.die.weight', 'Weight per piece'), die.weightKg !== null ? `${die.weightKg} kg` : null],
+                  [t('cc_production.die.cavities', 'Cavities'), die.cavities !== null ? String(die.cavities) : null],
+                  [t('cc_production.die.drawingNo', 'Drawing no.'), die.drawingNo],
+                  [t('cc_production.die.customerRef', 'Customer ref (chart)'), die.customerRef],
+                  [t('cc_production.die.chart', 'Chart no. / page'), die.chartNo !== null ? [`#${die.chartNo}`, die.chartPage].filter(Boolean).join(' · ') : null],
                   [
                     t('cc_production.die.product', 'Moulded part'),
                     die.product ? (

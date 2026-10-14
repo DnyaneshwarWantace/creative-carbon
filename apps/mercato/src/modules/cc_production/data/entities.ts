@@ -152,6 +152,30 @@ export class Mould {
   @Property({ name: 'updated_by_name', type: 'text', nullable: true })
   updatedByName?: string | null
 
+  @Property({ type: 'text', nullable: true })
+  family?: string | null
+
+  @Property({ type: 'json', nullable: true })
+  dimensions?: Record<string, number | string> | null
+
+  @Property({ name: 'weight_kg', type: 'numeric', precision: 10, scale: 3, nullable: true })
+  weightKg?: string | null
+
+  @Property({ type: 'integer', nullable: true })
+  cavities?: number | null
+
+  @Property({ name: 'chart_no', type: 'integer', nullable: true })
+  chartNo?: number | null
+
+  @Property({ name: 'chart_page', type: 'text', nullable: true })
+  chartPage?: string | null
+
+  @Property({ name: 'customer_ref', type: 'text', nullable: true })
+  customerRef?: string | null
+
+  @Property({ name: 'drawing_no', type: 'text', nullable: true })
+  drawingNo?: string | null
+
   @Property({ name: 'created_at', type: Date, onCreate: () => new Date() })
   createdAt: Date = new Date()
 
@@ -1473,4 +1497,55 @@ export class SyncClash {
 
   @Property({ name: 'updated_at', type: Date, onCreate: () => new Date(), onUpdate: () => new Date() })
   updatedAt: Date = new Date()
+}
+
+@Entity({ tableName: 'cc_rod_stocks' })
+@Index({ name: 'cc_rod_stocks_scope_idx', properties: ['organizationId', 'tenantId'] })
+export class RodStock {
+  [OptionalProps]?: 'srNo' | 'odTo' | 'source' | 'notes' | 'isActive' | 'createdAt' | 'updatedAt' | 'deletedAt'
+
+  @PrimaryKey({ type: 'uuid', defaultRaw: 'gen_random_uuid()' })
+  id!: string
+
+  @Property({ name: 'organization_id', type: 'uuid' })
+  organizationId!: string
+
+  @Property({ name: 'tenant_id', type: 'uuid' })
+  tenantId!: string
+
+  @Property({ name: 'sr_no', type: 'integer', nullable: true })
+  srNo?: number | null
+
+  @Property({ name: 'od_text', type: 'text' })
+  odText!: string
+
+  @Property({ name: 'od_from', type: 'numeric', precision: 10, scale: 2 })
+  odFrom!: string
+
+  @Property({ name: 'od_to', type: 'numeric', precision: 10, scale: 2, nullable: true })
+  odTo?: string | null
+
+  @Property({ name: 'length_mm', type: 'integer' })
+  lengthMm!: number
+
+  @Property({ type: 'integer' })
+  quantity!: number
+
+  @Property({ type: 'text', nullable: true })
+  source?: string | null
+
+  @Property({ type: 'text', nullable: true })
+  notes?: string | null
+
+  @Property({ name: 'is_active', type: 'boolean', default: true })
+  isActive: boolean = true
+
+  @Property({ name: 'created_at', type: Date, onCreate: () => new Date() })
+  createdAt: Date = new Date()
+
+  @Property({ name: 'updated_at', type: Date, onCreate: () => new Date(), onUpdate: () => new Date() })
+  updatedAt: Date = new Date()
+
+  @Property({ name: 'deleted_at', type: Date, nullable: true })
+  deletedAt?: Date | null
 }
