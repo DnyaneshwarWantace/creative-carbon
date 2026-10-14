@@ -7,8 +7,11 @@ import { nextSeriesCode } from '../../cc_accounts/lib/numberSeries'
 import { CcEnquiry, CcQuotation } from '../data/entities'
 import { CcOrder } from '../../cc_orders/data/entities'
 import { logEvent } from '../../cc_orders/lib/engine'
-import { logCorrection, recordActivity } from '../../cc_audit/lib/activity'
+import { logCorrection, logEdit, recordActivity } from '../../cc_audit/lib/activity'
 import type { QuotationAction, QuotationInput } from '../data/validators'
+import { defaultQuoteLetter, quoteLetterSchema, type QuoteLetter } from './quoteLetter'
+import { addressText, customerAddresses } from '../../cc_accounts/lib/billDetails'
+import { loadCompany } from '../../cc_accounts/lib/documents'
 import { markEnquiry } from './enquiries'
 import { CrmError, entry, todayIst } from './server'
 
@@ -52,8 +55,10 @@ export async function quotationDetail(ctx: OrderContext, row: CcQuotation, revis
     row.enquiryId ? ctx.em.findOne(CcEnquiry, { id: row.enquiryId, ...scope(ctx) }) : null,
   ])
   const includeGst = Boolean(data.pricesIncludeGst)
+  const letter = await quoteLetterFor(ctx, row, data, enquiry, customers.get(row.customerId)?.gstin ?? null, customers.get(row.customerId)?.name ?? '', lines.map((line) => ({ unit: products.get(line.productId)?.unit ?? null, grade: line.specs?.material?.grade ?? null, gstPercent: Number(line.gstPercent ?? 18) })), snapshot?.quoteDate ?? row.quoteDate, snapshot ? snapshot.validUntil : (row.validUntil ?? null))
   return {
     ...data,
+    letter,
     id: row.id,
     quoteNo: row.quoteNo,
     orderNo: row.quoteNo,
@@ -89,6 +94,54 @@ export async function quotationDetail(ctx: OrderContext, row: CcQuotation, revis
   }
 }
 
+async function quoteLetterFor(
+  ctx: OrderContext,
+  row: CcQuotation,
+  data: StoredData,
+  enquiry: CcEnquiry | null,
+  customerGstin: string | null,
+  customerName: string,
+  lines: Array<{ unit: string | null; grade: string | null; gstPercent: number }>,
+  quoteDate: string,
+  validUntil: string | null,
+): Promise<QuoteLetter> {
+  const stored = (data as { letter?: unknown }).letter
+  if (stored) {
+    const parsed = quoteLetterSchema.safeParse(stored)
+    if (parsed.success) {
+      const defaults = defaultQuoteLetter({ customerName, address: null, enquiry: null, interState: false, gstPercent: 18, quoteDate, validUntil, paymentRemarks: null, lines })
+      return { ...parsed.data, lines: lines.map((_, index) => parsed.data.lines[index] ?? defaults.lines[index]) }
+    }
+  }
+  const [addresses, company] = await Promise.all([customerAddresses(ctx, row.customerId), loadCompany(ctx)])
+  const own = company?.gstin?.slice(0, 2) ?? null
+  const theirs = customerGstin?.slice(0, 2) ?? null
+  const rates = [...new Set(lines.map((line) => line.gstPercent))]
+  return defaultQuoteLetter({
+    customerName,
+    address: addresses.billing ? addressText(addresses.billing) : null,
+    enquiry,
+    interState: Boolean(own && theirs && own !== theirs),
+    gstPercent: rates.length === 1 ? rates[0] : 18,
+    quoteDate,
+    validUntil,
+    paymentRemarks: data.paymentRemarks ?? null,
+    lines,
+  })
+}
+
+export async function saveQuoteLetter(ctx: OrderContext, row: CcQuotation, letter: QuoteLetter, byName: string | null) {
+  if (row.status === 'converted' || row.status === 'withdrawn') throw new CrmError('This quotation can no longer be changed', 409)
+  const data = storedData(row) as StoredData & { letter?: unknown }
+  const before = data.letter ? quoteLetterSchema.parse(data.letter) : null
+  row.data = { ...(row.data as Record<string, unknown>), letter } as Record<string, unknown>
+  if (before) logEdit(ctx.em, ctx, { recordType: 'quotation', recordId: row.id, before: { letter: before }, after: { letter }, byName, labels: { letter: 'Quotation letter' }, action: 'letter_edited' })
+  else recordActivity(ctx.em, ctx, { recordType: 'quotation', recordId: row.id, action: 'letter_edited', kind: 'change', summary: 'Quotation letter set', actorUserId: ctx.userId ?? null, actorName: byName })
+  row.history = [...(row.history ?? []), entry('letter', byName)]
+  await ctx.em.flush()
+  return row
+}
+
 function splitInput(input: QuotationInput) {
   const { orderDate, customerId, validUntil, enquiryId, ...data } = input
   return { quoteDate: orderDate, customerId, validUntil: validUntil ?? null, enquiryId: enquiryId ?? null, data }
@@ -104,7 +157,8 @@ export async function saveQuotation(ctx: OrderContext, existing: CcQuotation | n
     if (existing.status !== 'draft') throw new CrmError('This quotation has gone to the customer. Use Revise so the sent revision is kept, then edit.', 409)
     const changes = await quoteChanges(ctx, storedData(existing), Number(existing.totalAmount), existing.validUntil ?? null, parts.data as StoredData, Number(total), parts.validUntil)
     if (changes.length) recordActivity(ctx.em, ctx, { recordType: 'quotation', recordId: existing.id, action: 'edited', kind: 'change', summary: (existing.revision ?? 1) > 1 ? `Revision ${existing.revision} edited` : null, changes, actorUserId: ctx.userId ?? null, actorName: byName })
-    Object.assign(existing, { quoteDate: parts.quoteDate, customerId: parts.customerId, validUntil: parts.validUntil, enquiryId: parts.enquiryId, data: parts.data, currency: currencyOf(input), totalAmount: total })
+    const keptLetter = (existing.data as { letter?: unknown } | null)?.letter
+    Object.assign(existing, { quoteDate: parts.quoteDate, customerId: parts.customerId, validUntil: parts.validUntil, enquiryId: parts.enquiryId, data: keptLetter ? { ...parts.data, letter: keptLetter } : parts.data, currency: currencyOf(input), totalAmount: total })
     existing.history = [...(existing.history ?? []), entry('edited', byName)]
     await ctx.em.flush()
     return existing

@@ -51,14 +51,14 @@ export function partyFromGstin(gstin: string | null): Pick<BillParty, 'pan' | 's
   }
 }
 
-function addressText(row: CustomerAddress): string {
+export function addressText(row: CustomerAddress): string {
   const street = [row.buildingNumber, row.flatNumber, row.addressLine1, row.addressLine2].filter((part) => text(part)).join(', ')
   const town = [row.city, row.region].filter((part) => text(part)).join(', ')
   const pin = [town, text(row.postalCode)].filter(Boolean).join(' - ')
   return [street, [pin, text(row.country) && row.country !== 'IN' && row.country !== 'India' ? row.country : 'India'].filter(Boolean).join(', ')].filter(Boolean).join('\n')
 }
 
-async function customerAddresses(ctx: Scope, customerId: string): Promise<{ billing: CustomerAddress | null; shipping: CustomerAddress | null }> {
+export async function customerAddresses(ctx: Scope, customerId: string): Promise<{ billing: CustomerAddress | null; shipping: CustomerAddress | null }> {
   const rows = await findWithDecryption(ctx.em, CustomerAddress, { entity: customerId, tenantId: ctx.tenantId, organizationId: ctx.organizationId } as never, undefined, { tenantId: ctx.tenantId, organizationId: ctx.organizationId })
   const ordered = [...rows].sort((left, right) => Number(right.isPrimary) - Number(left.isPrimary))
   const billing = ordered.find((row) => row.purpose === 'billing') ?? ordered.find((row) => row.purpose !== 'shipping') ?? ordered[0] ?? null

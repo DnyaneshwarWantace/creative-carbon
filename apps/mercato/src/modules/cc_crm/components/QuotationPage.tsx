@@ -11,11 +11,12 @@ import { Label } from '@open-mercato/ui/primitives/label'
 import { StatusBadge } from '@open-mercato/ui/primitives/status-badge'
 import { apiCall } from '@open-mercato/ui/backend/utils/apiCall'
 import { flash } from '@open-mercato/ui/backend/FlashMessages'
-import type { DocCompany } from '../../cc_orders/components/printDocs'
+import type { PrintCompany } from '../../cc_ui/lib/printKit'
+import { QuoteLetterPanel } from './QuoteLetterPanel'
 import { formatDate, formatQty, todayIso } from '../../cc_orders/components/format'
 import { useGranted } from '../../cc_departments/components/useGranted'
 import { useSend } from '../../cc_production/components/finishing/shared'
-import { printQuotation } from './printQuotation'
+import { buildQuotationLetterHtml, printQuotation } from './printQuotation'
 import { QUOTE_LABEL, QUOTE_VARIANT, type Quotation } from './types'
 import { FieldList, LinkRows, Panel, RecordColumns, RecordPage, RecordState, type Fact } from '../../cc_ui/components/RecordPage'
 import { recordHref } from '../../cc_ui/lib/links'
@@ -36,7 +37,7 @@ export function QuotationPage({ quotationId }: { quotationId: string }) {
   const canTeam = granted.has('cc_crm.team')
   const [quote, setQuote] = React.useState<Quotation | null>(null)
   const [error, setError] = React.useState<string | null>(null)
-  const [company, setCompany] = React.useState<DocCompany | null>(null)
+  const [company, setCompany] = React.useState<PrintCompany | null>(null)
   const [busy, setBusy] = React.useState(false)
   const [convert, setConvert] = React.useState({ orderDate: todayIso(), customerPoRef: '' })
 
@@ -48,7 +49,7 @@ export function QuotationPage({ quotationId }: { quotationId: string }) {
 
   React.useEffect(() => {
     void load()
-    apiCall<DocCompany>('/api/cc_accounts/company').then((call) => setCompany(call.ok ? (call.result ?? null) : null))
+    apiCall<PrintCompany>('/api/cc_accounts/company').then((call) => setCompany(call.ok ? (call.result ?? null) : null))
   }, [load])
 
   const act = async (action: string, extra: Record<string, unknown> = {}): Promise<boolean> => {
@@ -85,11 +86,12 @@ export function QuotationPage({ quotationId }: { quotationId: string }) {
   const converted = quote.status === 'converted'
   const value = exportTerms ? totals.taxable : totals.total
   const totalKg = quote.lines.filter((line) => line.product?.unit !== 'nos').reduce((sum, line) => sum + line.quantity, 0)
+  const totalPcs = quote.lines.filter((line) => line.product?.unit === 'nos').reduce((sum, line) => sum + line.quantity, 0)
   const facts: Fact[] = [
     { label: t('cc_crm.quotations.date', 'Date'), value: formatDate(quote.quoteDate) },
     { label: t('cc_crm.form.validUntil', 'Valid until'), value: formatDate(quote.validUntil), tone: quote.expired ? 'bad' : undefined },
     { label: t('cc_crm.quotations.lines', 'Lines'), value: String(quote.lines.length) },
-    { label: t('cc_crm.quotations.kg', 'Quantity'), value: `${formatQty(totalKg, 3)} kg` },
+    { label: t('cc_crm.quotations.kg', 'Quantity'), value: [totalKg ? `${formatQty(totalKg, 3)} kg` : null, totalPcs ? `${formatQty(totalPcs, 0)} ${t('cc_ui.pcs', 'pcs')}` : null].filter(Boolean).join(' + ') || '—' },
     { label: t('cc_crm.quotations.total', 'Value'), value: `${symbol}${formatQty(value, 2)}` },
     { label: t('cc_orders.form.market', 'Domestic / export'), value: exportTerms ? `${t('cc_orders.form.export', 'Export')} · ${quote.incoterm ?? '—'}` : t('cc_orders.form.domestic', 'Domestic') },
   ]
@@ -185,6 +187,7 @@ export function QuotationPage({ quotationId }: { quotationId: string }) {
     >
       <RecordColumns
         main={
+          <>
           <Panel title={t('cc_crm.quotations.linesTitle', 'Lines')} icon={FileText} count={quote.lines.length} flush>
             <div className="overflow-x-auto">
               <table className="w-full min-w-max text-sm">
@@ -265,9 +268,32 @@ export function QuotationPage({ quotationId }: { quotationId: string }) {
               </table>
             </div>
           </Panel>
+          {quote.letter && !exportTerms ? (
+            <div className="overflow-hidden rounded-lg border bg-card shadow-xs">
+              <iframe title={t('cc_crm.letter.preview', 'Printed quotation preview')} srcDoc={buildQuotationLetterHtml({ ...quote, letter: quote.letter }, company, false)} className="h-screen w-full bg-background" />
+            </div>
+          ) : null}
+          </>
         }
         side={
           <>
+            {quote.letter && !exportTerms ? (
+              <QuoteLetterPanel
+                letter={quote.letter}
+                lineTitles={quote.lines.map((line) => line.product?.title ?? '—')}
+                editable={canManage && !converted && quote.status !== 'withdrawn'}
+                busy={busy}
+                onSave={async (letter) => {
+                  setBusy(true)
+                  const saved = await send<Quotation>('/api/cc_crm/quotations/letter', 'PUT', { id: quote.id, letter }, quote.updatedAt)
+                  setBusy(false)
+                  if (!saved) return false
+                  setQuote(saved)
+                  flash(t('cc_crm.letter.saved', 'Quotation letter saved'), 'success')
+                  return true
+                }}
+              />
+            ) : null}
             <Panel title={t('cc_crm.quotations.links', 'Came from · went to')} icon={Waypoints} flush>
               <LinkRows
                 empty={t('cc_crm.quotations.noLinks', 'Not linked to an enquiry or order.')}

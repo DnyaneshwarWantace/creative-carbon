@@ -1,3 +1,4 @@
+import type { QuoteLetter } from '../lib/quoteLetter'
 import type { Order } from '../../cc_orders/components/types'
 
 export type EnquiryStage = string
@@ -74,6 +75,7 @@ export type Quotation = Omit<Order, 'status' | 'stages' | 'payments' | 'events' 
   convertedOrderNo: string | null
   byName: string | null
   history: HistoryEntry[]
+  letter?: QuoteLetter
 }
 
 export const STAGE_LABEL: Record<string, string> = { new: 'New', quoted: 'Quoted', negotiating: 'Negotiating', won: 'Won', lost: 'Lost' }
