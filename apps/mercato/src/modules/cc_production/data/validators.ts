@@ -454,3 +454,62 @@ export const damageUndoSchema = z.object({ id: z.string().uuid(), reason: z.stri
 export const labActionSchema = z
   .object({ id: z.string().uuid(), action: z.enum(['issue', 'amend']), reason: z.string().trim().max(500).optional() })
   .superRefine(requireReasonFor(['amend']))
+
+const tcCheckSchema = z.discriminatedUnion('kind', [
+  z.object({ kind: z.literal('min'), value: z.number(), strict: z.boolean().optional() }),
+  z.object({ kind: z.literal('max'), value: z.number() }),
+  z.object({ kind: z.literal('range'), nominal: z.union([z.number(), z.literal('thickness')]), tolerance: z.number().min(0) }),
+  z.object({ kind: z.literal('text') }),
+])
+
+export const tcRowSchema = z.object({
+  key: z.string().trim().min(1).max(40).regex(/^[A-Za-z][A-Za-z0-9]*$/),
+  property: z.string().trim().min(1).max(200),
+  specified: z.string().trim().max(120),
+  unit: z.string().trim().max(40),
+  check: tcCheckSchema,
+  optional: z.boolean().optional(),
+})
+
+export const tcTemplateSchema = z.object({
+  id: z.string().uuid().optional(),
+  name: z.string().trim().min(1).max(120),
+  productLabel: z.string().trim().min(1).max(120),
+  grade: z.string().trim().min(1).max(40),
+  standard: z.string().trim().min(1).max(80).default('IS 2036 : 1995'),
+  rows: z.array(tcRowSchema).min(1).max(60),
+  isActive: z.boolean().default(true),
+})
+
+const day = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Use YYYY-MM-DD')
+
+export const tcCreateSchema = z.object({
+  templateId: z.string().uuid(),
+  certDate: day,
+  customerId: z.string().uuid().optional().nullable(),
+  customerLabel: z.string().trim().max(160).optional().nullable(),
+  thicknessMm: z.coerce.number().positive().max(500).optional().nullable(),
+  traceability: z.string().trim().max(120).optional().nullable(),
+  orderId: z.string().uuid().optional().nullable(),
+})
+
+export const tcUpdateSchema = z.object({
+  id: z.string().uuid(),
+  certDate: day.optional(),
+  customerId: z.string().uuid().optional().nullable(),
+  customerLabel: z.string().trim().max(160).optional().nullable(),
+  thicknessMm: z.coerce.number().positive().max(500).optional().nullable(),
+  traceability: z.string().trim().max(120).optional().nullable(),
+  observed: z.record(z.string().max(40), z.string().trim().max(200)).optional(),
+  testedBy: z.string().trim().max(120).optional().nullable(),
+  verifiedBy: z.string().trim().max(120).optional().nullable(),
+  notOkReason: z.string().trim().max(500).optional().nullable(),
+  notes: z.string().trim().max(1000).optional().nullable(),
+})
+
+export const tcIdSchema = z.object({ id: z.string().uuid() })
+export const tcListQuerySchema = z.object({ id: z.string().uuid().optional(), search: z.string().trim().max(120).optional() })
+
+export type TcCreateInput = z.infer<typeof tcCreateSchema>
+export type TcUpdateInput = z.infer<typeof tcUpdateSchema>
+export type TcTemplateInput = z.infer<typeof tcTemplateSchema>

@@ -1,5 +1,6 @@
-import { Entity, Index, PrimaryKey, Property } from '@mikro-orm/decorators/legacy'
+import { Entity, Index, PrimaryKey, Property, Unique } from '@mikro-orm/decorators/legacy'
 import { OptionalProps } from '@mikro-orm/core'
+import type { TcObserved, TcRow } from '../lib/tcRules'
 
 type Common = 'isActive' | 'createdAt' | 'updatedAt' | 'deletedAt' | 'updatedByName'
 
@@ -1586,4 +1587,144 @@ export class DieChartEntry {
 
   @Property({ name: 'quantity', type: 'int', nullable: true })
   quantity?: number | null
+}
+
+export type TcStatus = 'draft' | 'issued'
+
+@Entity({ tableName: 'cc_tc_templates' })
+@Index({ name: 'cc_tc_templates_scope_idx', properties: ['organizationId', 'tenantId'] })
+export class TcTemplate {
+
+  @PrimaryKey({ type: 'uuid', defaultRaw: 'gen_random_uuid()' })
+  id!: string
+
+  @Property({ name: 'organization_id', type: 'uuid' })
+  organizationId!: string
+
+  @Property({ name: 'tenant_id', type: 'uuid' })
+  tenantId!: string
+
+  @Property({ name: 'is_active', type: 'boolean', default: true })
+  isActive: boolean = true
+
+  @Property({ name: 'updated_by_name', type: 'text', nullable: true })
+  updatedByName?: string | null
+
+  @Property({ name: 'created_at', type: Date, onCreate: () => new Date() })
+  createdAt: Date = new Date()
+
+  @Property({ name: 'updated_at', type: Date, onCreate: () => new Date(), onUpdate: () => new Date() })
+  updatedAt: Date = new Date()
+
+  @Property({ name: 'deleted_at', type: Date, nullable: true })
+  deletedAt?: Date | null
+
+  [OptionalProps]?: Common | 'standard'
+
+  @Property({ type: 'text' })
+  name!: string
+
+  @Property({ name: 'product_label', type: 'text' })
+  productLabel!: string
+
+  @Property({ type: 'text' })
+  grade!: string
+
+  @Property({ type: 'text', default: 'IS 2036 : 1995' })
+  standard: string = 'IS 2036 : 1995'
+
+  @Property({ type: 'json' })
+  rows!: TcRow[]
+}
+
+@Entity({ tableName: 'cc_test_certificates' })
+@Index({ name: 'cc_test_certificates_scope_idx', properties: ['organizationId', 'tenantId'] })
+@Unique({ name: 'cc_test_certificates_code_uq', properties: ['organizationId', 'tenantId', 'code'] })
+export class TestCertificate {
+
+  @PrimaryKey({ type: 'uuid', defaultRaw: 'gen_random_uuid()' })
+  id!: string
+
+  @Property({ name: 'organization_id', type: 'uuid' })
+  organizationId!: string
+
+  @Property({ name: 'tenant_id', type: 'uuid' })
+  tenantId!: string
+
+  @Property({ name: 'is_active', type: 'boolean', default: true })
+  isActive: boolean = true
+
+  @Property({ name: 'updated_by_name', type: 'text', nullable: true })
+  updatedByName?: string | null
+
+  @Property({ name: 'created_at', type: Date, onCreate: () => new Date() })
+  createdAt: Date = new Date()
+
+  @Property({ name: 'updated_at', type: Date, onCreate: () => new Date(), onUpdate: () => new Date() })
+  updatedAt: Date = new Date()
+
+  @Property({ name: 'deleted_at', type: Date, nullable: true })
+  deletedAt?: Date | null
+
+  [OptionalProps]?: Common | 'status' | 'customerId' | 'customerLabel' | 'thicknessMm' | 'traceability' | 'orderId' | 'observed' | 'testedBy' | 'verifiedBy' | 'issuedAt' | 'issuedByName' | 'notOkReason' | 'notes' | 'templateId'
+
+  @Property({ type: 'text' })
+  code!: string
+
+  @Property({ name: 'cert_date', type: 'text' })
+  certDate!: string
+
+  @Property({ type: 'text', default: 'draft' })
+  status: TcStatus = 'draft'
+
+  @Property({ name: 'template_id', type: 'uuid', nullable: true })
+  templateId?: string | null
+
+  @Property({ name: 'customer_id', type: 'uuid', nullable: true })
+  customerId?: string | null
+
+  @Property({ name: 'customer_label', type: 'text', nullable: true })
+  customerLabel?: string | null
+
+  @Property({ name: 'product_label', type: 'text' })
+  productLabel!: string
+
+  @Property({ type: 'text' })
+  grade!: string
+
+  @Property({ type: 'text' })
+  standard!: string
+
+  @Property({ name: 'thickness_mm', type: 'numeric', columnType: 'numeric(6,2)', nullable: true })
+  thicknessMm?: string | null
+
+  @Property({ type: 'text', nullable: true })
+  traceability?: string | null
+
+  @Property({ name: 'order_id', type: 'uuid', nullable: true })
+  orderId?: string | null
+
+  @Property({ type: 'json' })
+  rows!: TcRow[]
+
+  @Property({ type: 'json', nullable: true })
+  observed?: TcObserved | null
+
+  @Property({ name: 'tested_by', type: 'text', nullable: true })
+  testedBy?: string | null
+
+  @Property({ name: 'verified_by', type: 'text', nullable: true })
+  verifiedBy?: string | null
+
+  @Property({ name: 'issued_at', type: Date, nullable: true })
+  issuedAt?: Date | null
+
+  @Property({ name: 'issued_by_name', type: 'text', nullable: true })
+  issuedByName?: string | null
+
+  @Property({ name: 'not_ok_reason', type: 'text', nullable: true })
+  notOkReason?: string | null
+
+  @Property({ type: 'text', nullable: true })
+  notes?: string | null
 }
