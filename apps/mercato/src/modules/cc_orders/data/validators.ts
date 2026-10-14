@@ -18,7 +18,7 @@ export const orderLineInputSchema = z.object({
   batchNo: optionalText(60),
   sampleNeeded: z.boolean().default(false),
   rdNumber: optionalText(60),
-  specs: z.object({ material: specSection, packing: specSection }).optional(),
+  specs: z.object({ material: specSection, packing: specSection, customer: specSection }).optional(),
 })
 
 export const orderInputSchema = z.object({

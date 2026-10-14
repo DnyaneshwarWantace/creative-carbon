@@ -197,7 +197,15 @@ async function PUT(req: Request) {
         const described = describeChanges(before, input, titles)
         const summary = described.text
         const keptBatch = new Map(oldLines.map((line) => [line.productId, line.batchNo ?? null]))
-        const withBatches = { ...input, lines: input.lines.map((line) => ({ ...line, batchNo: clean(line.batchNo) ?? keptBatch.get(line.productId) ?? null })) }
+        const keptCustomer = oldLines.map((line) => ({ productId: line.productId, customer: line.specs?.customer ?? null }))
+        const withBatches = {
+          ...input,
+          lines: input.lines.map((line) => {
+            const kept = line.specs?.customer ? null : keptCustomer.find((entry) => entry.productId === line.productId && entry.customer)
+            if (kept) kept.productId = ''
+            return { ...line, batchNo: clean(line.batchNo) ?? keptBatch.get(line.productId) ?? null, ...(kept?.customer ? { specs: { ...(line.specs ?? {}), customer: kept.customer } } : {}) }
+          }),
+        }
         applyHeader(fresh, input)
         fresh.updatedAt = new Date()
         if (summary) fresh.revision = (fresh.revision ?? 1) + 1

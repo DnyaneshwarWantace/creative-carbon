@@ -1,3 +1,4 @@
+import { customerPoOf, docsMissing } from './customerPo'
 import { resolveOrderAccess, trimEvents, trimStages } from './visibility'
 import { CcOrder, CcOrderEvent, CcOrderLine, CcOrderStage, type FieldChange } from '../data/entities'
 import type { StageActionInput } from '../data/validators'
@@ -231,6 +232,8 @@ export async function applyStageAction(ctx: OrderContext, order: CcOrder, input:
       if (openSteps.length) throw new OrderError(`Tick these steps first: ${openSteps.join(', ')}`, 400, { steps: openSteps })
       if (def.key === 'qc') await qcGate(ctx, order)
       if (def.key === 'dispatch') {
+        const unsent = docsMissing(customerPoOf(order.customerPo))
+        if (unsent.length) throw new OrderError(`The customer PO asks for these documents with the goods. Mark them sent first: ${unsent.join(', ')}`, 400, { poDocuments: unsent })
         const orderLines = await ctx.em.find(CcOrderLine, { orderId: order.id })
         const totals = priceOrder(orderLines.map(pricedLine), order.pricesIncludeGst)
         const paid = received(await paymentsFor(ctx, [order.id]))
@@ -407,6 +410,7 @@ export async function serializeOrder(ctx: OrderContext, order: CcOrder) {
     customerId: order.customerId,
     customer: customers.get(order.customerId) ?? null,
     customerPoRef: order.customerPoRef ?? null,
+    customerPo: customerPoOf(order.customerPo),
     orderType: order.orderType,
     sourceOrderId: order.sourceOrderId ?? null,
     salesManager: order.salesManager ?? null,

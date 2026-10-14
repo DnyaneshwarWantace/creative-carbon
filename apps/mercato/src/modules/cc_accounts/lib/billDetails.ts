@@ -2,6 +2,7 @@ import { findWithDecryption } from '@open-mercato/shared/lib/encryption/find'
 import { CustomerAddress } from '@open-mercato/core/modules/customers/data/entities'
 import { CcOrderLine, CcOrderStage, type CcOrder } from '../../cc_orders/data/entities'
 import { loadCustomers, type OrderContext } from '../../cc_orders/lib/server'
+import { customerPoOf, termsOfDelivery } from '../../cc_orders/lib/customerPo'
 import { paymentTermLabel } from '../../cc_lists/lib/paymentTerms'
 import type { z } from 'zod'
 import type { BillDetails, BillParty } from '../data/entities'
@@ -106,6 +107,7 @@ export async function defaultBillDetails(
     ctx.em.find(CcOrderStage, { orderId: order.id, stageKey: { $in: ['dispatch', 'packing'] } }),
   ])
   const customer = customers.get(order.customerId)
+  const po = customerPoOf(order.customerPo)
   const gstin = customer?.gstin ?? null
   const fromGstin = partyFromGstin(gstin)
   const party = (address: CustomerAddress | null): BillParty => ({
@@ -133,14 +135,14 @@ export async function defaultBillDetails(
     deliveryNote: input.code,
     paymentTerms: terms ? terms.toUpperCase() : null,
     referenceNo: `${input.code} dt. ${input.date}`,
-    otherReferences: null,
     buyerOrderNo: text(order.customerPoRef) ?? 'VERBAL',
-    buyerOrderDate: order.orderDate ?? null,
+    buyerOrderDate: text(po?.poDate) ?? order.orderDate ?? null,
     dispatchDocNo: input.code,
     deliveryNoteDate: input.date,
-    dispatchedThrough: text(input.transporter) ?? text(dispatch.transporter),
+    dispatchedThrough: text(input.transporter) ?? text(dispatch.transporter) ?? text(po?.carrier),
     destination: text(dispatch.destination),
-    termsOfDelivery: null,
+    termsOfDelivery: termsOfDelivery(po),
+    otherReferences: po?.vendorCode ? `Vendor code ${po.vendorCode}` : null,
     remarks,
     lineNotes,
     irn: null,

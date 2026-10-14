@@ -1,3 +1,4 @@
+import type { CustomerPo } from '../lib/customerPo'
 import type { ReopenInfo } from '../lib/stages'
 export type Customer = {
   id: string
@@ -86,6 +87,7 @@ export type Order = {
   customerId: string
   customer: Customer | null
   customerPoRef: string | null
+  customerPo?: CustomerPo | null
   orderType: 'new' | 'repeat' | 'revision'
   sourceOrderId: string | null
   salesManager: string | null

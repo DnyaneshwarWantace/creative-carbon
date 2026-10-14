@@ -32,6 +32,7 @@ import { StageRecord } from './StageRecord'
 import { subStageProgress } from './subStages'
 import { useStageAction } from './useStageAction'
 import { OrderMoneyCard } from './OrderMoneyCard'
+import { CustomerPoPanel } from './CustomerPoPanel'
 import { AttentionList, DocumentsOverview, orderAttention, type OrderTab } from './OrderPanels'
 import type { Order, Stage } from './types'
 import { ExportButton } from '../../cc_products/components/ExportButton'
@@ -243,6 +244,26 @@ export function OrderView({ orderId }: { orderId: string }) {
     } finally {
       setBusy(false)
     }
+  }
+
+  const savePo = async (body: Record<string, unknown>): Promise<boolean> => {
+    if (!order) return false
+    const payload = { id: order.id, ...body }
+    const call = await runMutation({
+      context: { orderId: order.id, action: 'customer_po' },
+      mutationPayload: payload,
+      operation: () =>
+        withScopedApiRequestHeaders(buildOptimisticLockHeader(order.updatedAt), () =>
+          apiCall<{ ok?: boolean; error?: string }>('/api/cc_orders/orders/customer-po', { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify(payload) }),
+        ),
+    })
+    if (!call.ok || !call.result?.ok) {
+      flash(call.result?.error ?? t('cc_orders.po.error', 'Could not save the customer PO.'), 'error')
+      return false
+    }
+    flash(t('cc_orders.po.saved', 'Customer PO saved'), 'success')
+    await load()
+    return true
   }
 
   const holdOrder = async (reason: string): Promise<boolean> => {
@@ -493,6 +514,7 @@ export function OrderView({ orderId }: { orderId: string }) {
               <SegmentedControl value={tab} onValueChange={(value) => setTab(value as OrderTab)} aria-label={t('cc_orders.view.sections', 'Order sections')}>
                 <SegmentedControlItem value="work">{t('cc_orders.view.tabWork', 'Stage work')}</SegmentedControlItem>
                 <SegmentedControlItem value="products">{t('cc_orders.view.tabProducts', 'Items & specs')}</SegmentedControlItem>
+                <SegmentedControlItem value="po">{t('cc_orders.view.tabPo', 'Customer PO')}</SegmentedControlItem>
                 <SegmentedControlItem value="documents">{t('cc_orders.view.tabDocuments', 'Documents')}</SegmentedControlItem>
                 {order.canSeeMoney ? <SegmentedControlItem value="money">{t('cc_orders.view.tabMoney', 'Money')}</SegmentedControlItem> : null}
                 <SegmentedControlItem value="history">{t('cc_orders.view.tabHistory', 'History')}</SegmentedControlItem>
@@ -557,6 +579,7 @@ export function OrderView({ orderId }: { orderId: string }) {
             </CardContent>
           </Card>
               ) : null}
+              {tab === 'po' ? <CustomerPoPanel order={order} editable={granted.has('cc_orders.manage') && !limited && order.status !== 'cancelled'} busy={busy} onSave={savePo} /> : null}
               {tab === 'documents' ? <Attachments type="order" id={order.id} title={t('cc_orders.view.orderFiles', 'Customer PO, drawings and other files')} /> : null}
               {tab === 'documents' ? <DocumentsOverview order={limited ? { ...order, stages: order.stages.filter((stage) => !stage.locked) } : order} onStage={goToStage} /> : null}
               {tab === 'money' && order.canSeeMoney ? <OrderMoneyCard order={order} onChanged={load} /> : null}

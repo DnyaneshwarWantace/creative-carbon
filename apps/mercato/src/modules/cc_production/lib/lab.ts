@@ -2,6 +2,7 @@ import type { StoreContext } from '../../cc_store/lib/server'
 import { loadCustomers } from '../../cc_orders/lib/server'
 import { CcOrder } from '../../cc_orders/data/entities'
 import { markOrderTests } from '../../cc_orders/lib/fulfilment'
+import { customerPoOf } from '../../cc_orders/lib/customerPo'
 import { certificateGaps, certificateSchema, withRemarks, type Certificate } from './testCertificate'
 import { LabTest } from '../data/entities'
 import { PlantError } from './server'
@@ -154,6 +155,14 @@ export async function issueLabTest(ctx: StoreContext, row: LabTest, byName: stri
   row.issuedAt = new Date()
   row.issuedByName = byName
   row.history = [...(row.history ?? []), { action: 'issued', by: byName, at: new Date().toISOString(), note }]
+  if (row.orderId) {
+    const order = await ctx.em.findOne(CcOrder, { id: row.orderId, ...scope(ctx), deletedAt: null })
+    const po = order ? customerPoOf(order.customerPo) : null
+    if (order && po && po.docsRequired.includes('Test certificate') && !po.docsSent.includes('Test certificate')) {
+      order.customerPo = { ...po, docsSent: [...po.docsSent, 'Test certificate'] }
+      order.updatedAt = new Date()
+    }
+  }
   await ctx.em.flush()
   return row
 }

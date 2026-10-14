@@ -147,6 +147,9 @@ export class CcOrder {
   @Property({ name: 'created_by_name', type: 'text', nullable: true })
   createdByName?: string | null
 
+  @Property({ name: 'customer_po', type: 'json', nullable: true })
+  customerPo?: Record<string, unknown> | null
+
   @Property({ name: 'created_at', type: Date, onCreate: () => new Date() })
   createdAt: Date = new Date()
 

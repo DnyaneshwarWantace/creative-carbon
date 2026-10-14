@@ -9,7 +9,7 @@ import type { Order } from './types'
 import { OrderPrintButtons } from './OrderPrintButtons'
 import { stageDayLimit } from '../lib/stages'
 
-export type OrderTab = 'work' | 'products' | 'documents' | 'money' | 'history'
+export type OrderTab = 'work' | 'products' | 'po' | 'documents' | 'money' | 'history'
 
 type Attention = { key: string; tone: 'error' | 'warning' | 'info'; text: string; action?: { label: string; stageKey?: string; tab?: OrderTab } }
 
@@ -29,6 +29,17 @@ export function orderAttention(order: Order, t: ReturnType<typeof useT>): Attent
       text: `${t('cc_orders.attention.hold', '{stage} on hold{party}: {reason}', { stage: stage.label, party: stage.holdParty ? ` (${stage.holdParty})` : '', reason: stage.holdReason ?? '—' })}${followUp ? ` · ${due !== null && due < 0 ? t('cc_orders.attention.followLate', 'follow-up was due {date}', { date: formatDate(followUp) }) : t('cc_orders.attention.follow', 'follow up {date}', { date: formatDate(followUp) })}` : ''}`,
       action: { label: t('cc_orders.attention.open', 'Open'), stageKey: stage.key },
     })
+  }
+  const po = order.customerPo ?? null
+  if (po?.poDate && !po.acknowledged) {
+    const ackBy = new Date(`${po.poDate}T00:00:00`)
+    ackBy.setDate(ackBy.getDate() + 7)
+    const ackIso = ackBy.toLocaleDateString('en-CA')
+    items.push({ key: 'po-ack', tone: (daysUntil(ackIso) ?? 1) < 0 ? 'error' : 'warning', text: t('cc_orders.attention.poAck', 'Acknowledge the customer PO by {date} (it counts as accepted after 7 days)', { date: formatDate(ackIso) }), action: { label: t('cc_orders.attention.openPo', 'Customer PO'), tab: 'po' } })
+  }
+  const unsentDocs = po ? po.docsRequired.filter((doc) => !po.docsSent.includes(doc)) : []
+  if (unsentDocs.length && order.stages.some((stage) => (stage.key === 'dispatch' || stage.key === 'invoice') && stage.status === 'open')) {
+    items.push({ key: 'po-docs', tone: 'warning', text: t('cc_orders.attention.poDocs', 'The PO asks for: {docs}', { docs: unsentDocs.join(', ') }), action: { label: t('cc_orders.attention.openPo', 'Customer PO'), tab: 'po' } })
   }
   const left = daysUntil(order.deliveryDate)
   if (left !== null && left < 0) items.push({ key: 'late', tone: 'error', text: t('cc_orders.attention.late', 'Delivery date {date} passed {days} days ago', { date: formatDate(order.deliveryDate), days: -left }) })
