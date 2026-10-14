@@ -11,7 +11,7 @@ export type MasterColumn = {
   importHeaders?: string[]
 }
 
-export type MasterType = 'reactors' | 'dryers' | 'presses' | 'moulds' | 'tolerances' | 'prices'
+export type MasterType = 'reactors' | 'dryers' | 'presses' | 'moulds' | 'chart' | 'tolerances' | 'prices'
 
 export type MasterDef = {
   type: MasterType
@@ -25,6 +25,37 @@ export type MasterDef = {
   manageFeature: string
   importable?: boolean
 }
+
+export const CHART_DIMENSIONS: Array<{ key: string; label: string }> = [
+  { key: 'r1', label: 'R1' },
+  { key: 'r2', label: 'R2' },
+  { key: 'r3', label: 'R3' },
+  { key: 'r4', label: 'R4' },
+  { key: 't', label: 'T' },
+  { key: 'k', label: 'K' },
+  { key: 'l1', label: 'L1' },
+  { key: 'l2', label: 'L2' },
+  { key: 'w', label: 'W' },
+  { key: 'h1', label: 'H1' },
+  { key: 'h2', label: 'H2' },
+  { key: 'h3', label: 'H3' },
+  { key: 'd', label: 'D' },
+  { key: 'od', label: 'OD' },
+  { key: 'idDia', label: 'ID' },
+  { key: 'lengthMm', label: 'Length' },
+]
+
+export const CHART_FAMILIES: Array<{ value: string; label: string; dimensions: string[] }> = [
+  { value: 'fibre_bearing', label: 'Fibre bearing', dimensions: ['r1', 'r2', 'r3', 'r4', 't', 'k', 'l1', 'l2', 'h1', 'h2', 'h3'] },
+  { value: 'fibre_key', label: 'Fibre key', dimensions: ['l1', 'l2', 'w', 'h1', 'h2', 'r1', 'r2', 't'] },
+  { value: 'hanger', label: 'Hanger', dimensions: ['r1', 't', 'w', 'l1', 'l2', 'h1', 'd'] },
+  { value: 'inside_bearing', label: 'Inside fibre bearing', dimensions: ['r1', 'r2', 't', 'd', 'h1', 'h2', 'l1'] },
+  { value: 'rod', label: 'Rod', dimensions: ['od', 'idDia', 'lengthMm'] },
+  { value: 'tube', label: 'Tube', dimensions: ['od', 'lengthMm'] },
+  { value: 'plate', label: 'Mould plate', dimensions: [] },
+]
+
+const CHART_VIEW = 'cc_production.masters.view'
 
 const MASTERS_VIEW = 'cc_production.masters.view'
 const MASTERS_MANAGE = 'cc_production.masters.manage'
@@ -101,6 +132,32 @@ export const MASTER_DEFS: Record<MasterType, MasterDef> = {
     uniqueKeys: ['dieNo'],
     orderBy: [{ key: 'dieNo', dir: 'asc' }],
     viewFeature: MASTERS_VIEW,
+    manageFeature: MASTERS_MANAGE,
+    importable: true,
+  },
+  chart: {
+    type: 'chart',
+    label: 'Die chart',
+    singular: 'Chart entry',
+    hint: 'The CCPL die chart: fibre bearing, fibre key, hanger, inside fibre bearing, rod and tube moulds (with cavities) and mould plates. Dimensions are in mm; weight is kg per piece.',
+    columns: [
+      { key: 'family', label: 'Family', kind: 'select', required: true, options: CHART_FAMILIES.map(({ value, label }) => ({ value, label })), importHeaders: ['type', 'sheet', 'family'] },
+      { key: 'serialNo', label: 'Chart No.', kind: 'text', importHeaders: ['no', 'no.', 'sr no', 'sr.no.', 'sr no.', 'serial'] },
+      { key: 'code', label: 'Code No.', kind: 'text', required: true, placeholder: 'CCPL - 570', importHeaders: ['code', 'code no', 'code no.', 'die no', 'drawing', 'mould plates'] },
+      ...CHART_DIMENSIONS.map((dimension) => ({ key: dimension.key, label: dimension.label, kind: 'text' as const, importHeaders: dimension.key === 'idDia' ? ['id dia', 'inner dia'] : dimension.key === 'od' ? ['od dia', 'rod od'] : dimension.key === 'lengthMm' ? ['length', 'length mm'] : undefined })),
+      { key: 'weightKg', label: 'Weight (kg)', kind: 'number', decimals: 3, importHeaders: ['wt', 'wt kg', 'wt.kg', 'weight', 'weight kg'] },
+      { key: 'cavities', label: 'Cavities', kind: 'int', importHeaders: ['cavity', 'cavities'] },
+      { key: 'quantity', label: 'Qty', kind: 'int', importHeaders: ['qty', 'qty.', 'quantity'] },
+      { key: 'customerRef', label: 'Customer / ref.', kind: 'text', importHeaders: ['rf', 'rf.', 'ref', 'customer', 'customer ref'] },
+      { key: 'cutDrawingNo', label: 'Cut drawing No.', kind: 'text', importHeaders: ['cut dwg no', 'cut.dwg.no'] },
+      { key: 'chartPage', label: 'Chart page', kind: 'text', importHeaders: ['page'] },
+      { key: 'size', label: 'Size', kind: 'text' },
+      { key: 'note', label: 'Note', kind: 'text' },
+      { key: 'isActive', label: 'In use', kind: 'bool' },
+    ],
+    uniqueKeys: ['family', 'serialNo', 'code'],
+    orderBy: [{ key: 'family', dir: 'asc' }, { key: 'serialNo', dir: 'asc' }, { key: 'code', dir: 'asc' }],
+    viewFeature: CHART_VIEW,
     manageFeature: MASTERS_MANAGE,
     importable: true,
   },

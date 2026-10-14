@@ -1,6 +1,6 @@
 import { findWithDecryption } from '@open-mercato/shared/lib/encryption/find'
 import { CustomerEntity } from '@open-mercato/core/modules/customers/data/entities'
-import { Dryer, LoadingTolerance, Mould, Press, PriceRate, Reactor } from '../data/entities'
+import { DieChartEntry, Dryer, LoadingTolerance, Mould, Press, PriceRate, Reactor } from '../data/entities'
 import { masterInputSchema } from '../data/validators'
 import { loadCustomers, type OrderContext } from '../../cc_orders/lib/server'
 import type { MasterColumn, MasterDef, MasterType } from './masterDefs'
@@ -8,13 +8,14 @@ import { PlantError } from './server'
 
 type Scope = Pick<OrderContext, 'em' | 'tenantId' | 'organizationId'>
 
-type PlantEntity = Reactor | Dryer | Press | Mould | LoadingTolerance | PriceRate
+type PlantEntity = Reactor | Dryer | Press | Mould | DieChartEntry | LoadingTolerance | PriceRate
 
 const ENTITY: Record<MasterType, new () => PlantEntity> = {
   reactors: Reactor,
   dryers: Dryer,
   presses: Press,
   moulds: Mould,
+  chart: DieChartEntry,
   tolerances: LoadingTolerance,
   prices: PriceRate,
 }

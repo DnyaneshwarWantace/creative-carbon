@@ -1471,3 +1471,119 @@ export class SyncClash {
   @Property({ name: 'updated_at', type: Date, onCreate: () => new Date(), onUpdate: () => new Date() })
   updatedAt: Date = new Date()
 }
+
+export const DIE_FAMILIES = ['fibre_bearing', 'fibre_key', 'hanger', 'inside_bearing', 'rod', 'tube', 'plate'] as const
+export type DieFamily = (typeof DIE_FAMILIES)[number]
+
+@Entity({ tableName: 'cc_die_chart' })
+@Index({ name: 'cc_die_chart_scope_idx', properties: ['organizationId', 'tenantId'] })
+@Index({ name: 'cc_die_chart_code_idx', properties: ['organizationId', 'tenantId', 'family', 'code'] })
+export class DieChartEntry {
+
+  @PrimaryKey({ type: 'uuid', defaultRaw: 'gen_random_uuid()' })
+  id!: string
+
+  @Property({ name: 'organization_id', type: 'uuid' })
+  organizationId!: string
+
+  @Property({ name: 'tenant_id', type: 'uuid' })
+  tenantId!: string
+
+  @Property({ name: 'is_active', type: 'boolean', default: true })
+  isActive: boolean = true
+
+  @Property({ name: 'updated_by_name', type: 'text', nullable: true })
+  updatedByName?: string | null
+
+  @Property({ name: 'created_at', type: Date, onCreate: () => new Date() })
+  createdAt: Date = new Date()
+
+  @Property({ name: 'updated_at', type: Date, onCreate: () => new Date(), onUpdate: () => new Date() })
+  updatedAt: Date = new Date()
+
+  @Property({ name: 'deleted_at', type: Date, nullable: true })
+  deletedAt?: Date | null
+
+  [OptionalProps]?: Common | 'serialNo' | 'note' | 'weightKg' | 'customerRef' | 'chartPage' | 'cutDrawingNo' | 'cavities' | 'quantity' | 'size' | 'r1' | 'r2' | 'r3' | 'r4' | 't' | 'k' | 'l1' | 'l2' | 'w' | 'h1' | 'h2' | 'h3' | 'd' | 'od' | 'idDia' | 'lengthMm'
+
+  @Property({ type: 'text' })
+  family!: DieFamily
+
+  @Property({ name: 'serial_no', type: 'text', nullable: true })
+  serialNo?: string | null
+
+  @Property({ type: 'text' })
+  code!: string
+
+  @Property({ type: 'text', nullable: true })
+  note?: string | null
+
+  @Property({ name: 'r1', type: 'text', nullable: true })
+  r1?: string | null
+
+  @Property({ name: 'r2', type: 'text', nullable: true })
+  r2?: string | null
+
+  @Property({ name: 'r3', type: 'text', nullable: true })
+  r3?: string | null
+
+  @Property({ name: 'r4', type: 'text', nullable: true })
+  r4?: string | null
+
+  @Property({ name: 't', type: 'text', nullable: true })
+  t?: string | null
+
+  @Property({ name: 'k', type: 'text', nullable: true })
+  k?: string | null
+
+  @Property({ name: 'l1', type: 'text', nullable: true })
+  l1?: string | null
+
+  @Property({ name: 'l2', type: 'text', nullable: true })
+  l2?: string | null
+
+  @Property({ name: 'w', type: 'text', nullable: true })
+  w?: string | null
+
+  @Property({ name: 'h1', type: 'text', nullable: true })
+  h1?: string | null
+
+  @Property({ name: 'h2', type: 'text', nullable: true })
+  h2?: string | null
+
+  @Property({ name: 'h3', type: 'text', nullable: true })
+  h3?: string | null
+
+  @Property({ name: 'd', type: 'text', nullable: true })
+  d?: string | null
+
+  @Property({ name: 'od', type: 'text', nullable: true })
+  od?: string | null
+
+  @Property({ name: 'id_dia', type: 'text', nullable: true })
+  idDia?: string | null
+
+  @Property({ name: 'length_mm', type: 'text', nullable: true })
+  lengthMm?: string | null
+
+  @Property({ name: 'weight_kg', type: 'numeric', columnType: 'numeric(8,3)', nullable: true })
+  weightKg?: string | null
+
+  @Property({ name: 'customer_ref', type: 'text', nullable: true })
+  customerRef?: string | null
+
+  @Property({ name: 'chart_page', type: 'text', nullable: true })
+  chartPage?: string | null
+
+  @Property({ name: 'cut_drawing_no', type: 'text', nullable: true })
+  cutDrawingNo?: string | null
+
+  @Property({ type: 'text', nullable: true })
+  size?: string | null
+
+  @Property({ name: 'cavities', type: 'int', nullable: true })
+  cavities?: number | null
+
+  @Property({ name: 'quantity', type: 'int', nullable: true })
+  quantity?: number | null
+}

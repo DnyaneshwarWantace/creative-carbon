@@ -126,7 +126,7 @@ function Cell({ column, value, customerName, editable, onChange }: { column: Mas
   )
 }
 
-function MasterTable({ def }: { def: MasterDef }) {
+export function MasterTable({ def }: { def: MasterDef }) {
   const t = useT()
   const { runMutation } = useGuardedMutation({ contextId: `cc-plant-${def.type}` })
   const [rows, setRows] = React.useState<Row[] | null>(null)
