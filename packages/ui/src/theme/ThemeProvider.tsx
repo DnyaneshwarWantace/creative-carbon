@@ -49,16 +49,32 @@ function applyTheme(resolvedTheme: 'light' | 'dark') {
 }
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const [theme, setThemeState] = React.useState<Theme>('light')
-  const [resolvedTheme, setResolvedTheme] = React.useState<'light' | 'dark'>('light')
+  // Use lazy initializers so the correct theme is set on the FIRST render,
+  // not after an effect — this prevents the brief flash back to light.
+  const [theme, setThemeState] = React.useState<Theme>(() => {
+    if (typeof window === 'undefined') return 'light'
+    return getStoredTheme()
+  })
+  const [resolvedTheme, setResolvedTheme] = React.useState<'light' | 'dark'>(() => {
+    if (typeof window === 'undefined') return 'light'
+    const stored = getStoredTheme()
+    if (stored === 'dark') return 'dark'
+    if (stored === 'system') return getSystemTheme()
+    return 'light'
+  })
 
-  // Initialize theme from localStorage on mount
+  // Apply theme class on first client render and whenever resolvedTheme changes
+  React.useEffect(() => {
+    applyTheme(resolvedTheme)
+  }, [resolvedTheme])
+
+  // On mount, sync from localStorage in case SSR defaulted to light
   React.useEffect(() => {
     const stored = getStoredTheme()
-    const finalTheme = stored === 'dark' ? 'dark' : 'light'
-    setThemeState(finalTheme)
-    setResolvedTheme(finalTheme)
-    applyTheme(finalTheme)
+    const resolved = stored === 'dark' ? 'dark' : stored === 'system' ? getSystemTheme() : 'light'
+    setThemeState(stored)
+    setResolvedTheme(resolved)
+    applyTheme(resolved)
   }, [])
 
   // Listen for system theme changes

@@ -525,7 +525,12 @@ export function OrdersPage() {
                 )
               })}
             </div>
-            <div className={cn('isolate hidden overflow-hidden rounded-lg border bg-card shadow-xs transition-opacity md:block', loading && 'opacity-60')}>
+            <div className="isolate hidden overflow-hidden rounded-lg border bg-card shadow-xs md:block relative">
+              {loading ? (
+                <div className="absolute top-0 inset-x-0 h-0.5 bg-primary/20 overflow-hidden z-40" aria-hidden="true">
+                  <div className="h-full bg-primary animate-pulse w-full" />
+                </div>
+              ) : null}
               <div className="overflow-auto" style={{ maxHeight: 'calc(100dvh - 9rem)' }}>
                 <table data-own-grid className="w-full border-separate border-spacing-0 whitespace-nowrap text-left text-xs">
                   <thead className="sticky top-0 z-20 bg-muted">
