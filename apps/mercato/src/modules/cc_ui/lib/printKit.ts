@@ -73,7 +73,7 @@ export function tallyDate(value: string | null | undefined): string {
   if (!value) return ''
   const date = new Date(value.length === 10 ? `${value}T00:00:00` : value)
   if (Number.isNaN(date.getTime())) return ''
-  const month = date.toLocaleDateString('en-GB', { month: 'short' })
+  const month = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][date.getMonth()]
   return `${date.getDate()}-${month}-${String(date.getFullYear()).slice(-2)}`
 }
 

@@ -7,6 +7,7 @@ import { CompanyProfile, ProformaInvoice, type PiLine } from '../data/entities'
 import { AccountsError, paymentsFor, received } from './service'
 import { nextSeriesCode } from './numberSeries'
 import { DEFAULT_LETTERHEAD, letterheadOf } from './letterhead'
+import { defaultBillDetails } from './billDetails'
 
 export const DEFAULT_COMPANY = {
   name: 'Creative Carbon Composites',
@@ -182,6 +183,7 @@ export async function createPi(
     createdByName: byName,
     history: [{ action: 'created', by: byName, at: new Date().toISOString(), note: `From order ${order.orderNo}` }],
   })
+  pi.billDetails = await defaultBillDetails(ctx, { order, code: pi.code, date: piDate, kind: 'pi', placeOfSupply: null, lineProductIds: lines.map((line) => line.productId) })
   ctx.em.persist(pi)
   logEvent(ctx, order, 'pi_created', 'advance', `Proforma invoice ${pi.code} drafted`, byName)
   return pi
@@ -296,6 +298,7 @@ export function piView(pi: ProformaInvoice) {
     cancelReason: pi.cancelReason ?? null,
     revision: pi.revision ?? 1,
     revisions: pi.revisions ?? [],
+    billDetails: pi.billDetails ?? null,
     history: pi.history ?? [],
     createdAt: pi.createdAt.toISOString(),
     updatedAt: pi.updatedAt.toISOString(),

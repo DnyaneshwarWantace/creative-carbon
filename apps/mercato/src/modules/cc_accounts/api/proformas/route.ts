@@ -7,6 +7,8 @@ import { currentUserName, resolveOrderContext } from '../../../cc_orders/lib/ser
 import { piCreateSchema, piListSchema, piUpdateSchema } from '../../data/validators'
 import { createPi, findPi, piView, refreshPiLines } from '../../lib/documents'
 import { AccountsError } from '../../lib/service'
+import { ensureBillDetails, mergeBillDetails } from '../../lib/billDetails'
+import { logEdit } from '../../../cc_audit/lib/activity'
 import { accountsErrorResponse, runGuarded } from '../../lib/server'
 
 export const metadata = {
@@ -22,7 +24,11 @@ async function GET(req: Request) {
   if (!parsed.success) return NextResponse.json({ error: 'Invalid query' }, { status: 400 })
   const query = parsed.data
   try {
-    if (query.id) return NextResponse.json(piView(await findPi(ctx, query.id)))
+    if (query.id) {
+      const pi = await findPi(ctx, query.id)
+      await ensureBillDetails(ctx, pi, 'pi', pi.piDate)
+      return NextResponse.json(piView(pi))
+    }
   } catch (error) {
     return accountsErrorResponse(error)
   }
@@ -94,6 +100,12 @@ async function PUT(req: Request) {
       if (input.notes !== undefined) pi.notes = input.notes?.trim() || null
       if (input.refreshLines && pi.status !== 'draft') throw new AccountsError('This proforma is sent. Use Revise so the sent revision is kept.', 409)
       if (input.refreshLines) await refreshPiLines(ctx, pi, byName)
+      if (input.billDetails) {
+        const current = await ensureBillDetails(ctx, pi, 'pi', pi.piDate)
+        const next = mergeBillDetails(current, input.billDetails)
+        logEdit(ctx.em, ctx, { recordType: 'proforma', recordId: pi.id, before: { bill: current }, after: { bill: next }, byName, labels: { bill: 'Bill details' }, action: 'bill_details' })
+        pi.billDetails = next
+      }
       pi.history = [...(pi.history ?? []), { action: 'edited', by: byName, at: new Date().toISOString(), note: null }]
       pi.updatedAt = new Date()
       await ctx.em.flush()

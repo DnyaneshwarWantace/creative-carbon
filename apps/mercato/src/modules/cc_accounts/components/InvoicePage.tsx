@@ -19,6 +19,8 @@ import { flash } from '@open-mercato/ui/backend/FlashMessages'
 import { WhatsAppMenu } from '../../cc_products/components/WhatsAppMenu'
 import { dateText, rupeeText } from '../../cc_products/lib/whatsapp'
 import { buildInvoiceHtml, printInvoice } from './invoicePrint'
+import { DEFAULT_COPIES, buildTallyBillHtml, printTallyBill, qrImage, tallyBillFromInvoice } from './tallyBillPrint'
+import { BillDetailsPanel, PrintCopiesButton } from './BillDetailsPanel'
 import { INVOICE_STATUS, type CompanyView, type InvoiceView } from './types'
 import { RecordPage, RecordState, formatDay, type Fact } from '../../cc_ui/components/RecordPage'
 import { recordHref } from '../../cc_ui/lib/links'
@@ -49,6 +51,17 @@ export function InvoicePage({ id }: { id: string }) {
   const [correcting, setCorrecting] = React.useState(false)
   const [reason, setReason] = React.useState('')
   const [creditQty, setCreditQty] = React.useState<Record<string, string>>({})
+  const [qrPreview, setQrPreview] = React.useState<string | null>(null)
+  const signedQr = doc?.billDetails?.signedQr ?? null
+  React.useEffect(() => {
+    let cancelled = false
+    void qrImage(signedQr).then((image) => {
+      if (!cancelled) setQrPreview(image)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [signedQr])
 
   const apply = (next: InvoiceView) => {
     setDoc(next)
@@ -184,6 +197,8 @@ export function InvoicePage({ id }: { id: string }) {
   )
 
   const exp = doc.exportDetails
+  const bill = doc.billDetails ?? null
+  const tally = bill && !exp && !doc.lines.some((line) => line.bstageLots?.length) ? tallyBillFromInvoice({ ...doc, billDetails: bill }) : null
   const money = (value: number) => (exp && exp.currency !== 'INR' ? `${exp.currency} ${value.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : rupeeText(value))
   const facts: Fact[] = [
     { label: t('cc_accounts.inv.date', 'Invoice date'), value: formatDay(doc.invoiceDate) },
@@ -228,10 +243,14 @@ export function InvoicePage({ id }: { id: string }) {
       actions={
         <>
           <WhatsAppMenu phone={phone} recipient={doc.customerName} messages={[{ key: 'inv', label: credit ? t('cc_accounts.inv.waCredit', 'Send the credit note details') : t('cc_accounts.inv.wa', 'Send the invoice details'), hint: `${doc.code} · ${rupeeText(doc.totals.payable)}`, text: message }]} />
-          <Button type="button" variant="outline" size="sm" onClick={() => (printInvoice(doc, company) ? null : flash(t('cc_accounts.inv.popup', 'Allow pop-ups to print'), 'error'))}>
-            <Printer className="mr-1.5 h-4 w-4" aria-hidden="true" />
-            {t('cc_accounts.inv.print', 'Print / PDF')}
-          </Button>
+          {tally ? (
+            <PrintCopiesButton defaultCopies={DEFAULT_COPIES[tally.kind]} onPrint={(copies) => printTallyBill(tally, company, copies)} />
+          ) : (
+            <Button type="button" variant="outline" size="sm" onClick={() => (printInvoice(doc, company) ? null : flash(t('cc_accounts.inv.popup', 'Allow pop-ups to print'), 'error'))}>
+              <Printer className="mr-1.5 h-4 w-4" aria-hidden="true" />
+              {t('cc_accounts.inv.print', 'Print / PDF')}
+            </Button>
+          )}
           {draft && canRecord ? (
             <Button type="button" size="sm" onClick={() => send('/api/cc_accounts/invoices/action', { id, action: 'issue' }, t('cc_accounts.inv.issued', 'Invoice issued; the order Billing stage has the invoice no.'))} disabled={busy}>
               <CheckCircle2 className="mr-1.5 h-4 w-4" aria-hidden="true" />
@@ -319,9 +338,19 @@ export function InvoicePage({ id }: { id: string }) {
 
           <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
             <div className="overflow-hidden rounded-lg border bg-card shadow-xs lg:col-span-2">
-              <iframe title={doc.code} srcDoc={buildInvoiceHtml(doc, company, false)} className="h-screen w-full bg-background" />
+              <iframe title={doc.code} srcDoc={tally ? buildTallyBillHtml(tally, company, ['original'], qrPreview, false) : buildInvoiceHtml(doc, company, false)} className="h-screen w-full bg-background" />
             </div>
             <div className="flex flex-col gap-4">
+              {tally && bill ? (
+                <BillDetailsPanel
+                  bill={bill}
+                  lineTitles={doc.lines.map((line) => line.title)}
+                  editable={canRecord && doc.status !== 'cancelled'}
+                  einvoice={!credit}
+                  busy={busy}
+                  onSave={(next) => send('/api/cc_accounts/invoices', { id, billDetails: next }, t('cc_accounts.bill.saved', 'Bill details saved'))}
+                />
+              ) : null}
               <section className="space-y-3 rounded-lg border bg-card p-4 shadow-xs">
                 <h2 className="text-sm font-semibold">{t('cc_accounts.inv.details', 'Invoice details')}</h2>
                 <div className="grid grid-cols-2 gap-3">

@@ -8181,6 +8181,7 @@ __metadata:
     next: "npm:16.3.0"
     pdfjs-dist: "npm:^6.2.108"
     pg: "npm:8.22.0"
+    qrcode: "npm:^1.5.4"
     react: "npm:19.2.8"
     react-big-calendar: "npm:^1.20.0"
     react-dom: "npm:19.2.8"

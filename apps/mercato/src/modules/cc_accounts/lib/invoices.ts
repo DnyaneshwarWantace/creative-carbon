@@ -7,6 +7,7 @@ import { OrderPayment, TaxInvoice, type BstageLotLine, type ExportDetails, type 
 import { bankText, companyView, loadCompany } from './documents'
 import { AccountsError } from './service'
 import { GST_STATES } from './gstStates'
+import { defaultBillDetails } from './billDetails'
 import { nextSeriesCode } from './numberSeries'
 import { paymentTermDays } from '../../cc_lists/lib/paymentTerms'
 
@@ -167,6 +168,7 @@ export async function createInvoice(
     createdByName: byName,
     history: [{ action: 'created', by: byName, at: new Date().toISOString(), note: `From order ${order.orderNo}` }],
   })
+  invoice.billDetails = await defaultBillDetails(ctx, { order, code: invoice.code, date: invoiceDate, kind: 'invoice', placeOfSupply: invoice.placeOfSupply ?? null, transporter: invoice.transporter ?? null, lineProductIds: lines.map((line) => line.productId) })
   ctx.em.persist(invoice)
   logEvent(ctx, order, 'invoice_created', 'invoice', `Tax invoice ${invoice.code} drafted`, byName)
   return invoice
@@ -327,6 +329,7 @@ export function invoiceView(invoice: TaxInvoice) {
     createdByName: invoice.createdByName ?? null,
     cancelReason: invoice.cancelReason ?? null,
     exportDetails: invoice.exportDetails ?? null,
+    billDetails: invoice.billDetails ?? null,
     history: invoice.history ?? [],
     createdAt: invoice.createdAt.toISOString(),
     updatedAt: invoice.updatedAt.toISOString(),

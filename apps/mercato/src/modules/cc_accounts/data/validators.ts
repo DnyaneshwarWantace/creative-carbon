@@ -99,6 +99,44 @@ export const companyInputSchema = z.object({
     .nullable(),
 })
 
+const billPartySchema = z
+  .object({
+    name: text(200),
+    address: text(600),
+    gstin: z.string().trim().max(15).regex(/^$|^[0-9]{2}[A-Z0-9]{13}$/i, 'GSTIN is 15 characters').optional().nullable(),
+    pan: text(10),
+    stateName: text(60),
+    stateCode: text(4),
+    contact: text(120),
+    email: text(200),
+  })
+  .partial()
+
+export const billDetailsPatchSchema = z
+  .object({
+    buyer: billPartySchema,
+    consignee: billPartySchema,
+    placeOfSupply: text(80),
+    deliveryNote: text(80),
+    paymentTerms: text(200),
+    referenceNo: text(120),
+    otherReferences: text(200),
+    buyerOrderNo: text(120),
+    buyerOrderDate: text(20),
+    dispatchDocNo: text(80),
+    deliveryNoteDate: text(20),
+    dispatchedThrough: text(120),
+    destination: text(200),
+    termsOfDelivery: text(300),
+    remarks: text(600),
+    lineNotes: z.array(z.string().max(300)).max(60),
+    irn: text(80),
+    ackNo: text(40),
+    ackDate: text(30),
+    signedQr: text(4000),
+  })
+  .partial()
+
 export const piCreateSchema = z.object({
   orderId: z.string().uuid(),
   piDate: isoDay.optional().nullable(),
@@ -118,6 +156,7 @@ export const piUpdateSchema = z.object({
   bankDetails: text(1000),
   notes: text(2000),
   refreshLines: z.boolean().optional(),
+  billDetails: billDetailsPatchSchema.optional(),
 })
 
 export const piActionSchema = z
@@ -155,6 +194,7 @@ export const invoiceUpdateSchema = z.object({
   bankDetails: text(1000),
   notes: text(2000),
   reason: text(500),
+  billDetails: billDetailsPatchSchema.optional(),
   exportDetails: z
     .object({
       supply: z.enum(['lut', 'igst']).optional(),

@@ -1,4 +1,5 @@
 import type { LetterheadView } from '../lib/letterhead'
+import type { BillDetails } from '../data/entities'
 export type PiLine = {
   productId: string
   code: string | null
@@ -41,6 +42,7 @@ export type PiView = {
   cancelReason: string | null
   revision?: number
   revisions?: Array<{ revision: number; at: string; by: string | null; reason: string; piDate: string; validUntil: string | null; advancePercent: number | null; lines: PiLine[]; totals: { gross: number; discount: number; taxable: number; gst: number; total: number }; terms: string | null; notes: string | null; status: 'draft' | 'sent' | 'cancelled' }>
+  billDetails?: BillDetails | null
   history: Array<{ action: string; by: string | null; at: string; note: string | null }>
   createdAt: string
   updatedAt: string
@@ -128,6 +130,7 @@ export type InvoiceView = {
   createdByName: string | null
   cancelReason: string | null
   exportDetails: ExportDetailsView | null
+  billDetails?: BillDetails | null
   history: Array<{ action: string; by: string | null; at: string; note: string | null }>
   createdAt: string
   updatedAt: string

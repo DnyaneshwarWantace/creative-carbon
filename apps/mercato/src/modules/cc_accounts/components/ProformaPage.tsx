@@ -18,6 +18,8 @@ import { flash } from '@open-mercato/ui/backend/FlashMessages'
 import { WhatsAppMenu } from '../../cc_products/components/WhatsAppMenu'
 import { dateText, rupeeText } from '../../cc_products/lib/whatsapp'
 import { buildPiHtml, printPi } from './piPrint'
+import { DEFAULT_COPIES, buildTallyBillHtml, printTallyBill, tallyBillFromPi } from './tallyBillPrint'
+import { BillDetailsPanel, PrintCopiesButton } from './BillDetailsPanel'
 import { PI_STATUS, type CompanyView, type PiView } from './types'
 import { RecordPage, RecordState, formatDay, type Fact } from '../../cc_ui/components/RecordPage'
 import { recordHref } from '../../cc_ui/lib/links'
@@ -138,6 +140,10 @@ export function ProformaPage({ id }: { id: string }) {
     .filter((line): line is string => line !== null)
     .join('\n')
 
+  const bill = pi.billDetails ?? null
+  const ownState = company.gstin?.slice(0, 2) ?? null
+  const theirState = pi.customerGstin?.slice(0, 2) || bill?.buyer.stateCode || null
+  const tally = bill ? tallyBillFromPi({ ...pi, billDetails: bill }, Boolean(ownState && theirState && ownState !== theirState)) : null
   const facts: Fact[] = [
     { label: t('cc_accounts.pi.date', 'PI date'), value: formatDay(pi.piDate) },
     { label: t('cc_accounts.pi.validUntil', 'Valid until'), value: formatDay(pi.validUntil) },
@@ -174,10 +180,14 @@ export function ProformaPage({ id }: { id: string }) {
       actions={
         <>
           <WhatsAppMenu phone={phone} recipient={pi.customerName} messages={[{ key: 'pi', label: t('cc_accounts.pi.waLabel', 'Send the proforma details'), hint: `${pi.code} · ${rupeeText(pi.totals.total)}`, text: message }]} />
-          <Button type="button" variant="outline" size="sm" onClick={() => (printPi(pi, company) ? null : flash(t('cc_accounts.pi.popup', 'Allow pop-ups to print'), 'error'))}>
-            <Printer className="mr-1.5 h-4 w-4" aria-hidden="true" />
-            {t('cc_accounts.pi.print', 'Print / PDF')}
-          </Button>
+          {tally ? (
+            <PrintCopiesButton defaultCopies={DEFAULT_COPIES.pi} onPrint={(copies) => printTallyBill(tally, company, copies)} />
+          ) : (
+            <Button type="button" variant="outline" size="sm" onClick={() => (printPi(pi, company) ? null : flash(t('cc_accounts.pi.popup', 'Allow pop-ups to print'), 'error'))}>
+              <Printer className="mr-1.5 h-4 w-4" aria-hidden="true" />
+              {t('cc_accounts.pi.print', 'Print / PDF')}
+            </Button>
+          )}
           {canRecord && pi.status === 'draft' ? (
             <Button type="button" size="sm" onClick={() => send('/api/cc_accounts/proformas/action', { id, action: 'send' }, t('cc_accounts.pi.sentFlash', 'Marked as sent; the order Advance stage has the PI no.'))} disabled={busy}>
               <CheckCircle2 className="mr-1.5 h-4 w-4" aria-hidden="true" />
@@ -235,9 +245,19 @@ export function ProformaPage({ id }: { id: string }) {
 
           <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
             <div className="overflow-hidden rounded-lg border bg-card shadow-xs lg:col-span-2">
-              <iframe title={pi.code} srcDoc={buildPiHtml(pi, company, false)} className="h-screen w-full bg-background" />
+              <iframe title={pi.code} srcDoc={tally ? buildTallyBillHtml(tally, company, ['original'], null, false) : buildPiHtml(pi, company, false)} className="h-screen w-full bg-background" />
             </div>
             <div className="flex flex-col gap-4">
+              {tally && bill ? (
+                <BillDetailsPanel
+                  bill={bill}
+                  lineTitles={pi.lines.map((line) => line.title)}
+                  editable={canRecord && pi.status !== 'cancelled'}
+                  einvoice={false}
+                  busy={busy}
+                  onSave={(next) => send('/api/cc_accounts/proformas', { id, billDetails: next }, t('cc_accounts.bill.saved', 'Bill details saved'))}
+                />
+              ) : null}
               <section className="space-y-3 rounded-lg border bg-card p-4 shadow-xs">
                 <h2 className="text-sm font-semibold">{t('cc_accounts.pi.details', 'Proforma details')}</h2>
                 <div className="grid grid-cols-2 gap-3">

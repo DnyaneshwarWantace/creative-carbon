@@ -7,10 +7,11 @@ import { currentUserName, resolveOrderContext } from '../../../cc_orders/lib/ser
 import { invoiceCreateSchema, invoiceListSchema, invoiceUpdateSchema } from '../../data/validators'
 import { createInvoice, findInvoice, invoiceView, updateExportDetails, updateInvoiceLines, type ExportPatch } from '../../lib/invoices'
 import { AccountsError } from '../../lib/service'
+import { ensureBillDetails, invoiceRemarks, mergeBillDetails } from '../../lib/billDetails'
 import { accountsErrorResponse, runGuarded } from '../../lib/server'
 
 import { tallyPushOf } from '../../lib/tallyLog'
-import { recordActivity } from '../../../cc_audit/lib/activity'
+import { logEdit, recordActivity } from '../../../cc_audit/lib/activity'
 export const metadata = {
   GET: { requireAuth: true, requireFeatures: ['cc_accounts.view'] },
   POST: { requireAuth: true, requireFeatures: ['cc_accounts.record'] },
@@ -24,7 +25,11 @@ async function GET(req: Request) {
   if (!parsed.success) return NextResponse.json({ error: 'Invalid query' }, { status: 400 })
   const query = parsed.data
   try {
-    if (query.id) return NextResponse.json(invoiceView(await findInvoice(ctx, query.id)))
+    if (query.id) {
+      const invoice = await findInvoice(ctx, query.id)
+      await ensureBillDetails(ctx, invoice, invoice.kind, invoice.invoiceDate)
+      return NextResponse.json(invoiceView(invoice))
+    }
   } catch (error) {
     return accountsErrorResponse(error)
   }
@@ -106,7 +111,17 @@ async function PUT(req: Request) {
         if (input.transporter !== undefined) doc.transporter = clean(input.transporter)
         if (input.vehicleNo !== undefined) doc.vehicleNo = clean(input.vehicleNo)?.toUpperCase() ?? null
         if (input.lrNo !== undefined) doc.lrNo = clean(input.lrNo)
-        if (input.ewayBillNo !== undefined) doc.ewayBillNo = clean(input.ewayBillNo)
+        if (input.ewayBillNo !== undefined) {
+          const oldEway = doc.ewayBillNo ?? null
+          doc.ewayBillNo = clean(input.ewayBillNo)
+          if (doc.billDetails && doc.billDetails.remarks === invoiceRemarks(doc.code, doc.invoiceDate, oldEway)) doc.billDetails = { ...doc.billDetails, remarks: invoiceRemarks(doc.code, doc.invoiceDate, doc.ewayBillNo ?? null) }
+        }
+        if (input.billDetails) {
+          const current = await ensureBillDetails(txCtx, doc, doc.kind, doc.invoiceDate)
+          const next = mergeBillDetails(current, input.billDetails)
+          logEdit(em as EntityManager, ctx, { recordType: 'invoice', recordId: doc.id, before: { bill: current }, after: { bill: next }, byName, labels: { bill: 'Bill details' }, action: 'bill_details' })
+          doc.billDetails = next
+        }
         if (input.terms !== undefined) doc.terms = clean(input.terms)
         if (input.bankDetails !== undefined) doc.bankDetails = clean(input.bankDetails)
         if (input.notes !== undefined) doc.notes = clean(input.notes)

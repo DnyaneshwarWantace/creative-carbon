@@ -208,6 +208,31 @@ export class CompanyProfile {
   updatedAt: Date = new Date()
 }
 
+export type BillParty = { name: string; address: string | null; gstin: string | null; pan: string | null; stateName: string | null; stateCode: string | null; contact: string | null; email: string | null }
+
+export type BillDetails = {
+  buyer: BillParty
+  consignee: BillParty
+  placeOfSupply: string | null
+  deliveryNote: string | null
+  paymentTerms: string | null
+  referenceNo: string | null
+  otherReferences: string | null
+  buyerOrderNo: string | null
+  buyerOrderDate: string | null
+  dispatchDocNo: string | null
+  deliveryNoteDate: string | null
+  dispatchedThrough: string | null
+  destination: string | null
+  termsOfDelivery: string | null
+  remarks: string | null
+  lineNotes: string[]
+  irn: string | null
+  ackNo: string | null
+  ackDate: string | null
+  signedQr: string | null
+}
+
 export type PiStatus = 'draft' | 'sent' | 'cancelled'
 export type PiLine = {
   productId: string
@@ -311,6 +336,9 @@ export class ProformaInvoice {
 
   @Property({ type: 'json', nullable: true })
   history?: PiHistory[] | null
+
+  @Property({ name: 'bill_details', type: 'json', nullable: true })
+  billDetails?: BillDetails | null
 
   @Property({ name: 'created_at', type: Date, onCreate: () => new Date() })
   createdAt: Date = new Date()
@@ -434,6 +462,9 @@ export class TaxInvoice {
 
   @Property({ name: 'export_details', type: 'json', nullable: true })
   exportDetails?: ExportDetails | null
+
+  @Property({ name: 'bill_details', type: 'json', nullable: true })
+  billDetails?: BillDetails | null
 
   @Property({ name: 'created_at', type: Date, onCreate: () => new Date() })
   createdAt: Date = new Date()

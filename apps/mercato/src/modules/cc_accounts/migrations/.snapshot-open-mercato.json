@@ -1328,6 +1328,23 @@
           "enumItems": [],
           "mappedType": "text"
         },
+        "bill_details": {
+          "name": "bill_details",
+          "type": "jsonb",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": true,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "json"
+        },
         "cancel_reason": {
           "name": "cancel_reason",
           "type": "text",
@@ -2496,6 +2513,23 @@
           "collation": null,
           "enumItems": [],
           "mappedType": "text"
+        },
+        "bill_details": {
+          "name": "bill_details",
+          "type": "jsonb",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": true,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "json"
         },
         "cancel_reason": {
           "name": "cancel_reason",

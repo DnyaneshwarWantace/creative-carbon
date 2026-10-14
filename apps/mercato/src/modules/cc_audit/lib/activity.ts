@@ -72,7 +72,7 @@ function flatten(value: unknown, path: string, label: string, out: Map<string, {
     }
     return
   }
-  out.set(path, { label, value: typeof value === 'string' && /^-?(0|[1-9]\d*)(\.\d+)?$/.test(value) ? Number(value) : plain(value) })
+  out.set(path, { label, value: typeof value === 'string' && /^-?(0|[1-9]\d{0,9})(\.\d+)?$/.test(value) ? Number(value) : plain(value) })
 }
 
 export function diffSnapshot(before: Record<string, unknown>, after: Record<string, unknown>, labels: Record<string, string> = {}): ActivityChange[] {
