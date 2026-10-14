@@ -1,5 +1,6 @@
 "use client"
 
+import { PO_PRINT_TERMS, cleanPrintTerms, type PoPrintTerms } from '../lib/printTerms'
 import * as React from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
@@ -49,6 +50,7 @@ export function PurchaseOrderForm({ poId }: { poId?: string }) {
   const [orderRefs, setOrderRefs] = React.useState<Array<{ orderId: string; orderNo: string }>>([])
   const [notes, setNotes] = React.useState('')
   const [terms, setTerms] = React.useState('')
+  const [printTerms, setPrintTerms] = React.useState<PoPrintTerms>({})
   const [busy, setBusy] = React.useState(false)
 
   React.useEffect(() => {
@@ -67,6 +69,7 @@ export function PurchaseOrderForm({ poId }: { poId?: string }) {
         setExpectedDate(po.expectedDate ?? '')
         setNotes(po.notes ?? '')
         setTerms(po.terms ?? '')
+        setPrintTerms(po.printTerms ?? {})
         setOrderRefs(po.orderRefs)
         setLines(po.lines.map((line) => ({ key: line.id, productId: line.productId, title: line.title, code: line.code, unit: line.unit, quantity: String(line.quantity), rate: String(line.rate), gstPercent: String(line.gstPercent) })))
         setReady(true)
@@ -162,6 +165,7 @@ export function PurchaseOrderForm({ poId }: { poId?: string }) {
       expectedDate: expectedDate || null,
       notes: notes.trim() || null,
       terms: terms.trim() || null,
+      printTerms: cleanPrintTerms(printTerms),
       orderRefs,
       indentIds: existing ? [] : (params?.get('indents') ?? '').split(',').filter((id) => /^[0-9a-f-]{36}$/i.test(id)),
       submit,
@@ -401,6 +405,21 @@ export function PurchaseOrderForm({ poId }: { poId?: string }) {
                 <div className="space-y-1.5">
                   <Label htmlFor="po-notes">{t('cc_purchase.form.notes', 'Notes for the vendor')}</Label>
                   <Textarea id="po-notes" rows={3} value={notes} onChange={(event) => setNotes(event.target.value)} />
+                </div>
+              </section>
+
+              <section className="space-y-3 rounded-xl border border-border bg-card p-5 shadow-sm">
+                <div>
+                  <h2 className="text-sm font-semibold">{t('cc_purchase.form.printTerms', 'Terms printed on the purchase order')}</h2>
+                  <p className="text-xs text-muted-foreground">{t('cc_purchase.form.printTermsHint', 'Fill only what applies; empty lines are not printed.')}</p>
+                </div>
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  {PO_PRINT_TERMS.map((term) => (
+                    <div key={term.key} className="space-y-1.5">
+                      <Label htmlFor={`po-term-${term.key}`}>{t(`cc_purchase.form.term.${term.key}`, term.label)}</Label>
+                      <Input id={`po-term-${term.key}`} value={printTerms[term.key] ?? ''} placeholder={term.placeholder} onChange={(event) => setPrintTerms((current) => ({ ...current, [term.key]: event.target.value }))} />
+                    </div>
+                  ))}
                 </div>
               </section>
             </div>

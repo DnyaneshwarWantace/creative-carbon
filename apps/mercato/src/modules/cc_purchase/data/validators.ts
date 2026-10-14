@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { requireReasonFor } from '../../cc_audit/lib/reason'
+import { PO_PRINT_TERMS } from '../lib/printTerms'
 
 const day = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Use YYYY-MM-DD')
 
@@ -17,6 +18,7 @@ export const poInputSchema = z.object({
   expectedDate: day.optional().nullable(),
   notes: z.string().trim().max(2000).optional().nullable(),
   terms: z.string().trim().max(2000).optional().nullable(),
+  printTerms: z.object(Object.fromEntries(PO_PRINT_TERMS.map(({ key }) => [key, z.string().trim().max(300).optional().nullable()]))).partial().optional().nullable(),
   orderRefs: z.array(z.object({ orderId: z.string().uuid(), orderNo: z.string().max(60) })).max(50).default([]),
   lines: z.array(poLineSchema).min(1).max(200),
   submit: z.boolean().default(false),

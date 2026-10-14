@@ -1,6 +1,7 @@
 import { Entity, Index, PrimaryKey, Property, Unique } from '@mikro-orm/decorators/legacy'
 import { OptionalProps } from '@mikro-orm/core'
 import type { StoreKey } from '../../cc_products/lib/stock'
+import type { PoPrintTerms } from '../lib/printTerms'
 
 export type PoStatus = 'draft' | 'pending_approval' | 'approved' | 'partly_received' | 'received' | 'cancelled'
 export type PoRevision = { revision: number; at: string; by: string | null; reason: string; status: PoStatus; expectedDate: string | null; terms: string | null; lines: Array<{ productId: string; quantity: number; rate: number; gstPercent: number; receivedQty: number }> }
@@ -18,6 +19,7 @@ export class PurchaseOrder {
     | 'expectedDate'
     | 'notes'
     | 'terms'
+    | 'printTerms'
     | 'orderRefs'
     | 'createdByName'
     | 'approvedByName'
@@ -66,6 +68,9 @@ export class PurchaseOrder {
 
   @Property({ type: 'text', nullable: true })
   terms?: string | null
+
+  @Property({ name: 'print_terms', type: 'json', nullable: true })
+  printTerms?: PoPrintTerms | null
 
   @Property({ name: 'order_refs', type: 'json', nullable: true })
   orderRefs?: Array<{ orderId: string; orderNo: string }> | null

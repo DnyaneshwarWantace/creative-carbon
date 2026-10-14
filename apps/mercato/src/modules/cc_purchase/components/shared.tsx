@@ -1,6 +1,7 @@
 "use client"
 
 import type { StatusBadgeVariant } from '@open-mercato/ui/primitives/status-badge'
+import type { PoPrintTerms } from '../lib/printTerms'
 
 export type PoStatus = 'draft' | 'pending_approval' | 'approved' | 'partly_received' | 'received' | 'cancelled'
 export type GrnStatus = 'under_test' | 'partly_approved' | 'approved' | 'rejected' | 'cancelled'
@@ -39,6 +40,7 @@ export type PoView = {
   status: PoStatus
   notes: string | null
   terms: string | null
+  printTerms?: PoPrintTerms | null
   orderRefs: Array<{ orderId: string; orderNo: string }>
   createdByName: string | null
   approvedByName: string | null

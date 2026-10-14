@@ -1,5 +1,6 @@
 import type { PoView } from './shared'
-import { partyLogoHtml } from '../../cc_ui/lib/printKit'
+import { LETTERHEAD_CSS, amountInWords, letterheadHtml, letterheadOf, partyLogoHtml, type PrintCompany } from '../../cc_ui/lib/printKit'
+import { PO_FORM_NO, PO_PRINT_TERMS } from '../lib/printTerms'
 import { REVISION_CSS, revisionTag, supersededBlock, type RevisionPrint } from '../../cc_ui/lib/printRevision'
 
 function escapeHtml(value: string): string {
@@ -15,7 +16,14 @@ function day(value: string | null): string {
   return new Date(`${value}T00:00:00`).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
 }
 
-export function buildPurchaseOrderHtml(po: PoView & RevisionPrint): string {
+export function buildPurchaseOrderHtml(po: PoView & RevisionPrint, company?: PrintCompany | null): string {
+  const lh = letterheadOf(company)
+  const terms = po.printTerms ?? {}
+  const deliveryPlace = terms.deliveryPlace || lh.worksAddress || ''
+  const termRows = PO_PRINT_TERMS.filter(({ key }) => key !== 'specialInstruction' && key !== 'deliveryPlace' && key !== 'guarantee' && terms[key])
+    .map(({ key, label }) => `<tr><td class="tk">${escapeHtml(label)}</td><td>: ${escapeHtml(terms[key] ?? '')}</td></tr>`)
+    .join('')
+  const legal = company?.legalName || company?.name || 'Creative Carbon Composites Pvt. Ltd.'
   const rows = po.lines
     .map(
       (line, index) => `<tr>
@@ -35,6 +43,10 @@ export function buildPurchaseOrderHtml(po: PoView & RevisionPrint): string {
     .top{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #1c1917;padding-bottom:14px}
     h1{font-size:20px;margin:0;letter-spacing:.02em} .muted{color:#78716c} .code{font-family:ui-monospace,Menlo,monospace;font-size:10px;color:#78716c}
     ${REVISION_CSS}
+    ${LETTERHEAD_CSS}
+    .formno{text-align:right;font-size:10px;color:#57534e;margin:4px 0 0} .title{text-align:center;font-size:16px;font-weight:800;letter-spacing:.14em;margin:10px 0 2px}
+    .special{margin-top:12px;padding:6px 10px;border:1px solid #1c1917;font-weight:700} .tk{width:130px;color:#57534e} .words{margin-top:8px;font-weight:700}
+    .close{margin-top:26px;display:flex;justify-content:space-between;align-items:flex-end} .close img{max-height:70px;display:block}
     .doc{text-align:right} .doc .no{font-family:ui-monospace,Menlo,monospace;font-size:15px;font-weight:700}
     .grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:18px 0}
     .box{border:1px solid #d6d3d1;border-radius:6px;padding:10px 12px} .box h3{margin:0 0 4px;font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:#78716c}
@@ -46,27 +58,36 @@ export function buildPurchaseOrderHtml(po: PoView & RevisionPrint): string {
     @media print{body{padding:16mm}}
   </style></head><body>${supersededBlock(po)}
   ${draft ? '<div class="wm">NOT APPROVED</div>' : ''}
+  ${letterheadHtml(company)}
+  <div class="formno">Form No. ${escapeHtml(PO_FORM_NO)}</div>
+  <div class="title">PURCHASE ORDER</div>
   <div class="top">
-    <div><h1>CREATIVE CARBON</h1><div class="muted">Purchase order</div></div>
-    <div class="doc"><div class="no">${escapeHtml(po.code)}${revisionTag(po)}</div><div class="muted">Date ${day(po.poDate)}</div>${po.expectedDate ? `<div class="muted">Deliver by ${day(po.expectedDate)}</div>` : ''}</div>
+    <div><div class="muted">PO No.</div><div class="no" style="font-family:ui-monospace,Menlo,monospace;font-size:15px;font-weight:700">${escapeHtml(po.code)}${revisionTag(po)}</div></div>
+    <div class="doc"><div class="muted">PO Date</div><div class="no">${day(po.poDate)}</div>${po.expectedDate ? `<div class="muted">Deliver by ${day(po.expectedDate)}</div>` : ''}</div>
   </div>
   <div class="grid">
-    <div class="box"><h3>Vendor</h3>${partyLogoHtml(po.partyLogoUrl)}<strong>${escapeHtml(po.vendorName)}</strong><div class="code">GSTIN ${escapeHtml(po.vendorGstin ?? '—')}</div></div>
-    <div class="box"><h3>Deliver to</h3><strong>Creative Carbon Composites</strong><div class="muted">RM / PM store</div>${po.orderRefs.length ? `<div class="code">Ref ${po.orderRefs.map((ref) => escapeHtml(ref.orderNo)).join(', ')}</div>` : ''}</div>
+    <div class="box"><h3>Supplier</h3>${partyLogoHtml(po.partyLogoUrl)}<strong>${escapeHtml(po.vendorName)}</strong><div class="code">GSTIN ${escapeHtml(po.vendorGstin ?? '—')}</div></div>
+    <div class="box"><h3>Deliver to</h3><strong>${escapeHtml(legal)}</strong><div class="muted">${escapeHtml(deliveryPlace)}</div>${po.orderRefs.length ? `<div class="code">Ref ${po.orderRefs.map((ref) => escapeHtml(ref.orderNo)).join(', ')}</div>` : ''}</div>
   </div>
   <table><thead><tr><th>#</th><th>Material</th><th class="r">Quantity</th><th class="r">Rate ₹</th><th class="r">GST</th><th class="r">Amount ₹</th></tr></thead><tbody>${rows}</tbody></table>
   <div class="totals"><div><span>Before GST</span><span>₹ ${money(po.subtotal)}</span></div><div><span>GST</span><span>₹ ${money(po.gst)}</span></div><div class="grand"><span>Total</span><span>₹ ${money(po.total)}</span></div></div>
-  ${po.terms || po.notes ? `<div class="terms">${po.terms ? `<div><strong>Payment terms:</strong> ${escapeHtml(po.terms)}</div>` : ''}${po.notes ? `<div><strong>Notes:</strong> ${escapeHtml(po.notes)}</div>` : ''}</div>` : ''}
-  <div class="sign"><div>Prepared by ${escapeHtml(po.createdByName ?? '')}</div><div>Approved by ${escapeHtml(po.approvedByName ?? '')}</div></div>
+  <div class="words">${escapeHtml(amountInWords(po.total))}</div>
+  ${terms.specialInstruction ? `<div class="special">${escapeHtml(terms.specialInstruction)}</div>` : ''}
+  ${termRows || po.terms || po.notes ? `<div class="terms"><div><strong>Terms &amp; Conditions</strong></div><table>${termRows}${po.terms ? `<tr><td class="tk">Payment terms</td><td>: ${escapeHtml(po.terms)}</td></tr>` : ''}${po.notes ? `<tr><td class="tk">Notes</td><td>: ${escapeHtml(po.notes)}</td></tr>` : ''}</table></div>` : ''}
+  ${terms.guarantee ? `<p><strong>Guarantee / warranty:</strong> ${escapeHtml(terms.guarantee)}</p>` : ''}
+  <div class="close">
+    <div>Yours faithfully,<br><strong>for ${escapeHtml(legal)}</strong>${lh.stampUrl ? `<img src="${escapeHtml(lh.stampUrl)}" alt="Stamp">` : ''}${lh.signatureUrl ? `<img src="${escapeHtml(lh.signatureUrl)}" alt="Signature">` : ''}<div style="margin-top:${lh.signatureUrl || lh.stampUrl ? '4' : '40'}px">${escapeHtml(company?.signatory || 'Director')}</div></div>
+    <div class="muted" style="text-align:right">Prepared by ${escapeHtml(po.createdByName ?? '')}<br>Approved by ${escapeHtml(po.approvedByName ?? '')}</div>
+  </div>
   <script>window.addEventListener('load', function () { setTimeout(function () { window.print() }, 200) })</script>
   </body></html>`
 }
 
-export function printPurchaseOrder(po: PoView & RevisionPrint): boolean {
+export function printPurchaseOrder(po: PoView & RevisionPrint, company?: PrintCompany | null): boolean {
   const popup = window.open('', '_blank', 'width=960,height=1100')
   if (!popup) return false
   popup.document.open()
-  popup.document.write(buildPurchaseOrderHtml(po))
+  popup.document.write(buildPurchaseOrderHtml(po, company))
   popup.document.close()
   return true
 }

@@ -8,6 +8,7 @@ import { ensureStockRecords } from '../../cc_store/lib/stockSetup'
 import { GoodsReceipt, GoodsReceiptLine, PurchaseOrder, PurchaseOrderLine, type GrnStatus, type PoStatus } from '../data/entities'
 import type { DirectGrnInput, GrnInput, PoInput } from '../data/validators'
 import { linkIndentsToPo, notifyApprovers } from './indents'
+import { cleanPrintTerms } from './printTerms'
 import { loadCompany } from '../../cc_accounts/lib/documents'
 import { nextSeriesCode } from '../../cc_accounts/lib/numberSeries'
 import { PURCHASED_KINDS, type ProductKind } from '../../cc_products/lib/kinds'
@@ -142,6 +143,7 @@ export async function createPo(ctx: OrderContext, input: PoInput): Promise<Purch
     status: input.submit ? 'pending_approval' : 'draft',
     notes: input.notes ?? null,
     terms: input.terms ?? vendor.paymentTerms ?? null,
+    printTerms: cleanPrintTerms(input.printTerms),
     orderRefs: input.orderRefs,
     createdByName: byName,
     history: [{ action: input.submit ? 'submitted' : 'created', by: byName, at: new Date().toISOString(), note: null }],
@@ -165,6 +167,7 @@ export async function updatePo(ctx: OrderContext, po: PurchaseOrder, input: PoIn
   po.expectedDate = input.expectedDate ?? null
   po.notes = input.notes ?? null
   po.terms = input.terms ?? null
+  po.printTerms = cleanPrintTerms(input.printTerms)
   po.orderRefs = input.orderRefs
   if (input.submit && po.status === 'draft') po.status = 'pending_approval'
   const changes = await writeLines(ctx, po, input.lines)
@@ -292,6 +295,7 @@ export async function poView(ctx: OrderContext, po: PurchaseOrder) {
     status: po.status,
     notes: po.notes ?? null,
     terms: po.terms ?? null,
+    printTerms: po.printTerms ?? null,
     orderRefs: po.orderRefs ?? [],
     createdByName: po.createdByName ?? null,
     approvedByName: po.approvedByName ?? null,
