@@ -150,7 +150,7 @@ export function DuesPage() {
                   const percent = row.total > 0 ? Math.min(100, Math.round((row.received / row.total) * 100)) : 0
                   return (
                     <li key={row.orderId}>
-                      <Link href={`/backend/orders/${row.orderId}`} className="group grid grid-cols-1 items-center gap-3 px-5 py-4 transition-colors hover:bg-muted/40 md:grid-cols-12">
+                      <Link href={`/backend/orders/${row.orderId}/money`} className="group grid grid-cols-1 items-center gap-3 px-5 py-4 transition-colors hover:bg-muted/40 md:grid-cols-12">
                         <div className="min-w-0 md:col-span-4">
                           <p className="font-mono text-sm font-semibold">{row.orderNo}</p>
                           <p className="truncate text-sm">{row.customerName}</p>

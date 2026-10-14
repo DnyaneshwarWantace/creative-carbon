@@ -1,0 +1,245 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Client Documents Plan</title>
+<style>
+  :root {
+    --bg:#FBF9F6; --ink:#211C18; --ink-soft:#5C5349; --ink-faint:#8E8477;
+    --line:#E7E0D6; --line-strong:#D6CCBD;
+    --accent:#B0582F; --accent-ink:#7A3C1F; --accent-bg:#F5E3D6;
+    --sage:#4B6F5F; --sage-ink:#35564A; --sage-bg:#E1EAE3;
+    --red-ink:#8A2E2E; --red-bg:#F5E1DF;
+    --blue-ink:#2F4E6E; --blue-bg:#E2EAF2;
+    --plan-bg:#F3EFE9; --card:#FFFFFF;
+    --shadow:0 1px 2px rgba(33,28,24,0.04), 0 8px 24px rgba(33,28,24,0.06);
+    --serif:'Source Serif 4','Iowan Old Style','Palatino Linotype',Palatino,Georgia,serif;
+    --sans:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;
+    --mono:'IBM Plex Mono','SFMono-Regular',Menlo,Consolas,monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      color-scheme:dark;
+      --bg:#17140F; --ink:#F1ECE4; --ink-soft:#C4B9A9; --ink-faint:#8C8072;
+      --line:#33291F; --line-strong:#453729;
+      --accent:#E08650; --accent-ink:#F4B98A; --accent-bg:#3A2416;
+      --sage:#7FB09B; --sage-ink:#A6CBB9; --sage-bg:#1E2C25;
+      --red-ink:#F0B4B0; --red-bg:#3A2220; --blue-ink:#A9C4E0; --blue-bg:#1C2633;
+      --plan-bg:#201B15; --card:#1E1A14; --shadow:0 1px 2px rgba(0,0,0,0.3), 0 12px 32px rgba(0,0,0,0.4);
+    }
+  }
+  :root[data-theme="dark"] {
+    color-scheme:dark;
+    --bg:#17140F; --ink:#F1ECE4; --ink-soft:#C4B9A9; --ink-faint:#8C8072;
+    --line:#33291F; --line-strong:#453729;
+    --accent:#E08650; --accent-ink:#F4B98A; --accent-bg:#3A2416;
+    --sage:#7FB09B; --sage-ink:#A6CBB9; --sage-bg:#1E2C25;
+    --red-ink:#F0B4B0; --red-bg:#3A2220; --blue-ink:#A9C4E0; --blue-bg:#1C2633;
+    --plan-bg:#201B15; --card:#1E1A14; --shadow:0 1px 2px rgba(0,0,0,0.3), 0 12px 32px rgba(0,0,0,0.4);
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink); font-family:var(--sans); font-size:15px; line-height:1.6; -webkit-font-smoothing:antialiased; overflow-x:hidden; }
+  .wrap { max-width:1120px; margin:0 auto; padding-inline:32px; }
+  code { font-family:var(--mono); font-size:0.84em; background:var(--plan-bg); border:1px solid var(--line); border-radius:4px; padding:0 4px; overflow-wrap:anywhere; }
+  p { margin:0 0 10px; }
+  .hero { padding-block:56px 30px; border-bottom:1px solid var(--line); }
+  .eyebrow { display:inline-block; font-size:12px; letter-spacing:0.09em; text-transform:uppercase; color:var(--sage-ink); background:var(--sage-bg); border:1px solid var(--sage); padding:5px 14px; border-radius:100px; font-weight:700; margin-bottom:20px; }
+  h1 { font-family:var(--serif); font-weight:600; font-size:clamp(1.8rem,3.4vw,2.5rem); line-height:1.15; margin:0 0 14px; max-width:32ch; }
+  .lede { font-size:1.04rem; color:var(--ink-soft); max-width:72ch; }
+  .stats { display:flex; flex-wrap:wrap; gap:10px; margin-top:22px; }
+  .stat { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:10px 16px; box-shadow:var(--shadow); }
+  .stat b { display:block; font-family:var(--serif); font-size:1.5rem; line-height:1.1; }
+  .stat span { font-size:12px; color:var(--ink-faint); text-transform:uppercase; letter-spacing:0.06em; }
+  h2 { font-family:var(--serif); font-weight:600; font-size:1.55rem; margin:46px 0 8px; }
+  h2 + .dek { color:var(--ink-soft); margin-bottom:18px; max-width:75ch; }
+  .tablewrap { overflow-x:auto; border:1px solid var(--line); border-radius:10px; background:var(--card); box-shadow:var(--shadow); }
+  table { border-collapse:collapse; width:100%; font-size:14px; }
+  th, td { text-align:left; padding:10px 14px; border-bottom:1px solid var(--line); vertical-align:top; }
+  th { font-size:12px; text-transform:uppercase; letter-spacing:0.06em; color:var(--ink-faint); background:var(--plan-bg); }
+  tr:last-child td { border-bottom:0; }
+  td.doc { font-weight:600; white-space:nowrap; }
+  .gap { color:var(--red-ink); }
+  .have { color:var(--sage-ink); }
+  .phase { background:var(--card); border:1px solid var(--line); border-radius:12px; box-shadow:var(--shadow); padding:22px 24px; margin-bottom:22px; }
+  .phase-head { display:flex; flex-wrap:wrap; align-items:baseline; justify-content:space-between; gap:8px; }
+  .phase h3 { font-family:var(--serif); font-size:1.25rem; margin:0; }
+  .done { font-size:12px; font-weight:700; color:var(--sage-ink); background:var(--sage-bg); border:1px solid var(--sage); border-radius:100px; padding:2px 10px; margin-left:8px; }
+  .wk { font-size:12px; color:var(--ink-faint); text-transform:uppercase; letter-spacing:0.06em; }
+  .src { font-size:13px; color:var(--blue-ink); background:var(--blue-bg); border-radius:6px; padding:6px 10px; margin:10px 0 14px; display:inline-block; }
+  ol.tasks { list-style:none; margin:0; padding:0; display:grid; gap:10px; }
+  .task { display:grid; grid-template-columns:auto 1fr; gap:4px 14px; padding:12px 14px; border:1px solid var(--line); border-radius:8px; background:var(--bg); }
+  .tid { font-family:var(--mono); font-size:12px; font-weight:700; color:var(--accent-ink); background:var(--accent-bg); border-radius:5px; padding:2px 7px; height:fit-content; }
+  .tt { font-weight:600; }
+  .tm, .acc { grid-column:2; font-size:14px; color:var(--ink-soft); }
+  .acc b { color:var(--sage-ink); }
+  .tests { font-size:14px; color:var(--ink-soft); margin-top:14px; padding-top:12px; border-top:1px dashed var(--line-strong); }
+  .q { background:var(--accent-bg); border:1px solid var(--accent); border-radius:10px; padding:16px 20px; }
+  .q li { margin-bottom:6px; }
+  footer { margin:50px 0 40px; color:var(--ink-faint); font-size:13px; }
+  @media (max-width:640px) { .wrap { padding-inline:16px; } .phase { padding:16px; } .task { grid-template-columns:1fr; } .tm, .acc { grid-column:1; } }
+</style>
+</head>
+<body>
+<main class="wrap">
+  <header class="hero">
+    <span class="eyebrow">Creative Carbon · Plan · Phases H–P</span>
+    <h1>Make every paper the system prints look like the ones the client uses today</h1>
+    <p class="lede">The client shared 12 real documents: a quotation, a proforma, two tax invoices, two customer POs, our own PO, two test certificates and three Excel masters. This plan compares each one with what the app prints now and lists the work to match them field for field. It also covers importing the die chart and the rod and tube lists. Nothing is built yet. This is the plan to agree on first.</p>
+    <div class="stats">
+      <div class="stat"><b>12</b><span>documents read</span></div>
+      <div class="stat"><b>9</b><span>phases</span></div>
+      <div class="stat"><b>45</b><span>tasks</span></div>
+      <div class="stat"><b>~8 wk</b><span>estimate</span></div>
+    </div>
+  </header>
+
+  <h2>What the client shared, and the gap</h2>
+  <p class="dek">Source folder: <code>most-important-docs/</code>. The file named <code>Untitled</code> is a stray terminal note and is ignored.</p>
+  <div class="tablewrap">
+    <table>
+      <thead><tr><th>Document</th><th>What it is</th><th>What the app has today</th><th>Gap</th></tr></thead>
+      <tbody>
+        <tr><td class="doc">111 – Quotation – SAIL</td><td>Budgetary quotation on letterhead. Ref <code>CCPL/2025-2026/MS/091</code>, kind attn, "with ref. to your mail dated…", 4 fibre-bearing lines with drawing nos., NOS × rate EACH, terms block (delivery, taxes, P&amp;F, freight, validity, payment), bank details, sister concern, Director signature.</td><td class="have">Quotation with lines, totals and a plain print.</td><td class="gap">Letterhead with logos and ISO badges, ref no. format, kind attn, enquiry-reference line, drawing no. per line, rate per EACH/KG, terms block, sister-concern footer, signature.</td></tr>
+        <tr><td class="doc">MAHENDRA_PROFORMA_014</td><td>Tally-style proforma: seller box with UDYAM/CIN/state code, right-hand grid (delivery note, terms of payment, buyer's order no./date, dispatched through, destination…), separate consignee and buyer, sub-line under each item, OUTPUT IGST line, HSN tax summary, amounts in words, declaration, bank, digital signature.</td><td class="have">PI with lines, GST and a print.</td><td class="gap">The whole Tally box layout, ship-to and bill-to with PAN, state code and contacts, item sub-lines, HSN summary, tax in words, declaration, digital signature line, 3-digit number series.</td></tr>
+        <tr><td class="doc">650 / 651 Bill copies</td><td>Tax invoice (e-Invoice): IRN, Ack no., Ack date, QR code. Same Tally grid. Four copies (Original for recipient, Duplicate for transporter…). Remarks carry the e-way bill no. Units PCS and KG. Terms such as "30 Days" or "100% against delivery".</td><td class="have">Tax invoice, credit note, e-way bill no. field, Tally push.</td><td class="gap">IRN / Ack / QR block, copy labels with all copies in one print, Tally layout, auto remarks line, numbers that match Tally's (650, 651).</td></tr>
+        <tr><td class="doc">PO Release (Usha Martin)<br>0246 (Manbhum Ispat)</td><td>Customer POs: PO no. and date, amendment no., our offer ref (<code>CCCPL/100</code>), vendor code, buyer contact, customer item code, per-line delivery date, HSN, payment terms, incoterm EXW, "material must come with" list (tax invoice, e-way bill, LR copy, packing list, test certificate, MTC, inspection certificate).</td><td class="have">Order booking with customer PO ref, payment terms, incoterm, attachments.</td><td class="gap">PO date, amendment no., link to our quotation, vendor code, buyer contact, customer item code, per-line delivery date, documents-required checklist feeding the despatch stage, freight / P&amp;F / carrier terms.</td></tr>
+        <tr><td class="doc">PO 25 – Ketan Chemical</td><td>Our purchase order: form no. <code>CCCPL/F/PUR/03</code>, PO no. <code>CCCPL/A/025/2026-27</code>, rate per KG, basic amount, total, "please provide test certificate along with delivery", delivery Kanera plant, terms (taxes, P&amp;F, delivery, through, payment), 12-month warranty line, Director stamp.</td><td class="have">Purchase orders with a print.</td><td class="gap">Letterhead print, form no., PO no. format, special instruction line, delivery place, terms block, warranty line, stamp and signature.</td></tr>
+        <tr><td class="doc">TC RCPL (P2 10 mm)<br>P-3 TC Sai Prasad (P3 6 mm)</td><td>Test certificates: TC no. <code>CCCPL/2026-27/051</code> plus production traceability <code>F/110/7/2026-27</code>, customer, product, grade, thickness; table of IS 2036:1995 properties with specified value, unit, observed value and remark or test criteria; criteria legend; Tested by (lab) / Verified by (Director).</td><td class="have">Lab tests with PDF upload and revisions.</td><td class="gap">TC templates per grade with IS 2036 specified values, observed-value entry with automatic OK, criteria codes and legend, TC number series, traceability to the batch, matching print.</td></tr>
+        <tr><td class="doc">CCPL CHART (Jatinbhai)</td><td>Die dimension chart: Fibre bearing (~990 rows: R1–R4, T, K, L1, L2, H1–H3, weight kg, customer ref, page), Fibre key, Hanger, Inside fibre bearing (with cut drawing no.), Mould plates for sheets (glossy 46, matt 85).</td><td class="have">Mould / die master with die no., type, size, thickness, customer.</td><td class="gap">Die family with its own dimension columns, weight per piece, chart page, import of ~1,100 rows, search a die by dimensions.</td></tr>
+        <tr><td class="doc">CCPL Rod &amp; Tube Cavity List</td><td>Rod drawings (OD × ID × length) and tube moulds (OD, length, number of cavities, customer).</td><td class="have">—</td><td class="gap">Rod and tube mould types with cavity count; import.</td></tr>
+        <tr><td class="doc">CCPL Tube Rod List</td><td>Rod stock by OD range, length and quantity (~130 rows).</td><td class="have">Finished-goods lots.</td><td class="gap">Import as opening stock of rods, with OD range and length as the item size.</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h2>Phases</h2>
+  <p class="dek">Same way of working as before: finish a phase, test it plus everything before it, tick it here, commit, then start the next. Every print gets a side-by-side check against the client's paper before it is ticked.</p>
+
+  <section class="phase" id="ph-H">
+    <div class="phase-head"><h3>Phase H · Company details and letterhead <span class="done">Done 14 Oct</span></h3><span class="wk">4 days · 5 tasks</span></div>
+    <span class="src">Used by every printed document below</span>
+    <ol class="tasks">
+      <li class="task"><span class="tid">H-01</span><span class="tt">Company profile: the missing fields</span><span class="tm">CIN, UDYAM no. and category, state name and code, works address (Malarpur Road, Kheda / Kanera plant) next to the office address, second e-mail, website, ISO certificate lines, bank account label ("BOI CC A/C"), sister-concern block.</span><span class="acc"><b>Done when:</b> Every value on the client's papers can be typed once in Settings and shows on the prints.</span></li>
+      <li class="task"><span class="tid">H-02</span><span class="tt">Logos, badges, signatures and stamp</span><span class="tm">Upload the company logo, TÜV / IAF / NABCB badges, each director's signature and the round company stamp. Pick which signatory prints on which document.</span><span class="acc"><b>Done when:</b> The quotation and PO print with logo, badges, signature and stamp in the same places as the client's papers.</span></li>
+      <li class="task"><span class="tid">H-03</span><span class="tt">Signatories and lab people</span><span class="tm">List of people allowed to sign (Rajan Shah, Dhairya Shah, Directors) and lab testers (Vimal, Girjesh Satya), used on TCs, POs and quotations.</span><span class="acc"><b>Done when:</b> A TC shows "Tested by" and "Verified by" from these lists.</span></li>
+      <li class="task"><span class="tid">H-04</span><span class="tt">Shared print kit</span><span class="tm">Tally-style boxed header grid, rupees in words in lakh/crore style ("INR One Lakh Sixty Four Thousand…"), HSN-wise tax summary, copy labels (Original / Duplicate / Triplicate), the "Computer Generated" footer.</span><span class="acc"><b>Done when:</b> Unit tests pass for amounts in words (0, 9,236, 1,64,722, 1,00,00,000 and paise).</span></li>
+      <li class="task"><span class="tid">H-05</span><span class="tt">Number series per document</span><span class="tm">Quotation <code>CCPL/2025-2026/&lt;initials&gt;/NNN</code>, proforma <code>014</code>, invoice <code>650</code>, purchase order <code>CCCPL/A/NNN/2026-27</code>, TC <code>CCCPL/2026-27/NNN</code>. Each resets every financial year; the start number can be set so it carries on from Tally.</span><span class="acc"><b>Done when:</b> Each document takes the next number in its series and cannot reuse one.</span></li>
+    </ol>
+    <p class="tests"><b>Tests:</b> unit tests for amounts in words and the series formatter; e2e for saving settings and an image upload showing on a print.</p>
+  </section>
+
+  <section class="phase" id="ph-I">
+    <div class="phase-head"><h3>Phase I · Quotation like "111 – SAIL"</h3><span class="wk">5 days · 6 tasks</span></div>
+    <span class="src">Source: 111 - QUOTATION - SAIL.pdf</span>
+    <ol class="tasks">
+      <li class="task"><span class="tid">I-01</span><span class="tt">"To" block and kind attention</span><span class="tm">Designation line ("Dy. Manager, Mechanical, Shops, D&amp;D"), company, address, "Kind attn" person, filled from the customer and contact and editable on the quote.</span><span class="acc"><b>Done when:</b> The SAIL quote can be typed and the print shows the same five lines.</span></li>
+      <li class="task"><span class="tid">I-02</span><span class="tt">Enquiry reference line</span><span class="tm">"With ref. to your Mail dated 29/08/2026 by Mr. Harish R., MO: 9480829173", filled from the enquiry (source, date, contact, phone).</span><span class="acc"><b>Done when:</b> A quote made from an enquiry prints this line without retyping.</span></li>
+      <li class="task"><span class="tid">I-03</span><span class="tt">Budgetary or firm, and the grade line</span><span class="tm">Quote type (Budgetary / Firm) and grade; "We submit our BUDGETARY QUOTATION in Grade as under".</span><span class="acc"><b>Done when:</b> Switching the type changes the sentence on the print.</span></li>
+      <li class="task"><span class="tid">I-04</span><span class="tt">Lines with drawing no., unit and rate per</span><span class="tm">Description plus "As per your drawing no. SW 675124/1", quantity with unit (NOS / KG / SET), rate per (EACH / KG). Weight per piece from the die (Phase O) shows the kg as a hint.</span><span class="acc"><b>Done when:</b> The four SAIL lines print exactly as on the paper.</span></li>
+      <li class="task"><span class="tid">I-05</span><span class="tt">Terms block</span><span class="tm">Delivery, taxes, P&amp;F, freight, validity, payment, with defaults from Dropdown lists (e.g. "Within 30 to 40 days", "IGST 18% extra", "Nil", "Freight paid basis", "30 days", "100% against GRN") and editable per quote. GSTIN shown, excise reg. no. optional.</span><span class="acc"><b>Done when:</b> The terms print in the boxed layout and a quote's own terms don't change the defaults.</span></li>
+      <li class="task"><span class="tid">I-06</span><span class="tt">Quotation print</span><span class="tm">Letterhead, QUOTATION title, ref no. and date, table, terms, bank, jurisdiction, sister-concern footer, Director signature. Same print for PDF, WhatsApp and e-mail.</span><span class="acc"><b>Done when:</b> Side-by-side with the SAIL PDF, every field is present and in the same place.</span></li>
+    </ol>
+    <p class="tests"><b>Tests:</b> e2e: create a quote from an enquiry → the print holds the attn, the reference line, drawing nos. and the terms; the number series moves on.</p>
+  </section>
+
+  <section class="phase" id="ph-J">
+    <div class="phase-head"><h3>Phase J · Proforma invoice like "014 – Mahendra"</h3><span class="wk">5 days · 5 tasks</span></div>
+    <span class="src">Source: MAHENDRA_PROFORMA__014.pdf (Tally layout)</span>
+    <ol class="tasks">
+      <li class="task"><span class="tid">J-01</span><span class="tt">Right-hand grid fields</span><span class="tm">Delivery note, mode/terms of payment, reference no. &amp; date, other references, buyer's order no. &amp; date, dispatch doc no., delivery note date, dispatched through, destination, terms of delivery. Filled from the order and editable.</span><span class="acc"><b>Done when:</b> All 13 boxes print, empty ones stay as blank boxes like Tally's.</span></li>
+      <li class="task"><span class="tid">J-02</span><span class="tt">Consignee (ship to) and buyer (bill to)</span><span class="tm">Two parties, each with address, GSTIN, PAN, state name and code, contact and e-mail; place of supply. Ship-to picked from the customer's addresses.</span><span class="acc"><b>Done when:</b> Ship-to and bill-to can differ; IGST or CGST+SGST follows the place of supply.</span></li>
+      <li class="task"><span class="tid">J-03</span><span class="tt">Item sub-lines and tax lines</span><span class="tm">Each line: title, then a smaller second line ("Fibre bearing GD-160 MI (MB015-782) as per your drg", "4X2X0.7MM"); HSN; qty with unit; rate; per; disc %; amount. Tax as "OUTPUT IGST – 18%" rows.</span><span class="acc"><b>Done when:</b> The Mahendra proforma's four lines and its IGST row match.</span></li>
+      <li class="task"><span class="tid">J-04</span><span class="tt">Totals, words, HSN summary, declaration</span><span class="tm">Total quantity and amount, "Amount chargeable (in words)", HSN tax summary table, "Tax amount (in words)", remarks, company PAN, the 4-point declaration (7 days, 24% interest, Ahmedabad jurisdiction), bank, signatory with the digital-signature line.</span><span class="acc"><b>Done when:</b> Totals and words agree with the PDF to the rupee (₹51,310 + ₹9,236 = ₹60,546).</span></li>
+      <li class="task"><span class="tid">J-05</span><span class="tt">Proforma print</span><span class="tm">Single page "ORIGINAL FOR RECIPIENT", same boxed layout as Tally.</span><span class="acc"><b>Done when:</b> Side-by-side check passes.</span></li>
+    </ol>
+  </section>
+
+  <section class="phase" id="ph-K">
+    <div class="phase-head"><h3>Phase K · Tax invoice like "650 / 651" (e-Invoice)</h3><span class="wk">5 days · 6 tasks</span></div>
+    <span class="src">Source: 650_BEEKAY STEEL…, 651_R B TRADERS…</span>
+    <ol class="tasks">
+      <li class="task"><span class="tid">K-01</span><span class="tt">Same layout as the proforma</span><span class="tm">Reuse Phase J; title "Tax Invoice", "e-Invoice" mark.</span><span class="acc"><b>Done when:</b> Invoice and proforma come from one template.</span></li>
+      <li class="task"><span class="tid">K-02</span><span class="tt">IRN, Ack no., Ack date and QR</span><span class="tm">Fields for the IRN, Ack no. and Ack date, plus the signed QR (pasted or read back from Tally). The QR prints top-right.</span><span class="acc"><b>Done when:</b> An invoice with an IRN prints the block and QR; one without it prints no empty block.</span></li>
+      <li class="task"><span class="tid">K-03</span><span class="tt">Copies in one print</span><span class="tm">Original for recipient, Duplicate for transporter, Triplicate for supplier (and an extra copy if they want it); pick copies before printing.</span><span class="acc"><b>Done when:</b> One click gives a multi-page PDF with the right label on each page.</span></li>
+      <li class="task"><span class="tid">K-04</span><span class="tt">Remarks line written for you</span><span class="tm">"AS PER BILL NO. 651 DT.09.10.2026 – EWAY BILL NO. 6121 9844 7464" from the invoice no., date and e-way bill.</span><span class="acc"><b>Done when:</b> Adding the e-way bill updates the remark.</span></li>
+      <li class="task"><span class="tid">K-05</span><span class="tt">Payment terms and due date</span><span class="tm">Terms text ("30 Days", "100% against delivery", "100% against proforma invoice") from the customer or order; due date from it; the declaration's interest line.</span><span class="acc"><b>Done when:</b> The dues page uses the invoice's due date.</span></li>
+      <li class="task"><span class="tid">K-06</span><span class="tt">Numbers in step with Tally</span><span class="tm">Invoice no. as plain numbers (650, 651…) continuing Tally's series, with a check against Tally so the same number is never used twice.</span><span class="acc"><b>Done when:</b> Pushing to Tally keeps the same number and a clash is reported, not overwritten.</span></li>
+    </ol>
+  </section>
+
+  <section class="phase" id="ph-L">
+    <div class="phase-head"><h3>Phase L · Customer PO intake (Usha Martin, Manbhum)</h3><span class="wk">5 days · 6 tasks</span></div>
+    <span class="src">Source: PO Release.pdf, 0246 CREATIVE CARBON….pdf</span>
+    <ol class="tasks">
+      <li class="task"><span class="tid">L-01</span><span class="tt">PO header on the order</span><span class="tm">PO no., PO date, amendment no., our offer/ref no. (linked to our quotation), vendor code they gave us, buyer name, phone and e-mail, indent no./date, division.</span><span class="acc"><b>Done when:</b> Booking from the Usha Martin PO fills every one of these, and they carry to the PI and invoice ("Buyer's order no. / Dated").</span></li>
+      <li class="task"><span class="tid">L-02</span><span class="tt">Customer item code and per-line delivery</span><span class="tm">Customer item code (1300113093), their description, UoM, discount and a delivery date for each line.</span><span class="acc"><b>Done when:</b> The order book shows the earliest line delivery date and late lines are flagged.</span></li>
+      <li class="task"><span class="tid">L-03</span><span class="tt">"Material must come with" checklist</span><span class="tm">Tick what the PO asks for: original tax invoice, e-way bill, LR copy, packing list, test certificate, MTC, inspection certificate, order copy, MSDS. These become steps of the Invoice and Despatch stages.</span><span class="acc"><b>Done when:</b> Despatch cannot be closed until each ticked document is attached or marked sent.</span></li>
+      <li class="task"><span class="tid">L-04</span><span class="tt">Commercial terms</span><span class="tm">Price basis (Ex factory / EXW Ahmedabad), freight (on actual / paid), P&amp;F, nominated carrier, insurance note; shown on the order and copied to the invoice ("Terms of delivery", "Dispatched through").</span><span class="acc"><b>Done when:</b> The invoice for this order prints these without retyping.</span></li>
+      <li class="task"><span class="tid">L-05</span><span class="tt">PO amendments</span><span class="tm">A new amendment no. with its PDF raises the order revision and shows what changed.</span><span class="acc"><b>Done when:</b> Amendment 1 shows in the order history with the PDF.</span></li>
+      <li class="task"><span class="tid">L-06</span><span class="tt">PO acknowledgement reminder</span><span class="tm">Usha Martin's PO is treated as accepted after 7 days; a follow-up reminds sales to acknowledge (or object) in time.</span><span class="acc"><b>Done when:</b> A new PO adds a follow-up due in 7 days.</span></li>
+    </ol>
+  </section>
+
+  <section class="phase" id="ph-M">
+    <div class="phase-head"><h3>Phase M · Our purchase order like "PO 25 – Ketan Chemical"</h3><span class="wk">3 days · 4 tasks</span></div>
+    <span class="src">Source: PO 25- KETAN CHEMICAL.pdf</span>
+    <ol class="tasks">
+      <li class="task"><span class="tid">M-01</span><span class="tt">Number and form no.</span><span class="tm">PO no. <code>CCCPL/A/025/2026-27</code>; form no. <code>CCCPL/F/PUR/03</code> printed top-right.</span><span class="acc"><b>Done when:</b> New POs follow the series.</span></li>
+      <li class="task"><span class="tid">M-02</span><span class="tt">Special instruction and delivery place</span><span class="tm">Lines such as "Please provide test certificate along with delivery"; delivery place (Kanera plant). When the TC is asked for, the GRN asks for it.</span><span class="acc"><b>Done when:</b> The GRN for this PO cannot be closed without the supplier's TC, or a reason.</span></li>
+      <li class="task"><span class="tid">M-03</span><span class="tt">Terms block</span><span class="tm">Taxes (IGST extra as applicable), P&amp;F, delivery (immediate), through (local transport), payment (routine), guarantee/warranty (12 months from despatch or installation).</span><span class="acc"><b>Done when:</b> Defaults come from lists and print in the box.</span></li>
+      <li class="task"><span class="tid">M-04</span><span class="tt">PO print</span><span class="tm">Letterhead, boxed table (item, unit, rate per KG, qty, amount), basic amount, total, terms, "Yours faithfully", stamp and Director signature.</span><span class="acc"><b>Done when:</b> Side-by-side check passes.</span></li>
+    </ol>
+  </section>
+
+  <section class="phase" id="ph-N">
+    <div class="phase-head"><h3>Phase N · Test certificate like "TC RCPL" and "P-3 Sai Prasad"</h3><span class="wk">5 days · 5 tasks</span></div>
+    <span class="src">Source: 06.10.2026 TC RCPL.pdf, P-3 TC Sai Prasad.pdf</span>
+    <ol class="tasks">
+      <li class="task"><span class="tid">N-01</span><span class="tt">TC templates per grade</span><span class="tm">One template per product and grade (P1, P2, P3, F3, paper phenolic…): property, specified value per IS 2036:1995, unit, min or max, test-criteria code. Thickness tolerance taken from the thickness.</span><span class="acc"><b>Done when:</b> The P2 and P3 templates hold every row on the two PDFs.</span></li>
+      <li class="task"><span class="tid">N-02</span><span class="tt">TC number and traceability</span><span class="tm">TC no. <code>CCCPL/2026-27/NNN</code> and production traceability <code>F/110/7/2026-27/</code> from the press batch / lot of the order.</span><span class="acc"><b>Done when:</b> From a TC you can open the batch it came from.</span></li>
+      <li class="task"><span class="tid">N-03</span><span class="tt">Observed values with automatic OK</span><span class="tm">Enter observed values (single value, range "9.7 to 10.4", or text "Pass at 25 KV"); remark is OK or Not OK from the spec; a Not OK value needs a reason and the Director's approval.</span><span class="acc"><b>Done when:</b> Typing 1.40 for density (spec &gt; 1.35) shows OK and 1.30 shows Not OK.</span></li>
+      <li class="task"><span class="tid">N-04</span><span class="tt">TC print</span><span class="tm">Letterhead, TEST CERTIFICATE title, header lines, property table, criteria legend (C-24/27/65, E-0.5hrs/at 90 °C, E-24/50, D-24/23), Tested by / Verified by.</span><span class="acc"><b>Done when:</b> Side-by-side check against both PDFs passes.</span></li>
+      <li class="task"><span class="tid">N-05</span><span class="tt">TC goes with the invoice</span><span class="tm">When the PO asks for a TC (Phase L-03), the issued TC attaches to the despatch and is sent with the invoice on WhatsApp or e-mail.</span><span class="acc"><b>Done when:</b> The despatch step "Test certificate" ticks itself when the TC is issued.</span></li>
+    </ol>
+  </section>
+
+  <section class="phase" id="ph-O">
+    <div class="phase-head"><h3>Phase O · Die chart, rod and tube lists from the Excel files</h3><span class="wk">6 days · 6 tasks</span></div>
+    <span class="src">Source: CCPL CHART (2026) by Jatinbhai, CCPL ROD &amp; TUBE CAVITY LIST, CCPL TUBE ROD LIST</span>
+    <ol class="tasks">
+      <li class="task"><span class="tid">O-01</span><span class="tt">Die families with their own dimensions</span><span class="tm">Fibre bearing (R1–R4, T, K, L1, L2, H1–H3), Fibre key (L1, L2, W, H1, H2, R1, R2, T), Hanger (R, T, W, L1, L2, H, D), Inside fibre bearing (R1, R2, T, D, H1, H2, L1, cut drawing no.), Rod, Tube. Each die keeps weight per piece (kg), customer ref and chart page.</span><span class="acc"><b>Done when:</b> A die page shows its drawing-style dimension table for its family.</span></li>
+      <li class="task"><span class="tid">O-02</span><span class="tt">Import the die chart</span><span class="tm">Read all sheets (~1,100 rows). Blank marks ("……") become empty; multi-line codes ("CCPL-570 new punch / 85-A") keep the main code and a note; rows already in the master are matched, not duplicated. Rows to fix come back as a file, like the other uploads.</span><span class="acc"><b>Done when:</b> The import is repeatable: a second run changes nothing.</span></li>
+      <li class="task"><span class="tid">O-03</span><span class="tt">Die finder</span><span class="tm">Search by family and dimension with a tolerance (e.g. R1 50 ± 2, T 25), by customer or by code. Used when an enquiry comes with a drawing: "do we already have a die for this?"</span><span class="acc"><b>Done when:</b> Searching R1 50, T 25 finds "795 – AS" and "1143 N/P".</span></li>
+      <li class="task"><span class="tid">O-04</span><span class="tt">Rod and tube moulds with cavities</span><span class="tm">Rod drawings (CCPL-DWG-ROD-n, OD × ID × length) and tube moulds (OD, length, number of cavities, customer). Cavities feed the moulding entry (pieces per shot).</span><span class="acc"><b>Done when:</b> A moulding entry on a 6-cavity mould expects 6 pieces per shot.</span></li>
+      <li class="task"><span class="tid">O-05</span><span class="tt">Rod stock list as opening stock</span><span class="tm">Each row (OD range, length, qty) becomes rod stock, shown by OD and length and searchable when an order for a rod comes in.</span><span class="acc"><b>Done when:</b> Stock shows the rods; finding "OD 25, 800 long" lists 5 pcs.</span></li>
+      <li class="task"><span class="tid">O-06</span><span class="tt">Mould plates for sheets</span><span class="tm">Glossy plates (8×4) 46 and matt plates (8×4) 85 as press tooling with counts.</span><span class="acc"><b>Done when:</b> Plates show in the plant masters.</span></li>
+    </ol>
+  </section>
+
+  <section class="phase" id="ph-P">
+    <div class="phase-head"><h3>Phase P · Check with the client and sign off</h3><span class="wk">2 days · 2 tasks</span></div>
+    <ol class="tasks">
+      <li class="task"><span class="tid">P-01</span><span class="tt">Side-by-side print review</span><span class="tm">For each of the 8 printed documents: our PDF beside theirs, field by field, with a checklist the client signs.</span><span class="acc"><b>Done when:</b> The client confirms each one, or the changes are listed and fixed.</span></li>
+      <li class="task"><span class="tid">P-02</span><span class="tt">Demo data from the real papers</span><span class="tm">Seed the demo with these real cases: the SAIL quote, the Mahendra proforma, the R B Traders invoice, the Usha Martin PO, the Ketan PO, the RCPL TC and the imported die chart.</span><span class="acc"><b>Done when:</b> The demo walk-through shows every document printed from the system.</span></li>
+    </ol>
+  </section>
+
+  <h2>Questions for the client before we start</h2>
+  <div class="q">
+    <ol>
+      <li>Please send the logo, the ISO / TÜV / IAF badges, the directors' signatures and the round stamp as image files (PNG, transparent background if possible).</li>
+      <li>e-Invoice: is the IRN generated in Tally today? If so, we read the IRN, Ack and QR back from Tally; if not, we need their GSP / IRP login to generate it ourselves.</li>
+      <li>In the quotation no. <code>CCPL/2025-2026/MS/091</code>, what does <b>MS</b> stand for: a salesperson's initials or a department? Does each person have their own counter?</li>
+      <li>The quotation prints "CCPL" while the PO and TC print "CCCPL". Keep both as they are?</li>
+      <li>Last numbers used this year for quotation, proforma, invoice, purchase order and TC, so our series carries on from them.</li>
+      <li>The excise registration no. on the quotation is no longer used under GST. Keep printing it?</li>
+      <li>The die chart has blanks ("……") and repeated codes (e.g. "85-A" twice with different sizes). Is each row a separate die?</li>
+      <li>The test-certificate values per grade: is there one approved IS 2036 sheet per grade we can load as the templates?</li>
+    </ol>
+  </div>
+
+  <footer>Plan written 14 Oct 2026 from the client's documents in <code>most-important-docs/</code>. Follows the detail-pages plan (phases A–G).</footer>
+</main>
+</body>
+</html>

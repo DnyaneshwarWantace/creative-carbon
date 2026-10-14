@@ -194,13 +194,16 @@ export async function issueInvoice(ctx: Scope, invoice: TaxInvoice, byName: stri
   const order = await findOrder(ctx, invoice.orderId)
   if (invoice.kind === 'invoice') {
     const stage = await ctx.em.findOne(CcOrderStage, { orderId: order.id, stageKey: 'invoice' })
-    if (stage && (stage.status === 'open' || stage.status === 'on_hold')) {
+    if (stage && (stage.status === 'open' || stage.status === 'on_hold' || stage.status === 'pending')) {
       const data = { ...(stage.data ?? {}) } as Record<string, unknown>
       const current = typeof data.invoice_number === 'string' && data.invoice_number.trim() ? data.invoice_number.split(',').map((value) => value.trim()) : []
+      const at = new Date().toISOString()
       data.invoice_number = Array.from(new Set([...current, invoice.code])).join(', ')
       data.invoice_date = invoice.invoiceDate
-      data.__steps = { ...stepStates(data), invoice: { done: true, at: new Date().toISOString(), by: byName } }
-      if (!data.__started) data.__started = { at: new Date().toISOString(), by: byName }
+      const eway = invoice.ewayBillNo?.trim()
+      if (eway && !(typeof data.eway_bill_no === 'string' && data.eway_bill_no.trim())) data.eway_bill_no = eway
+      data.__steps = { ...stepStates(data), invoice: { done: true, at, by: byName }, ...(eway ? { eway: { done: true, at, by: byName } } : {}) }
+      if (!data.__started && stage.status !== 'pending') data.__started = { at, by: byName }
       stage.data = data
       order.updatedAt = new Date()
     }

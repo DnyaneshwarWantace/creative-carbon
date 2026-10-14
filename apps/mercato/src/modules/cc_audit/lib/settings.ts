@@ -12,10 +12,11 @@ export class SettingsError extends Error {
   }
 }
 
-export const COMPANY_FIELDS = ['name', 'legalName', 'gstin', 'pan', 'address', 'phone', 'email', 'website', 'bankName', 'bankBranch', 'bankAccount', 'bankIfsc', 'upiId', 'signatory', 'piTerms', 'invoiceTerms', 'piValidityDays', 'grnOverPercent', 'iec', 'lutArn', 'lutValidTill'] as const
+export const COMPANY_FIELDS = ['name', 'legalName', 'gstin', 'pan', 'address', 'phone', 'email', 'website', 'bankName', 'bankBranch', 'bankAccount', 'bankIfsc', 'upiId', 'signatory', 'piTerms', 'invoiceTerms', 'piValidityDays', 'grnOverPercent', 'iec', 'lutArn', 'lutValidTill', 'letterhead'] as const
 
 const COMPANY_LABELS: Record<string, string> = {
   name: 'Company name',
+  letterhead: 'Letterhead and printed papers',
   legalName: 'Legal name',
   gstin: 'GSTIN',
   pan: 'PAN',
@@ -213,6 +214,10 @@ function canonical(value: unknown): unknown {
   return value ?? null
 }
 
+function rootFields(change: Pick<SettingsChange, 'changes'>): string[] {
+  return [...new Set(change.changes.map((entry) => entry.field.split('.')[0]))]
+}
+
 function same(left: unknown, right: unknown): boolean {
   return JSON.stringify(canonical(plain(left))) === JSON.stringify(canonical(plain(right)))
 }
@@ -223,7 +228,7 @@ export async function undoAvailability(scope: Scope, change: SettingsChange): Pr
   const def = SETTINGS_AREAS[change.area]
   const blockedBy: string[] = []
   const current = await def.read(scope, change.settingKey)
-  const relevant = (value: Snapshot) => (change.area === 'company' && value ? Object.fromEntries(change.changes.map((entry) => [entry.field, value[entry.field] ?? null])) : value)
+  const relevant = (value: Snapshot) => (change.area === 'company' && value ? Object.fromEntries(rootFields(change).map((field) => [field, value[field] ?? null])) : value)
   if (!same(relevant(current), relevant(change.after))) blockedBy.push('Changed again since. Undo the later change first.')
   const extra = def.blocker ? await def.blocker(scope, change) : null
   if (extra) blockedBy.push(extra)
@@ -239,7 +244,7 @@ export async function undoSettingsChange(scope: Scope, change: SettingsChange, r
   let target = change.before
   if (change.area === 'company' && change.before) {
     const current = (await def.read(scope, change.settingKey)) ?? {}
-    target = { ...current, ...Object.fromEntries(change.changes.map((entry) => [entry.field, (change.before as Record<string, unknown>)[entry.field] ?? null])) }
+    target = { ...current, ...Object.fromEntries(rootFields(change).map((field) => [field, (change.before as Record<string, unknown>)[field] ?? null])) }
   }
   await def.apply(scope, change.settingKey, target, name)
   change.status = 'undone'

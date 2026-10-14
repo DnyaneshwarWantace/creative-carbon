@@ -88,6 +88,30 @@ export class OrderPayment {
   updatedAt: Date = new Date()
 }
 
+export type Letterhead = {
+  letterheadAddress?: string | null
+  worksAddress?: string | null
+  mobile?: string | null
+  email2?: string | null
+  cin?: string | null
+  udyam?: string | null
+  stateName?: string | null
+  stateCode?: string | null
+  exciseNo?: string | null
+  certifications?: string | null
+  bankLabel?: string | null
+  sisterConcern?: string | null
+  declaration?: string | null
+  jurisdiction?: string | null
+  directors?: string | null
+  labPeople?: string | null
+  logoUrl?: string | null
+  badgesUrl?: string | null
+  signatureUrl?: string | null
+  stampUrl?: string | null
+  showBadges?: boolean
+}
+
 @Entity({ tableName: 'cc_company_profiles' })
 @Index({ name: 'cc_company_profiles_scope_idx', properties: ['organizationId', 'tenantId'] })
 export class CompanyProfile {
@@ -173,6 +197,9 @@ export class CompanyProfile {
 
   @Property({ name: 'go_live', type: 'json', nullable: true })
   goLive?: GoLiveSettings | null
+
+  @Property({ type: 'json', nullable: true })
+  letterhead?: Letterhead | null
 
   @Property({ name: 'created_at', type: Date, onCreate: () => new Date() })
   createdAt: Date = new Date()

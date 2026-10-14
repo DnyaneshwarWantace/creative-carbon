@@ -1,3 +1,4 @@
+import type { LetterheadView } from '../lib/letterhead'
 export type PiLine = {
   productId: string
   code: string | null
@@ -84,6 +85,7 @@ export type CompanyView = {
   iec?: string | null
   lutArn?: string | null
   lutValidTill?: string | null
+  letterhead?: LetterheadView
   updatedAt: string | null
 }
 

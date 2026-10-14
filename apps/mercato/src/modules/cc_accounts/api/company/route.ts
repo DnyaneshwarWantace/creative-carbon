@@ -3,7 +3,8 @@ import { z } from 'zod'
 import type { OpenApiRouteDoc } from '@open-mercato/shared/lib/openapi'
 import { enforceCommandOptimisticLock } from '@open-mercato/shared/lib/crud/optimistic-lock-command'
 import { resolveOrderContext } from '../../../cc_orders/lib/server'
-import { CompanyProfile } from '../../data/entities'
+import { CompanyProfile, type Letterhead } from '../../data/entities'
+import { LETTERHEAD_TEXT_KEYS } from '../../lib/letterhead'
 import { companyInputSchema } from '../../data/validators'
 import { companyView, loadCompany } from '../../lib/documents'
 import { accountsErrorResponse, runGuarded } from '../../lib/server'
@@ -53,6 +54,15 @@ async function PUT(req: Request) {
       profile.iec = clean(parsed.data.iec)?.toUpperCase() ?? null
       profile.lutArn = clean(parsed.data.lutArn)?.toUpperCase() ?? null
       profile.lutValidTill = clean(parsed.data.lutValidTill)
+      if (parsed.data.letterhead) {
+        const next: Letterhead = { ...(profile.letterhead ?? {}) }
+        for (const key of LETTERHEAD_TEXT_KEYS) {
+          const value = parsed.data.letterhead[key]
+          if (value !== undefined) next[key] = value === null ? '' : value.trim()
+        }
+        if (parsed.data.letterhead.showBadges !== undefined) next.showBadges = parsed.data.letterhead.showBadges
+        profile.letterhead = next
+      }
       profile.updatedAt = new Date()
       ctx.em.persist(profile)
       await ctx.em.flush()

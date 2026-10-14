@@ -8,7 +8,7 @@ import { CorrectDialog } from '../../cc_ui/components/CorrectDialog'
 import { useGranted } from '../../cc_departments/components/useGranted'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { ArrowLeft, Ban, CheckCircle2, Copy, Layers, Lock, Package, PauseCircle, Pencil, PlayCircle } from 'lucide-react'
+import { ArrowLeft, ArrowRight, Ban, CheckCircle2, Copy, FileText, IndianRupee, Layers, Lock, Package, PauseCircle, Pencil, PlayCircle, Zap } from 'lucide-react'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { cn } from '@open-mercato/shared/lib/utils'
 import { Page, PageBody } from '@open-mercato/ui/backend/Page'
@@ -44,6 +44,7 @@ import { PRODUCT_KINDS } from '../../cc_products/lib/kinds'
 import { LineProgress, useOrderChanged } from './FulfilmentPanel'
 import { PageLoading } from '../../cc_ui/components/PageLoading'
 import { recordHref } from '../../cc_ui/lib/links'
+import { PaymentDialog } from '../../cc_accounts/components/PaymentDialog'
 
 const KIND_LABEL: Record<string, string> = Object.fromEntries(PRODUCT_KINDS.map((kind) => [kind.code, kind.label]))
 
@@ -147,6 +148,7 @@ export function OrderView({ orderId }: { orderId: string }) {
   const [cancelOpen, setCancelOpen] = React.useState(false)
   const [cancelReason, setCancelReason] = React.useState('')
   const [holdOpen, setHoldOpen] = React.useState(false)
+  const [paying, setPaying] = React.useState(false)
   const [tab, setTab] = React.useState<OrderTab>('work')
   const [sources, setSources] = React.useState<Array<{ id: string; quoteNo: string; quoteDate: string; enquiryId: string | null; enquiryNo: string | null }> | null>(null)
 
@@ -567,6 +569,48 @@ export function OrderView({ orderId }: { orderId: string }) {
             </div>
 
             <aside className="space-y-4 lg:sticky lg:top-4 lg:col-span-4 lg:self-start">
+              <section className="space-y-2 rounded-lg border border-primary/30 bg-card p-4" aria-labelledby="order-actions">
+                <h2 id="order-actions" className="flex items-center gap-2 text-sm font-semibold">
+                  <Zap className="h-4 w-4 text-primary" aria-hidden="true" />
+                  {t('cc_orders.view.actions', 'Actions')}
+                </h2>
+                {current.filter((stage) => !stage.locked).length ? (
+                  <div className="space-y-1.5">
+                    {current.filter((stage) => !stage.locked).map((stage) => (
+                      <Button key={stage.key} type="button" className="w-full justify-between" onClick={() => goToStage(stage.key)}>
+                        <span className="truncate">{t('cc_orders.view.workOn', 'Work on {stage}', { stage: stage.label })}</span>
+                        <ArrowRight className="h-4 w-4 shrink-0" aria-hidden="true" />
+                      </Button>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-xs text-muted-foreground">{order.status === 'completed' ? t('cc_orders.view.allDone', 'All stages are done.') : t('cc_orders.view.nothingNow', 'No stage is open for you right now.')}</p>
+                )}
+                <div className="grid grid-cols-2 gap-1.5">
+                  {order.canSeeMoney && order.payments && order.payments.due > 0.5 && order.status !== 'cancelled' && granted.has('cc_accounts.record') ? (
+                    <Button type="button" variant="outline" size="sm" onClick={() => setPaying(true)}>
+                      <IndianRupee className="mr-1.5 h-4 w-4" aria-hidden="true" />
+                      {t('cc_accounts.recordPayment', 'Record payment')}
+                    </Button>
+                  ) : null}
+                  {order.canSeeMoney && granted.has('cc_accounts.view') ? (
+                    <Button asChild variant="outline" size="sm">
+                      <Link href={recordHref.orderAccount(order.id)}>
+                        <IndianRupee className="mr-1.5 h-4 w-4" aria-hidden="true" />
+                        {t('cc_orders.view.accountPage', 'Order account')}
+                      </Link>
+                    </Button>
+                  ) : null}
+                  <Button type="button" variant="outline" size="sm" onClick={() => setTab('documents')}>
+                    <FileText className="mr-1.5 h-4 w-4" aria-hidden="true" />
+                    {t('cc_orders.view.tabDocuments', 'Documents')}
+                  </Button>
+                  <Button type="button" variant="outline" size="sm" onClick={() => setTab('products')}>
+                    <Package className="mr-1.5 h-4 w-4" aria-hidden="true" />
+                    {t('cc_orders.view.tabProducts', 'Items & specs')}
+                  </Button>
+                </div>
+              </section>
               <section className="space-y-3 rounded-lg border bg-card p-4" aria-labelledby="order-attention">
                 <h2 id="order-attention" className="text-sm font-semibold">
                   {t('cc_orders.view.attention', 'Needs attention')}
@@ -582,9 +626,15 @@ export function OrderView({ orderId }: { orderId: string }) {
                   <h2 id="order-money" className="text-sm font-semibold">
                     {t('cc_orders.view.moneyTitle', 'Money')}
                   </h2>
-                  <button type="button" className="text-xs font-medium text-primary hover:underline" onClick={() => setTab('money')}>
-                    {t('cc_orders.view.moneyOpen', 'Payments & documents')}
-                  </button>
+                  {granted.has('cc_accounts.view') ? (
+                    <Link className="text-xs font-medium text-primary hover:underline" href={recordHref.orderAccount(order.id)}>
+                      {t('cc_orders.view.moneyOpen', 'Payments & documents')}
+                    </Link>
+                  ) : (
+                    <button type="button" className="text-xs font-medium text-primary hover:underline" onClick={() => setTab('money')}>
+                      {t('cc_orders.view.moneyOpen', 'Payments & documents')}
+                    </button>
+                  )}
                 </div>
                 <dl className="grid grid-cols-3 gap-2 text-sm">
                   <div>
@@ -664,6 +714,14 @@ export function OrderView({ orderId }: { orderId: string }) {
           </p>
         </div>
 
+        {order.payments ? (
+          <PaymentDialog
+            open={paying}
+            onOpenChange={setPaying}
+            order={{ id: order.id, orderNo: order.orderNo, customerName: order.customer?.name ?? '', due: Math.max(0, order.payments.due) }}
+            onSaved={() => void load()}
+          />
+        ) : null}
         <CorrectDialog
           open={holdOpen}
           onOpenChange={setHoldOpen}

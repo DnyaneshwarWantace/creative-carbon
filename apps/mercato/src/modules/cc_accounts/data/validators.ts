@@ -71,6 +71,32 @@ export const companyInputSchema = z.object({
   iec: z.string().trim().max(10).regex(/^$|^[A-Z0-9]{10}$/i, 'IEC is 10 characters').optional().nullable(),
   lutArn: text(40),
   lutValidTill: z.string().regex(/^$|^\d{4}-\d{2}-\d{2}$/).optional().nullable(),
+  letterhead: z
+    .object({
+      letterheadAddress: text(300),
+      worksAddress: text(300),
+      mobile: text(80),
+      email2: text(200),
+      cin: text(30),
+      udyam: text(60),
+      stateName: text(60),
+      stateCode: text(4),
+      exciseNo: text(40),
+      certifications: text(300),
+      bankLabel: text(120),
+      sisterConcern: text(600),
+      declaration: text(2000),
+      jurisdiction: text(60),
+      directors: text(600),
+      labPeople: text(600),
+      logoUrl: z.string().max(700_000).regex(/^$|^\/[A-Za-z0-9._/-]+$|^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/=]+$/, 'Upload a PNG, JPG or WebP image').optional().nullable(),
+      badgesUrl: z.string().max(700_000).regex(/^$|^\/[A-Za-z0-9._/-]+$|^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/=]+$/, 'Upload a PNG, JPG or WebP image').optional().nullable(),
+      signatureUrl: z.string().max(700_000).regex(/^$|^\/[A-Za-z0-9._/-]+$|^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/=]+$/, 'Upload a PNG, JPG or WebP image').optional().nullable(),
+      stampUrl: z.string().max(700_000).regex(/^$|^\/[A-Za-z0-9._/-]+$|^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/=]+$/, 'Upload a PNG, JPG or WebP image').optional().nullable(),
+      showBadges: z.boolean().optional(),
+    })
+    .optional()
+    .nullable(),
 })
 
 export const piCreateSchema = z.object({
@@ -209,7 +235,7 @@ export const numberSeriesInputSchema = z.object({
     .array(
       z.object({
         key: z.enum(['SO', 'ENQ', 'QT', 'PI', 'INV', 'CN', 'DN', 'VB', 'IND', 'PO', 'GR', 'JW', 'SKU', 'RB', 'PB', 'LOT_BS', 'LOT_PR', 'LOT_MO', 'LOT_CUT', 'LOT_FG', 'LOT_BI']),
-        prefix: seriesText.min(1, 'Prefix cannot be empty'),
+        prefix: seriesText,
         suffix: seriesText.optional().nullable(),
         pad: z.coerce.number().int().min(1).max(8),
         startAt: z.coerce.number().int().min(1).max(99_999_999),

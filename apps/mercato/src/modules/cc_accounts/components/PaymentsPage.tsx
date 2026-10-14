@@ -203,7 +203,7 @@ export function PaymentsPage() {
                       </td>
                       <td className="px-4 py-3">
                         <span className="block font-medium">{row.customerName}</span>
-                        <Link href={`/backend/orders/${row.orderId}`} className="font-mono text-xs text-primary hover:underline">
+                        <Link href={`/backend/orders/${row.orderId}/money`} className="font-mono text-xs text-primary hover:underline">
                           {row.orderNo}
                         </Link>
                       </td>

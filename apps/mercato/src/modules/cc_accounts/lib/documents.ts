@@ -6,6 +6,7 @@ import { stepStates } from '../../cc_orders/lib/stages'
 import { CompanyProfile, ProformaInvoice, type PiLine } from '../data/entities'
 import { AccountsError, paymentsFor, received } from './service'
 import { nextSeriesCode } from './numberSeries'
+import { DEFAULT_LETTERHEAD, letterheadOf } from './letterhead'
 
 export const DEFAULT_COMPANY = {
   name: 'Creative Carbon Composites',
@@ -29,6 +30,7 @@ export const DEFAULT_COMPANY = {
   iec: null as string | null,
   lutArn: null as string | null,
   lutValidTill: null as string | null,
+  letterhead: DEFAULT_LETTERHEAD,
 }
 
 export type CompanyView = typeof DEFAULT_COMPANY & { id: string | null; updatedAt: string | null }
@@ -73,6 +75,7 @@ export function companyView(profile: CompanyProfile | null): CompanyView {
     iec: profile.iec ?? null,
     lutArn: profile.lutArn ?? null,
     lutValidTill: profile.lutValidTill ?? null,
+    letterhead: letterheadOf(profile.letterhead),
     updatedAt: profile.updatedAt.toISOString(),
   }
 }

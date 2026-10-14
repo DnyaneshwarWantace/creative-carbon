@@ -102,7 +102,7 @@ export function NumberSeriesPage() {
             <div className="space-y-1">
               <h1 className="text-2xl font-bold tracking-tight">{t('cc_accounts.series.title', 'Number series')}</h1>
               <p className="max-w-3xl text-sm text-muted-foreground">
-                {t('cc_accounts.series.lede', 'How each document, batch and lot is numbered. {FY} becomes the financial year (2627), {YYYY} the year, {YY} two digits, {MM} the month, {DD} the day. A new prefix starts again from "Next number from". Lot formats use their own codes (shown under each); the codes that keep two lots apart cannot be removed.')}
+                {t('cc_accounts.series.lede', 'How each document, batch and lot is numbered. {FY} becomes the financial year (2627), {FY2} gives 2026-27, {FYFULL} gives 2026-2027, {YYYY} the year, {YY} two digits, {MM} the month, {DD} the day. A new prefix starts again from "Next number from". Lot formats use their own codes (shown under each); the codes that keep two lots apart cannot be removed.')}
               </p>
             </div>
             <div className="flex shrink-0 items-center gap-3">

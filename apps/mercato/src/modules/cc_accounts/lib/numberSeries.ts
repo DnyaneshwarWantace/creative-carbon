@@ -9,14 +9,14 @@ export type SeriesDef = SeriesSetting & { key: SeriesKey; label: string; departm
 export const SERIES_DEFS: SeriesDef[] = [
   { key: 'SO', label: 'Sales order', department: 'Sales', table: 'cc_orders', column: 'order_no', prefix: 'CCCPL/SO/{FY}/', suffix: '', pad: 4, startAt: 1 },
   { key: 'ENQ', label: 'Enquiry', department: 'Sales', table: 'cc_enquiries', column: 'enquiry_no', prefix: 'CCCPL/ENQ/{FY}/', suffix: '', pad: 4, startAt: 1 },
-  { key: 'QT', label: 'Quotation', department: 'Sales', table: 'cc_quotations', column: 'quote_no', prefix: 'CCCPL/QT/{FY}/', suffix: '', pad: 4, startAt: 1 },
-  { key: 'PI', label: 'Proforma invoice', department: 'Accounts', table: 'cc_proforma_invoices', column: 'code', prefix: 'CCCPL/PI/{FY}/', suffix: '', pad: 3, startAt: 1 },
-  { key: 'INV', label: 'Tax invoice', department: 'Accounts', table: 'cc_tax_invoices', column: 'code', prefix: 'CCCPL/INV/{FY}/', suffix: '', pad: 4, startAt: 1 },
+  { key: 'QT', label: 'Quotation', department: 'Sales', table: 'cc_quotations', column: 'quote_no', prefix: 'CCPL/{FYFULL}/MS/', suffix: '', pad: 3, startAt: 1 },
+  { key: 'PI', label: 'Proforma invoice', department: 'Accounts', table: 'cc_proforma_invoices', column: 'code', prefix: '', suffix: '', pad: 3, startAt: 1 },
+  { key: 'INV', label: 'Tax invoice', department: 'Accounts', table: 'cc_tax_invoices', column: 'code', prefix: '', suffix: '', pad: 3, startAt: 1 },
   { key: 'CN', label: 'Credit note', department: 'Accounts', table: 'cc_tax_invoices', column: 'code', prefix: 'CCCPL/CN/{FY}/', suffix: '', pad: 4, startAt: 1 },
   { key: 'DN', label: 'Debit note (to vendor)', department: 'Accounts', table: 'cc_debit_notes', column: 'code', prefix: 'CCCPL/DN/{FY}/', suffix: '', pad: 4, startAt: 1 },
   { key: 'VB', label: 'Vendor bill', department: 'Accounts', table: 'cc_vendor_bills', column: 'code', prefix: 'CCCPL/VB/{FY}/', suffix: '', pad: 4, startAt: 1 },
   { key: 'IND', label: 'Purchase indent', department: 'Purchase', table: 'cc_purchase_indents', column: 'code', prefix: 'CCCPL/IND/{FY}/', suffix: '', pad: 4, startAt: 1 },
-  { key: 'PO', label: 'Purchase order', department: 'Purchase', table: 'cc_pos', column: 'code', prefix: 'CCCPL/PO/{FY}/', suffix: '', pad: 4, startAt: 1 },
+  { key: 'PO', label: 'Purchase order', department: 'Purchase', table: 'cc_pos', column: 'code', prefix: 'CCCPL/A/', suffix: '/{FY2}', pad: 3, startAt: 1 },
   { key: 'GR', label: 'Goods receiving note', department: 'Store', table: 'cc_grns', column: 'code', prefix: 'CCCPL/GR/{FY}/', suffix: '', pad: 4, startAt: 1 },
   { key: 'JW', label: 'Job-work challan', department: 'Purchase', table: 'cc_job_work_challans', column: 'code', prefix: 'CCCPL/JW/{FY}/', suffix: '', pad: 4, startAt: 1 },
   { key: 'SKU', label: 'Product SKU', department: 'Masters', table: 'catalog_products', column: 'sku', prefix: 'SKU', suffix: '', pad: 1, startAt: 1 },
@@ -30,17 +30,24 @@ export const SERIES_DEFS: SeriesDef[] = [
   { key: 'LOT_BI', label: 'Bought-in lot', department: 'Store', table: '', column: '', kind: 'template', prefix: 'BI-{DD}{MM}{YY}-{INVOICE}-{ID}', suffix: '', pad: 1, startAt: 1, tokens: ['{INVOICE}', '{ID}'], required: ['{ID}'], sample: { INVOICE: 'INV123', ID: '7F3A' } },
 ]
 
-export const SERIES_TOKENS = ['{FY}', '{YYYY}', '{YY}', '{MM}', '{DD}'] as const
+export const SERIES_TOKENS = ['{FY}', '{FY2}', '{FYFULL}', '{YYYY}', '{YY}', '{MM}', '{DD}'] as const
 
 type Scope = { em: EntityManager; tenantId: string; organizationId: string }
 
+function fyStart(date: Date): number {
+  return date.getMonth() >= 3 ? date.getFullYear() : date.getFullYear() - 1
+}
+
 function financialYear(date: Date): string {
-  const start = date.getMonth() >= 3 ? date.getFullYear() : date.getFullYear() - 1
+  const start = fyStart(date)
   return `${String(start).slice(-2)}${String(start + 1).slice(-2)}`
 }
 
 export function renderSeriesText(template: string, date: Date): string {
+  const start = fyStart(date)
   return template
+    .replace(/\{FYFULL\}/g, `${start}-${start + 1}`)
+    .replace(/\{FY2\}/g, `${start}-${String(start + 1).slice(-2)}`)
     .replace(/\{FY\}/g, financialYear(date))
     .replace(/\{YYYY\}/g, String(date.getFullYear()))
     .replace(/\{YY\}/g, String(date.getFullYear()).slice(-2))
@@ -73,7 +80,7 @@ export function mergeSeries(stored: unknown): Record<SeriesKey, SeriesSetting> {
   for (const def of SERIES_DEFS) {
     const own = saved[def.key] ?? {}
     result[def.key] = {
-      prefix: typeof own.prefix === 'string' && own.prefix.length ? own.prefix : def.prefix,
+      prefix: typeof own.prefix === 'string' && (own.prefix.length || !def.prefix.length) ? own.prefix : def.prefix,
       suffix: typeof own.suffix === 'string' ? own.suffix : def.suffix,
       pad: Number.isInteger(own.pad) && Number(own.pad) >= 1 && Number(own.pad) <= 8 ? Number(own.pad) : def.pad,
       startAt: Number.isInteger(own.startAt) && Number(own.startAt) >= 1 ? Number(own.startAt) : def.startAt,

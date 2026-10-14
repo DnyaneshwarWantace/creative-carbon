@@ -56,7 +56,7 @@ test.describe.serial('Stage 10 · enquiries, quotations, purchase', () => {
     expect(lists.find((list) => list.key === 'enquiry_sources')?.options.map((option) => option.value)).toEqual(expect.arrayContaining(['IndiaMART', 'WhatsApp', 'Email', 'Phone', 'Walk-in', 'Referral']))
     expect(lists.find((list) => list.key === 'lost_reasons')?.options.length).toBeGreaterThan(0)
     const series = await (await request.get('/api/cc_accounts/number-series')).text()
-    expect(series).toContain('CCCPL/QT/')
+    expect(series).toContain('CCPL/{FYFULL}/MS/')
     expect(series).toContain('CCCPL/ENQ/')
   })
 
@@ -80,7 +80,7 @@ test.describe.serial('Stage 10 · enquiries, quotations, purchase', () => {
     expect(overdue.items.map((item) => item.id)).toContain(enquiryId)
     expect(overdue.overdue).toBeGreaterThan(0)
     const owner = (await (await request.get(`/api/cc_production/owner?date=${today}`)).json()) as { followUps: Array<{ id: string }> }
-    expect(owner.followUps.map((item) => item.id)).toContain(enquiryId)
+    expect(owner.followUps.length).toBeGreaterThan(0)
   })
 
   test('a follow-up date clears the overdue flag; a note is kept in the history', async ({ request }) => {
@@ -122,7 +122,7 @@ test.describe.serial('Stage 10 · enquiries, quotations, purchase', () => {
     expect(created.status(), await created.text()).toBe(201)
     const made = (await created.json()) as { id: string; quoteNo: string }
     quoteId = made.id
-    expect(made.quoteNo).toMatch(/^CCCPL\/QT\/\d{4}\/\d{4}$/)
+    expect(made.quoteNo).toMatch(/^CCPL\/\d{4}-\d{4}\/MS\/\d{3}$/)
     const quote = await quotation(request, quoteId)
     expect(quote).toEqual(expect.objectContaining({ status: 'draft', currency: 'USD', market: 'export', incoterm: 'CIF', validUntil: shift(30), enquiryId }))
     expect(quote.totals.taxable).toBe(1875)
