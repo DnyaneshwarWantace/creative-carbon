@@ -1,5 +1,6 @@
 "use client"
 
+import { usePartyLogo } from '../../cc_ui/components/PartyLogo'
 import * as React from 'react'
 import Link from 'next/link'
 import { Boxes, Building2, CheckCircle2, CircleSlash, FilePen, FileStack, History, PackageOpen, Pencil, Printer, Scissors, Send } from 'lucide-react'
@@ -102,6 +103,7 @@ export function PurchaseOrderPage({ poId }: { poId: string }) {
   const t = useT()
   const { runMutation } = useGuardedMutation({ contextId: `cc-po-${poId}` })
   const [po, setPo] = React.useState<PoView | null>(null)
+  const partyLogo = usePartyLogo('vendor', po?.vendorId)
   const [error, setError] = React.useState<string | null>(null)
   const [busy, setBusy] = React.useState(false)
   const granted = useGranted()
@@ -158,7 +160,7 @@ export function PurchaseOrderPage({ poId }: { poId: string }) {
     })
     const subtotal = lines.reduce((sum, line) => sum + line.amount, 0)
     const gst = lines.reduce((sum, line) => sum + line.gst, 0)
-    printPurchaseOrder({ ...po, lines, subtotal, gst, total: subtotal + gst, status: rev.status, revision: rev.revision, supersededBy: po.revision ?? null })
+    printPurchaseOrder({ ...po, partyLogoUrl: partyLogo, lines, subtotal, gst, total: subtotal + gst, status: rev.status, revision: rev.revision, supersededBy: po.revision ?? null })
   }
 
   const editable = po.status === 'draft' || po.status === 'pending_approval'
@@ -212,7 +214,7 @@ export function PurchaseOrderPage({ poId }: { poId: string }) {
           <>
             <WhatsAppMenu phone={po.vendorPhone} recipient={po.vendorContact ? `${po.vendorContact} (${po.vendorName})` : po.vendorName} messages={vendorMessages(po)} />
             {(po.status === 'approved' || po.status === 'partly_received') && granted.has('cc_purchase.manage') ? <EmailPoButton po={po} onSent={() => void load()} /> : null}
-            <Button type="button" variant="outline" size="sm" onClick={() => printPurchaseOrder(po)}>
+            <Button type="button" variant="outline" size="sm" onClick={() => printPurchaseOrder({ ...po, partyLogoUrl: partyLogo })}>
               <Printer className="mr-1.5 h-4 w-4" aria-hidden="true" />
               {t('cc_purchase.detail.print', 'Print PO')}
             </Button>

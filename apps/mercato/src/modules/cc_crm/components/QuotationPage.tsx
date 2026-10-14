@@ -16,6 +16,7 @@ import { QuoteLetterPanel } from './QuoteLetterPanel'
 import { formatDate, formatQty, todayIso } from '../../cc_orders/components/format'
 import { useGranted } from '../../cc_departments/components/useGranted'
 import { useSend } from '../../cc_production/components/finishing/shared'
+import { usePartyLogo } from '../../cc_ui/components/PartyLogo'
 import { buildQuotationLetterHtml, printQuotation } from './printQuotation'
 import { QUOTE_LABEL, QUOTE_VARIANT, type Quotation } from './types'
 import { FieldList, LinkRows, Panel, RecordColumns, RecordPage, RecordState, type Fact } from '../../cc_ui/components/RecordPage'
@@ -36,6 +37,7 @@ export function QuotationPage({ quotationId }: { quotationId: string }) {
   const [fix, setFix] = React.useState<'revise' | 'withdraw' | 'undo_convert' | 'rejected' | null>(null)
   const canTeam = granted.has('cc_crm.team')
   const [quote, setQuote] = React.useState<Quotation | null>(null)
+  const partyLogo = usePartyLogo('customer', quote?.customerId)
   const [error, setError] = React.useState<string | null>(null)
   const [company, setCompany] = React.useState<PrintCompany | null>(null)
   const [busy, setBusy] = React.useState(false)
@@ -75,7 +77,7 @@ export function QuotationPage({ quotationId }: { quotationId: string }) {
       flash(t('cc_crm.errors.loadQuote', 'Could not load the quotation.'), 'error')
       return
     }
-    if (!printQuotation({ ...call.result, quoteNo: quote.quoteNo, revision, supersededBy: quote.revision ?? null }, company)) flash(t('cc_crm.errors.popup', 'Allow pop-ups to print.'), 'error')
+    if (!printQuotation({ ...call.result, partyLogoUrl: partyLogo, quoteNo: quote.quoteNo, revision, supersededBy: quote.revision ?? null }, company)) flash(t('cc_crm.errors.popup', 'Allow pop-ups to print.'), 'error')
   }
 
   if (error || !quote) return <RecordState error={error} loadingLabel={t('cc_crm.loading', 'Loading…')} />
@@ -115,7 +117,7 @@ export function QuotationPage({ quotationId }: { quotationId: string }) {
             variant="outline"
             size="sm"
             onClick={() => {
-              if (!printQuotation(quote, company)) flash(t('cc_crm.errors.popup', 'Allow pop-ups to print.'), 'error')
+              if (!printQuotation({ ...quote, partyLogoUrl: partyLogo }, company)) flash(t('cc_crm.errors.popup', 'Allow pop-ups to print.'), 'error')
             }}
           >
             <Printer className="mr-1.5 h-4 w-4" />
@@ -270,7 +272,7 @@ export function QuotationPage({ quotationId }: { quotationId: string }) {
           </Panel>
           {quote.letter && !exportTerms ? (
             <div className="overflow-hidden rounded-lg border bg-card shadow-xs">
-              <iframe title={t('cc_crm.letter.preview', 'Printed quotation preview')} srcDoc={buildQuotationLetterHtml({ ...quote, letter: quote.letter }, company, false)} className="h-screen w-full bg-background" />
+              <iframe title={t('cc_crm.letter.preview', 'Printed quotation preview')} srcDoc={buildQuotationLetterHtml({ ...quote, partyLogoUrl: partyLogo, letter: quote.letter }, company, false)} className="h-screen w-full bg-background" />
             </div>
           ) : null}
           </>

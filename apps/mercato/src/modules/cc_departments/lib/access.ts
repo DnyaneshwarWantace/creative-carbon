@@ -74,6 +74,7 @@ export const ACCESS_AREAS: AccessArea[] = [
       { feature: 'cc_accounts.view', label: 'See invoices, payments and dues', short: 'View' },
       { feature: 'cc_accounts.record', label: 'Make invoices, record and correct payments', short: 'Record' },
       { feature: 'cc_accounts.credit_note', label: 'Raise credit notes against invoices', short: 'Credit note' },
+      { feature: 'cc_accounts.logos', label: 'Upload logos of customers and suppliers', short: 'Logos' },
     ],
   },
   {

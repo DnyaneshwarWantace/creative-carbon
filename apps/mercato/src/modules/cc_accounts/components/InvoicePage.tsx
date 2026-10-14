@@ -19,6 +19,7 @@ import { flash } from '@open-mercato/ui/backend/FlashMessages'
 import { WhatsAppMenu } from '../../cc_products/components/WhatsAppMenu'
 import { dateText, rupeeText } from '../../cc_products/lib/whatsapp'
 import { buildInvoiceHtml, printInvoice } from './invoicePrint'
+import { usePartyLogo } from '../../cc_ui/components/PartyLogo'
 import { DEFAULT_COPIES, buildTallyBillHtml, printTallyBill, qrImage, tallyBillFromInvoice } from './tallyBillPrint'
 import { BillDetailsPanel, PrintCopiesButton } from './BillDetailsPanel'
 import { INVOICE_STATUS, type CompanyView, type InvoiceView } from './types'
@@ -42,6 +43,7 @@ export function InvoicePage({ id }: { id: string }) {
   const { runMutation } = useGuardedMutation({ contextId: `cc-invoice-${id}` })
   const [doc, setDoc] = React.useState<InvoiceView | null>(null)
   const [company, setCompany] = React.useState<CompanyView | null>(null)
+  const partyLogo = usePartyLogo('customer', doc?.customerId)
   const [phone, setPhone] = React.useState<string | null>(null)
   const [loadError, setLoadError] = React.useState<string | null>(null)
   const [busy, setBusy] = React.useState(false)
@@ -198,7 +200,7 @@ export function InvoicePage({ id }: { id: string }) {
 
   const exp = doc.exportDetails
   const bill = doc.billDetails ?? null
-  const tally = bill && !exp && !doc.lines.some((line) => line.bstageLots?.length) ? tallyBillFromInvoice({ ...doc, billDetails: bill }) : null
+  const tally = bill && !exp && !doc.lines.some((line) => line.bstageLots?.length) ? tallyBillFromInvoice({ ...doc, partyLogoUrl: partyLogo, billDetails: bill }) : null
   const money = (value: number) => (exp && exp.currency !== 'INR' ? `${exp.currency} ${value.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : rupeeText(value))
   const facts: Fact[] = [
     { label: t('cc_accounts.inv.date', 'Invoice date'), value: formatDay(doc.invoiceDate) },
@@ -246,7 +248,7 @@ export function InvoicePage({ id }: { id: string }) {
           {tally ? (
             <PrintCopiesButton defaultCopies={DEFAULT_COPIES[tally.kind]} onPrint={(copies) => printTallyBill(tally, company, copies)} />
           ) : (
-            <Button type="button" variant="outline" size="sm" onClick={() => (printInvoice(doc, company) ? null : flash(t('cc_accounts.inv.popup', 'Allow pop-ups to print'), 'error'))}>
+            <Button type="button" variant="outline" size="sm" onClick={() => (printInvoice({ ...doc, partyLogoUrl: partyLogo }, company) ? null : flash(t('cc_accounts.inv.popup', 'Allow pop-ups to print'), 'error'))}>
               <Printer className="mr-1.5 h-4 w-4" aria-hidden="true" />
               {t('cc_accounts.inv.print', 'Print / PDF')}
             </Button>
@@ -338,7 +340,7 @@ export function InvoicePage({ id }: { id: string }) {
 
           <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
             <div className="overflow-hidden rounded-lg border bg-card shadow-xs lg:col-span-2">
-              <iframe title={doc.code} srcDoc={tally ? buildTallyBillHtml(tally, company, ['original'], qrPreview, false) : buildInvoiceHtml(doc, company, false)} className="h-screen w-full bg-background" />
+              <iframe title={doc.code} srcDoc={tally ? buildTallyBillHtml(tally, company, ['original'], qrPreview, false) : buildInvoiceHtml({ ...doc, partyLogoUrl: partyLogo }, company, false)} className="h-screen w-full bg-background" />
             </div>
             <div className="flex flex-col gap-4">
               {tally && bill ? (

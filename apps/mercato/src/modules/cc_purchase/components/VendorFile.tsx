@@ -10,6 +10,7 @@ import { StatusBadge } from '@open-mercato/ui/primitives/status-badge'
 import { apiCall } from '@open-mercato/ui/backend/utils/apiCall'
 import { stateFromGstin } from '../../cc_accounts/lib/gstStates'
 import { GRN_STATUS, PO_STATUS, day, money, qty, type GrnStatus, type PoStatus } from './shared'
+import { PartyLogoPicker } from '../../cc_ui/components/PartyLogo'
 import { Panel, PanelEmpty, RecordColumns, RecordPage, RecordState, RegisterGrid, formatKg, type Fact } from '../../cc_ui/components/RecordPage'
 import { recordHref } from '../../cc_ui/lib/links'
 import { VENDOR_CATEGORY_LABEL } from '../../cc_vendors/lib/categories'
@@ -243,6 +244,10 @@ export function VendorFile({ vendorId }: { vendorId: string }) {
           }
           side={
             <>
+              <Panel title={t('cc_purchase.vendor.logo', 'Logo on printed documents')} icon={Truck}>
+                <PartyLogoPicker kind="vendor" partyId={vendorId} canEdit={granted.has('cc_accounts.logos')} />
+              </Panel>
+
               <Panel title={t('cc_purchase.vendor.contactTitle', 'Contact')} icon={Truck}>
                 <dl className="space-y-2 text-sm">
                   <div className="flex items-start gap-2">

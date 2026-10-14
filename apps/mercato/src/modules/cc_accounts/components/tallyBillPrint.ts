@@ -1,5 +1,5 @@
 import type { BillDetails, BillParty } from '../data/entities'
-import { COPY_LABELS, amountInWords, esc, hsnSummary, lines, money, tallyDate, type CopyKind } from '../../cc_ui/lib/printKit'
+import { COPY_LABELS, amountInWords, esc, hsnSummary, lines, money, partyLogoHtml, tallyDate, type CopyKind } from '../../cc_ui/lib/printKit'
 import { letterheadOf } from '../lib/letterhead'
 import type { CompanyView, InvoiceView, PiView } from './types'
 
@@ -15,6 +15,7 @@ export type TallyBill = {
   totals: { taxable: number; cgst: number; sgst: number; igst: number; roundOff: number; payable: number }
   bill: BillDetails
   againstCode?: string | null
+  partyLogoUrl?: string | null
 }
 
 export const DEFAULT_COPIES: Record<TallyBillKind, CopyKind[]> = {
@@ -40,10 +41,10 @@ function round(value: number): number {
   return Math.round(value * 100) / 100
 }
 
-function partyBlock(title: string, party: BillParty, placeOfSupply: string | null): string {
+function partyBlock(title: string, party: BillParty, placeOfSupply: string | null, logoUrl?: string | null): string {
   const row = (label: string, value: string | null) => (value ? `<tr><td class="pl">${label}</td><td>: ${esc(value)}</td></tr>` : '')
   const state = party.stateName ? `${party.stateName}${party.stateCode ? `, Code : ${party.stateCode}` : ''}` : null
-  return `<div class="cell party"><div class="small">${title}</div><div class="pname">${esc(party.name)}</div>${party.address ? `<div class="paddr">${lines(party.address)}</div>` : ''}<table class="kv">${row('GSTIN/UIN', party.gstin)}${row('PAN/IT No', party.pan)}${row('State Name', state)}${placeOfSupply ? row('Place of Supply', placeOfSupply) : ''}${row('Contact', party.contact)}${row('E-Mail', party.email)}</table></div>`
+  return `<div class="cell party"><div class="small">${title}</div>${partyLogoHtml(logoUrl)}<div class="pname">${esc(party.name)}</div>${party.address ? `<div class="paddr">${lines(party.address)}</div>` : ''}<table class="kv">${row('GSTIN/UIN', party.gstin)}${row('PAN/IT No', party.pan)}${row('State Name', state)}${placeOfSupply ? row('Place of Supply', placeOfSupply) : ''}${row('Contact', party.contact)}${row('E-Mail', party.email)}</table></div>`
 }
 
 function sellerBlock(company: CompanyView): string {
@@ -189,7 +190,7 @@ export function buildTallyBillHtml(doc: TallyBill, company: CompanyView, copies:
   ${einvoice ? `<div class="einv"><table><tr><td>IRN</td><td>: ${esc(doc.bill.irn)}</td></tr><tr><td>Ack No.</td><td>: ${esc(doc.bill.ackNo ?? '')}</td></tr><tr><td>Ack Date</td><td>: ${esc(doc.bill.ackDate && /^\d{4}-\d{2}-\d{2}/.test(doc.bill.ackDate) ? tallyDate(doc.bill.ackDate) : (doc.bill.ackDate ?? ''))}</td></tr></table>${qrDataUrl ? `<img src="${qrDataUrl}" alt="e-Invoice QR">` : ''}</div>` : ''}
   <div class="box">
     <div class="head">
-      <div class="left">${sellerBlock(company)}${partyBlock('Consignee (Ship to)', doc.bill.consignee, null)}${partyBlock('Buyer (Bill to)', doc.bill.buyer, doc.bill.placeOfSupply)}</div>
+      <div class="left">${sellerBlock(company)}${partyBlock('Consignee (Ship to)', doc.bill.consignee, null)}${partyBlock('Buyer (Bill to)', doc.bill.buyer, doc.bill.placeOfSupply, doc.partyLogoUrl)}</div>
       ${infoGrid(doc)}
     </div>
     <table class="items" style="--fill:${fill}px">
@@ -225,6 +226,7 @@ export function tallyBillFromInvoice(doc: InvoiceView & { billDetails: BillDetai
     totals: doc.totals,
     bill: doc.billDetails,
     againstCode: doc.againstCode,
+    partyLogoUrl: doc.partyLogoUrl,
   }
 }
 
@@ -240,6 +242,7 @@ export function tallyBillFromPi(pi: PiView & { billDetails: BillDetails }, inter
     lines: pi.lines.map((line) => ({ ...line, igst: interState ? line.gst : 0, cgst: interState ? 0 : line.gst / 2, sgst: interState ? 0 : line.gst / 2 })),
     totals: { taxable: pi.totals.taxable, igst, cgst: half, sgst: interState ? 0 : round(pi.totals.gst - half), roundOff: round(Math.round(pi.totals.total) - pi.totals.total), payable: Math.round(pi.totals.total) },
     bill: pi.billDetails,
+    partyLogoUrl: pi.partyLogoUrl,
   }
 }
 

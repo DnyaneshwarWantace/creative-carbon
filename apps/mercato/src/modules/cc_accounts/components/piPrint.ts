@@ -1,5 +1,6 @@
 import { rupeesInWords } from '../lib/amountWords'
 import type { CompanyView, PiView } from './types'
+import { partyLogoHtml } from '../../cc_ui/lib/printKit'
 import { REVISION_CSS, revisionTag, supersededBlock, type RevisionPrint } from '../../cc_ui/lib/printRevision'
 
 function esc(value: unknown): string {
@@ -69,7 +70,7 @@ export function buildPiHtml(pi: PiView & RevisionPrint, company: CompanyView, fo
     </div>
   </div>
   <div class="grid">
-    <div class="box"><h3>Bill to</h3><strong>${esc(pi.customerName)}</strong>${pi.customerGstin ? `<div class="code">GSTIN ${esc(pi.customerGstin)}</div>` : ''}</div>
+    <div class="box"><h3>Bill to</h3>${partyLogoHtml(pi.partyLogoUrl)}<strong>${esc(pi.customerName)}</strong>${pi.customerGstin ? `<div class="code">GSTIN ${esc(pi.customerGstin)}</div>` : ''}</div>
     <div class="box"><h3>Bank details for payment</h3><div class="muted" style="color:#1c1917">${multiline(pi.bankDetails) || '—'}</div></div>
   </div>
   <table>

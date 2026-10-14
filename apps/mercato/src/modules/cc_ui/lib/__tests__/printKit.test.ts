@@ -1,4 +1,4 @@
-import { amountInWords, hsnSummary, letterheadHtml, tallyDate } from '../printKit'
+import { amountInWords, hsnSummary, letterheadHtml, partyLogoHtml, tallyDate } from '../printKit'
 import { DEFAULT_LETTERHEAD } from '../../../cc_accounts/lib/letterhead'
 import { formatSeriesCode, renderSeriesText } from '../../../cc_accounts/lib/numberSeries'
 
@@ -47,5 +47,14 @@ describe('print kit', () => {
     expect(html).toContain('CIN U25209GJ2020PTC111813')
     expect(html).toContain('GSTIN : 24AAICC5600P1ZJ')
     expect(letterheadHtml({ name: 'X Y', letterhead: { ...DEFAULT_LETTERHEAD, showBadges: false } }, 'http://x')).not.toContain('badges.png')
+  })
+})
+
+describe('party logo', () => {
+  it('prints an uploaded image and nothing for other values', () => {
+    expect(partyLogoHtml('data:image/png;base64,AAAA')).toContain('src="data:image/png;base64,AAAA"')
+    expect(partyLogoHtml(null)).toBe('')
+    expect(partyLogoHtml('javascript:alert(1)')).toBe('')
+    expect(partyLogoHtml('https://example.com/x.png')).toBe('')
   })
 })

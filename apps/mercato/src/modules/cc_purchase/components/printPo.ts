@@ -1,4 +1,5 @@
 import type { PoView } from './shared'
+import { partyLogoHtml } from '../../cc_ui/lib/printKit'
 import { REVISION_CSS, revisionTag, supersededBlock, type RevisionPrint } from '../../cc_ui/lib/printRevision'
 
 function escapeHtml(value: string): string {
@@ -50,7 +51,7 @@ export function buildPurchaseOrderHtml(po: PoView & RevisionPrint): string {
     <div class="doc"><div class="no">${escapeHtml(po.code)}${revisionTag(po)}</div><div class="muted">Date ${day(po.poDate)}</div>${po.expectedDate ? `<div class="muted">Deliver by ${day(po.expectedDate)}</div>` : ''}</div>
   </div>
   <div class="grid">
-    <div class="box"><h3>Vendor</h3><strong>${escapeHtml(po.vendorName)}</strong><div class="code">GSTIN ${escapeHtml(po.vendorGstin ?? '—')}</div></div>
+    <div class="box"><h3>Vendor</h3>${partyLogoHtml(po.partyLogoUrl)}<strong>${escapeHtml(po.vendorName)}</strong><div class="code">GSTIN ${escapeHtml(po.vendorGstin ?? '—')}</div></div>
     <div class="box"><h3>Deliver to</h3><strong>Creative Carbon Composites</strong><div class="muted">RM / PM store</div>${po.orderRefs.length ? `<div class="code">Ref ${po.orderRefs.map((ref) => escapeHtml(ref.orderNo)).join(', ')}</div>` : ''}</div>
   </div>
   <table><thead><tr><th>#</th><th>Material</th><th class="r">Quantity</th><th class="r">Rate ₹</th><th class="r">GST</th><th class="r">Amount ₹</th></tr></thead><tbody>${rows}</tbody></table>

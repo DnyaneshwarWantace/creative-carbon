@@ -61,6 +61,7 @@ export type QuotationRow = {
 }
 
 export type Quotation = Omit<Order, 'status' | 'stages' | 'payments' | 'events' | 'documents' | 'canSeeMoney' | 'onHold' | 'createdByName'> & {
+  partyLogoUrl?: string | null
   quoteNo: string
   quoteDate: string
   validUntil: string | null

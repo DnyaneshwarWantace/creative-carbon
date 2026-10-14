@@ -1,7 +1,7 @@
 import { companyHeader, type DocCompany } from '../../cc_orders/components/printDocs'
 import type { Quotation } from './types'
 import { REVISION_CSS, revisionTag, supersededBlock, type RevisionPrint } from '../../cc_ui/lib/printRevision'
-import { LETTERHEAD_CSS, letterheadHtml, letterheadOf, lines as multiline, type PrintCompany } from '../../cc_ui/lib/printKit'
+import { LETTERHEAD_CSS, letterheadHtml, letterheadOf, lines as multiline, partyLogoHtml, type PrintCompany } from '../../cc_ui/lib/printKit'
 import { peopleList } from '../../cc_accounts/lib/letterhead'
 import type { QuoteLetter } from '../lib/quoteLetter'
 
@@ -90,7 +90,7 @@ export function buildQuotationLetterHtml(quote: Quotation & RevisionPrint & { le
   <h1 class="qt">QUOTATION</h1>
   <div class="refrow"><span>REF.NO: ${esc(quote.quoteNo)}${revisionTag(quote)}</span><span>DATE:- ${dashDate(quote.quoteDate)}</span></div>
   <div class="b">TO,</div>
-  <div class="to">${toLines.map((line) => `<div class="ln">${esc(line)}</div>`).join('')}</div>
+  <div class="to">${partyLogoHtml(quote.partyLogoUrl)}${toLines.map((line) => `<div class="ln">${esc(line)}</div>`).join('')}</div>
   <div class="attn"><span>Dear Sir,</span><span class="v">${letter.kindAttn ? `KIND ATTN - ${esc(letter.kindAttn.toUpperCase().startsWith('MR') || letter.kindAttn.toUpperCase().startsWith('MS') ? letter.kindAttn.toUpperCase() : `MR. ${letter.kindAttn.toUpperCase()}`)}` : ''}</span></div>
   ${letter.refLine ? `<div class="lead">${esc(letter.refLine)}</div>` : ''}
   <div class="lead">We submit our ${type} QUOTATION in Grade ${esc(letter.grade)} as under</div>
@@ -160,7 +160,7 @@ export function buildQuotationHtml(quote: Quotation & RevisionPrint, company?: D
     <div class="doc"><div class="kind">Quotation</div><div class="no">${esc(quote.quoteNo)}${revisionTag(quote)}</div><div class="muted">${day(quote.quoteDate)}${quote.enquiryNo ? ` · Ref ${esc(quote.enquiryNo)}` : ''}</div></div>
   </div>
   <div class="grid">
-    <div class="box"><h3>To</h3><strong>${esc(quote.customer?.name ?? '—')}</strong>${quote.billingAddress ? `<div class="muted">${esc(quote.billingAddress)}</div>` : ''}${quote.customer?.gstin ? `<div class="code">GSTIN ${esc(quote.customer.gstin)}</div>` : ''}${quote.customerPoRef ? `<div class="code">Your ref ${esc(quote.customerPoRef)}</div>` : ''}</div>
+    <div class="box"><h3>To</h3>${partyLogoHtml(quote.partyLogoUrl)}<strong>${esc(quote.customer?.name ?? '—')}</strong>${quote.billingAddress ? `<div class="muted">${esc(quote.billingAddress)}</div>` : ''}${quote.customer?.gstin ? `<div class="code">GSTIN ${esc(quote.customer.gstin)}</div>` : ''}${quote.customerPoRef ? `<div class="code">Your ref ${esc(quote.customerPoRef)}</div>` : ''}</div>
     <div class="box"><h3>Terms</h3><ul>${terms.map((term) => `<li>${term}</li>`).join('')}</ul></div>
   </div>
   <table><thead>${head}</thead><tbody>${rows}</tbody></table>

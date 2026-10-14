@@ -13,6 +13,7 @@ import { apiCall } from '@open-mercato/ui/backend/utils/apiCall'
 import { flash } from '@open-mercato/ui/backend/FlashMessages'
 import { CustomerStatement } from '../../cc_accounts/components/CustomerStatement'
 import { paymentTermLabel } from '../../cc_lists/lib/paymentTerms'
+import { PartyLogoPicker } from '../../cc_ui/components/PartyLogo'
 import { FieldList, LinkRows, Panel, PanelEmpty, RecordColumns, RecordPage, RecordState, formatCount, formatDay, formatKg, type Fact } from '../../cc_ui/components/RecordPage'
 import { recordHref } from '../../cc_ui/lib/links'
 import { Timeline } from '../../cc_ui/components/Timeline'
@@ -377,6 +378,10 @@ export function CustomerDetail({ customerId }: { customerId: string }) {
                 }
               >
                 <FieldList columns={1} fields={details} />
+              </Panel>
+
+              <Panel title={t('cc_customers.detail.logo', 'Logo on printed documents')} icon={Building2}>
+                <PartyLogoPicker kind="customer" partyId={customerId} canEdit={granted.has('cc_accounts.logos')} />
               </Panel>
 
               <Panel title={t('cc_customers.detail.addresses', 'Addresses')} icon={MapPin} count={addresses.length}>

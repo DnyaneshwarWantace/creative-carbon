@@ -18,6 +18,7 @@ export type PiLine = {
 }
 
 export type PiView = {
+  partyLogoUrl?: string | null
   id: string
   code: string
   orderId: string
@@ -100,6 +101,7 @@ export const PI_STATUS: Record<PiView['status'], { label: string; variant: 'neut
 export type InvoiceLine = PiLine & { orderLineId: string; cgst: number; sgst: number; igst: number; bstageLots?: Array<{ lotNumber: string; kg: number; cloth: string | null; gsm: number | null; madeOn: string | null }> | null }
 
 export type InvoiceView = {
+  partyLogoUrl?: string | null
   id: string
   code: string
   kind: 'invoice' | 'credit_note'

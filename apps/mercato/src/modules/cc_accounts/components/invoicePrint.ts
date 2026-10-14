@@ -1,5 +1,6 @@
 import { amountInWords } from '../lib/amountWords'
 import type { CompanyView, InvoiceView } from './types'
+import { partyLogoHtml } from '../../cc_ui/lib/printKit'
 
 function esc(value: unknown): string {
   return String(value ?? '').replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char] ?? char)
@@ -106,7 +107,7 @@ export function buildInvoiceHtml(doc: InvoiceView, company: CompanyView, forPrin
     </div>
   </div>
   <div class="grid">
-    <div class="box"><h3>Bill to</h3><strong>${esc(doc.customerName)}</strong>${doc.customerGstin ? `<div class="code">GSTIN ${esc(doc.customerGstin)}</div>` : ''}</div>
+    <div class="box"><h3>Bill to</h3>${partyLogoHtml(doc.partyLogoUrl)}<strong>${esc(doc.customerName)}</strong>${doc.customerGstin ? `<div class="code">GSTIN ${esc(doc.customerGstin)}</div>` : ''}</div>
     ${
       exp
         ? `<div class="box"><h3>Shipment</h3><div class="muted" style="color:#1c1917">${shipment || '—'}</div></div><div class="box"><h3>Export</h3><div class="muted" style="color:#1c1917">${exportBox || '—'}</div></div>`

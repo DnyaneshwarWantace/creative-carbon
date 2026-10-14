@@ -18,6 +18,7 @@ import { flash } from '@open-mercato/ui/backend/FlashMessages'
 import { WhatsAppMenu } from '../../cc_products/components/WhatsAppMenu'
 import { dateText, rupeeText } from '../../cc_products/lib/whatsapp'
 import { buildPiHtml, printPi } from './piPrint'
+import { usePartyLogo } from '../../cc_ui/components/PartyLogo'
 import { DEFAULT_COPIES, buildTallyBillHtml, printTallyBill, tallyBillFromPi } from './tallyBillPrint'
 import { BillDetailsPanel, PrintCopiesButton } from './BillDetailsPanel'
 import { PI_STATUS, type CompanyView, type PiView } from './types'
@@ -37,6 +38,7 @@ export function ProformaPage({ id }: { id: string }) {
   const { runMutation } = useGuardedMutation({ contextId: `cc-pi-${id}` })
   const [pi, setPi] = React.useState<PiView | null>(null)
   const [company, setCompany] = React.useState<CompanyView | null>(null)
+  const partyLogo = usePartyLogo('customer', pi?.customerId)
   const [phone, setPhone] = React.useState<string | null>(null)
   const [loadError, setLoadError] = React.useState<string | null>(null)
   const [busy, setBusy] = React.useState(false)
@@ -143,7 +145,7 @@ export function ProformaPage({ id }: { id: string }) {
   const bill = pi.billDetails ?? null
   const ownState = company.gstin?.slice(0, 2) ?? null
   const theirState = pi.customerGstin?.slice(0, 2) || bill?.buyer.stateCode || null
-  const tally = bill ? tallyBillFromPi({ ...pi, billDetails: bill }, Boolean(ownState && theirState && ownState !== theirState)) : null
+  const tally = bill ? tallyBillFromPi({ ...pi, partyLogoUrl: partyLogo, billDetails: bill }, Boolean(ownState && theirState && ownState !== theirState)) : null
   const facts: Fact[] = [
     { label: t('cc_accounts.pi.date', 'PI date'), value: formatDay(pi.piDate) },
     { label: t('cc_accounts.pi.validUntil', 'Valid until'), value: formatDay(pi.validUntil) },
@@ -183,7 +185,7 @@ export function ProformaPage({ id }: { id: string }) {
           {tally ? (
             <PrintCopiesButton defaultCopies={DEFAULT_COPIES.pi} onPrint={(copies) => printTallyBill(tally, company, copies)} />
           ) : (
-            <Button type="button" variant="outline" size="sm" onClick={() => (printPi(pi, company) ? null : flash(t('cc_accounts.pi.popup', 'Allow pop-ups to print'), 'error'))}>
+            <Button type="button" variant="outline" size="sm" onClick={() => (printPi({ ...pi, partyLogoUrl: partyLogo }, company) ? null : flash(t('cc_accounts.pi.popup', 'Allow pop-ups to print'), 'error'))}>
               <Printer className="mr-1.5 h-4 w-4" aria-hidden="true" />
               {t('cc_accounts.pi.print', 'Print / PDF')}
             </Button>
@@ -245,7 +247,7 @@ export function ProformaPage({ id }: { id: string }) {
 
           <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
             <div className="overflow-hidden rounded-lg border bg-card shadow-xs lg:col-span-2">
-              <iframe title={pi.code} srcDoc={tally ? buildTallyBillHtml(tally, company, ['original'], null, false) : buildPiHtml(pi, company, false)} className="h-screen w-full bg-background" />
+              <iframe title={pi.code} srcDoc={tally ? buildTallyBillHtml(tally, company, ['original'], null, false) : buildPiHtml({ ...pi, partyLogoUrl: partyLogo }, company, false)} className="h-screen w-full bg-background" />
             </div>
             <div className="flex flex-col gap-4">
               {tally && bill ? (
@@ -320,7 +322,7 @@ export function ProformaPage({ id }: { id: string }) {
                           type="button"
                           variant="ghost"
                           size="sm"
-                          onClick={() => (printPi({ ...pi, ...rev, advanceAmount: rev.advancePercent ? Math.round(rev.totals.total * rev.advancePercent) / 100 : null, code: pi.code, revision: rev.revision, supersededBy: pi.revision ?? null }, company) ? null : flash(t('cc_accounts.pi.popup', 'Allow pop-ups to print'), 'error'))}
+                          onClick={() => (printPi({ ...pi, ...rev, partyLogoUrl: partyLogo, advanceAmount: rev.advancePercent ? Math.round(rev.totals.total * rev.advancePercent) / 100 : null, code: pi.code, revision: rev.revision, supersededBy: pi.revision ?? null }, company) ? null : flash(t('cc_accounts.pi.popup', 'Allow pop-ups to print'), 'error'))}
                         >
                           <Printer className="h-3.5 w-3.5" aria-hidden="true" />
                           <span className="sr-only">{t('cc_accounts.pi.printRevision', 'Print revision {n}', { n: rev.revision })}</span>

@@ -748,3 +748,39 @@ export class DebitNote {
   @Property({ name: 'deleted_at', type: Date, nullable: true })
   deletedAt?: Date | null
 }
+
+export type PartyKind = 'customer' | 'vendor'
+
+@Entity({ tableName: 'cc_party_logos' })
+@Index({ name: 'cc_party_logos_scope_idx', properties: ['organizationId', 'tenantId'] })
+@Unique({ name: 'cc_party_logos_party_uq', properties: ['organizationId', 'tenantId', 'partyKind', 'partyId'] })
+export class PartyLogo {
+  [OptionalProps]?: 'createdAt' | 'updatedAt' | 'updatedByName'
+
+  @PrimaryKey({ type: 'uuid', defaultRaw: 'gen_random_uuid()' })
+  id!: string
+
+  @Property({ name: 'organization_id', type: 'uuid' })
+  organizationId!: string
+
+  @Property({ name: 'tenant_id', type: 'uuid' })
+  tenantId!: string
+
+  @Property({ name: 'party_kind', type: 'text' })
+  partyKind!: PartyKind
+
+  @Property({ name: 'party_id', type: 'uuid' })
+  partyId!: string
+
+  @Property({ name: 'image_url', type: 'text' })
+  imageUrl!: string
+
+  @Property({ name: 'updated_by_name', type: 'text', nullable: true })
+  updatedByName?: string | null
+
+  @Property({ name: 'created_at', type: Date, onCreate: () => new Date() })
+  createdAt: Date = new Date()
+
+  @Property({ name: 'updated_at', type: Date, onCreate: () => new Date(), onUpdate: () => new Date() })
+  updatedAt: Date = new Date()
+}

@@ -17,6 +17,10 @@ export type PrintCompany = {
   letterhead?: LetterheadView | null
 }
 
+export function partyLogoHtml(url: string | null | undefined): string {
+  return url && url.startsWith('data:image/') ? `<img class="plogo" src="${esc(url)}" alt="" style="display:block;max-height:34px;max-width:130px;margin:0 0 4px;object-fit:contain">` : ''
+}
+
 export function esc(value: unknown): string {
   return String(value ?? '').replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char] ?? char)
 }
