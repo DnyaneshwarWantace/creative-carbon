@@ -274,7 +274,7 @@ export const numberSeriesInputSchema = z.object({
   items: z
     .array(
       z.object({
-        key: z.enum(['SO', 'ENQ', 'QT', 'PI', 'INV', 'CN', 'DN', 'VB', 'IND', 'PO', 'GR', 'JW', 'SKU', 'RB', 'PB', 'LOT_BS', 'LOT_PR', 'LOT_MO', 'LOT_CUT', 'LOT_FG', 'LOT_BI']),
+        key: z.enum(['SO', 'ENQ', 'QT', 'PI', 'INV', 'CN', 'DN', 'VB', 'IND', 'PO', 'GR', 'JW', 'TC', 'SKU', 'RB', 'PB', 'LOT_BS', 'LOT_PR', 'LOT_MO', 'LOT_CUT', 'LOT_FG', 'LOT_BI']),
         prefix: seriesText,
         suffix: seriesText.optional().nullable(),
         pad: z.coerce.number().int().min(1).max(8),

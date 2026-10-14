@@ -2,6 +2,7 @@ import type { StoreContext } from '../../cc_store/lib/server'
 import { loadCustomers } from '../../cc_orders/lib/server'
 import { CcOrder } from '../../cc_orders/data/entities'
 import { markOrderTests } from '../../cc_orders/lib/fulfilment'
+import { certificateGaps, certificateSchema, withRemarks, type Certificate } from './testCertificate'
 import { LabTest } from '../data/entities'
 import { PlantError } from './server'
 import { logEdit, snapshot } from '../../cc_audit/lib/activity'
@@ -60,6 +61,7 @@ export function labView(row: LabTest) {
     revision: row.revision ?? 0,
     issuedAt: row.issuedAt ? row.issuedAt.toISOString() : null,
     issuedByName: row.issuedByName ?? null,
+    certificate: row.certificate ? withRemarks(certificateSchema.parse(row.certificate)) : null,
     revisions: (row.revisions ?? []).map((item) => ({ revision: item.revision, issuedAt: item.issuedAt, amendedAt: item.amendedAt, amendedByName: item.amendedByName, reason: item.reason, values: item.values })),
     createdAt: row.createdAt.toISOString(),
     byName: row.byName ?? null,
@@ -134,14 +136,47 @@ async function currentReportIds(ctx: StoreContext, id: string): Promise<string[]
   return rows.map((row) => row.id)
 }
 
-export async function issueLabTest(ctx: StoreContext, row: LabTest, byName: string | null) {
+export async function issueLabTest(ctx: StoreContext, row: LabTest, byName: string | null, overrideReason?: string | null) {
   if (row.issuedAt) throw new PlantError('This report is already issued', 409)
-  if (row.result === 'pending') throw new PlantError('Enter the result (pass or fail) before issuing the report')
-  if (!(await currentReportIds(ctx, row.id)).length) throw new PlantError('Attach the report file before issuing it', 409)
+  const certificate = row.certificate ? certificateSchema.parse(row.certificate) : null
+  let note: string | null = row.revision ? `Rev ${row.revision}` : null
+  if (certificate) {
+    const gaps = certificateGaps(certificate)
+    if (gaps.missing.length) throw new PlantError(`Enter the observed value for: ${gaps.missing.join(', ')}`)
+    if (gaps.failing.length) {
+      if ((overrideReason ?? '').trim().length < 3) throw new PlantError(`Not OK: ${gaps.failing.join(', ')}. Write why it is still issued (the Director approves it).`, 409)
+      note = [note, `Issued with Not OK (${gaps.failing.join(', ')}): ${overrideReason!.trim()}`].filter(Boolean).join(' · ')
+    }
+  } else {
+    if (row.result === 'pending') throw new PlantError('Enter the result (pass or fail) before issuing the report')
+    if (!(await currentReportIds(ctx, row.id)).length) throw new PlantError('Attach the report file before issuing it', 409)
+  }
   row.issuedAt = new Date()
   row.issuedByName = byName
-  row.history = [...(row.history ?? []), { action: 'issued', by: byName, at: new Date().toISOString(), note: row.revision ? `Rev ${row.revision}` : null }]
+  row.history = [...(row.history ?? []), { action: 'issued', by: byName, at: new Date().toISOString(), note }]
   await ctx.em.flush()
+  return row
+}
+
+export async function saveCertificate(ctx: StoreContext, row: LabTest, input: Certificate, byName: string | null) {
+  if (row.issuedAt) throw new PlantError(`This report is issued to the customer${row.revision ? ` (Rev ${row.revision})` : ''}. Amend it to make a new revision.`, 409)
+  const { nextSeriesCode } = await import('../../cc_accounts/lib/numberSeries')
+  const tcNo = input.tcNo.trim() || row.reportNo?.trim() || (await nextSeriesCode(ctx, 'TC', new Date(`${row.testDate}T12:00:00`)))
+  const certificate = withRemarks({ ...input, tcNo })
+  const before = row.certificate ? withRemarks(certificateSchema.parse(row.certificate)) : null
+  row.certificate = certificate as unknown as Record<string, unknown>
+  row.reportNo = tcNo
+  if (certificate.testedBy) row.testedBy = certificate.testedBy
+  const gaps = certificateGaps(certificate)
+  const previous = row.result
+  if (!gaps.missing.length) row.result = gaps.failing.length ? 'fail' : 'pass'
+  if (before) logEdit(ctx.em, ctx, { recordType: 'lab_test', recordId: row.id, before: { tc: before }, after: { tc: certificate }, byName, labels: { tc: 'Test certificate' }, action: 'certificate' })
+  row.history = [...(row.history ?? []), { action: before ? 'certificate edited' : 'certificate made', by: byName, at: new Date().toISOString(), note: tcNo }]
+  await ctx.em.flush()
+  if (row.orderId && row.result === 'pass' && previous !== 'pass') {
+    const order = await ctx.em.findOne(CcOrder, { id: row.orderId, ...scope(ctx), deletedAt: null })
+    if (order) await markOrderTests(ctx, order, row, byName)
+  }
   return row
 }
 

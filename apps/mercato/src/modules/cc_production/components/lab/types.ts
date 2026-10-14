@@ -1,3 +1,4 @@
+import type { Certificate } from '../../lib/testCertificate'
 export type LabResult = 'pass' | 'fail' | 'pending'
 
 export type LabReportFile = { id: string; fileName: string; fileSize: number; mimeType: string; createdAt: string; superseded?: boolean; revision?: number | null }
@@ -5,6 +6,7 @@ export type LabReportFile = { id: string; fileName: string; fileSize: number; mi
 export type LabRevisionView = { revision: number; issuedAt: string | null; amendedAt: string; amendedByName: string | null; reason: string; values: Record<string, unknown> }
 
 export type LabTest = {
+  certificate?: Certificate | null
   id: string
   testPoint: 'incoming' | 'outgoing'
   testDate: string

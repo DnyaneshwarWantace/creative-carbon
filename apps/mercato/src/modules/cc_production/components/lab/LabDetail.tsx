@@ -26,6 +26,11 @@ import { CorrectDialog } from '../../../cc_ui/components/CorrectDialog'
 import { StatusBadge } from '@open-mercato/ui/primitives/status-badge'
 import { useSend } from '../finishing/shared'
 import { when } from '../resin/shared'
+import { CertificatePanel } from './CertificatePanel'
+import { buildTcHtml, printTc } from './tcPrint'
+import { certificateGaps, type Certificate } from '../../lib/testCertificate'
+import type { PrintCompany } from '../../../cc_ui/lib/printKit'
+import { peopleList } from '../../../cc_accounts/lib/letterhead'
 
 const RESULT_STYLE: Record<LabResult, { label: string; tone: string; icon: typeof CheckCircle2 }> = {
   pass: { label: 'Pass', tone: 'border-status-success-border bg-status-success-bg text-status-success-text', icon: CheckCircle2 },
@@ -84,7 +89,8 @@ export function LabDetailPage({ testId }: { testId: string }) {
   const canEnter = granted.has('cc_production.quality.enter')
   const [test, setTest] = React.useState<LabTest | null>(null)
   const [error, setError] = React.useState<string | null>(null)
-  const [company, setCompany] = React.useState<DocCompany | null>(null)
+  const [company, setCompany] = React.useState<(DocCompany & PrintCompany) | null>(null)
+  const [issueWhy, setIssueWhy] = React.useState(false)
   const [previewId, setPreviewId] = React.useState<string | null>(null)
   const [amending, setAmending] = React.useState(false)
   const [issuing, setIssuing] = React.useState(false)
@@ -100,7 +106,7 @@ export function LabDetailPage({ testId }: { testId: string }) {
 
   React.useEffect(() => {
     void load()
-    apiCall<DocCompany>('/api/cc_accounts/company').then((call) => setCompany(call.ok ? (call.result ?? null) : null))
+    apiCall<DocCompany & PrintCompany>('/api/cc_accounts/company').then((call) => setCompany(call.ok ? (call.result ?? null) : null))
   }, [load])
 
   if (error || !test) return <RecordState error={error} loadingLabel={t('cc_production.lab.loading', 'Loading…')} />
@@ -118,11 +124,23 @@ export function LabDetailPage({ testId }: { testId: string }) {
     await load()
     return true
   }
-  const issue = async () => {
+  const issue = async (reason?: string) => {
     setIssuing(true)
-    await act({ action: 'issue' }, t('cc_production.lab.issuedDone', 'Report marked as issued to the customer.'))
+    await act({ action: 'issue', ...(reason ? { reason } : {}) }, t('cc_production.lab.issuedDone', 'Report marked as issued to the customer.'))
     setIssuing(false)
   }
+  const certificate = test.certificate ?? null
+  const gaps = certificate ? certificateGaps(certificate) : null
+  const canIssue = certificate ? Boolean(gaps && !gaps.missing.length) : test.result !== 'pending' && reports.length > 0
+  const saveCertificate = async (next: Certificate) => {
+    const result = await send<LabTest>('/api/cc_production/lab/certificate', 'PUT', { id: test.id, certificate: next }, test.updatedAt)
+    if (!result) return false
+    flash(t('cc_production.tc.saved', 'Test certificate saved'), 'success')
+    await load()
+    return true
+  }
+  const thicknessSeed = Number(((test.lotRefs ?? '') + ' ' + (test.itemTitle ?? '')).match(/(\d+(?:\.\d+)?)\s*mm/i)?.[1] ?? '') || null
+  const lh = company?.letterhead ?? null
   const preview = reports.find((file) => file.id === previewId) ?? null
   const facts: Fact[] = [
     { label: t('cc_production.lab.testedOn', 'Tested on'), value: day(test.testDate) },
@@ -219,8 +237,14 @@ export function LabDetailPage({ testId }: { testId: string }) {
               {t('cc_production.lab.edit', 'Edit')}
             </Button>
           ) : null}
-          {canEnter && !issued && test.result !== 'pending' && reports.length ? (
-            <Button type="button" variant="outline" size="sm" disabled={issuing} onClick={() => void issue()}>
+          {certificate ? (
+            <Button type="button" size="sm" onClick={() => (printTc({ certificate, testDate: test.testDate, revision, showRevision: revision > 0 }, company) ? null : flash(t('cc_production.lab.popup', 'Allow pop-ups to print.'), 'error'))}>
+              <Printer className="mr-1.5 h-4 w-4" aria-hidden="true" />
+              {t('cc_production.tc.print', 'Print test certificate')}
+            </Button>
+          ) : null}
+          {canEnter && !issued && canIssue ? (
+            <Button type="button" variant="outline" size="sm" disabled={issuing} onClick={() => (gaps?.failing.length ? setIssueWhy(true) : void issue())}>
               <Send className="mr-1.5 h-4 w-4" aria-hidden="true" />
               {t('cc_production.lab.issue', 'Mark issued to customer')}
             </Button>
@@ -233,13 +257,27 @@ export function LabDetailPage({ testId }: { testId: string }) {
           ) : null}
         </>
       }
-      alert={!reports.length ? <Notice variant="warning" title={t('cc_production.lab.noReportTitle', 'No report attached yet')} message={t('cc_production.lab.noReportBody', 'Upload the lab’s report below so anyone can open or download it.')} /> : null}
+      alert={!reports.length && !certificate ? <Notice variant="warning" title={t('cc_production.lab.noReportTitle', 'No report attached yet')} message={t('cc_production.lab.noReportBody', 'Upload the lab’s report below so anyone can open or download it.')} /> : null}
       chain={test.testPoint === 'outgoing' ? <PlantChain current="fg" hrefs={{ despatch: test.orderId ? recordHref.order(test.orderId) : null }} /> : undefined}
       facts={facts}
     >
       <RecordColumns
         main={
           <>
+            <CertificatePanel
+              certificate={certificate}
+              seed={{ lotRefs: test.lotRefs ?? null, customer: test.customerName ?? null, itemTitle: test.itemTitle ?? null, thicknessMm: thicknessSeed, testedBy: test.testedBy ?? null }}
+              labPeople={peopleList(lh?.labPeople)}
+              directors={peopleList(lh?.directors)}
+              editable={canEnter && !issued}
+              busy={issuing}
+              onSave={saveCertificate}
+            />
+            {certificate ? (
+              <div className="overflow-hidden rounded-lg border bg-card shadow-xs">
+                <iframe title={t('cc_production.tc.preview', 'Test certificate preview')} srcDoc={buildTcHtml({ certificate, testDate: test.testDate, revision, showRevision: revision > 0 }, company, false)} className="h-screen w-full bg-background" />
+              </div>
+            ) : null}
             {reports.length ? (
               <Panel
                 title={t('cc_production.lab.reportFile', 'Lab test report')}
@@ -341,6 +379,18 @@ export function LabDetailPage({ testId }: { testId: string }) {
       />
       <Comments type="lab_test" id={test.id} />
       <Timeline type="lab_test" id={test.id} refreshKey={test.history.length} />
+      <CorrectDialog
+        open={issueWhy}
+        onOpenChange={setIssueWhy}
+        destructive
+        title={t('cc_production.tc.issueNotOkTitle', 'Issue with Not OK values?')}
+        description={t('cc_production.tc.issueNotOkHint', 'Not OK: {list}. Write why it is still issued; the Director’s approval is noted in the history.', { list: gaps?.failing.join(', ') ?? '' })}
+        confirmLabel={t('cc_production.tc.issueAnyway', 'Issue anyway')}
+        onConfirm={async (why) => {
+          await issue(why)
+          setIssueWhy(false)
+        }}
+      />
       <CorrectDialog
         open={amending}
         onOpenChange={setAmending}

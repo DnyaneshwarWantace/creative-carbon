@@ -24,7 +24,7 @@ async function POST(req: Request) {
     const byName = await currentUserName(ctx)
     const result = await runPlantGuarded(ctx, req, { resourceKind: 'cc_production.lab_test', resourceId: row.id, operation: 'custom', payload: parsed.data }, async () => {
       if (action === 'issue') {
-        await issueLabTest(ctx, row, byName)
+        await issueLabTest(ctx, row, byName, parsed.data.reason ?? null)
         return { files: 0 }
       }
       const amended = await amendLabTest(ctx, row, byName, parsed.data.reason ?? '')

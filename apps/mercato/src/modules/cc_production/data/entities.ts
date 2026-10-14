@@ -1229,6 +1229,9 @@ export class LabTest {
   @Property({ type: 'json', nullable: true })
   history?: PlantHistoryEntry[] | null
 
+  @Property({ type: 'json', nullable: true })
+  certificate?: Record<string, unknown> | null
+
   @Property({ name: 'created_at', type: Date, onCreate: () => new Date() })
   createdAt: Date = new Date()
 
