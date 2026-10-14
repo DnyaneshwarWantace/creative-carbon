@@ -1,4 +1,5 @@
 import { resolveOrderAccess, trimEvents, trimStages } from './visibility'
+import { documentsStillToSend } from './poDocs'
 import { CcOrder, CcOrderEvent, CcOrderLine, CcOrderStage, type FieldChange } from '../data/entities'
 import type { StageActionInput } from '../data/validators'
 import { orderHeadline, STAGES, STOCK_STAGES, applyDayLimit, applyReopenHours, applyStageOverride, isFinished, missingRequired, missingSteps, reopenBlock, stageDef, stageReopenHours, stepStates, type ReopenInfo } from './stages'
@@ -245,6 +246,8 @@ export async function applyStageAction(ctx: OrderContext, order: CcOrder, input:
             options.money === false ? {} : { due },
           )
         }
+        const unsent = await documentsStillToSend(ctx, order.id)
+        if (unsent.length) throw new OrderError(`The customer’s PO asks for these with the material. Mark them sent first: ${unsent.map((doc) => doc.label).join(', ')}`, 400, { documents: unsent.map((doc) => doc.key) })
         if (due > 0.5) logEvent(ctx, order, 'payment_override', def.key, `Despatched with ₹${due.toLocaleString('en-IN')} due: ${override}`, byName)
         await saleOut(ctx, order, byName)
       }

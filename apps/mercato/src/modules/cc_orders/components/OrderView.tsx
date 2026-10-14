@@ -45,6 +45,7 @@ import { LineProgress, useOrderChanged } from './FulfilmentPanel'
 import { PageLoading } from '../../cc_ui/components/PageLoading'
 import { recordHref } from '../../cc_ui/lib/links'
 import { PaymentDialog } from '../../cc_accounts/components/PaymentDialog'
+import { PoDetailsPanel } from './PoDetailsPanel'
 
 const KIND_LABEL: Record<string, string> = Object.fromEntries(PRODUCT_KINDS.map((kind) => [kind.code, kind.label]))
 
@@ -658,6 +659,7 @@ export function OrderView({ orderId }: { orderId: string }) {
               </section>
                 )
               })() : null}
+              <PoDetailsPanel orderId={order.id} canEdit={granted.has('cc_orders.manage') && order.status !== 'cancelled' && order.status !== 'completed'} />
               {sources && sources.length ? (
                 <section className="space-y-2 rounded-lg border bg-card p-4" aria-labelledby="order-came-from">
                   <h2 id="order-came-from" className="text-sm font-semibold">

@@ -1,5 +1,6 @@
 import { Entity, Index, PrimaryKey, Property, Unique } from '@mikro-orm/decorators/legacy'
 import { OptionalProps } from '@mikro-orm/core'
+import type { PoAmendment, PoDetails, PoDocumentCheck, PoLineDetails } from '../lib/poRules'
 
 export type OrderStatus = 'booked' | 'confirmed' | 'completed' | 'cancelled'
 export type OrderType = 'new' | 'repeat' | 'revision'
@@ -479,6 +480,52 @@ export class CcOrderPacking {
 
   @Property({ name: 'by_name', type: 'text', nullable: true })
   byName?: string | null
+
+  @Property({ name: 'created_at', type: Date, onCreate: () => new Date() })
+  createdAt: Date = new Date()
+
+  @Property({ name: 'updated_at', type: Date, onCreate: () => new Date(), onUpdate: () => new Date() })
+  updatedAt: Date = new Date()
+}
+
+@Entity({ tableName: 'cc_order_po' })
+@Index({ name: 'cc_order_po_scope_idx', properties: ['organizationId', 'tenantId'] })
+@Unique({ name: 'cc_order_po_order_uq', properties: ['organizationId', 'tenantId', 'orderId'] })
+export class CcOrderPo {
+  [OptionalProps]?: 'details' | 'lines' | 'documents' | 'amendments' | 'acknowledgedAt' | 'acknowledgedByName' | 'updatedByName' | 'createdAt' | 'updatedAt'
+
+  @PrimaryKey({ type: 'uuid', defaultRaw: 'gen_random_uuid()' })
+  id!: string
+
+  @Property({ name: 'organization_id', type: 'uuid' })
+  organizationId!: string
+
+  @Property({ name: 'tenant_id', type: 'uuid' })
+  tenantId!: string
+
+  @Property({ name: 'order_id', type: 'uuid' })
+  orderId!: string
+
+  @Property({ type: 'json', nullable: true })
+  details?: Partial<PoDetails> | null
+
+  @Property({ type: 'json', nullable: true })
+  lines?: Record<string, Partial<PoLineDetails>> | null
+
+  @Property({ type: 'json', nullable: true })
+  documents?: PoDocumentCheck[] | null
+
+  @Property({ type: 'json', nullable: true })
+  amendments?: PoAmendment[] | null
+
+  @Property({ name: 'acknowledged_at', type: Date, nullable: true })
+  acknowledgedAt?: Date | null
+
+  @Property({ name: 'acknowledged_by_name', type: 'text', nullable: true })
+  acknowledgedByName?: string | null
+
+  @Property({ name: 'updated_by_name', type: 'text', nullable: true })
+  updatedByName?: string | null
 
   @Property({ name: 'created_at', type: Date, onCreate: () => new Date() })
   createdAt: Date = new Date()

@@ -127,3 +127,47 @@ export const fulfilmentActionSchema = z.discriminatedUnion('action', [
   z.object({ action: z.literal('packed'), orderId: z.string().uuid() }),
   z.object({ action: z.literal('qc_sync'), orderId: z.string().uuid() }),
 ])
+
+const poText = (max: number) => z.string().trim().max(max).optional().nullable()
+const poDay = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Use YYYY-MM-DD').optional().nullable()
+
+export const poDetailsSchema = z.object({
+  poDate: poDay,
+  amendmentNo: poText(30),
+  ourOfferRef: poText(80),
+  vendorCode: poText(60),
+  buyerName: poText(120),
+  buyerPhone: poText(40),
+  buyerEmail: poText(120),
+  indentNo: poText(60),
+  indentDate: poDay,
+  division: poText(80),
+  priceBasis: poText(120),
+  freight: poText(120),
+  packingForwarding: poText(120),
+  carrier: poText(120),
+  insurance: poText(120),
+})
+
+export const poLineSchema = z.object({
+  itemCode: poText(60),
+  description: poText(300),
+  uom: poText(20),
+  deliveryDate: poDay,
+})
+
+export const poWriteSchema = z.object({
+  orderId: z.string().uuid(),
+  details: poDetailsSchema,
+  lines: z.record(z.string().uuid(), poLineSchema).default({}),
+  documents: z.array(z.object({ key: z.enum(['tax_invoice', 'eway_bill', 'lr_copy', 'packing_list', 'test_certificate', 'mtc', 'inspection_certificate', 'order_copy', 'msds']), state: z.enum(['pending', 'sent']) })).max(20).default([]),
+})
+
+export const poActionSchema = z.object({
+  orderId: z.string().uuid(),
+  action: z.enum(['amend', 'acknowledge']),
+  date: poDay,
+  note: poText(500),
+})
+
+export const poQuerySchema = z.object({ orderId: z.string().uuid() })

@@ -1,4 +1,5 @@
 import { findWithDecryption } from '@open-mercato/shared/lib/encryption/find'
+import { poTermsForBill } from '../../cc_orders/lib/poDocs'
 import { CustomerAddress } from '@open-mercato/core/modules/customers/data/entities'
 import { CcOrderLine, CcOrderStage, type CcOrder } from '../../cc_orders/data/entities'
 import { loadCustomers, type OrderContext } from '../../cc_orders/lib/server'
@@ -117,6 +118,7 @@ export async function defaultBillDetails(
     email: customer?.email ?? null,
   })
   const dispatch = (stages.find((stage) => stage.stageKey === 'dispatch')?.data ?? {}) as Record<string, unknown>
+  const po = await poTermsForBill(ctx, order.id)
   const terms = text(order.paymentRemarks) ?? (order.paymentTerms ? paymentTermLabel(order.paymentTerms) : null)
   const used = new Set<string>()
   const lineNotes = input.lineProductIds.map((productId) => {
@@ -135,12 +137,12 @@ export async function defaultBillDetails(
     referenceNo: `${input.code} dt. ${input.date}`,
     otherReferences: null,
     buyerOrderNo: text(order.customerPoRef) ?? 'VERBAL',
-    buyerOrderDate: order.orderDate ?? null,
+    buyerOrderDate: po.poDate ?? order.orderDate ?? null,
     dispatchDocNo: input.code,
     deliveryNoteDate: input.date,
-    dispatchedThrough: text(input.transporter) ?? text(dispatch.transporter),
+    dispatchedThrough: text(input.transporter) ?? text(dispatch.transporter) ?? po.carrier,
     destination: text(dispatch.destination),
-    termsOfDelivery: null,
+    termsOfDelivery: po.termsOfDelivery,
     remarks,
     lineNotes,
     irn: null,
