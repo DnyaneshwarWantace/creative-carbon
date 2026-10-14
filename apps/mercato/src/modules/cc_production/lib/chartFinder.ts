@@ -1,6 +1,6 @@
 import { CHART_DIMENSIONS } from './masterDefs'
 
-export type ChartRecord = Record<string, string | number | boolean | null | undefined> & { id: string; family: string; code: string }
+export type ChartRecord = Record<string, string | number | boolean | null | undefined>
 
 export type ChartQuery = {
   family?: string
@@ -57,5 +57,5 @@ export function findInChart(entries: ChartRecord[], query: ChartQuery): ChartMat
     }
     if (ok) matches.push({ entry, distance, hits })
   }
-  return matches.sort((left, right) => left.distance - right.distance || left.entry.code.localeCompare(right.entry.code, 'en', { numeric: true }))
+  return matches.sort((left, right) => left.distance - right.distance || String(left.entry.code ?? '').localeCompare(String(right.entry.code ?? ''), 'en', { numeric: true }))
 }

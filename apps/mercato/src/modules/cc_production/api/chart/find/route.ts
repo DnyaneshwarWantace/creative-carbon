@@ -16,7 +16,7 @@ async function GET(req: Request) {
   const ctx = await resolveOrderContext(req)
   if ('error' in ctx) return NextResponse.json({ error: ctx.error }, { status: ctx.status })
   const query = parseChartQuery(new URL(req.url).searchParams)
-  const rows = (await listMasters(ctx, MASTER_DEFS.chart, { includeInactive: false })) as ChartRecord[]
+  const rows = (await listMasters(ctx, MASTER_DEFS.chart, { includeInactive: false }))
   const matches = findInChart(rows, query)
   return NextResponse.json({ total: matches.length, items: matches.slice(0, LIMIT).map((match) => ({ ...match.entry, distance: match.distance })) })
 }
