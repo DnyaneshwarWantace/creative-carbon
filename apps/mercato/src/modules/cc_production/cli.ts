@@ -4,6 +4,8 @@ import { createRequestContainer } from '@open-mercato/shared/lib/di/container'
 import ExcelJS from 'exceljs'
 import { seedPlantMasters } from './lib/seeds'
 import { convertClientWorkbook } from './lib/chartConvert'
+import { looksLikeRodStock, parseRodStock } from './lib/rodStock'
+import { RodStock } from './data/entities'
 import { MASTER_DEFS } from './lib/masterDefs'
 import { importMasters } from './lib/masters'
 
@@ -53,10 +55,38 @@ const importChart: ModuleCli = {
       })
       return { name: sheet.name, rows: Array.from(rows, (row) => row ?? []) }
     })
-    const rows = convertClientWorkbook(sheets)
     const container = await createRequestContainer()
     const em = container.resolve('em') as EntityManager
     const dryRun = rest.includes('--dry-run')
+    const rodSheet = sheets.find((sheet) => looksLikeRodStock(sheet.rows))
+    if (rodSheet) {
+      const rods = parseRodStock(rodSheet.rows)
+      const result = await em.transactional(async (tem) => {
+        const scope = { tenantId, organizationId, deletedAt: null }
+        const existing = await tem.find(RodStock, { ...scope, source: 'tube_rod_list' })
+        let created = 0
+        let updated = 0
+        for (const rod of rods) {
+          const row = existing.find((entry) => entry.srNo === rod.srNo)
+          if (row) updated += 1
+          else created += 1
+          if (dryRun) continue
+          const target = row ?? tem.create(RodStock, { tenantId, organizationId, odText: rod.odText, odFrom: String(rod.odFrom), lengthMm: rod.lengthMm, quantity: rod.quantity })
+          target.srNo = rod.srNo
+          target.odText = rod.odText
+          target.odFrom = rod.odFrom.toFixed(2)
+          target.odTo = rod.odTo === null ? null : rod.odTo.toFixed(2)
+          target.lengthMm = rod.lengthMm
+          target.quantity = rod.quantity
+          target.source = 'tube_rod_list'
+          tem.persist(target)
+        }
+        return { created, updated }
+      })
+      console.log(`${dryRun ? 'Checked' : 'Imported'} ${rods.length} rod stock rows: ${result.created} new, ${result.updated} already there`)
+      return
+    }
+    const rows = convertClientWorkbook(sheets)
     const report = await em.transactional((tem) => importMasters({ em: tem, tenantId, organizationId }, MASTER_DEFS.chart, rows, dryRun, 'chart import'))
     console.log(`${dryRun ? 'Checked' : 'Imported'} ${report.total} chart rows: ${report.created} new, ${report.updated} already there, ${report.failed} failed`)
     for (const error of report.errors.slice(0, 20)) console.log(`  row ${error.row}: ${error.error}`)

@@ -6,6 +6,7 @@ import { Page, PageBody } from '@open-mercato/ui/backend/Page'
 import { MASTER_DEFS } from '../../../lib/masterDefs'
 import { MasterTable } from '../../../components/MasterGrid'
 import { DieFinder } from '../../../components/DieFinder'
+import { RodStockFinder } from '../../../components/RodStockFinder'
 
 export default function DieChartPage() {
   const t = useT()
@@ -15,6 +16,7 @@ export default function DieChartPage() {
         <div className="mx-auto max-w-7xl space-y-4 pb-16">
           <h1 className="text-xl font-semibold">{t('cc_production.nav.chart', 'Die chart')}</h1>
           <DieFinder />
+          <RodStockFinder />
           <MasterTable def={MASTER_DEFS.chart} />
         </div>
       </PageBody>

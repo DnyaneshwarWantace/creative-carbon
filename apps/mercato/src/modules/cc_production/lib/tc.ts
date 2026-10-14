@@ -2,7 +2,7 @@ import { loadCustomers, type OrderContext } from '../../cc_orders/lib/server'
 import { nextSeriesCode } from '../../cc_accounts/lib/numberSeries'
 import { TcTemplate, TestCertificate } from '../data/entities'
 import type { TcCreateInput, TcTemplateInput, TcUpdateInput } from '../data/validators'
-import { IS2036_STANDARD, P2_ROWS, evaluateRows, missingRows, notOkRows, type TcObserved } from './tcRules'
+import { IS2036_STANDARD, P2_ROWS, P3_LEGEND, P3_ROWS, evaluateRows, missingRows, notOkRows, type TcObserved } from './tcRules'
 import { PlantError } from './server'
 
 type Scope = Pick<OrderContext, 'em' | 'tenantId' | 'organizationId'>
@@ -12,14 +12,19 @@ function where(ctx: Scope) {
 }
 
 export async function ensureDefaultTemplates(ctx: Scope, byName: string | null): Promise<void> {
-  const existing = await ctx.em.count(TcTemplate, where(ctx))
-  if (existing) return
-  ctx.em.persist(ctx.em.create(TcTemplate, { tenantId: ctx.tenantId, organizationId: ctx.organizationId, name: 'P2 phenolic sheet', productLabel: 'PHENOLIC SHEET', grade: 'P2', standard: IS2036_STANDARD, rows: P2_ROWS, updatedByName: byName }))
+  const grades = new Set((await ctx.em.find(TcTemplate, where(ctx))).map((row) => row.grade))
+  const defaults = [
+    { name: 'P2 phenolic sheet', productLabel: 'PHENOLIC SHEET', grade: 'P2', rows: P2_ROWS, lastColumn: 'remark' as const, legend: [] },
+    { name: 'P3 paper phenolic sheet', productLabel: 'PAPER PHENOLIC SHEET', grade: 'P3', rows: P3_ROWS, lastColumn: 'criteria' as const, legend: P3_LEGEND },
+  ]
+  const missing = defaults.filter((entry) => !grades.has(entry.grade))
+  if (!missing.length) return
+  for (const entry of missing) ctx.em.persist(ctx.em.create(TcTemplate, { tenantId: ctx.tenantId, organizationId: ctx.organizationId, standard: IS2036_STANDARD, updatedByName: byName, ...entry }))
   await ctx.em.flush()
 }
 
 export function templateView(row: TcTemplate) {
-  return { id: row.id, name: row.name, productLabel: row.productLabel, grade: row.grade, standard: row.standard, rows: row.rows, isActive: row.isActive, updatedAt: row.updatedAt.toISOString() }
+  return { id: row.id, name: row.name, productLabel: row.productLabel, grade: row.grade, standard: row.standard, rows: row.rows, lastColumn: row.lastColumn, legend: row.legend ?? [], isActive: row.isActive, updatedAt: row.updatedAt.toISOString() }
 }
 
 export async function listTemplates(ctx: Scope, byName: string | null) {
@@ -42,6 +47,8 @@ export async function saveTemplate(ctx: Scope, input: TcTemplateInput, byName: s
   target.grade = input.grade
   target.standard = input.standard
   target.rows = input.rows
+  target.lastColumn = input.lastColumn
+  target.legend = input.legend
   target.isActive = input.isActive
   target.updatedByName = byName
   ctx.em.persist(target)
@@ -69,7 +76,9 @@ export async function certificateView(ctx: Scope, row: TestCertificate, names?: 
     thicknessMm: thickness,
     traceability: row.traceability ?? null,
     orderId: row.orderId ?? null,
-    rows: evaluated.map((entry) => ({ key: entry.row.key, property: entry.row.property, specified: entry.specified, unit: entry.row.unit, observed: entry.observed, remark: entry.remark, check: entry.row.check, optional: entry.row.optional ?? false })),
+    rows: evaluated.map((entry) => ({ key: entry.row.key, property: entry.row.property, specified: entry.specified, unit: entry.row.unit, observed: entry.observed, remark: entry.remark, check: entry.row.check, optional: entry.row.optional ?? false, criteria: entry.row.criteria ?? '' })),
+    lastColumn: row.lastColumn,
+    legend: row.legend ?? [],
     notOkCount: evaluated.filter((entry) => entry.remark === 'Not OK').length,
     missingCount: evaluated.filter((entry) => entry.remark === '').length,
     testedBy: row.testedBy ?? null,
@@ -116,7 +125,9 @@ export async function createCertificate(ctx: Scope, input: TcCreateInput, byName
     traceability: input.traceability ?? null,
     orderId: input.orderId ?? null,
     rows: template.rows,
-    observed: {},
+    lastColumn: template.lastColumn,
+    legend: template.legend ?? [],
+    observed: Object.fromEntries(template.rows.filter((entry) => entry.defaultObserved).map((entry) => [entry.key, entry.defaultObserved as string])),
     updatedByName: byName,
   })
   ctx.em.persist(row)

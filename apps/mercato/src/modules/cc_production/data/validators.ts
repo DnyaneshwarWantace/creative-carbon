@@ -458,7 +458,7 @@ export const labActionSchema = z
 const tcCheckSchema = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('min'), value: z.number(), strict: z.boolean().optional() }),
   z.object({ kind: z.literal('max'), value: z.number() }),
-  z.object({ kind: z.literal('range'), nominal: z.union([z.number(), z.literal('thickness')]), tolerance: z.number().min(0) }),
+  z.object({ kind: z.literal('range'), nominal: z.union([z.number(), z.literal('thickness')]), tolerance: z.union([z.number().min(0), z.literal('by_thickness')]) }),
   z.object({ kind: z.literal('text') }),
 ])
 
@@ -469,7 +469,11 @@ export const tcRowSchema = z.object({
   unit: z.string().trim().max(40),
   check: tcCheckSchema,
   optional: z.boolean().optional(),
+  criteria: z.string().trim().max(80).optional(),
+  defaultObserved: z.string().trim().max(120).optional(),
 })
+
+export const tcLegendSchema = z.object({ code: z.string().trim().max(40), a: z.string().trim().max(60).default(''), b: z.string().trim().max(60).default(''), c: z.string().trim().max(60).default(''), result: z.string().trim().max(40).default('') })
 
 export const tcTemplateSchema = z.object({
   id: z.string().uuid().optional(),
@@ -478,6 +482,8 @@ export const tcTemplateSchema = z.object({
   grade: z.string().trim().min(1).max(40),
   standard: z.string().trim().min(1).max(80).default('IS 2036 : 1995'),
   rows: z.array(tcRowSchema).min(1).max(60),
+  lastColumn: z.enum(['remark', 'criteria']).default('remark'),
+  legend: z.array(tcLegendSchema).max(12).default([]),
   isActive: z.boolean().default(true),
 })
 

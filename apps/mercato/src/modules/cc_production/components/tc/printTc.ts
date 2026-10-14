@@ -12,7 +12,9 @@ export type PrintableTc = {
   testedBy: string | null
   verifiedBy: string | null
   status: string
-  rows: Array<{ property: string; specified: string; unit: string; observed: string; remark: string }>
+  lastColumn?: 'remark' | 'criteria'
+  legend?: Array<{ code: string; a: string; b: string; c: string; result: string }>
+  rows: Array<{ property: string; specified: string; unit: string; observed: string; remark: string; criteria?: string }>
 }
 
 function dotDate(value: string): string {
@@ -34,7 +36,9 @@ export function buildTcHtml(tc: PrintableTc, company?: PrintCompany | null, forP
     ['Thickness', tc.thicknessMm === null ? '' : `${tc.thicknessMm.toFixed(1)} MM`],
     ...(tc.traceability ? ([['Traceability', tc.traceability]] as Array<[string, string]>) : []),
   ]
-  const rows = tc.rows.map((row) => `<tr><td>${cell(row.property)}</td><td>${cell(row.specified)}</td><td>${cell(row.unit)}</td><td>${cell(row.observed)}</td><td>${esc(row.remark)}</td></tr>`).join('')
+  const byCriteria = tc.lastColumn === 'criteria'
+  const rows = tc.rows.map((row) => `<tr><td>${cell(row.property)}</td><td>${cell(row.specified)}</td><td>${cell(row.unit)}</td><td>${cell(row.observed)}</td><td>${byCriteria ? cell(row.criteria ?? '') : esc(row.remark)}</td></tr>`).join('')
+  const legend = byCriteria && tc.legend?.length ? `<table class="tbl legend"><thead><tr><th>Test criteria</th><th colspan="3">Conditions</th><th>Result</th></tr></thead><tbody>${tc.legend.map((entry) => `<tr><td>${esc(entry.code)}</td><td>${esc(entry.a)}</td><td>${esc(entry.b)}</td><td>${esc(entry.c)}</td><td>${esc(entry.result)}</td></tr>`).join('')}</tbody></table>` : ''
   const draft = tc.status !== 'issued'
   return `<!doctype html><html><head><meta charset="utf-8"><title>Test certificate ${esc(tc.code)}</title><style>
 *{box-sizing:border-box} body{font-family:Arial,Helvetica,sans-serif;color:#111;margin:0;padding:28px;font-size:12px}
@@ -51,7 +55,8 @@ ${draft ? '<div class="wm">DRAFT</div>' : ''}
 ${letterheadHtml(company)}
 <h1>TEST CERTIFICATE</h1>
 <table class="meta">${head.map(([label, value]) => `<tr><td>${esc(label)}</td><td>– ${esc(value)}</td></tr>`).join('')}</table>
-<table class="tbl"><thead><tr><th>Test Properties</th><th>Specified value as per<br>${esc(tc.standard)}</th><th>Unit</th><th>Observed value</th><th>Remark</th></tr></thead><tbody>${rows}</tbody></table>
+<table class="tbl"><thead><tr><th>Test Properties</th><th>Specified value as per<br>${esc(tc.standard)}</th><th>Unit</th><th>Observed value</th><th>${byCriteria ? 'Test Criteria' : 'Remark'}</th></tr></thead><tbody>${rows}</tbody></table>
+${legend}
 <div class="sign"><div>Tested By: &nbsp;${esc(tc.testedBy ?? '')}</div><div>Verified By: ${esc(tc.verifiedBy ?? '')}</div></div>
 ${forPrint ? "<script>window.addEventListener('load', function () { setTimeout(function () { window.print() }, 200) })</script>" : ''}
 </body></html>`

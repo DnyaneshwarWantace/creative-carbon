@@ -12,9 +12,17 @@ import { buildOptimisticLockHeader } from '@open-mercato/ui/backend/utils/optimi
 import { useGuardedMutation } from '@open-mercato/ui/backend/injection/useGuardedMutation'
 import { flash } from '@open-mercato/ui/backend/FlashMessages'
 import { useGranted } from '../../../cc_departments/components/useGranted'
-import type { TcCheck, TcRow } from '../../lib/tcRules'
+import type { TcCheck, TcLegendEntry, TcRow } from '../../lib/tcRules'
 
-type Template = { id?: string; name: string; productLabel: string; grade: string; standard: string; rows: TcRow[]; isActive: boolean; updatedAt?: string }
+type Template = { id?: string; name: string; productLabel: string; grade: string; standard: string; rows: TcRow[]; lastColumn: 'remark' | 'criteria'; legend: TcLegendEntry[]; isActive: boolean; updatedAt?: string }
+
+function legendToText(legend: TcLegendEntry[]): string {
+  return legend.map((entry) => [entry.code, entry.a, entry.b, entry.c, entry.result].join(' | ')).join('\n')
+}
+
+function textToLegend(text: string): TcLegendEntry[] {
+  return text.split('\n').map((line) => line.split('|').map((part) => part.trim())).filter((parts) => parts[0]).map((parts) => ({ code: parts[0], a: parts[1] ?? '', b: parts[2] ?? '', c: parts[3] ?? '', result: parts[4] ?? '' }))
+}
 type Kind = TcCheck['kind']
 
 const KINDS: Array<{ value: Kind; label: string }> = [
@@ -91,7 +99,7 @@ export function TcTemplatesPage() {
               <p className="text-sm text-muted-foreground">{t('cc_production.tc.templatesHint', 'One template per product and grade: the properties, the specified value and how OK is decided.')}</p>
             </div>
             {canManage ? (
-              <Button type="button" onClick={() => setDraft({ name: '', productLabel: 'PHENOLIC SHEET', grade: '', standard: 'IS 2036 : 1995', rows: [blankRow(0)], isActive: true })}>
+              <Button type="button" onClick={() => setDraft({ name: '', productLabel: 'PHENOLIC SHEET', grade: '', standard: 'IS 2036 : 1995', rows: [blankRow(0)], lastColumn: 'remark', legend: [], isActive: true })}>
                 <Plus className="mr-1.5 h-4 w-4" aria-hidden="true" />
                 {t('cc_production.tc.newTemplate', 'New template')}
               </Button>
@@ -129,6 +137,15 @@ export function TcTemplatesPage() {
                 <div className="space-y-1.5"><Label>{t('cc_production.tc.grade', 'Grade')}</Label><Input value={draft.grade} onChange={(event) => setDraft({ ...draft, grade: event.target.value })} /></div>
                 <div className="space-y-1.5"><Label>{t('cc_production.tc.standard', 'Standard')}</Label><Input value={draft.standard} onChange={(event) => setDraft({ ...draft, standard: event.target.value })} /></div>
               </div>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-4">
+                <div className="space-y-1.5">
+                  <Label>{t('cc_production.tc.lastColumn', 'Last column on the paper')}</Label>
+                  <select className="block h-9 w-full rounded-md border border-input bg-background px-2 text-sm" value={draft.lastColumn} onChange={(event) => setDraft({ ...draft, lastColumn: event.target.value as 'remark' | 'criteria' })}>
+                    <option value="remark">{t('cc_production.tc.remark', 'Remark')}</option>
+                    <option value="criteria">{t('cc_production.tc.criteria', 'Test criteria')}</option>
+                  </select>
+                </div>
+              </div>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
@@ -139,6 +156,7 @@ export function TcTemplatesPage() {
                       <th className="px-1 py-1">{t('cc_production.tc.rule', 'OK when observed is')}</th>
                       <th className="px-1 py-1">{t('cc_production.tc.limit', 'Limit / nominal')}</th>
                       <th className="px-1 py-1">±</th>
+                      <th className="px-1 py-1">{t('cc_production.tc.criteria', 'Test criteria')}</th>
                       <th className="px-1 py-1" />
                     </tr>
                   </thead>
@@ -169,8 +187,9 @@ export function TcTemplatesPage() {
                           )}
                         </td>
                         <td className="px-1 py-1">
-                          {row.check.kind === 'range' ? <Input className="w-20" inputMode="decimal" value={String(row.check.tolerance)} onChange={(event) => setRow(index, { ...row, check: { ...row.check, tolerance: Number(event.target.value) || 0 } as TcCheck })} /> : null}
+                          {row.check.kind === 'range' ? <Input className="w-24" value={String(row.check.tolerance)} placeholder="by_thickness" onChange={(event) => setRow(index, { ...row, check: { ...row.check, tolerance: event.target.value.trim() === 'by_thickness' ? 'by_thickness' : Number(event.target.value) || 0 } as TcCheck })} /> : null}
                         </td>
+                        <td className="px-1 py-1"><Input className="w-32" value={row.criteria ?? ''} onChange={(event) => setRow(index, { ...row, criteria: event.target.value })} /></td>
                         <td className="px-1 py-1">
                           <Button type="button" variant="ghost" size="sm" aria-label={t('cc_production.tc.removeRow', 'Remove row')} onClick={() => setDraft({ ...draft, rows: draft.rows.filter((_, at) => at !== index) })}>
                             <Trash2 className="h-4 w-4" aria-hidden="true" />
@@ -181,6 +200,12 @@ export function TcTemplatesPage() {
                   </tbody>
                 </table>
               </div>
+              {draft.lastColumn === 'criteria' ? (
+                <div className="space-y-1.5">
+                  <Label>{t('cc_production.tc.legend', 'Criteria legend (one per line: code | condition | condition | condition | result)')}</Label>
+                  <textarea className="block w-full rounded-md border border-input bg-background px-2 py-1.5 text-sm" rows={4} value={legendToText(draft.legend)} onChange={(event) => setDraft({ ...draft, legend: textToLegend(event.target.value) })} />
+                </div>
+              ) : null}
               <div className="flex gap-2">
                 <Button type="button" variant="outline" size="sm" onClick={() => setDraft({ ...draft, rows: [...draft.rows, blankRow(draft.rows.length)] })}>
                   <Plus className="mr-1.5 h-4 w-4" aria-hidden="true" />

@@ -1,4 +1,4 @@
-import { P2_ROWS, evaluateRows, missingRows, notOkRows, remarkFor, specifiedText } from '../tcRules'
+import { P2_ROWS, P3_ROWS, evaluateRows, missingRows, notOkRows, remarkFor, specifiedText } from '../tcRules'
 
 const row = (key: string) => P2_ROWS.find((entry) => entry.key === key)!
 
@@ -37,5 +37,28 @@ describe('test certificate rules', () => {
     expect(result.every((entry) => entry.remark === 'OK')).toBe(true)
     expect(notOkRows(P2_ROWS, observed, 10)).toHaveLength(0)
     expect(missingRows(P2_ROWS, observed, 10)).toHaveLength(0)
+  })
+})
+
+describe('P3 paper phenolic certificate', () => {
+  const p3 = (key: string) => P3_ROWS.find((entry) => entry.key === key)!
+
+  it('takes the thickness band from the thickness table', () => {
+    expect(specifiedText(p3('thickness'), 6)).toBe('6 ± 0.40 mm')
+    expect(remarkFor(p3('thickness'), '5.8 to 6.3', 6)).toBe('OK')
+    expect(remarkFor(p3('thickness'), '5.5', 6)).toBe('Not OK')
+    expect(specifiedText(p3('thickness'), 10)).toBe('10.0 ± 0.60 mm')
+  })
+
+  it('judges the P3 limits', () => {
+    expect(remarkFor(p3('density'), '1.30', 6)).toBe('OK')
+    expect(remarkFor(p3('density'), '1.25', 6)).toBe('Not OK')
+    expect(remarkFor(p3('tensile'), '100', 6)).toBe('OK')
+    expect(remarkFor(p3('dielectricFlat'), '4.0', 6)).toBe('Not OK')
+  })
+
+  it('carries a criteria code on every row and a preset for the fixed observations', () => {
+    expect(P3_ROWS.every((entry) => Boolean(entry.criteria))).toBe(true)
+    expect(p3('machinability').defaultObserved).toBe('Complied')
   })
 })

@@ -1,6 +1,6 @@
 import { Entity, Index, PrimaryKey, Property, Unique } from '@mikro-orm/decorators/legacy'
 import { OptionalProps } from '@mikro-orm/core'
-import type { TcObserved, TcRow } from '../lib/tcRules'
+import type { TcLastColumn, TcLegendEntry, TcObserved, TcRow } from '../lib/tcRules'
 
 type Common = 'isActive' | 'createdAt' | 'updatedAt' | 'deletedAt' | 'updatedByName'
 
@@ -1619,7 +1619,7 @@ export class TcTemplate {
   @Property({ name: 'deleted_at', type: Date, nullable: true })
   deletedAt?: Date | null
 
-  [OptionalProps]?: Common | 'standard'
+  [OptionalProps]?: Common | 'standard' | 'lastColumn' | 'legend'
 
   @Property({ type: 'text' })
   name!: string
@@ -1635,6 +1635,12 @@ export class TcTemplate {
 
   @Property({ type: 'json' })
   rows!: TcRow[]
+
+  @Property({ name: 'last_column', type: 'text', default: 'remark' })
+  lastColumn: TcLastColumn = 'remark'
+
+  @Property({ type: 'json', nullable: true })
+  legend?: TcLegendEntry[] | null
 }
 
 @Entity({ tableName: 'cc_test_certificates' })
@@ -1666,7 +1672,7 @@ export class TestCertificate {
   @Property({ name: 'deleted_at', type: Date, nullable: true })
   deletedAt?: Date | null
 
-  [OptionalProps]?: Common | 'status' | 'customerId' | 'customerLabel' | 'thicknessMm' | 'traceability' | 'orderId' | 'observed' | 'testedBy' | 'verifiedBy' | 'issuedAt' | 'issuedByName' | 'notOkReason' | 'notes' | 'templateId'
+  [OptionalProps]?: Common | 'status' | 'customerId' | 'customerLabel' | 'thicknessMm' | 'traceability' | 'orderId' | 'observed' | 'testedBy' | 'verifiedBy' | 'issuedAt' | 'issuedByName' | 'notOkReason' | 'notes' | 'templateId' | 'lastColumn' | 'legend'
 
   @Property({ type: 'text' })
   code!: string
@@ -1707,6 +1713,12 @@ export class TestCertificate {
   @Property({ type: 'json' })
   rows!: TcRow[]
 
+  @Property({ name: 'last_column', type: 'text', default: 'remark' })
+  lastColumn: TcLastColumn = 'remark'
+
+  @Property({ type: 'json', nullable: true })
+  legend?: TcLegendEntry[] | null
+
   @Property({ type: 'json', nullable: true })
   observed?: TcObserved | null
 
@@ -1727,4 +1739,55 @@ export class TestCertificate {
 
   @Property({ type: 'text', nullable: true })
   notes?: string | null
+}
+
+@Entity({ tableName: 'cc_rod_stocks' })
+@Index({ name: 'cc_rod_stocks_scope_idx', properties: ['organizationId', 'tenantId'] })
+export class RodStock {
+  [OptionalProps]?: 'srNo' | 'odTo' | 'source' | 'notes' | 'isActive' | 'createdAt' | 'updatedAt' | 'deletedAt'
+
+  @PrimaryKey({ type: 'uuid', defaultRaw: 'gen_random_uuid()' })
+  id!: string
+
+  @Property({ name: 'organization_id', type: 'uuid' })
+  organizationId!: string
+
+  @Property({ name: 'tenant_id', type: 'uuid' })
+  tenantId!: string
+
+  @Property({ name: 'sr_no', type: 'integer', nullable: true })
+  srNo?: number | null
+
+  @Property({ name: 'od_text', type: 'text' })
+  odText!: string
+
+  @Property({ name: 'od_from', type: 'numeric', precision: 10, scale: 2 })
+  odFrom!: string
+
+  @Property({ name: 'od_to', type: 'numeric', precision: 10, scale: 2, nullable: true })
+  odTo?: string | null
+
+  @Property({ name: 'length_mm', type: 'integer' })
+  lengthMm!: number
+
+  @Property({ type: 'integer' })
+  quantity!: number
+
+  @Property({ type: 'text', nullable: true })
+  source?: string | null
+
+  @Property({ type: 'text', nullable: true })
+  notes?: string | null
+
+  @Property({ name: 'is_active', type: 'boolean', default: true })
+  isActive: boolean = true
+
+  @Property({ name: 'created_at', type: Date, onCreate: () => new Date() })
+  createdAt: Date = new Date()
+
+  @Property({ name: 'updated_at', type: Date, onCreate: () => new Date(), onUpdate: () => new Date() })
+  updatedAt: Date = new Date()
+
+  @Property({ name: 'deleted_at', type: Date, nullable: true })
+  deletedAt?: Date | null
 }

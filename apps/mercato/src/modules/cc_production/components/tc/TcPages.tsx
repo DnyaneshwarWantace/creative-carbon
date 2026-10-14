@@ -20,11 +20,11 @@ import { SearchPicker } from '../../../cc_orders/components/SearchPicker'
 import { searchCustomers } from '../../../cc_orders/components/loaders'
 import { FieldList, Panel, RecordPage, RecordState } from '../../../cc_ui/components/RecordPage'
 import type { PrintCompany } from '../../../cc_ui/lib/printKit'
-import { remarkFor, specifiedText, type TcRow } from '../../lib/tcRules'
+import { remarkFor, specifiedText, type TcLegendEntry, type TcRow } from '../../lib/tcRules'
 import { printTc } from './printTc'
 
 type Template = { id: string; name: string; productLabel: string; grade: string; standard: string; rows: TcRow[]; isActive: boolean; updatedAt: string }
-type CertRow = { key: string; property: string; specified: string; unit: string; observed: string; remark: string; check: TcRow['check']; optional: boolean }
+type CertRow = { key: string; property: string; specified: string; unit: string; observed: string; remark: string; check: TcRow['check']; optional: boolean; criteria: string }
 type Cert = {
   id: string
   code: string
@@ -39,6 +39,8 @@ type Cert = {
   thicknessMm: number | null
   traceability: string | null
   rows: CertRow[]
+  lastColumn: 'remark' | 'criteria'
+  legend: TcLegendEntry[]
   notOkCount: number
   missingCount: number
   testedBy: string | null
@@ -302,7 +304,7 @@ export function TcDetailPage({ id }: { id: string }) {
 
   const print = () => {
     const ok = printTc(
-      { ...cert, thicknessMm: thicknessNumber ?? cert.thicknessMm, testedBy: testedBy || cert.testedBy, verifiedBy: verifiedBy || cert.verifiedBy, rows: cert.rows.map((row) => ({ ...row, observed: observed[row.key] ?? '', remark: liveRemark(row) })) },
+      { ...cert, thicknessMm: thicknessNumber ?? cert.thicknessMm, testedBy: testedBy || cert.testedBy, verifiedBy: verifiedBy || cert.verifiedBy, rows: cert.rows.map((row) => ({ ...row, specified: specifiedText(row, thicknessNumber), observed: observed[row.key] ?? '', remark: liveRemark(row) })) },
       company,
     )
     if (!ok) flash(t('cc_production.tc.popup', 'Allow pop-ups to print.'), 'error')
@@ -369,6 +371,7 @@ export function TcDetailPage({ id }: { id: string }) {
                 <th className="px-3 py-2">{t('cc_production.tc.unit', 'Unit')}</th>
                 <th className="px-3 py-2">{t('cc_production.tc.observed', 'Observed value')}</th>
                 <th className="px-3 py-2">{t('cc_production.tc.remark', 'Remark')}</th>
+                {cert.lastColumn === 'criteria' ? <th className="px-3 py-2">{t('cc_production.tc.criteria', 'Test criteria')}</th> : null}
               </tr>
             </thead>
             <tbody>
@@ -383,6 +386,7 @@ export function TcDetailPage({ id }: { id: string }) {
                       <Input value={observed[row.key] ?? ''} disabled={!editable} onChange={(event) => setObserved((current) => ({ ...current, [row.key]: event.target.value }))} />
                     </td>
                     <td className="px-3 py-2">{remark ? <StatusBadge variant={remarkVariant(remark)}>{remark}</StatusBadge> : '—'}</td>
+                    {cert.lastColumn === 'criteria' ? <td className="px-3 py-2 text-muted-foreground">{row.criteria}</td> : null}
                   </tr>
                 )
               })}

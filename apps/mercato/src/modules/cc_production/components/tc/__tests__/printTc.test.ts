@@ -15,6 +15,17 @@ const tc: PrintableTc = {
   rows: [{ property: 'Density', specified: '> 1.35', unit: 'gm/cc', observed: '1.40', remark: 'OK' }],
 }
 
+describe('test certificate print with a criteria column', () => {
+  it('prints the criteria in the last column and the legend below', () => {
+    const html = buildTcHtml({ ...tc, lastColumn: 'criteria', legend: [{ code: 'C-24/27/65', a: 'Conditioning 24 HRS', b: '27 DEG C', c: '65 HUMIDITY', result: 'CONFIRMS' }], rows: [{ property: 'Density', specified: '> 1.28', unit: 'gm/cc', observed: '1.30', remark: 'OK', criteria: 'C-24/27/65' }] }, null, false)
+    expect(html).toContain('<th>Test Criteria</th>')
+    expect(html).toContain('<td>C-24/27/65</td></tr></tbody></table>')
+    expect(html).toContain('Conditioning 24 HRS')
+    expect(html).toContain('CONFIRMS')
+    expect(html).not.toContain('<td>OK</td>')
+  })
+})
+
 describe('test certificate print', () => {
   it('prints the header lines the way the paper does', () => {
     const html = buildTcHtml(tc, null, false)
