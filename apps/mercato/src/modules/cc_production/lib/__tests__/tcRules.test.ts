@@ -11,6 +11,8 @@ describe('test certificate rules', () => {
 
   it('takes the thickness band from the certificate thickness', () => {
     expect(specifiedText(row('thickness'), 10)).toBe('10.0 ± 0.60 mm')
+    expect(specifiedText(row('thickness'), 20)).toBe('20.0 ± 0.90 mm')
+    expect(specifiedText(row('thickness'), 6)).toBe('6 ± 0.40 mm')
     expect(remarkFor(row('thickness'), '9.7 to 10.4', 10)).toBe('OK')
     expect(remarkFor(row('thickness'), '9.3 to 10.4', 10)).toBe('Not OK')
     expect(remarkFor(row('thickness'), '6.2', 6)).toBe('OK')

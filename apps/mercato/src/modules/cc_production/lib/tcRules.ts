@@ -84,7 +84,7 @@ export const IS2036_STANDARD = 'IS 2036 : 1995'
 export const P2_ROWS: TcRow[] = [
   { key: 'appearance', property: 'Appearance', specified: 'Smooth', unit: '--', check: { kind: 'text' } },
   { key: 'finish', property: 'Finish', specified: '', unit: '--', check: { kind: 'text' }, optional: true },
-  { key: 'thickness', property: 'Thickness', specified: '± 0.60 mm', unit: 'Mm', check: { kind: 'range', nominal: 'thickness', tolerance: 0.6 } },
+  { key: 'thickness', property: 'Thickness', specified: '', unit: 'Mm', check: { kind: 'range', nominal: 'thickness', tolerance: 'by_thickness' } },
   { key: 'density', property: 'Density', specified: '> 1.35', unit: 'gm/cc', check: { kind: 'min', value: 1.35, strict: true } },
   { key: 'water', property: 'Water absorption\nAfter 24 hrs. immersion in Water', specified: '545', unit: 'mg., max.', check: { kind: 'max', value: 545 } },
   { key: 'oil', property: 'Oil absorption\nAfter 24 hrs. immersion in Hot Oil at 90°C', specified: '--', unit: 'mg., max.', check: { kind: 'text' } },
