@@ -1,5 +1,7 @@
 "use client"
 
+import { RecipeCheckPanel } from '../recipes/RecipeCheckPanel'
+import { coatingChecks } from '../../lib/recipeAdapters'
 import * as React from 'react'
 import Link from 'next/link'
 import { Beaker, Clock, Pencil, Printer, TriangleAlert, Waypoints, Wind } from 'lucide-react'
@@ -150,6 +152,10 @@ export function CoatingSheetPage({ sheetId }: { sheetId: string }) {
           ]}
         />
       </Panel>
+
+      {coatingChecks(sheet.rows).map((check) => (
+        <RecipeCheckPanel key={check.key} level="coating" match={{ outputProductId: check.outputProductId }} outputQty={check.outputQty} actual={check.actual} />
+      ))}
 
       <RecordColumns
         main={

@@ -1,5 +1,7 @@
 "use client"
 
+import { RecipeCheckPanel } from '../recipes/RecipeCheckPanel'
+import { pressChecks } from '../../lib/recipeAdapters'
 import * as React from 'react'
 import Link from 'next/link'
 import { Ban, CheckCheck, Flame, Layers, Pencil, Printer, RotateCcw, Send, TriangleAlert, Waypoints } from 'lucide-react'
@@ -201,6 +203,9 @@ export function PressBatchPage({ batchId }: { batchId: string }) {
                 />
               </Panel>
 
+              {pressChecks(batch.picks, batch.outputs).map((check) => (
+                <RecipeCheckPanel key={check.key} level="laminate" match={{ outputProductId: check.outputProductId }} outputQty={check.outputQty} actual={check.actual} />
+              ))}
               <Panel title={t('cc_production.press.heating', 'Press heating slip (optional)')} icon={Flame}>
                 {heating.length ? (
                   <FieldList
