@@ -4,7 +4,7 @@ import { DieChartEntry, Dryer, LoadingTolerance, Mould, Press, PriceRate, Reacto
 import { masterInputSchema } from '../data/validators'
 import { loadCustomers, type OrderContext } from '../../cc_orders/lib/server'
 import type { MasterColumn, MasterDef, MasterType } from './masterDefs'
-import { PlantError } from './server'
+import { PlantError } from './errors'
 
 type Scope = Pick<OrderContext, 'em' | 'tenantId' | 'organizationId'>
 

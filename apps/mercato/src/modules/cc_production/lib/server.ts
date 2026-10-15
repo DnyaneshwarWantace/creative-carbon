@@ -3,15 +3,9 @@ import { CrudHttpError } from '@open-mercato/shared/lib/crud/errors'
 import { runRouteMutationGuards } from '@open-mercato/shared/lib/crud/route-mutation-guard'
 import type { OrderContext } from '../../cc_orders/lib/server'
 
-export class PlantError extends Error {
-  status: number
-  details?: Record<string, unknown>
-  constructor(message: string, status = 400, details?: Record<string, unknown>) {
-    super(message)
-    this.status = status
-    this.details = details
-  }
-}
+import { PlantError } from './errors'
+
+export { PlantError }
 
 export function plantErrorResponse(error: unknown) {
   if (error instanceof PlantError) return NextResponse.json({ error: error.message, ...(error.details ?? {}) }, { status: error.status })

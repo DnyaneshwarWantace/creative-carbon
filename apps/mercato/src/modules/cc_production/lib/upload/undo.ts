@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto'
 import type { StoreContext } from '../../../cc_store/lib/server'
 import { performerId, runCommand } from '../../../cc_store/lib/server'
-import { CoatingSheet, MouldingEntry, PressBatch, ResinBatch, UploadBatch, type UploadRecordRef } from '../../data/entities'
+import { CoatingSheet, MouldingEntry, PressBatch, ResinBatch, RodStock, UploadBatch, type UploadRecordRef } from '../../data/entities'
 import { MASTER_DEFS, type MasterType } from '../masterDefs'
 import { deleteMaster, findMaster, masterUsage } from '../masters'
 import { deleteBatch, reopenBatch, reopenDeadline } from '../resin'
@@ -169,6 +169,14 @@ async function undoRecord(ctx: StoreContext, record: UploadRecordRef, reason: st
       performedBy: performerId(ctx),
       metadata: { source: 'cc_production.upload', lotId: record.id, byName },
     })
+    return
+  }
+  if (record.type === 'rod_stock') {
+    const rod = await ctx.em.findOne(RodStock, { id: record.id, ...scope(ctx), deletedAt: null })
+    if (rod) {
+      rod.deletedAt = new Date()
+      await ctx.em.flush()
+    }
     return
   }
   if (record.type === 'master' && record.masterType) {
