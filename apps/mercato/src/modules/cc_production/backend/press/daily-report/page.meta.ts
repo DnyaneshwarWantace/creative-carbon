@@ -3,7 +3,7 @@ export const metadata = {
   requireFeatures: ['cc_production.press.view'],
   pageTitle: 'Daily batch report',
   pageTitleKey: 'cc_production.nav.pressDaily',
-  pageGroup: 'Plant',
+  pageGroup: 'Production',
   pageGroupKey: 'cc-04-plant.nav.group',
   pageOrder: 34,
   icon: 'file-text',

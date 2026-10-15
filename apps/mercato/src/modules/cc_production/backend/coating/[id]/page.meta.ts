@@ -3,7 +3,7 @@ export const metadata = {
   requireFeatures: ['cc_production.coating.view'],
   pageTitle: 'Dryer sheet',
   pageTitleKey: 'cc_production.nav.coatingSheet',
-  pageGroup: 'Plant',
+  pageGroup: 'Production',
   pageGroupKey: 'cc-04-plant.nav.group',
   pageOrder: 21,
   icon: 'wind',

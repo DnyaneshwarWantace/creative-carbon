@@ -3,7 +3,7 @@ export const metadata = {
   requireFeatures: ['cc_production.resin.view'],
   pageTitle: 'Chemical issue',
   pageTitleKey: 'cc_production.nav.chemicalIssues',
-  pageGroup: 'Plant',
+  pageGroup: 'Production',
   pageGroupKey: 'cc-04-plant.nav.group',
   pageOrder: 15,
   icon: 'beaker',

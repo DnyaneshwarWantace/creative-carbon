@@ -3,7 +3,7 @@ export const metadata = {
   requireFeatures: ['cc_production.quality.view'],
   pageTitle: 'Cutting entry',
   pageTitleKey: 'cc_production.nav.cuttingEntry',
-  pageGroup: 'Plant',
+  pageGroup: 'Production',
   pageGroupKey: 'cc-04-plant.nav.group',
   icon: 'scissors',
   navHidden: true,

@@ -3,7 +3,7 @@ export const metadata = {
   requireFeatures: ['cc_production.resin.view'],
   pageTitle: 'Resin batches',
   pageTitleKey: 'cc_production.nav.resinBatches',
-  pageGroup: 'Plant',
+  pageGroup: 'Production',
   pageGroupKey: 'cc-04-plant.nav.group',
   pageOrder: 10,
   icon: 'flask-conical',

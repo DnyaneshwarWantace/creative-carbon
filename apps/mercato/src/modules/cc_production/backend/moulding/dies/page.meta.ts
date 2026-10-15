@@ -3,7 +3,7 @@ export const metadata = {
   requireFeatures: ['cc_production.moulding.view'],
   pageTitle: 'Die availability',
   pageTitleKey: 'cc_production.nav.dies',
-  pageGroup: 'Plant',
+  pageGroup: 'Production',
   pageGroupKey: 'cc-04-plant.nav.group',
   pageOrder: 42,
   icon: 'calendar-clock',

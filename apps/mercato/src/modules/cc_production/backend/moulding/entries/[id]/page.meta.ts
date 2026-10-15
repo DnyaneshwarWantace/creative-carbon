@@ -3,7 +3,7 @@ export const metadata = {
   requireFeatures: ['cc_production.moulding.view'],
   pageTitle: 'Moulding entry',
   pageTitleKey: 'cc_production.nav.mouldingEntry',
-  pageGroup: 'Plant',
+  pageGroup: 'Production',
   pageGroupKey: 'cc-04-plant.nav.group',
   pageOrder: 41,
   icon: 'cog',

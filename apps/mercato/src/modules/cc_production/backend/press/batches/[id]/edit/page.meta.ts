@@ -3,7 +3,7 @@ export const metadata = {
   requireFeatures: ['cc_production.press.enter'],
   pageTitle: 'Edit press batch',
   pageTitleKey: 'cc_production.nav.pressEdit',
-  pageGroup: 'Plant',
+  pageGroup: 'Production',
   pageGroupKey: 'cc-04-plant.nav.group',
   pageOrder: 33,
   icon: 'layers-3',

@@ -3,7 +3,7 @@ export const metadata = {
   requireFeatures: ['cc_production.coating.view'],
   pageTitle: 'B-stage board',
   pageTitleKey: 'cc_production.nav.bstage',
-  pageGroup: 'Plant',
+  pageGroup: 'Production',
   pageGroupKey: 'cc-04-plant.nav.group',
   pageOrder: 22,
   icon: 'layers',

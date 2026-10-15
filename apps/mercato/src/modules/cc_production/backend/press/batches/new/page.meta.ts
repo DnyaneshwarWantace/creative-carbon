@@ -3,7 +3,7 @@ export const metadata = {
   requireFeatures: ['cc_production.press.enter'],
   pageTitle: 'New press batch',
   pageTitleKey: 'cc_production.nav.pressNew',
-  pageGroup: 'Plant',
+  pageGroup: 'Production',
   pageGroupKey: 'cc-04-plant.nav.group',
   pageOrder: 31,
   icon: 'layers-3',

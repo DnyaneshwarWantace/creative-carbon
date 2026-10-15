@@ -3,7 +3,7 @@ export const metadata = {
   requireFeatures: ['cc_production.coating.view'],
   pageTitle: 'B-stage lot',
   pageTitleKey: 'cc_production.nav.bstageLot',
-  pageGroup: 'Plant',
+  pageGroup: 'Production',
   pageGroupKey: 'cc-04-plant.nav.group',
   pageOrder: 23,
   icon: 'layers',

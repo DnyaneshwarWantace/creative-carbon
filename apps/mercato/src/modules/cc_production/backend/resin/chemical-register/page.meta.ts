@@ -3,7 +3,7 @@ export const metadata = {
   requireFeatures: ['cc_production.resin.view'],
   pageTitle: 'Chemical register',
   pageTitleKey: 'cc_production.nav.chemicalRegister',
-  pageGroup: 'Plant',
+  pageGroup: 'Production',
   pageGroupKey: 'cc-04-plant.nav.group',
   pageOrder: 14,
   icon: 'book-open',
