@@ -2,6 +2,7 @@
 
 import * as React from 'react'
 import Link from 'next/link'
+import { ArrowRight, type LucideIcon } from 'lucide-react'
 import { cn } from '@open-mercato/shared/lib/utils'
 
 export function DashHeader({ overline, title, lede, actions }: { overline: React.ReactNode; title: React.ReactNode; lede?: React.ReactNode; actions?: React.ReactNode }) {
@@ -46,4 +47,42 @@ export function KpiStrip({ items, className }: { items: KpiItem[]; className?: s
       })}
     </dl>
   )
+}
+
+export function DashCard({ title, icon: Icon, count, tone, action, children }: { title: string; icon: LucideIcon; count?: React.ReactNode; tone?: 'warn' | 'bad' | 'good'; action?: React.ReactNode; children: React.ReactNode }) {
+  return (
+    <section className={cn('rounded-xl border bg-card shadow-xs', tone === 'bad' ? 'border-status-error-border' : tone === 'warn' ? 'border-status-warning-border' : 'border-border')}>
+      <header className="flex items-center gap-2 border-b border-border px-4 py-3">
+        <span className={cn('flex h-7 w-7 items-center justify-center rounded-md', tone === 'bad' ? 'bg-status-error-bg text-status-error-icon' : tone === 'warn' ? 'bg-status-warning-bg text-status-warning-icon' : 'bg-muted text-muted-foreground')}>
+          <Icon className="h-4 w-4" aria-hidden="true" />
+        </span>
+        <h2 className="text-sm font-semibold">{title}</h2>
+        {count !== undefined ? <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-semibold tabular-nums text-muted-foreground">{count}</span> : null}
+        {action ? <span className="ml-auto text-xs">{action}</span> : null}
+      </header>
+      <div className="p-4">{children}</div>
+    </section>
+  )
+}
+
+export function MeterBar({ value, max, tone }: { value: number; max: number; tone?: 'good' | 'warn' | 'bad' | 'accent' }) {
+  const width = max > 0 ? Math.max(2, Math.min(100, Math.round((value / max) * 100))) : 0
+  return (
+    <div className="h-2 overflow-hidden rounded-full bg-muted" aria-hidden="true">
+      <div className={cn('h-full rounded-full', tone === 'good' ? 'bg-status-success-icon' : tone === 'warn' ? 'bg-status-warning-icon' : tone === 'bad' ? 'bg-status-error-icon' : 'cc-bar-accent')} style={{ width: `${width}%` }} />
+    </div>
+  )
+}
+
+export function MoreLink({ href, label }: { href: string; label: string }) {
+  return (
+    <Link href={href} className="mt-3 inline-flex items-center gap-1 text-xs font-medium text-primary underline-offset-2 hover:underline">
+      {label}
+      <ArrowRight className="h-3 w-3" aria-hidden="true" />
+    </Link>
+  )
+}
+
+export function EmptyLine({ text }: { text: string }) {
+  return <p className="py-2 text-sm text-muted-foreground">{text}</p>
 }

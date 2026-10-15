@@ -141,6 +141,27 @@ export async function overview(ctx: Scope) {
        from cc_orders where tenant_id = ? and organization_id = ? and deleted_at is null and status in ('booked', 'confirmed')`,
     [today, week, today, ctx.tenantId, ctx.organizationId],
   )
+  const horizon = new Date(Date.parse(`${today}T00:00:00Z`) + 13 * DAY_MS).toISOString().slice(0, 10)
+  const dueRows = await ctx.em.getConnection().execute<Array<{ day: string; count: string }>>(
+    `select delivery_date::text as day, count(*)::text as count from cc_orders
+      where tenant_id = ? and organization_id = ? and deleted_at is null and status in ('booked', 'confirmed')
+        and delivery_date >= ? and delivery_date <= ?
+      group by delivery_date`,
+    [ctx.tenantId, ctx.organizationId, today, horizon],
+  )
+  const dueMap = new Map(dueRows.map((row) => [row.day.slice(0, 10), Number(row.count)]))
+  const dueByDay = Array.from({ length: 14 }, (_, index) => {
+    const day = new Date(Date.parse(`${today}T00:00:00Z`) + index * DAY_MS).toISOString().slice(0, 10)
+    return { date: day, count: dueMap.get(day) ?? 0 }
+  })
+  const monthAgo = new Date(Date.parse(`${today}T00:00:00Z`) - 30 * DAY_MS).toISOString().slice(0, 10)
+  const mixRows = await ctx.em.getConnection().execute<Array<{ status: string; count: string }>>(
+    `select status, count(*)::text as count from cc_orders
+      where tenant_id = ? and organization_id = ? and deleted_at is null and order_date >= ?
+      group by status`,
+    [ctx.tenantId, ctx.organizationId, monthAgo],
+  )
+  const statusMix = mixRows.map((row) => ({ status: row.status, count: Number(row.count) })).sort((a, b) => b.count - a.count)
   const onHoldOrders = new Set(items.filter((item) => item.status === 'on_hold').map((item) => item.orderId)).size
   const stuckOrders = new Set(items.filter((item) => item.stuck).map((item) => item.orderId)).size
 
@@ -205,6 +226,8 @@ export async function overview(ctx: Scope) {
       overdue: Number(orderCounts?.overdue ?? 0),
     },
     pipeline,
+    dueByDay,
+    statusMix,
     stuck: items.filter((item) => item.stuck).sort((a, b) => b.days - a.days).slice(0, 12),
     people: Array.from(people.values()).sort((a, b) => b.stuck - a.stuck || b.oldestDays - a.oldestDays),
     lowStock: low.slice(0, 12),

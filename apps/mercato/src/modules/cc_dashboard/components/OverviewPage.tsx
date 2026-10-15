@@ -1,23 +1,8 @@
 "use client"
 
-import { DashHeader, KpiStrip } from '../../cc_ui/components/DashKit'
 import * as React from 'react'
-import { useGranted } from '../../cc_departments/components/useGranted'
 import Link from 'next/link'
-import {
-  AlarmClock,
-  ArrowUpRight,
-  CalendarClock,
-  ClipboardList,
-  FlaskConical,
-  PauseCircle,
-  Plus,
-  ShoppingCart,
-  Stamp,
-  Truck,
-  UserRound,
-  Workflow,
-} from 'lucide-react'
+import { AlarmClock, CalendarClock, ChevronRight, ClipboardList, FlaskConical, Gauge, PieChart, Plus, ShoppingCart, Stamp, UserRound, Users, Workflow } from 'lucide-react'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { cn } from '@open-mercato/shared/lib/utils'
 import { Page, PageBody } from '@open-mercato/ui/backend/Page'
@@ -26,6 +11,8 @@ import { StatusBadge, type StatusBadgeVariant } from '@open-mercato/ui/primitive
 import { Spinner } from '@open-mercato/ui/primitives/spinner'
 import { apiCall } from '@open-mercato/ui/backend/utils/apiCall'
 import { ErrorMessage } from '@open-mercato/ui/backend/detail'
+import { useGranted } from '../../cc_departments/components/useGranted'
+import { DashCard, DashHeader, EmptyLine, KpiStrip, MeterBar, MoreLink } from '../../cc_ui/components/DashKit'
 import { PRODUCT_KINDS } from '../../cc_products/lib/kinds'
 
 type WorkItem = {
@@ -50,6 +37,8 @@ type Overview = {
   stuckDays: number
   tiles: { openOrders: number; stuckOrders: number; onHoldOrders: number; dueThisWeek: number; overdue: number }
   pipeline: Array<{ key: string; label: string; department: string; open: number; onHold: number; stuck: number; oldestDays: number }>
+  dueByDay?: Array<{ date: string; count: number }>
+  statusMix?: Array<{ status: string; count: number }>
   stuck: WorkItem[]
   people: Array<{ name: string; open: number; stuck: number; oldestDays: number }>
   lowStock: Array<{ id: string; title: string; code: string | null; kind: string; unit: string | null; minimum: number; usable: number; underTest: number; onPo: number }>
@@ -68,6 +57,8 @@ const WORK_PATH: Record<string, string> = {
 }
 
 const ORDER_VARIANT: Record<string, StatusBadgeVariant> = { booked: 'info', confirmed: 'warning', completed: 'success', cancelled: 'neutral' }
+const MIX_CLASS: Record<string, string> = { booked: 'bg-status-info-icon', confirmed: 'bg-status-warning-icon', completed: 'bg-status-success-icon', cancelled: 'bg-muted-foreground' }
+const TOP = 6
 
 function qty(value: number): string {
   return new Intl.NumberFormat('en-IN', { maximumFractionDigits: 2 }).format(value)
@@ -78,24 +69,18 @@ function shortDate(value: string | null): string {
   return new Date(`${value}T00:00:00`).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })
 }
 
+function dayLabel(value: string): { weekday: string; day: string } {
+  const date = new Date(`${value}T00:00:00Z`)
+  return { weekday: date.toLocaleDateString('en-IN', { weekday: 'narrow', timeZone: 'UTC' }), day: String(date.getUTCDate()) }
+}
+
 function greeting(): string {
   const hour = new Date().getHours()
   return hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening'
 }
 
-function Panel({ title, hint, action, children, className }: { title: string; hint?: string; action?: React.ReactNode; children: React.ReactNode; className?: string }) {
-  return (
-    <section className={cn('flex flex-col overflow-hidden rounded-md border border-border bg-card shadow-sm', className)}>
-      <header className="flex items-start justify-between gap-3 border-b-2 border-foreground/70 px-4 py-2.5">
-        <div className="min-w-0">
-          <h2 className="font-mono text-overline font-semibold uppercase tracking-widest">{title}</h2>
-          {hint ? <p className="mt-0.5 text-xs text-muted-foreground">{hint}</p> : null}
-        </div>
-        {action}
-      </header>
-      <div className="flex-1">{children}</div>
-    </section>
-  )
+function title(value: string): string {
+  return value ? value.charAt(0).toUpperCase() + value.slice(1).replace(/_/g, ' ') : value
 }
 
 export function OverviewPage() {
@@ -121,13 +106,20 @@ export function OverviewPage() {
     )
   }
 
-  const maxStage = Math.max(1, ...(data?.pipeline ?? []).map((row) => row.open + row.onHold))
+  const tiles = data?.tiles
+  const onTime = tiles && tiles.openOrders ? Math.round(((tiles.openOrders - tiles.overdue) / tiles.openOrders) * 100) : 100
   const maxPerson = Math.max(1, ...(data?.people ?? []).map((row) => row.open))
+  const due = data?.dueByDay ?? []
+  const dueMax = Math.max(1, ...due.map((point) => point.count))
+  const dueTotal = due.reduce((sum, point) => sum + point.count, 0)
+  const mix = data?.statusMix ?? []
+  const mixTotal = mix.reduce((sum, row) => sum + row.count, 0)
+  const openSteps = (data?.pipeline ?? []).reduce((sum, row) => sum + row.open + row.onHold, 0)
 
   return (
     <Page>
       <PageBody>
-        <div className="mx-auto flex max-w-screen-2xl flex-col gap-6 pb-16">
+        <div className="mx-auto flex max-w-screen-2xl flex-col gap-4 pb-16">
           <DashHeader
             overline={new Date().toLocaleDateString('en-IN', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' })}
             title={t('cc_dashboard.title', '{greeting}. Here is the factory today.', { greeting: greeting() })}
@@ -152,7 +144,7 @@ export function OverviewPage() {
             }
           />
 
-          {!data ? (
+          {!data || !tiles ? (
             <div className="flex justify-center py-24">
               <Spinner />
             </div>
@@ -160,53 +152,165 @@ export function OverviewPage() {
             <>
               <KpiStrip
                 items={[
-                  { label: t('cc_dashboard.tile.open', 'Open orders'), value: data.tiles.openOrders, href: '/backend/orders' },
-                  { label: t('cc_dashboard.tile.stuck', 'Orders with a stuck step'), value: data.tiles.stuckOrders, tone: data.tiles.stuckOrders ? 'warn' : undefined, href: '#stuck' },
-                  { label: t('cc_dashboard.tile.hold', 'On hold'), value: data.tiles.onHoldOrders, tone: data.tiles.onHoldOrders ? 'bad' : undefined, href: '/backend/orders?status=on_hold' },
-                  { label: t('cc_dashboard.tile.due', 'Due in 7 days'), value: data.tiles.dueThisWeek, href: '/backend/orders' },
-                  { label: t('cc_dashboard.tile.overdue', 'Past delivery date'), value: data.tiles.overdue, tone: data.tiles.overdue ? 'bad' : undefined, href: '/backend/orders' },
+                  { label: t('cc_dashboard.tile.open', 'Open orders'), value: tiles.openOrders, hint: t('cc_dashboard.tile.openHint', '{count} open steps', { count: openSteps }), href: '/backend/orders' },
+                  { label: t('cc_dashboard.tile.stuck', 'Orders with a stuck step'), value: tiles.stuckOrders, tone: tiles.stuckOrders ? 'warn' : 'good', href: '#stuck' },
+                  { label: t('cc_dashboard.tile.hold', 'On hold'), value: tiles.onHoldOrders, tone: tiles.onHoldOrders ? 'bad' : undefined, href: '/backend/orders?status=on_hold' },
+                  { label: t('cc_dashboard.tile.due', 'Due in 7 days'), value: tiles.dueThisWeek, href: '/backend/orders' },
+                  { label: t('cc_dashboard.tile.overdue', 'Past delivery date'), value: tiles.overdue, tone: tiles.overdue ? 'bad' : 'good', href: '/backend/orders' },
                 ]}
               />
 
-              <div className="grid grid-cols-1 gap-6 xl:grid-cols-5">
-                <Panel
-                  className="xl:col-span-3"
-                  title={t('cc_dashboard.pipeline', 'Where orders are right now')}
-                  hint={t('cc_dashboard.pipelineHint', 'Open steps per stage. Red part is on hold. Click a stage to work on it.')}
-                  action={<Workflow className="h-4 w-4 text-muted-foreground" aria-hidden="true" />}
-                >
-                  <ul className="divide-y divide-border">
-                    {data.pipeline.map((row) => {
-                      const total = row.open + row.onHold
-                      return (
-                        <li key={row.key}>
-                          <Link href={`/backend/work/${WORK_PATH[row.key] ?? row.key}`} className="grid grid-cols-12 items-center gap-3 px-5 py-2.5 transition-colors hover:bg-muted/40">
-                            <span className="col-span-4 min-w-0">
-                              <span className="block truncate text-sm font-medium">{row.label}</span>
-                              <span className="block truncate text-xs text-muted-foreground">{row.department}</span>
-                            </span>
-                            <span className="col-span-6 flex h-2 overflow-hidden rounded-sm bg-input" aria-hidden="true">
-                              <span className="h-full bg-accent-indigo" style={{ width: `${(row.open / maxStage) * 100}%` }} />
-                              <span className="h-full bg-status-error-icon" style={{ width: `${(row.onHold / maxStage) * 100}%` }} />
-                            </span>
-                            <span className="col-span-2 text-right">
-                              <span className={cn('block text-sm font-semibold tabular-nums', !total && 'text-muted-foreground')}>{total}</span>
-                              {row.stuck ? (
-                                <span className="block text-xs text-status-warning-text">{t('cc_dashboard.oldest', 'oldest {days} d', { days: row.oldestDays })}</span>
-                              ) : null}
-                            </span>
-                          </Link>
-                        </li>
-                      )
-                    })}
-                  </ul>
-                </Panel>
+              <DashCard
+                title={t('cc_dashboard.pipeline', 'Where orders are right now')}
+                icon={Workflow}
+                count={openSteps}
+                action={<span className="text-muted-foreground">{t('cc_dashboard.pipelineHint', 'Click a stage to work on it')}</span>}
+              >
+                <ol className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-6">
+                  {data.pipeline.map((row, index) => {
+                    const total = row.open + row.onHold
+                    return (
+                      <li key={row.key} className="relative">
+                        <Link
+                          href={`/backend/work/${WORK_PATH[row.key] ?? row.key}`}
+                          className={cn(
+                            'flex h-full flex-col rounded-lg border p-3 transition-colors hover:border-foreground/40',
+                            row.onHold ? 'border-status-error-border bg-status-error-bg' : row.stuck ? 'border-status-warning-border bg-status-warning-bg' : 'border-border bg-background',
+                          )}
+                        >
+                          <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                            <span className="flex h-5 w-5 items-center justify-center rounded-full bg-muted font-mono text-xs font-semibold text-foreground">{index + 1}</span>
+                            <span className="truncate">{row.department}</span>
+                          </span>
+                          <span className="mt-2 text-sm font-semibold leading-tight">{row.label}</span>
+                          <span className={cn('cc-figure mt-1 text-3xl', !total && 'text-muted-foreground')}>{total}</span>
+                          <span className="mt-1 flex flex-wrap gap-1 text-xs">
+                            {row.onHold ? <span className="text-status-error-text">{t('cc_dashboard.onHoldCount', '{count} on hold', { count: row.onHold })}</span> : null}
+                            {row.stuck ? <span className="text-status-warning-text">{t('cc_dashboard.oldest', 'oldest {days} d', { days: row.oldestDays })}</span> : null}
+                            {!row.onHold && !row.stuck ? <span className="text-muted-foreground">{total ? t('cc_dashboard.moving', 'moving') : t('cc_dashboard.clear', 'clear')}</span> : null}
+                          </span>
+                        </Link>
+                        {index < data.pipeline.length - 1 ? <ChevronRight className="absolute -right-2 top-1/2 z-10 hidden h-4 w-4 -translate-y-1/2 text-muted-foreground xl:block" aria-hidden="true" /> : null}
+                      </li>
+                    )
+                  })}
+                </ol>
+              </DashCard>
 
-                <Panel className="xl:col-span-2" title={t('cc_dashboard.people', 'Pending by person')} hint={t('cc_dashboard.peopleHint', 'Open steps assigned to each person; stuck in orange')}>
+              <div className="cc-masonry">
+                <DashCard title={t('cc_dashboard.health', 'Delivery promise')} icon={Gauge} tone={tiles.overdue ? 'warn' : 'good'}>
+                  <div className="flex items-center gap-4">
+                    <div className="cc-ring shrink-0" style={{ ['--pct' as string]: onTime }} aria-label={t('cc_dashboard.onTimePct', '{pct}% on time', { pct: onTime })}>
+                      <span>{onTime}%</span>
+                    </div>
+                    <dl className="grid flex-1 grid-cols-3 gap-2 text-center">
+                      <div className="rounded-md bg-muted px-2 py-2">
+                        <dt className="text-xs text-muted-foreground">{t('cc_dashboard.onTrack', 'On track')}</dt>
+                        <dd className="cc-figure text-xl">{tiles.openOrders - tiles.overdue}</dd>
+                      </div>
+                      <div className="rounded-md bg-muted px-2 py-2">
+                        <dt className="text-xs text-muted-foreground">{t('cc_dashboard.dueSoon', 'Due 7 days')}</dt>
+                        <dd className="cc-figure text-xl">{tiles.dueThisWeek}</dd>
+                      </div>
+                      <div className={cn('rounded-md px-2 py-2', tiles.overdue ? 'bg-status-error-bg' : 'bg-muted')}>
+                        <dt className="text-xs text-muted-foreground">{t('cc_dashboard.lateCount', 'Late')}</dt>
+                        <dd className={cn('cc-figure text-xl', tiles.overdue && 'text-status-error-text')}>{tiles.overdue}</dd>
+                      </div>
+                    </dl>
+                  </div>
+                  <p className="mt-3 text-xs text-muted-foreground">{t('cc_dashboard.healthHint', 'Share of open orders still inside their delivery date.')}</p>
+                </DashCard>
+
+                <DashCard title={t('cc_dashboard.dueCalendar', 'Deliveries in the next 14 days')} icon={CalendarClock} count={dueTotal}>
+                  {dueTotal ? (
+                    <>
+                      <div className="grid text-center text-xs font-semibold tabular-nums" style={{ gridTemplateColumns: `repeat(${due.length}, minmax(0, 1fr))` }}>
+                        {due.map((point) => (
+                          <span key={point.date} className={cn(!point.count && 'text-transparent')}>
+                            {point.count}
+                          </span>
+                        ))}
+                      </div>
+                      <div className="cc-spark mt-1">
+                        {due.map((point, index) => (
+                          <span key={point.date} data-today={index === 0} style={{ height: `${Math.max(3, Math.round((point.count / dueMax) * 100))}%` }} title={`${shortDate(point.date)} · ${point.count}`} />
+                        ))}
+                      </div>
+                      <div className="mt-1 grid text-center text-xs text-muted-foreground" style={{ gridTemplateColumns: `repeat(${due.length}, minmax(0, 1fr))` }}>
+                        {due.map((point, index) => {
+                          const label = dayLabel(point.date)
+                          return (
+                            <span key={point.date} className={cn('leading-tight', index === 0 && 'font-semibold text-foreground')}>
+                              <span className="block">{label.weekday}</span>
+                              <span className="block tabular-nums">{label.day}</span>
+                            </span>
+                          )
+                        })}
+                      </div>
+                    </>
+                  ) : (
+                    <EmptyLine text={t('cc_dashboard.noDue', 'No open order is due in the next two weeks.')} />
+                  )}
+                </DashCard>
+
+                <div id="stuck">
+                  <DashCard title={t('cc_dashboard.stuck', 'Stuck the longest')} icon={AlarmClock} tone={data.stuck.length ? 'warn' : undefined}>
+                    {data.stuck.length ? (
+                      <ul className="divide-y divide-border">
+                        {data.stuck.slice(0, TOP).map((item) => (
+                          <li key={`${item.orderId}-${item.stageKey}`}>
+                            <Link href={item.href} className="-mx-2 flex items-center justify-between gap-3 rounded-md px-2 py-2 transition-colors hover:bg-muted/50">
+                              <span className="min-w-0">
+                                <span className="block font-mono text-sm font-semibold">{item.orderNo}</span>
+                                <span className="block truncate text-xs text-muted-foreground">
+                                  {item.customerName} · {item.stageLabel}
+                                </span>
+                                <span className="block truncate text-xs text-muted-foreground">
+                                  {item.status === 'on_hold' ? `${t('cc_dashboard.onHoldBy', 'On hold')}: ${item.holdParty ?? '—'}` : (item.responsibleName ?? t('cc_dashboard.unassigned', 'Not assigned'))}
+                                </span>
+                              </span>
+                              <span className="flex shrink-0 flex-col items-end gap-1">
+                                <span className={cn('rounded-sm px-2 py-0.5 text-xs font-semibold tabular-nums', item.status === 'on_hold' ? 'bg-status-error-bg text-status-error-text' : 'bg-status-warning-bg text-status-warning-text')}>
+                                  {item.days} {t('cc_dashboard.days', 'days')}
+                                </span>
+                                {item.overdue ? <StatusBadge variant="error">{t('cc_dashboard.late', 'Late')}</StatusBadge> : null}
+                              </span>
+                            </Link>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <EmptyLine text={t('cc_dashboard.nothingStuck', 'Nothing is stuck. Every open step moved in the last {days} days.', { days: data.stuckDays })} />
+                    )}
+                    {data.stuck.length > TOP ? <MoreLink href="/backend/my-work" label={t('cc_dashboard.allStuck', 'All pending work')} /> : null}
+                  </DashCard>
+                </div>
+
+                <DashCard title={t('cc_dashboard.queues', 'Waiting on a team')} icon={ClipboardList}>
+                  <ul className="grid grid-cols-3 gap-2">
+                    {[
+                      { label: t('cc_dashboard.q.po', 'POs to approve'), value: data.queues.poApproval, href: '/backend/purchase/orders', icon: Stamp },
+                      { label: t('cc_dashboard.q.grn', 'GRN batches to check'), value: data.queues.grnUnderTest, href: '/backend/purchase/grns', icon: FlaskConical },
+                      { label: t('cc_dashboard.q.low', 'Materials below minimum'), value: data.lowStockTotal, href: '#materials', icon: ShoppingCart },
+                    ].map((queue) => (
+                      <li key={queue.label}>
+                        <Link href={queue.href} className={cn('flex h-full flex-col items-start gap-2 rounded-lg border p-3 transition-colors hover:border-foreground/40', queue.value ? 'border-status-warning-border' : 'border-border')}>
+                          <span className={cn('flex h-7 w-7 items-center justify-center rounded-md', queue.value ? 'bg-status-warning-bg text-status-warning-icon' : 'bg-muted text-muted-foreground')} aria-hidden="true">
+                            <queue.icon className="h-4 w-4" />
+                          </span>
+                          <span className="cc-figure text-2xl">{queue.value}</span>
+                          <span className="text-xs leading-tight text-muted-foreground">{queue.label}</span>
+                        </Link>
+                      </li>
+                    ))}
+                  </ul>
+                </DashCard>
+
+                <DashCard title={t('cc_dashboard.people', 'Pending by person')} icon={Users} count={data.people.length}>
                   {data.people.length ? (
-                    <ul className="divide-y divide-border">
-                      {data.people.map((person) => (
-                        <li key={person.name} className="px-5 py-3">
+                    <ul className="space-y-3">
+                      {data.people.slice(0, TOP).map((person) => (
+                        <li key={person.name}>
                           <div className="flex items-center justify-between gap-3">
                             <span className="flex min-w-0 items-center gap-2">
                               <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-semibold uppercase text-muted-foreground">{person.name.slice(0, 2)}</span>
@@ -214,150 +318,116 @@ export function OverviewPage() {
                             </span>
                             <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
                               <span className="font-semibold text-foreground">{person.open}</span> {t('cc_dashboard.steps', 'steps')}
-                              {person.stuck ? <span className="text-status-warning-text"> · {person.stuck} stuck</span> : null}
+                              {person.stuck ? <span className="text-status-warning-text"> · {t('cc_dashboard.stuckCount', '{count} stuck', { count: person.stuck })}</span> : null}
                             </span>
                           </div>
-                          <div className="mt-2 flex h-1.5 overflow-hidden rounded-sm bg-input" aria-hidden="true">
-                            <span className="h-full bg-status-warning-icon" style={{ width: `${(person.stuck / maxPerson) * 100}%` }} />
-                            <span className="h-full bg-accent-indigo" style={{ width: `${((person.open - person.stuck) / maxPerson) * 100}%` }} />
+                          <div className="mt-1.5">
+                            <MeterBar value={person.open} max={maxPerson} tone={person.stuck ? 'warn' : 'accent'} />
                           </div>
                         </li>
                       ))}
                     </ul>
                   ) : (
-                    <p className="px-5 py-8 text-sm text-muted-foreground">{t('cc_dashboard.noPeople', 'No open steps.')}</p>
+                    <EmptyLine text={t('cc_dashboard.noPeople', 'No open steps.')} />
                   )}
-                </Panel>
-              </div>
+                  {data.people.length > TOP ? <MoreLink href="/backend/my-work" label={t('cc_dashboard.allPeople', 'Everyone’s work')} /> : null}
+                </DashCard>
 
-              <div id="stuck" className="grid grid-cols-1 gap-6 xl:grid-cols-5">
-                <Panel className="xl:col-span-3" title={t('cc_dashboard.stuck', 'Stuck the longest')} hint={t('cc_dashboard.stuckHint', 'On hold, or open for {days}+ days', { days: data.stuckDays })}>
-                  {data.stuck.length ? (
+                <div id="materials">
+                  <DashCard
+                    title={t('cc_dashboard.low', 'Materials below minimum')}
+                    icon={ShoppingCart}
+                    count={data.lowStockTotal}
+                    tone={data.lowStockTotal ? 'warn' : undefined}
+                    action={
+                      data.lowStock.length ? (
+                        <Link href={`/backend/purchase/orders/new?items=${data.lowStock.map((row) => `${row.id}:${Math.max(0, row.minimum - row.usable - row.onPo)}`).join(',')}`} className="font-medium text-primary hover:underline">
+                          {t('cc_dashboard.raisePo', 'Raise PO')}
+                        </Link>
+                      ) : null
+                    }
+                  >
+                    {data.lowStock.length ? (
+                      <ul className="space-y-3">
+                        {data.lowStock.slice(0, TOP).map((row) => (
+                          <li key={row.id}>
+                            <Link href={`/backend/products/${row.id}`} className="block rounded-md transition-colors hover:bg-muted/50">
+                              <div className="flex items-baseline justify-between gap-2">
+                                <span className="min-w-0 truncate text-sm font-medium">{row.title}</span>
+                                <span className={cn('shrink-0 font-mono text-xs tabular-nums', row.usable <= 0 && 'font-semibold text-status-error-text')}>
+                                  {qty(row.usable)} / {qty(row.minimum)} {row.unit ?? ''}
+                                </span>
+                              </div>
+                              <div className="my-1">
+                                <MeterBar value={row.usable} max={row.minimum} tone={row.usable <= 0 ? 'bad' : 'warn'} />
+                              </div>
+                              <p className="truncate text-xs text-muted-foreground">
+                                {row.code ?? '—'} · {PRODUCT_KINDS.find((entry) => entry.code === row.kind)?.label ?? row.kind}
+                                {' · '}
+                                {row.onPo > 0 ? t('cc_dashboard.onPo', '{qty} on PO', { qty: qty(row.onPo) }) : <span className="text-status-error-text">{t('cc_dashboard.noPo', 'no PO yet')}</span>}
+                                {row.underTest > 0 ? ` · ${t('cc_dashboard.inQc', '{qty} in QC', { qty: qty(row.underTest) })}` : ''}
+                              </p>
+                            </Link>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <EmptyLine text={t('cc_dashboard.noLow', 'Every material with a minimum level is above it.')} />
+                    )}
+                    {data.lowStockTotal > TOP ? <MoreLink href="/backend/purchase/reorder" label={t('cc_dashboard.allLow', 'All {count} materials', { count: data.lowStockTotal })} /> : null}
+                  </DashCard>
+                </div>
+
+                <DashCard title={t('cc_dashboard.mix', 'Orders in the last 30 days')} icon={PieChart} count={mixTotal}>
+                  {mixTotal ? (
+                    <>
+                      <div className="flex h-3 overflow-hidden rounded-full bg-muted" aria-hidden="true">
+                        {mix.map((row) => (
+                          <span key={row.status} className={cn('h-full', MIX_CLASS[row.status] ?? 'bg-muted-foreground')} style={{ width: `${(row.count / mixTotal) * 100}%` }} />
+                        ))}
+                      </div>
+                      <ul className="mt-3 grid grid-cols-2 gap-2">
+                        {mix.map((row) => (
+                          <li key={row.status} className="flex items-center justify-between gap-2 rounded-md bg-muted px-3 py-2 text-sm">
+                            <span className="flex items-center gap-2">
+                              <span className={cn('h-2.5 w-2.5 rounded-full', MIX_CLASS[row.status] ?? 'bg-muted-foreground')} aria-hidden="true" />
+                              {t(`cc_dashboard.status.${row.status}`, title(row.status))}
+                            </span>
+                            <span className="font-semibold tabular-nums">{row.count}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </>
+                  ) : (
+                    <EmptyLine text={t('cc_dashboard.noMix', 'No orders booked in the last 30 days.')} />
+                  )}
+                </DashCard>
+
+                <DashCard title={t('cc_dashboard.recent', 'Latest orders')} icon={ClipboardList} action={<Link href="/backend/orders" className="font-medium text-primary hover:underline">{t('cc_dashboard.allOrders', 'Order book')}</Link>}>
+                  {data.recent.length ? (
                     <ul className="divide-y divide-border">
-                      {data.stuck.map((item) => (
-                        <li key={`${item.orderId}-${item.stageKey}`}>
-                          <Link href={item.href} className="grid grid-cols-12 items-center gap-3 px-5 py-3 transition-colors hover:bg-muted/40">
-                            <span className="col-span-4 min-w-0">
-                              <span className="block font-mono text-sm font-semibold">{item.orderNo}</span>
-                              <span className="block truncate text-xs text-muted-foreground">{item.customerName}</span>
-                            </span>
-                            <span className="col-span-4 min-w-0">
-                              <span className="block truncate text-sm">{item.stageLabel}</span>
+                      {data.recent.map((order) => (
+                        <li key={order.id}>
+                          <Link href={`/backend/orders/${order.id}`} className="-mx-2 flex items-center justify-between gap-3 rounded-md px-2 py-2 transition-colors hover:bg-muted/50">
+                            <span className="min-w-0">
+                              <span className="block font-mono text-sm font-semibold">{order.orderNo}</span>
                               <span className="block truncate text-xs text-muted-foreground">
-                                {item.status === 'on_hold' ? `${t('cc_dashboard.onHoldBy', 'On hold')}: ${item.holdParty ?? '—'}` : (item.responsibleName ?? t('cc_dashboard.unassigned', 'Not assigned'))}
+                                {order.customerName}
+                                {order.current.length ? ` · ${order.current.join(', ')}` : ''}
                               </span>
                             </span>
-                            <span className="col-span-4 flex items-center justify-end gap-2">
-                              {item.overdue ? <StatusBadge variant="error">{t('cc_dashboard.late', 'Late')}</StatusBadge> : null}
-                              <span className={cn('rounded-sm px-2 py-0.5 text-xs font-semibold tabular-nums', item.status === 'on_hold' ? 'bg-status-error-bg text-status-error-text' : 'bg-status-warning-bg text-status-warning-text')}>
-                                {item.days} {t('cc_dashboard.days', 'days')}
-                              </span>
-                              <ArrowUpRight className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+                            <span className="shrink-0 text-right">
+                              <StatusBadge variant={ORDER_VARIANT[order.status] ?? 'neutral'}>{t(`cc_dashboard.status.${order.status}`, title(order.status))}</StatusBadge>
+                              <span className="mt-1 block text-xs text-muted-foreground">{t('cc_dashboard.dueShort', 'due {date}', { date: shortDate(order.deliveryDate) })}</span>
                             </span>
                           </Link>
                         </li>
                       ))}
                     </ul>
                   ) : (
-                    <p className="px-5 py-8 text-sm text-muted-foreground">{t('cc_dashboard.nothingStuck', 'Nothing is stuck. Every open step moved in the last {days} days.', { days: data.stuckDays })}</p>
+                    <EmptyLine text={t('cc_dashboard.noOrders', 'No orders yet.')} />
                   )}
-                </Panel>
-
-                <Panel className="xl:col-span-2" title={t('cc_dashboard.queues', 'Waiting on a team')}>
-                  <ul className="grid grid-cols-1 gap-px bg-border sm:grid-cols-2">
-                    {[
-                      { label: t('cc_dashboard.q.po', 'POs to approve'), value: data.queues.poApproval, href: '/backend/purchase/orders', icon: <Stamp className="h-4 w-4" /> },
-                      { label: t('cc_dashboard.q.grn', 'GRN batches to check'), value: data.queues.grnUnderTest, href: '/backend/purchase/grns', icon: <FlaskConical className="h-4 w-4" /> },
-                      { label: t('cc_dashboard.q.low', 'Materials below minimum'), value: data.lowStockTotal, href: '#materials', icon: <ShoppingCart className="h-4 w-4" /> },
-                    ].map((queue) => (
-                      <li key={queue.label} className="bg-card">
-                        <Link href={queue.href} className="flex items-center gap-3 px-5 py-4 transition-colors hover:bg-muted/40">
-                          <span className={cn('flex h-8 w-8 items-center justify-center rounded-full', queue.value ? 'bg-status-warning-bg text-status-warning-icon' : 'bg-muted text-muted-foreground')} aria-hidden="true">
-                            {queue.icon}
-                          </span>
-                          <span>
-                            <span className="block text-xl font-bold leading-none tabular-nums">{queue.value}</span>
-                            <span className="mt-1 block text-xs text-muted-foreground">{queue.label}</span>
-                          </span>
-                        </Link>
-                      </li>
-                    ))}
-                  </ul>
-                </Panel>
-              </div>
-
-              <div id="materials" className="grid grid-cols-1 gap-6 xl:grid-cols-5">
-                <Panel
-                  className="xl:col-span-3"
-                  title={t('cc_dashboard.low', 'Materials below minimum')}
-                  hint={t('cc_dashboard.lowHint', 'Usable (QC-approved) stock at or below the minimum level set on the material')}
-                  action={
-                    data.lowStock.length ? (
-                      <Link href={`/backend/purchase/orders/new?items=${data.lowStock.map((row) => `${row.id}:${Math.max(0, row.minimum - row.usable - row.onPo)}`).join(',')}`} className="text-xs font-medium text-primary hover:underline">
-                        {t('cc_dashboard.raisePo', 'Raise PO')}
-                      </Link>
-                    ) : null
-                  }
-                >
-                  {data.lowStock.length ? (
-                    <ul className="divide-y divide-border">
-                      {data.lowStock.map((row) => {
-                        const percent = row.minimum > 0 ? Math.min(100, Math.round((row.usable / row.minimum) * 100)) : 0
-                        return (
-                          <li key={row.id}>
-                            <Link href={`/backend/products/${row.id}`} className="grid grid-cols-12 items-center gap-3 px-5 py-3 transition-colors hover:bg-muted/40">
-                              <span className="col-span-5 min-w-0">
-                                <span className="block truncate text-sm font-medium">{row.title}</span>
-                                <span className="block font-mono text-xs text-muted-foreground">
-                                  {row.code ?? '—'} · {PRODUCT_KINDS.find((entry) => entry.code === row.kind)?.label ?? row.kind}
-                                </span>
-                              </span>
-                              <span className="col-span-4">
-                                <span className="flex justify-between text-xs tabular-nums">
-                                  <span className={cn(row.usable <= 0 ? 'font-semibold text-status-error-text' : '')}>{qty(row.usable)}</span>
-                                  <span className="text-muted-foreground">
-                                    {t('cc_dashboard.min', 'min {qty}', { qty: qty(row.minimum) })} {row.unit ?? ''}
-                                  </span>
-                                </span>
-                                <span className="mt-1 block h-1.5 overflow-hidden rounded-sm bg-input" aria-hidden="true">
-                                  <span className={cn('block h-full rounded-full', row.usable <= 0 ? 'bg-status-error-icon' : 'bg-status-warning-icon')} style={{ width: `${percent}%` }} />
-                                </span>
-                              </span>
-                              <span className="col-span-3 text-right text-xs text-muted-foreground">
-                                {row.onPo > 0 ? <span className="block">{qty(row.onPo)} on PO</span> : <span className="block text-status-error-text">{t('cc_dashboard.noPo', 'no PO yet')}</span>}
-                                {row.underTest > 0 ? <span className="block">{qty(row.underTest)} in QC</span> : null}
-                              </span>
-                            </Link>
-                          </li>
-                        )
-                      })}
-                    </ul>
-                  ) : (
-                    <p className="px-5 py-8 text-sm text-muted-foreground">{t('cc_dashboard.noLow', 'Every material with a minimum level is above it.')}</p>
-                  )}
-                </Panel>
-
-                <Panel className="xl:col-span-2" title={t('cc_dashboard.recent', 'Latest orders')} action={<Link href="/backend/orders" className="text-xs font-medium text-primary hover:underline">{t('cc_dashboard.allOrders', 'Order book')}</Link>}>
-                  <ul className="divide-y divide-border">
-                    {data.recent.map((order) => (
-                      <li key={order.id}>
-                        <Link href={`/backend/orders/${order.id}`} className="flex items-center justify-between gap-3 px-5 py-3 transition-colors hover:bg-muted/40">
-                          <span className="min-w-0">
-                            <span className="block font-mono text-sm font-semibold">{order.orderNo}</span>
-                            <span className="block truncate text-xs text-muted-foreground">
-                              {order.customerName}
-                              {order.current.length ? ` · ${order.current.join(', ')}` : ''}
-                            </span>
-                          </span>
-                          <span className="shrink-0 text-right">
-                            <StatusBadge variant={ORDER_VARIANT[order.status] ?? 'neutral'}>{order.status}</StatusBadge>
-                            <span className="mt-1 block text-xs text-muted-foreground">{t('cc_dashboard.dueShort', 'due {date}', { date: shortDate(order.deliveryDate) })}</span>
-                          </span>
-                        </Link>
-                      </li>
-                    ))}
-                  </ul>
-                </Panel>
+                </DashCard>
               </div>
             </>
           )}
