@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from 'react'
-import { OwnerOverviewPage } from '../../components/owner/OwnerPages'
+import { PlantTodayPage as OwnerOverviewPage } from '../../components/owner/PlantTodayPage'
 
 export default function CcOwnerOverviewPageRoute() {
   return (

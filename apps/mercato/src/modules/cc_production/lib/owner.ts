@@ -246,6 +246,13 @@ export async function ownerOverview(ctx: StoreContext, date: string) {
       belowReorder: (await reorderSuggestions(ctx)).items.filter((item) => item.stockBelow).slice(0, 12).map((item) => ({ productId: item.productId, title: item.title, unit: item.unit, onHand: item.onHand, reorderPoint: item.reorderPoint, onOrder: item.onOrder })),
     },
     followUps: await overdueEnquiries(ctx, 12),
+    pressFloor: presses.map((press) => ({ number: press.number, usage: press.usage, pressType: press.pressType, isWorking: press.isWorking, busy: usedPresses.has(press.number) })),
+    trend: await Promise.all(
+      Array.from({ length: 7 }, (_, index) => addDays(date, index - 6)).map(async (day) => {
+        const made = await producedOn(ctx, day)
+        return { date: day, pressKg: made.press.kg, mouldedPieces: made.moulding.pieces, resinKg: made.resin.kg, coatedKg: made.coating.kg }
+      }),
+    ),
   }
 }
 
