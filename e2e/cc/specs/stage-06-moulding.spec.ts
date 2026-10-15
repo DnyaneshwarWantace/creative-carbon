@@ -192,6 +192,22 @@ test.describe.serial('Stage 6 · moulded products', () => {
     }
   })
 
+  test('machine cards: add a machine, a die clash shows at once, and the paper register is one click away', async ({ page }) => {
+    await page.goto(`/backend/moulding?date=${DATE}&shift=1`)
+    await expect(page.getByText('Add a machine that ran this shift')).toBeVisible({ timeout: 60_000 })
+    await page.getByRole('radio', { name: 'Machine cards' }).click()
+    await expect(page.getByText('Machine 12', { exact: false }).first()).toBeVisible()
+    await page.getByRole('button', { name: '13', exact: true }).click()
+    const card = page.locator('article').filter({ hasText: 'Machine 13' })
+    await card.getByLabel('Die No.').fill('1142')
+    await expect(card.getByText(/also on machine 12/)).toBeVisible()
+    await card.getByRole('button', { name: /Remove machine 13/ }).click()
+    await expect(page.locator('article').filter({ hasText: 'Machine 13' })).toHaveCount(0)
+    await page.getByRole('radio', { name: 'Register (as on paper)' }).click()
+    await expect(page.getByRole('columnheader', { name: 'Machine No.' })).toBeVisible()
+    await page.getByRole('radio', { name: 'Machine cards' }).click()
+  })
+
   test.afterAll(async ({ request }) => {
     await clearDay(request, DATE)
   })
