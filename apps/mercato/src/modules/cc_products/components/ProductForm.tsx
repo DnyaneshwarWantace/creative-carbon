@@ -17,7 +17,7 @@ import { buildOptimisticLockHeader } from '@open-mercato/ui/backend/utils/optimi
 import { useGuardedMutation } from '@open-mercato/ui/backend/injection/useGuardedMutation'
 import { flash } from '@open-mercato/ui/backend/FlashMessages'
 import { ErrorMessage } from '@open-mercato/ui/backend/detail'
-import { PRODUCT_KINDS, SELLABLE_KINDS, type ProductKind } from '../lib/kinds'
+import { PRODUCT_KINDS, SELLABLE_KINDS, productListPath, type ProductKind } from '../lib/kinds'
 import { KIND_CONFIG, unitsForKind, type KindConfig } from '../lib/kindConfig'
 import { fieldsForKind, isNumericField, loadProductFieldDefs, type ProductFieldDef } from '../lib/fieldDefs'
 import { FieldsPanel, type PanelField } from './FieldsPanel'
@@ -188,7 +188,7 @@ export function ProductForm({ kind, productId }: { kind: ProductKind; productId?
   const t = useT()
   const router = useRouter()
   const config = KIND_CONFIG[kind]
-  const listHref = `/backend/products?tab=${config.slug}`
+  const listHref = productListPath(kind, config.slug)
   const backHref = productId ? `/backend/products/${productId}` : listHref
   const { runMutation } = useGuardedMutation({ contextId: `cc-product-${productId ?? 'new'}` })
 

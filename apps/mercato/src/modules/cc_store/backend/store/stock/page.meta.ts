@@ -3,9 +3,10 @@ export const metadata = {
   requireFeatures: ['cc_store.view'],
   pageTitle: 'All stock (floor & FG)',
   pageTitleKey: 'cc_store.nav.stock',
-  pageGroup: 'Store',
-  pageGroupKey: 'cc-06-store.nav.group',
-  pageOrder: 4,
+  pageGroup: 'Stock records',
+  pageGroupKey: 'cc-06c-records.nav.group',
+  pageOrder: 9,
+  navHidden: true,
   icon: 'boxes',
   breadcrumb: [{ label: 'Stock', labelKey: 'cc_store.nav.stock' }],
 }

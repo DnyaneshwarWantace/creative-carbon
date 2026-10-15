@@ -3,9 +3,9 @@ export const metadata = {
   requireFeatures: ['cc_store.view'],
   pageTitle: 'Stock ledger',
   pageTitleKey: 'cc_store.nav.ledger',
-  pageGroup: 'Store',
-  pageGroupKey: 'cc-06-store.nav.group',
-  pageOrder: 5,
+  pageGroup: 'Stock records',
+  pageGroupKey: 'cc-06c-records.nav.group',
+  pageOrder: 1,
   icon: 'history',
   breadcrumb: [
     { label: 'Stock', labelKey: 'cc_store.nav.stock', href: '/backend/store/stock' },

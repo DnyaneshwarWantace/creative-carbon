@@ -321,12 +321,13 @@ function StockDialog({ state, place, onClose, onDone }: { state: DialogState; pl
   )
 }
 
-export function StockPage({ fixedPlace, title }: { fixedPlace?: Place; title?: string } = {}) {
+export function StockPage({ fixedPlace, title, places, basePath = '/backend/store/stock' }: { fixedPlace?: Place; title?: string; places?: Place[]; basePath?: string } = {}) {
   const t = useT()
   const router = useRouter()
   const params = useSearchParams()
-  const initialPlace = fixedPlace ?? (params?.get('place') as Place | null) ?? 'wh_a'
-  const [place, setPlace] = React.useState<Place>(PLACES.some((entry) => entry.value === initialPlace) ? initialPlace : 'wh_a')
+  const visiblePlaces = places && places.length ? PLACES.filter((entry) => places.includes(entry.value)) : PLACES
+  const initialPlace = fixedPlace ?? (params?.get('place') as Place | null) ?? visiblePlaces[0].value
+  const [place, setPlace] = React.useState<Place>(visiblePlaces.some((entry) => entry.value === initialPlace) ? initialPlace : visiblePlaces[0].value)
   const [view, setView] = React.useState<View>('all')
   const [search, setSearch] = React.useState('')
   const [book, setBook] = React.useState<Book | null>(null)
@@ -363,7 +364,7 @@ export function StockPage({ fixedPlace, title }: { fixedPlace?: Place; title?: s
   const choosePlace = (value: Place) => {
     setPlace(value)
     setOpen(new Set())
-    if (!fixedPlace) router.replace(`/backend/store/stock?place=${value}`)
+    if (!fixedPlace) router.replace(`${basePath}?place=${value}`)
   }
 
   const exportCsv = () => {
@@ -428,9 +429,9 @@ export function StockPage({ fixedPlace, title }: { fixedPlace?: Place; title?: s
             </div>
           </header>
 
-          {fixedPlace ? null : (
+          {fixedPlace || visiblePlaces.length < 2 ? null : (
           <SegmentedControl value={place} onValueChange={(value) => choosePlace(value as Place)} aria-label={t('cc_store.stock.place', 'Store')}>
-            {PLACES.map((entry) => (
+            {visiblePlaces.map((entry) => (
               <SegmentedControlItem key={entry.value} value={entry.value}>
                 {entry.label}
               </SegmentedControlItem>

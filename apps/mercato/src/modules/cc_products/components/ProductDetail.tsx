@@ -9,7 +9,7 @@ import { Button } from '@open-mercato/ui/primitives/button'
 import { StatusBadge, type StatusBadgeVariant } from '@open-mercato/ui/primitives/status-badge'
 import { apiCall } from '@open-mercato/ui/backend/utils/apiCall'
 import { KIND_CONFIG } from '../lib/kindConfig'
-import { PURCHASED_KINDS, SELLABLE_KINDS, type ProductKind } from '../lib/kinds'
+import { PURCHASED_KINDS, SELLABLE_KINDS, productListPath, type ProductKind } from '../lib/kinds'
 import { COMMON_FIELD_KEYS, fieldsForKind, loadProductFieldDefs, type ProductFieldDef } from '../lib/fieldDefs'
 import { PRODUCT_KINDS } from '../lib/kinds'
 import { FieldList, LinkRows, Panel, RecordColumns, RecordPage, RecordState, RegisterGrid, DocLink, formatCount, formatDay, formatKg, type Fact } from '../../cc_ui/components/RecordPage'
@@ -178,7 +178,7 @@ export function ProductDetail({ productId }: { productId: string }) {
 
   return (
     <RecordPage
-      back={{ href: `/backend/products?tab=${config.slug}`, label: config.title }}
+      back={{ href: productListPath(config.kind, config.slug), label: config.title }}
       overline={`${config.singular}${code !== '—' ? ` · ${code}` : ''}`}
       title={text(product.title)}
       mono={false}

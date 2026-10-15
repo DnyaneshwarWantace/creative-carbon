@@ -3,9 +3,9 @@ export const metadata = {
   requireFeatures: ['cc_production.quality.view'],
   pageTitle: 'Bought-in & damaged',
   pageTitleKey: 'cc_production.nav.directIn',
-  pageGroup: 'Store',
-  pageGroupKey: 'cc-06-store.nav.group',
-  pageOrder: 30,
+  pageGroup: 'Finished goods',
+  pageGroupKey: 'cc-06b-fg.nav.group',
+  pageOrder: 3,
   icon: 'package-plus',
   breadcrumb: [{ label: 'Bought-in & damaged', labelKey: 'cc_production.nav.directIn' }],
 }

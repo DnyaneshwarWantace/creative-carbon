@@ -43,13 +43,15 @@ function formatQuantity(value: number): string {
   return new Intl.NumberFormat('en-IN', { maximumFractionDigits: 3 }).format(value)
 }
 
-export function ProductsPage() {
+export function ProductsPage({ kinds, basePath = '/backend/products' }: { kinds?: ProductKind[]; basePath?: string } = {}) {
   const t = useT()
   const granted = useGranted()
   const canManage = !granted.ready || granted.has('catalog.products.manage')
   const router = useRouter()
   const searchParams = useSearchParams()
-  const kind: ProductKind = kindFromSlug(searchParams?.get('tab')) ?? 'chemical'
+  const shownKinds = kinds && kinds.length ? PRODUCT_KINDS.filter((entry) => kinds.includes(entry.code)) : PRODUCT_KINDS
+  const asked = kindFromSlug(searchParams?.get('tab'))
+  const kind: ProductKind = asked && shownKinds.some((entry) => entry.code === asked) ? asked : shownKinds[0].code
   const config = KIND_CONFIG[kind]
 
   const [rows, setRows] = React.useState<Row[]>([])
@@ -277,9 +279,9 @@ export function ProductsPage() {
     <Page>
       <PageBody>
         <div className="mb-4">
-          <Tabs value={config.slug} onValueChange={(slug) => router.replace(`/backend/products?tab=${slug}`)} variant="underline">
+          <Tabs value={config.slug} onValueChange={(slug) => router.replace(`${basePath}?tab=${slug}`)} variant="underline">
             <TabsList aria-label={t('cc_products.list.tabs', 'Product types')}>
-              {PRODUCT_KINDS.map((entry) => (
+              {shownKinds.map((entry) => (
                 <TabsTrigger key={entry.code} value={KIND_CONFIG[entry.code].slug}>
                   {KIND_CONFIG[entry.code].title}
                 </TabsTrigger>

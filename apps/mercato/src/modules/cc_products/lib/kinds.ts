@@ -38,3 +38,12 @@ export const SELLABLE_KINDS = new Set<ProductKind>(['laminate', 'moulded', 'bsta
 export const PURCHASED_KIND_LIST: ProductKind[] = ['chemical', 'reinforcement', 'chindi', 'bstage', 'bought_in']
 
 export const PURCHASED_KINDS = new Set<ProductKind>(PURCHASED_KIND_LIST)
+
+export const RAW_MATERIAL_KINDS: ProductKind[] = ['chemical', 'reinforcement', 'chindi', 'resin']
+
+export const FINISHED_GOODS_KINDS: ProductKind[] = ['laminate', 'moulded', 'bstage', 'bought_in']
+
+export function productListPath(kind: ProductKind, tabSlug: string): string {
+  const base = RAW_MATERIAL_KINDS.includes(kind) ? '/backend/raw-material' : '/backend/finished-goods'
+  return `${base}?tab=${tabSlug}`
+}
