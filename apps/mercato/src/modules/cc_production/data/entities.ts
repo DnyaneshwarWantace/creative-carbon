@@ -1,5 +1,6 @@
 import { Entity, Index, PrimaryKey, Property, Unique } from '@mikro-orm/decorators/legacy'
 import { OptionalProps } from '@mikro-orm/core'
+import type { RecipeLevel, RecipeLine } from '../lib/recipeCheck'
 import type { TcLastColumn, TcLegendEntry, TcObserved, TcRow } from '../lib/tcRules'
 
 type Common = 'isActive' | 'createdAt' | 'updatedAt' | 'deletedAt' | 'updatedByName'
@@ -1793,4 +1794,55 @@ export class RodStock {
 
   @Property({ name: 'deleted_at', type: Date, nullable: true })
   deletedAt?: Date | null
+}
+
+@Entity({ tableName: 'cc_recipes' })
+@Index({ name: 'cc_recipes_scope_idx', properties: ['organizationId', 'tenantId', 'level'] })
+export class Recipe {
+  [OptionalProps]?: Common | 'outputProductId' | 'dieNo' | 'notes' | 'lines'
+
+  @PrimaryKey({ type: 'uuid', defaultRaw: 'gen_random_uuid()' })
+  id!: string
+
+  @Property({ name: 'organization_id', type: 'uuid' })
+  organizationId!: string
+
+  @Property({ name: 'tenant_id', type: 'uuid' })
+  tenantId!: string
+
+  @Property({ name: 'is_active', type: 'boolean', default: true })
+  isActive: boolean = true
+
+  @Property({ name: 'updated_by_name', type: 'text', nullable: true })
+  updatedByName?: string | null
+
+  @Property({ name: 'created_at', type: Date, onCreate: () => new Date() })
+  createdAt: Date = new Date()
+
+  @Property({ name: 'updated_at', type: Date, onCreate: () => new Date(), onUpdate: () => new Date() })
+  updatedAt: Date = new Date()
+
+  @Property({ name: 'deleted_at', type: Date, nullable: true })
+  deletedAt?: Date | null
+
+  @Property({ type: 'text' })
+  level!: RecipeLevel
+
+  @Property({ type: 'text' })
+  name!: string
+
+  @Property({ name: 'output_product_id', type: 'uuid', nullable: true })
+  outputProductId?: string | null
+
+  @Property({ name: 'die_no', type: 'text', nullable: true })
+  dieNo?: string | null
+
+  @Property({ name: 'output_qty', type: 'numeric', columnType: 'numeric(14,3)' })
+  outputQty!: string
+
+  @Property({ type: 'json' })
+  lines: RecipeLine[] = []
+
+  @Property({ type: 'text', nullable: true })
+  notes?: string | null
 }

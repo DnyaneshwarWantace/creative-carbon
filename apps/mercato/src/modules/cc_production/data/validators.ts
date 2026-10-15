@@ -520,3 +520,31 @@ export const tcListQuerySchema = z.object({ id: z.string().uuid().optional(), se
 export type TcCreateInput = z.infer<typeof tcCreateSchema>
 export type TcUpdateInput = z.infer<typeof tcUpdateSchema>
 export type TcTemplateInput = z.infer<typeof tcTemplateSchema>
+
+export const recipeLineSchema = z.object({
+  productId: z.string().uuid(),
+  kg: z.coerce.number().positive().max(1_000_000),
+  tolerancePct: z.coerce.number().min(0).max(100).default(2),
+})
+
+export const recipeWriteSchema = z.object({
+  id: z.string().uuid().optional(),
+  level: z.enum(['resin', 'coating', 'laminate', 'moulded']),
+  name: z.string().trim().min(1).max(160),
+  outputProductId: z.string().uuid().optional().nullable(),
+  dieNo: z.string().trim().max(60).optional().nullable(),
+  outputQty: z.coerce.number().positive().max(1_000_000),
+  lines: z.array(recipeLineSchema).min(1).max(40),
+  notes: z.string().trim().max(1000).optional().nullable(),
+  isActive: z.boolean().default(true),
+})
+
+export const recipeCheckSchema = z.object({
+  recipeId: z.string().uuid(),
+  outputQty: z.coerce.number().positive().max(1_000_000),
+  actual: z.array(z.object({ productId: z.string().uuid(), kg: z.coerce.number().min(0).max(1_000_000) })).max(80),
+})
+
+export const recipeListSchema = z.object({ level: z.enum(['resin', 'coating', 'laminate', 'moulded']).optional(), id: z.string().uuid().optional() })
+
+export type RecipeWriteInput = z.infer<typeof recipeWriteSchema>

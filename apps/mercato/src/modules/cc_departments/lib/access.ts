@@ -89,6 +89,16 @@ export const ACCESS_AREAS: AccessArea[] = [
     ],
   },
   {
+    key: 'recipes',
+    label: 'Recipes',
+    department: 'Production',
+    pages: 'Standard raw material per resin batch, B-stage, sheet and moulded part',
+    abilities: [
+      { feature: 'cc_production.recipes.view', label: 'See recipes and the checks against them', short: 'View' },
+      { feature: 'cc_production.recipes.manage', label: 'Add and change recipes', short: 'Edit' },
+    ],
+  },
+  {
     key: 'prices',
     label: 'Price lists',
     department: 'Sales',

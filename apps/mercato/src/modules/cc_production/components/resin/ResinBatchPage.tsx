@@ -1,5 +1,6 @@
 "use client"
 
+import { RecipeCheckPanel } from '../recipes/RecipeCheckPanel'
 import * as React from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
@@ -236,6 +237,7 @@ export function ResinBatchPage({ batchId }: { batchId: string }) {
                 />
               </Panel>
 
+              <RecipeCheckPanel level="resin" match={{ outputProductId: batch.resin?.productId ?? null }} outputQty={batch.yieldKg} actual={batch.materials.map((line) => ({ productId: line.productId, kg: line.kg }))} />
               <Panel title={t('cc_production.resin.process', 'Process')} icon={FlaskConical}>
                 <dl className="grid grid-cols-1 gap-x-8 text-sm md:grid-cols-2">
                   {STEP_LABELS.map((step) => (

@@ -1,5 +1,6 @@
 "use client"
 
+import { RecipeCheckPanel } from '../recipes/RecipeCheckPanel'
 import * as React from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
@@ -45,7 +46,7 @@ type EntryPage = {
   status: 'draft' | 'posted'
   outputLotNumber: string | null
   leftNos: number | null
-  picks: Array<{ grade: string; lotId: string; lotNumber: string | null; kg: number }>
+  picks: Array<{ grade: string; productId?: string; lotId: string; lotNumber: string | null; kg: number }>
   run: Array<{ id: string; entryDate: string; shift: number; pressNumber: number; productionNos: number; total: number; status: string }>
   history: Array<{ action: string; by: string | null; at: string; note: string | null }>
 }
@@ -116,6 +117,7 @@ export function MouldingEntryPage({ entryId }: { entryId: string }) {
                 ]}
               />
             </Panel>
+            <RecipeCheckPanel level="moulded" match={{ dieNo: entry.dieNo }} outputQty={entry.productionNos} actual={entry.picks.filter((pick) => pick.productId).map((pick) => ({ productId: pick.productId as string, kg: pick.kg }))} />
             <Panel title={t('cc_production.moulding.inputs', 'Inputs')} icon={Layers}>
               <FieldList
                 fields={[

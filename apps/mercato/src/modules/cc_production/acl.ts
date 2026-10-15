@@ -22,6 +22,8 @@ export const features = [
   { id: 'cc_production.quality.enter', title: 'Enter thickness inspection, FG inspection and lab tests', module: 'cc_production', dependsOn: ['cc_production.quality.view'] },
   { id: 'cc_production.owner.view', title: "See the owner's overview: produced today, against plan, breakdowns", module: 'cc_production' },
   { id: 'cc_production.plan.manage', title: "Write tomorrow's production plan", module: 'cc_production' },
+  { id: 'cc_production.recipes.view', title: 'See recipes (standard raw material per product) and the checks against them', module: 'cc_production' },
+  { id: 'cc_production.recipes.manage', title: 'Add and change recipes', module: 'cc_production', dependsOn: ['cc_production.recipes.view'] },
   { id: 'cc_production.prices.manage', title: 'Change price lists', module: 'cc_production', dependsOn: ['cc_production.prices.view'] },
 ]
 
