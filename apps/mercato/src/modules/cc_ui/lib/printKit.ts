@@ -160,8 +160,9 @@ export function letterheadHtml(company: PrintCompany | null | undefined, origin?
   const phone = [company?.phone ? `PH. : ${company.phone}` : '', lh.mobile ? `Mobile : ${lh.mobile}` : ''].filter(Boolean).join('  ')
   const mails = [lh.email2 ? lh.email2 : '', company?.email ?? ''].filter(Boolean).join('  •  ')
   const ids = [lh.cin ? `CIN ${lh.cin}` : '', company?.gstin ? `GSTIN : ${company.gstin}` : ''].filter(Boolean).join('  •  ')
-  const badges = lh.showBadges
+  const badges = lh.showBadges && lh.badgesUrl
     ? `<div class="badges"><img src="${esc(absoluteUrl(lh.badgesUrl, origin))}" alt="ISO certified"></div>`
     : '<div></div>'
-  return `<div class="lh">${badges}<img class="logo" src="${esc(absoluteUrl(lh.logoUrl, origin))}" alt="Logo"><div><div class="nm1">${esc(first)}</div>${second ? `<div class="nm2">${esc(second)}</div>` : ''}<div class="rule"></div><div class="addr">${esc(lh.letterheadAddress || company?.address || '')}${phone ? `<br>${esc(phone)}` : ''}</div>${mails ? `<div class="mail">E-MAIL : ${esc(mails)}</div>` : ''}${company?.website ? `<div class="mail">WEBSITE : ${esc(company.website)}</div>` : ''}${ids ? `<div class="ids">${esc(ids)}</div>` : ''}</div></div>`
+  const logo = lh.logoUrl ? `<img class="logo" src="${esc(absoluteUrl(lh.logoUrl, origin))}" alt="Logo">` : '<div></div>'
+  return `<div class="lh">${badges}${logo}<div><div class="nm1">${esc(first)}</div>${second ? `<div class="nm2">${esc(second)}</div>` : ''}<div class="rule"></div><div class="addr">${esc(lh.letterheadAddress || company?.address || '')}${phone ? `<br>${esc(phone)}` : ''}</div>${mails ? `<div class="mail">E-MAIL : ${esc(mails)}</div>` : ''}${company?.website ? `<div class="mail">WEBSITE : ${esc(company.website)}</div>` : ''}${ids ? `<div class="ids">${esc(ids)}</div>` : ''}</div></div>`
 }

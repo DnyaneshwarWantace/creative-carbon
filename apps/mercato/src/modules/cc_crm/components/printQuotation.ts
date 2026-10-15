@@ -105,7 +105,7 @@ export function buildQuotationLetterHtml(quote: Quotation & RevisionPrint & { le
     <table>${term('DELIVERY', letter.delivery)}${term('TAXES', letter.taxes)}${term('P &amp; F', letter.packing)}${term('FREIGHT', letter.freight)}${term('VALIDITY', letter.validity)}${term('PAYMENT', letter.payment)}</table>
   </div>
   <div class="foot">
-    <div>Please find above Quotation in line and favour us with your valued order.<br><u>Subject to " ${esc((lh.jurisdiction || 'Ahmedabad').toUpperCase())} " Jurisdiction</u><br>Our Bank Details are as Under<br>${esc(bankLine)}.<br>${company?.bankAccount ? `C.C.A/c. No. ${esc(company.bankAccount)}` : ''}${company?.bankIfsc ? `&nbsp;&nbsp; IFSC :- ${esc(company.bankIfsc)}` : ''}</div>
+    <div>Please find above Quotation in line and favour us with your valued order.${lh.jurisdiction ? `<br><u>Subject to " ${esc(lh.jurisdiction.toUpperCase())} " Jurisdiction</u>` : ''}<br>Our Bank Details are as Under<br>${esc(bankLine)}.<br>${company?.bankAccount ? `C.C.A/c. No. ${esc(company.bankAccount)}` : ''}${company?.bankIfsc ? `&nbsp;&nbsp; IFSC :- ${esc(company.bankIfsc)}` : ''}</div>
     <div class="sig">For, ${esc((company?.name ?? '').toUpperCase())}${lh.signatureUrl ? `<img src="${esc(lh.signatureUrl)}" alt="Signature">` : '<div style="height:46px"></div>'}${signName ? `(${esc(signName.toUpperCase())})` : ''}${signTitle ? `<br>${esc(signTitle)}` : ''}</div>
   </div>
   ${lh.sisterConcern ? `<div class="sister">${multiline(lh.sisterConcern)}</div>` : ''}

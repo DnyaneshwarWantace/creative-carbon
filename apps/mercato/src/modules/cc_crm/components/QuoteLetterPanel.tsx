@@ -13,11 +13,11 @@ import type { QuoteLetter } from '../lib/quoteLetter'
 type TextKey = 'toDesignation' | 'toCompany' | 'toAddress' | 'kindAttn' | 'refLine' | 'grade' | 'delivery' | 'taxes' | 'packing' | 'freight' | 'validity' | 'payment'
 
 const TO_FIELDS: Array<{ key: TextKey; label: string; area?: boolean; placeholder?: string }> = [
-  { key: 'toDesignation', label: 'Designation', placeholder: 'DY. MANAGER, MECHANICAL, SHOPS, D&D' },
+  { key: 'toDesignation', label: 'Designation', placeholder: 'Designation of the person' },
   { key: 'toCompany', label: 'Company' },
   { key: 'toAddress', label: 'Address', area: true },
-  { key: 'kindAttn', label: 'Kind attention', placeholder: 'HARISH R.' },
-  { key: 'refLine', label: 'Reference line', area: true, placeholder: 'With Ref. To your Mail Dated: 29/08/2026 by Mr. Harish R.. MO: 9480829173' },
+  { key: 'kindAttn', label: 'Kind attention', placeholder: 'Name of the person' },
+  { key: 'refLine', label: 'Reference line', area: true, placeholder: 'With Ref. To your Mail Dated: dd/mm/yyyy by Mr. Name. MO: mobile no.' },
   { key: 'grade', label: 'Grade (in "Grade … as under")' },
 ]
 
@@ -98,7 +98,7 @@ export function QuoteLetterPanel({ letter, lineTitles, editable, busy, onSave }:
             <p className="text-xs font-medium">
               {index + 1}. {title}
             </p>
-            <Input aria-label={t('cc_crm.letter.drawing', 'Drawing line')} disabled={!editable} placeholder={t('cc_crm.letter.drawingPlaceholder', 'AS PER YOUR DRAWING NO: SW 675124/1')} value={draft.lines[index]?.drawing ?? ''} onChange={(event) => setLine(index, 'drawing', event.target.value)} />
+            <Input aria-label={t('cc_crm.letter.drawing', 'Drawing line')} disabled={!editable} placeholder={t('cc_crm.letter.drawingPlaceholder', 'AS PER YOUR DRAWING NO: …')} value={draft.lines[index]?.drawing ?? ''} onChange={(event) => setLine(index, 'drawing', event.target.value)} />
             <div className="grid grid-cols-2 gap-2">
               <Input aria-label={t('cc_crm.letter.unit', 'Unit')} disabled={!editable} placeholder="NOS" value={draft.lines[index]?.unit ?? ''} onChange={(event) => setLine(index, 'unit', event.target.value.toUpperCase())} />
               <Input aria-label={t('cc_crm.letter.ratePer', 'Rate per')} disabled={!editable} placeholder="EACH" value={draft.lines[index]?.ratePer ?? ''} onChange={(event) => setLine(index, 'ratePer', event.target.value.toUpperCase())} />

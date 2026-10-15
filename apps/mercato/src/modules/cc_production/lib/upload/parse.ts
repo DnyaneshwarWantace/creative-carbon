@@ -1,6 +1,8 @@
 import ExcelJS from 'exceljs'
 import { parseCsv } from '../../../cc_products/lib/csv'
 import type { UploadColumn, UploadRegister, UploadRow } from './types'
+import { convertClientWorkbook } from '../chartConvert'
+import { looksLikeRodStock, parseRodStock } from '../rodStock'
 
 export type ParsedUpload = {
   rows: UploadRow[]
@@ -107,6 +109,29 @@ function headerScore(register: UploadRegister, cells: unknown[]): number {
   return cells.filter((cell) => columnForHeader(register, cellText(cell))).length
 }
 
+function gridOf(sheet: ExcelJS.Worksheet): unknown[][] {
+  const rows: unknown[][] = []
+  sheet.eachRow({ includeEmpty: true }, (row, number) => {
+    rows[number - 1] = Array.from({ length: sheet.columnCount }, (_, column) => row.getCell(column + 1).value)
+  })
+  return Array.from(rows, (row) => row ?? [])
+}
+
+function clientWorkbookRows(register: UploadRegister, sheets: ExcelJS.Worksheet[]): ParsedUpload | null {
+  if (register.key !== 'chart' && register.key !== 'rod_stock') return null
+  const grids = sheets.map((sheet) => ({ name: sheet.name, rows: gridOf(sheet) }))
+  const rodSheet = grids.find((grid) => looksLikeRodStock(grid.rows))
+  if (register.key === 'rod_stock') {
+    if (!rodSheet) return null
+    const rods = parseRodStock(rodSheet.rows)
+    return { rows: rods.map((rod, index) => ({ sheetRow: index + 3, values: { srNo: String(rod.srNo), odText: rod.odText, odFrom: String(rod.odFrom), odTo: rod.odTo === null ? '' : String(rod.odTo), lengthMm: String(rod.lengthMm), quantity: String(rod.quantity) } })), unknownHeaders: [], missingColumns: [] }
+  }
+  if (rodSheet) return null
+  const converted = convertClientWorkbook(grids)
+  if (!converted.length) return null
+  return { rows: converted.map((row, index) => ({ sheetRow: index + 2, values: Object.fromEntries(Object.entries(row).map(([key, value]) => [key, String(value)])) })), unknownHeaders: [], missingColumns: [] }
+}
+
 export async function parseUploadFile(register: UploadRegister, fileName: string, buffer: Buffer): Promise<ParsedUpload> {
   if (/\.(csv|txt)$/i.test(fileName)) {
     const table = parseCsv(buffer.toString('utf8'))
@@ -115,6 +140,8 @@ export async function parseUploadFile(register: UploadRegister, fileName: string
   const workbook = new ExcelJS.Workbook()
   await workbook.xlsx.load(buffer as unknown as ArrayBuffer)
   const sheets = workbook.worksheets.filter((sheet) => sheet.state !== 'hidden' && sheet.name !== 'How to fill' && sheet.name !== 'Lists')
+  const clientRows = clientWorkbookRows(register, sheets)
+  if (clientRows) return clientRows
   for (const sheet of sheets) {
     const table: Array<{ sheetRow: number; cells: unknown[] }> = []
     sheet.eachRow({ includeEmpty: false }, (row, rowNumber) => {

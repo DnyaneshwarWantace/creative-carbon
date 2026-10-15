@@ -34,6 +34,7 @@ export type PoView = {
   vendorName: string
   vendorGstin: string | null
   vendorPhone: string | null
+  vendorAddress?: string | null
   vendorContact: string | null
   poDate: string
   expectedDate: string | null

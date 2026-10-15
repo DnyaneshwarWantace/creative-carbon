@@ -1,5 +1,5 @@
 import type { PoView } from './shared'
-import { LETTERHEAD_CSS, amountInWords, letterheadHtml, letterheadOf, partyLogoHtml, type PrintCompany } from '../../cc_ui/lib/printKit'
+import { LETTERHEAD_CSS, letterheadHtml, letterheadOf, partyLogoHtml, type PrintCompany } from '../../cc_ui/lib/printKit'
 import { PO_FORM_NO, PO_PRINT_TERMS } from '../lib/printTerms'
 import { REVISION_CSS, revisionTag, supersededBlock, type RevisionPrint } from '../../cc_ui/lib/printRevision'
 
@@ -16,70 +16,81 @@ function day(value: string | null): string {
   return new Date(`${value}T00:00:00`).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
 }
 
-export function buildPurchaseOrderHtml(po: PoView & RevisionPrint, company?: PrintCompany | null): string {
+function plain(value: number): string {
+  return value.toFixed(2)
+}
+
+function dotDay(value: string | null): string {
+  if (!value) return ''
+  const [year, month, dayOfMonth] = value.slice(0, 10).split('-')
+  return `${dayOfMonth}.${month}.${year}`
+}
+
+function multiline(value: string): string {
+  return escapeHtml(value).replace(/\n/g, '<br>')
+}
+
+export function buildPurchaseOrderHtml(po: PoView & RevisionPrint, company?: PrintCompany | null, forPrint = true): string {
   const lh = letterheadOf(company)
   const terms = po.printTerms ?? {}
-  const deliveryPlace = terms.deliveryPlace || lh.worksAddress || ''
-  const termRows = PO_PRINT_TERMS.filter(({ key }) => key !== 'specialInstruction' && key !== 'deliveryPlace' && key !== 'guarantee' && terms[key])
-    .map(({ key, label }) => `<tr><td class="tk">${escapeHtml(label)}</td><td>: ${escapeHtml(terms[key] ?? '')}</td></tr>`)
-    .join('')
-  const legal = company?.legalName || company?.name || 'Creative Carbon Composites Pvt. Ltd.'
+  const deliveryPlace = terms.deliveryPlace || ''
+  const upper = (value: string | null | undefined) => (value ?? '').toUpperCase()
+  const units = [...new Set(po.lines.map((line) => upper(line.unit)))]
+  const per = units.length === 1 ? `(@)${units[0] === 'KG' ? 'KGS' : units[0]}` : ''
   const rows = po.lines
-    .map(
-      (line, index) => `<tr>
-        <td class="n">${index + 1}</td>
-        <td><strong>${escapeHtml(line.title)}</strong>${line.code ? `<div class="code">${escapeHtml(line.code)}</div>` : ''}</td>
-        <td class="r">${money(line.quantity).replace(/\.00$/, '')} ${escapeHtml(line.unit)}</td>
-        <td class="r">${money(line.rate)}</td>
-        <td class="r">${line.gstPercent}%</td>
-        <td class="r">${money(line.amount)}</td>
-      </tr>`,
-    )
+    .map((line, index) => `<tr><td class="c">${index + 1}</td><td class="c b">${escapeHtml(upper(line.title))}${line.notes ? `<br><span class="sm">${escapeHtml(upper(line.notes))}</span>` : ''}</td><td class="c b">${escapeHtml(upper(line.unit))}</td><td class="c b">${plain(line.rate)}</td><td class="c b">${money(line.quantity).replace(/\.00$/, '')}<br>${escapeHtml(upper(line.unit) === 'KG' ? 'KGS' : upper(line.unit))}</td><td class="c b">${plain(line.amount)}</td></tr>`)
     .join('')
+  const blank = Array.from({ length: Math.max(1, 9 - po.lines.length) }, () => '<tr class="bl"><td></td><td></td><td></td><td></td><td></td><td></td></tr>').join('')
+  const instructions = (terms.specialInstruction ?? '')
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => `<tr><td class="c b">#</td><td colspan="5" class="b">${escapeHtml(line.toUpperCase())}</td></tr>`)
+    .join('')
+  const termLine = (label: string, value: string | null | undefined) => (value ? `<div><b>${label}</b> ${escapeHtml(upper(value))}</div>` : '')
+  const directors = (lh.directors ?? '').split('\n').map((line) => line.trim()).filter(Boolean)
+  const signTitle = directors[0]?.split(',')[1]?.trim() || 'Director'
   const draft = po.status === 'draft' || po.status === 'pending_approval'
   return `<!doctype html><html><head><meta charset="utf-8"><title>${escapeHtml(po.code)}</title>
   <style>
-    *{box-sizing:border-box} body{font-family:-apple-system,Segoe UI,Helvetica,Arial,sans-serif;color:#1c1917;margin:0;padding:32px;font-size:12px}
-    .top{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #1c1917;padding-bottom:14px}
-    h1{font-size:20px;margin:0;letter-spacing:.02em} .muted{color:#78716c} .code{font-family:ui-monospace,Menlo,monospace;font-size:10px;color:#78716c}
-    ${REVISION_CSS}
+    *{box-sizing:border-box} body{font-family:Arial,Helvetica,sans-serif;color:#111;margin:0;font-size:12px}
+    .page{width:194mm;margin:0 auto;padding:8mm 0;position:relative}
     ${LETTERHEAD_CSS}
-    .formno{text-align:right;font-size:10px;color:#57534e;margin:4px 0 0} .title{text-align:center;font-size:16px;font-weight:800;letter-spacing:.14em;margin:10px 0 2px}
-    .special{margin-top:12px;padding:6px 10px;border:1px solid #1c1917;font-weight:700} .tk{width:130px;color:#57534e} .words{margin-top:8px;font-weight:700}
-    .close{margin-top:26px;display:flex;justify-content:space-between;align-items:flex-end} .close img{max-height:70px;display:block}
-    .doc{text-align:right} .doc .no{font-family:ui-monospace,Menlo,monospace;font-size:15px;font-weight:700}
-    .grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:18px 0}
-    .box{border:1px solid #d6d3d1;border-radius:6px;padding:10px 12px} .box h3{margin:0 0 4px;font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:#78716c}
-    table{width:100%;border-collapse:collapse;margin-top:8px} th{font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:#78716c;text-align:left;border-bottom:1px solid #1c1917;padding:6px}
-    td{padding:7px 6px;border-bottom:1px solid #e7e5e4;vertical-align:top} .r{text-align:right;white-space:nowrap} .n{width:24px;color:#78716c}
-    .totals{margin-left:auto;width:260px;margin-top:10px} .totals div{display:flex;justify-content:space-between;padding:3px 0} .totals .grand{border-top:1px solid #1c1917;font-weight:700;font-size:14px;padding-top:6px}
-    .terms{margin-top:22px} .sign{display:flex;justify-content:space-between;margin-top:48px} .sign div{width:40%;border-top:1px solid #a8a29e;padding-top:4px;text-align:center;color:#78716c}
-    .wm{position:fixed;top:40%;left:0;right:0;text-align:center;font-size:90px;color:rgba(0,0,0,.06);transform:rotate(-20deg);font-weight:800}
-    @media print{body{padding:16mm}}
-  </style></head><body>${supersededBlock(po)}
-  ${draft ? '<div class="wm">NOT APPROVED</div>' : ''}
+    ${REVISION_CSS}
+    table.po{width:100%;border-collapse:collapse;border:1.5px solid #222;margin-top:14px}
+    table.po td,table.po th{border:1px solid #222;padding:3px 6px;vertical-align:top}
+    table.po th{font-weight:700;font-size:11.5px}
+    .c{text-align:center}.r{text-align:right}.b{font-weight:700}.sm{font-size:10.5px}
+    tr.bl td{height:20px;border-top:0;border-bottom:0}
+    .ttl{font-weight:700;letter-spacing:.04em}
+    .plogo{margin:2px 0 4px}
+    .terms{display:grid;grid-template-columns:1fr auto;margin-top:22px;align-items:end}
+    .terms .hd{font-weight:700;text-decoration:underline;margin-bottom:8px}
+    .terms div{margin:3px 0 3px 16px;font-size:12.5px}
+    .sig{text-align:center;font-weight:700}
+    .sig img{max-height:70px;display:block;margin:6px auto}
+    .war{margin-top:18px;font-size:10.5px;font-weight:700}
+    .wm{position:absolute;top:40%;left:0;right:0;text-align:center;font-size:80px;color:rgba(0,0,0,.06);transform:rotate(-20deg);font-weight:800}
+    @media print{@page{size:A4;margin:8mm}.page{padding:0}}
+  </style></head><body><div class="page">${supersededBlock(po)}${draft ? '<div class="wm">NOT APPROVED</div>' : ''}
   ${letterheadHtml(company)}
-  <div class="formno">Form No. ${escapeHtml(PO_FORM_NO)}</div>
-  <div class="title">PURCHASE ORDER</div>
-  <div class="top">
-    <div><div class="muted">PO No.</div><div class="no" style="font-family:ui-monospace,Menlo,monospace;font-size:15px;font-weight:700">${escapeHtml(po.code)}${revisionTag(po)}</div></div>
-    <div class="doc"><div class="muted">PO Date</div><div class="no">${day(po.poDate)}</div>${po.expectedDate ? `<div class="muted">Deliver by ${day(po.expectedDate)}</div>` : ''}</div>
+  <table class="po">
+    <colgroup><col style="width:7%"><col style="width:40%"><col style="width:9%"><col style="width:13%"><col style="width:13%"><col style="width:18%"></colgroup>
+    <tr><td colspan="2" class="b">TO-:</td><td colspan="2" class="c ttl">PURCHASE ORDER</td><td colspan="2" class="r b">${escapeHtml(PO_FORM_NO)}</td></tr>
+    <tr><td colspan="3" class="b">${partyLogoHtml(po.partyLogoUrl)}${escapeHtml(upper(po.vendorName))}${po.vendorAddress ? `<br><span style="margin-left:40px">${multiline(upper(po.vendorAddress))}</span>` : ''}${po.vendorGstin ? `<br><span class="sm">GSTIN: ${escapeHtml(po.vendorGstin)}</span>` : ''}</td><td colspan="3" class="b">P.O NO- ${escapeHtml(po.code)}${revisionTag(po)}<br><br>DATE- ${dotDay(po.poDate)}${po.expectedDate ? `<br><span class="sm">DELIVER BY ${dotDay(po.expectedDate)}</span>` : ''}</td></tr>
+    <tr><td colspan="6" class="c b" style="font-size:13px">OUR GST NO: ${escapeHtml(company?.gstin ?? '')}</td></tr>
+    <tr><th>SR.N</th><th>ITEM NAME</th><th>UNIT</th><th>RATE PER<br>${per}</th><th>QTY</th><th>AMOUNT</th></tr>
+    ${rows}${blank}
+    <tr><td></td><td></td><td></td><td></td><td class="b">BASIC AMT</td><td class="c b">${plain(po.subtotal)}</td></tr>
+    ${instructions}
+    <tr><td colspan="4" class="c b"><u>${deliveryPlace ? `DELIVERY - ${escapeHtml(upper(deliveryPlace))}` : ''}</u></td><td class="b">TOTAL .RS :-</td><td class="c b">${plain(po.subtotal)}</td></tr>
+  </table>
+  <div class="terms">
+    <div><div class="hd">TERMS &amp; CONDITION-:</div>${termLine('TAXES-;', terms.taxes)}${termLine('P&amp;F-:', terms.packingForwarding)}${termLine('DELIVERY -', terms.delivery)}${termLine('THROUGH-:', terms.through)}${termLine('PAYMENT-:', terms.payment || po.terms)}${po.notes ? termLine('NOTE-:', po.notes) : ''}</div>
+    <div class="sig">Yours Faithfully<br>For,${escapeHtml(upper(company?.name || 'Creative Carbon Composites Pvt. Ltd.'))}${lh.stampUrl ? `<img src="${escapeHtml(lh.stampUrl)}" alt="Stamp">` : lh.signatureUrl ? `<img src="${escapeHtml(lh.signatureUrl)}" alt="Signature">` : '<div style="height:60px"></div>'}${escapeHtml(signTitle)}</div>
   </div>
-  <div class="grid">
-    <div class="box"><h3>Supplier</h3>${partyLogoHtml(po.partyLogoUrl)}<strong>${escapeHtml(po.vendorName)}</strong><div class="code">GSTIN ${escapeHtml(po.vendorGstin ?? '—')}</div></div>
-    <div class="box"><h3>Deliver to</h3><strong>${escapeHtml(legal)}</strong><div class="muted">${escapeHtml(deliveryPlace)}</div>${po.orderRefs.length ? `<div class="code">Ref ${po.orderRefs.map((ref) => escapeHtml(ref.orderNo)).join(', ')}</div>` : ''}</div>
-  </div>
-  <table><thead><tr><th>#</th><th>Material</th><th class="r">Quantity</th><th class="r">Rate ₹</th><th class="r">GST</th><th class="r">Amount ₹</th></tr></thead><tbody>${rows}</tbody></table>
-  <div class="totals"><div><span>Before GST</span><span>₹ ${money(po.subtotal)}</span></div><div><span>GST</span><span>₹ ${money(po.gst)}</span></div><div class="grand"><span>Total</span><span>₹ ${money(po.total)}</span></div></div>
-  <div class="words">${escapeHtml(amountInWords(po.total))}</div>
-  ${terms.specialInstruction ? `<div class="special">${escapeHtml(terms.specialInstruction)}</div>` : ''}
-  ${termRows || po.terms || po.notes ? `<div class="terms"><div><strong>Terms &amp; Conditions</strong></div><table>${termRows}${po.terms ? `<tr><td class="tk">Payment terms</td><td>: ${escapeHtml(po.terms)}</td></tr>` : ''}${po.notes ? `<tr><td class="tk">Notes</td><td>: ${escapeHtml(po.notes)}</td></tr>` : ''}</table></div>` : ''}
-  ${terms.guarantee ? `<p><strong>Guarantee / warranty:</strong> ${escapeHtml(terms.guarantee)}</p>` : ''}
-  <div class="close">
-    <div>Yours faithfully,<br><strong>for ${escapeHtml(legal)}</strong>${lh.stampUrl ? `<img src="${escapeHtml(lh.stampUrl)}" alt="Stamp">` : ''}${lh.signatureUrl ? `<img src="${escapeHtml(lh.signatureUrl)}" alt="Signature">` : ''}<div style="margin-top:${lh.signatureUrl || lh.stampUrl ? '4' : '40'}px">${escapeHtml(company?.signatory || 'Director')}</div></div>
-    <div class="muted" style="text-align:right">Prepared by ${escapeHtml(po.createdByName ?? '')}<br>Approved by ${escapeHtml(po.approvedByName ?? '')}</div>
-  </div>
-  <script>window.addEventListener('load', function () { setTimeout(function () { window.print() }, 200) })</script>
+  ${terms.guarantee ? `<div class="war">GAURANTY/WARRANTY-: ${escapeHtml(upper(terms.guarantee))}</div>` : ''}
+  </div>${forPrint ? "<script>window.addEventListener('load', function () { setTimeout(function () { window.print() }, 250) })</script>" : ''}
   </body></html>`
 }
 
