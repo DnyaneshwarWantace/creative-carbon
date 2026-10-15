@@ -557,14 +557,22 @@ export async function listFgReports(ctx: StoreContext, month: string | null) {
   return rows.map(fgReportView)
 }
 
-export async function createDirectIn(ctx: StoreContext, input: { inDate: string; supplier: string; invoiceNo: string | null; productId: string; sheetSize: string | null; thicknessMm: number | null; nos: number | null; kg: number }, byName: string | null) {
+export async function createDirectIn(ctx: StoreContext, input: { inDate: string; supplier: string; vendorId?: string | null; invoiceNo: string | null; productId: string; sheetSize: string | null; thicknessMm: number | null; nos: number | null; kg: number }, byName: string | null) {
   const [product] = await ctx.em.getConnection().execute<Array<{ id: string; title: string; kind: string; unit: string | null }>>(
     'select id, title, custom_fieldset_code as kind, default_unit as unit from catalog_products where id = ? and tenant_id = ? and organization_id = ? and deleted_at is null',
     [input.productId, ctx.tenantId, ctx.organizationId],
   )
   if (!product || !FINISHED_KINDS.includes(product.kind)) throw new PlantError('Pick a finished item (sheet, moulded or bought-in)')
+  let supplier = input.supplier.trim()
+  let vendorId: string | null = null
+  if (input.vendorId) {
+    const [vendor] = await ctx.em.getConnection().execute<Array<{ id: string; name: string }>>('select id, name from cc_vendors where id = ? and tenant_id = ? and organization_id = ? and deleted_at is null', [input.vendorId, ctx.tenantId, ctx.organizationId])
+    if (!vendor) throw new PlantError('That supplier is not in the vendor list')
+    supplier = vendor.name
+    vendorId = vendor.id
+  }
   if (product.unit === 'nos' && !input.nos) throw new PlantError(`${product.title} is counted in pieces; enter the nos`)
-  const record = ctx.em.create(FgDirectIn, { ...scope(ctx), inDate: input.inDate, supplier: input.supplier, invoiceNo: input.invoiceNo, productId: product.id, itemTitle: product.title, sheetSize: input.sheetSize, thicknessMm: input.thicknessMm === null ? null : String(input.thicknessMm), nos: input.nos, kg: String(kg3(input.kg)), byName, history: [entry('received', byName)] })
+  const record = ctx.em.create(FgDirectIn, { ...scope(ctx), inDate: input.inDate, supplier, vendorId, invoiceNo: input.invoiceNo, productId: product.id, itemTitle: product.title, sheetSize: input.sheetSize, thicknessMm: input.thicknessMm === null ? null : String(input.thicknessMm), nos: input.nos, kg: String(kg3(input.kg)), byName, history: [entry('received', byName)] })
   ctx.em.persist(record)
   await ctx.em.flush()
   const stock = await plantStock(ctx, [product.id])
@@ -577,11 +585,11 @@ export async function createDirectIn(ctx: StoreContext, input: { inDate: string;
       existingLotId: null,
       kg: product.unit === 'nos' ? input.nos! : kg3(input.kg),
       manufacturedAt: input.inDate,
-      reason: `Bought-in from ${input.supplier}${input.invoiceNo ? `, invoice ${input.invoiceNo}` : ''}`,
+      reason: `Bought-in from ${supplier}${input.invoiceNo ? `, invoice ${input.invoiceNo}` : ''}`,
       reasonCode: 'fg_direct_in',
       performedAt: movementTime(input.inDate),
       metadata: { source: SOURCE, directInId: record.id },
-      lotMetadata: { nos: input.nos, madeKg: kg3(input.kg), sheetSize: input.sheetSize, thicknessMm: input.thicknessMm, supplier: input.supplier, invoiceNo: input.invoiceNo, boughtIn: true },
+      lotMetadata: { nos: input.nos, madeKg: kg3(input.kg), sheetSize: input.sheetSize, thicknessMm: input.thicknessMm, supplier, invoiceNo: input.invoiceNo, boughtIn: true },
     })
     record.lotNumber = lotNumber
     await ctx.em.flush()

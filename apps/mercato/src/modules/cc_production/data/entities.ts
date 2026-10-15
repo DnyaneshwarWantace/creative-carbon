@@ -1242,7 +1242,7 @@ export class LabTest {
 @Entity({ tableName: 'cc_fg_direct_ins' })
 @Index({ name: 'cc_fg_direct_ins_scope_idx', properties: ['organizationId', 'tenantId', 'inDate'] })
 export class FgDirectIn {
-  [OptionalProps]?: 'createdAt' | 'updatedAt' | 'deletedAt' | 'history' | 'byName' | 'invoiceNo' | 'sheetSize' | 'thicknessMm' | 'nos' | 'lotId' | 'lotNumber' | 'status'
+  [OptionalProps]?: 'createdAt' | 'updatedAt' | 'deletedAt' | 'history' | 'byName' | 'vendorId' | 'invoiceNo' | 'sheetSize' | 'thicknessMm' | 'nos' | 'lotId' | 'lotNumber' | 'status'
 
   @PrimaryKey({ type: 'uuid', defaultRaw: 'gen_random_uuid()' })
   id!: string
@@ -1258,6 +1258,9 @@ export class FgDirectIn {
 
   @Property({ type: 'text' })
   supplier!: string
+
+  @Property({ name: 'vendor_id', type: 'uuid', nullable: true })
+  vendorId?: string | null
 
   @Property({ name: 'invoice_no', type: 'text', nullable: true })
   invoiceNo?: string | null

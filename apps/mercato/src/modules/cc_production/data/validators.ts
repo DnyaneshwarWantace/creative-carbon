@@ -382,6 +382,7 @@ export const labListSchema = z.object({ month: z.string().regex(/^\d{4}-\d{2}$/)
 export const directInSchema = z.object({
   inDate: isoDate,
   supplier: z.string().trim().min(1).max(200),
+  vendorId: z.string().uuid().optional().nullable(),
   invoiceNo: optionalText(60),
   productId: z.string().uuid(),
   sheetSize: optionalText(40),

@@ -16,6 +16,7 @@ import { apiCall } from '@open-mercato/ui/backend/utils/apiCall'
 import { flash } from '@open-mercato/ui/backend/FlashMessages'
 import { SearchPicker } from '../../../cc_orders/components/SearchPicker'
 import { searchCustomers } from '../../../cc_orders/components/loaders'
+import type { PickerOption } from '../../../cc_orders/components/SearchPicker'
 import { useGranted } from '../../../cc_departments/components/useGranted'
 import { day, kg, thisMonth, todayIso } from '../resin/shared'
 import { lotLabel, useSend, useSetup, type FloorLot } from './shared'
@@ -347,6 +348,11 @@ function FormField({ id, label, hint, className, children }: { id: string; label
   )
 }
 
+async function searchSuppliers(search: string): Promise<PickerOption<null>[]> {
+  const call = await apiCall<{ items?: Array<{ id: string; name: string; code: string | null; gstNumber: string | null }> }>(`/api/cc_production/fg-direct/vendors?q=${encodeURIComponent(search.trim())}`, undefined, { fallback: { items: [] } })
+  return (call.result?.items ?? []).map((vendor) => ({ id: vendor.id, primary: vendor.name, secondary: [vendor.code, vendor.gstNumber].filter(Boolean).join(' · ') || null, value: null }))
+}
+
 export function DirectInPage() {
   const t = useT()
   const granted = useGranted()
@@ -356,7 +362,7 @@ export function DirectInPage() {
   const [lists, setLists] = React.useState<{ directIns: DirectIn[]; damages: Damage[] }>({ directIns: [], damages: [] })
   const [products, setProducts] = React.useState<ProductOption[]>([])
   const [lots, setLots] = React.useState<FloorLot[]>([])
-  const [form, setForm] = React.useState({ inDate: todayIso(), supplier: '', invoiceNo: '', productId: '', sheetSize: '', thicknessMm: '', nos: '', kg: '' })
+  const [form, setForm] = React.useState({ inDate: todayIso(), supplier: '', vendorId: '', invoiceNo: '', productId: '', sheetSize: '', thicknessMm: '', nos: '', kg: '' })
   const [damage, setDamage] = React.useState({ entryDate: todayIso(), lotId: '', kg: '', reason: '' })
   const { setup: finishingSetup } = useSetup()
   const [busy, setBusy] = React.useState(false)
@@ -383,7 +389,7 @@ export function DirectInPage() {
   const receive = async () => {
     setBusy(true)
     try {
-      const result = await send<{ lotNumber: string }>('/api/cc_production/fg-direct', 'POST', { ...form, invoiceNo: form.invoiceNo || null, sheetSize: form.sheetSize || null, thicknessMm: form.thicknessMm || null, nos: form.nos || null })
+      const result = await send<{ lotNumber: string }>('/api/cc_production/fg-direct', 'POST', { ...form, vendorId: form.vendorId || null, invoiceNo: form.invoiceNo || null, sheetSize: form.sheetSize || null, thicknessMm: form.thicknessMm || null, nos: form.nos || null })
       if (result) {
         flash(t('cc_production.direct.done', 'Received into the FG store as {lot}.', { lot: result.lotNumber }), 'success')
         setForm({ ...form, productId: '', nos: '', kg: '', sheetSize: '', thicknessMm: '' })
@@ -436,7 +442,25 @@ export function DirectInPage() {
                     <Input id="di-invoice" value={form.invoiceNo} onChange={(event) => setForm({ ...form, invoiceNo: event.target.value })} />
                   </FormField>
                   <FormField id="di-supplier" label={t('cc_production.direct.supplier', 'Supplier')} className="col-span-2">
-                    <Input id="di-supplier" value={form.supplier} onChange={(event) => setForm({ ...form, supplier: event.target.value })} />
+                    <SearchPicker
+                      value={form.vendorId ? { id: form.vendorId, primary: form.supplier, value: null } : null}
+                      placeholder={t('cc_production.direct.pickSupplier', 'Pick from the vendor list')}
+                      searchPlaceholder={t('cc_production.direct.searchSupplier', 'Search vendor name, code or GSTIN')}
+                      load={searchSuppliers}
+                      onSelect={(option) => setForm({ ...form, vendorId: option.id, supplier: option.primary })}
+                      footer={
+                        <a className="block px-3 py-2 text-xs text-muted-foreground hover:text-foreground" href="/backend/cc_vendors/create" target="_blank" rel="noreferrer">
+                          {t('cc_production.direct.addSupplier', 'Not in the list? Add the vendor first')}
+                        </a>
+                      }
+                    />
+                    {form.vendorId ? (
+                      <button type="button" className="mt-1 text-xs text-muted-foreground hover:text-foreground" onClick={() => setForm({ ...form, vendorId: '', supplier: '' })}>
+                        {t('cc_production.direct.clearSupplier', 'Clear')}
+                      </button>
+                    ) : (
+                      <Input id="di-supplier" className="mt-1.5" value={form.supplier} placeholder={t('cc_production.direct.typeSupplier', 'Or type a name (not linked to the vendor list)')} onChange={(event) => setForm({ ...form, supplier: event.target.value })} />
+                    )}
                   </FormField>
                   <FormField id="di-item" label={t('cc_production.direct.item', 'Item')} className="col-span-2">
                     <Dropdown id="di-item" value={form.productId} onChange={(event) => setForm({ ...form, productId: event.target.value })} placeholder={t('cc_production.direct.pickItem', 'Pick the item')}>
