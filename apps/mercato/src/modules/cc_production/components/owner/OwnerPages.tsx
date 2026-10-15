@@ -1,5 +1,6 @@
 "use client"
 
+import { DashHeader } from '../../../cc_ui/components/DashKit'
 import * as React from 'react'
 import { StocktakeListPanel } from './StoreRecords'
 import Link from 'next/link'
@@ -92,16 +93,18 @@ export function OwnerOverviewPage() {
     <Page>
       <PageBody>
         <div className="mx-auto flex max-w-3xl flex-col gap-4 pb-12">
-          <header className="flex flex-wrap items-end justify-between gap-3">
-            <div>
-              <p className="text-overline font-semibold uppercase tracking-widest text-muted-foreground">Creative Carbon · Kanera</p>
-              <h1 className="text-2xl font-bold tracking-tight">{t('cc_production.owner.title', 'Plant today')}</h1>
-            </div>
-            <div className="flex items-center gap-2">
-              <OfflineBadge />
-              <Input type="date" className="w-40" value={date} onChange={(event) => setDate(event.target.value)} aria-label={t('cc_production.resin.date', 'Date')} />
-            </div>
-          </header>
+          <DashHeader
+            overline="Creative Carbon · Kanera"
+            title={t('cc_production.owner.title', 'Plant today')}
+            lede={t('cc_production.owner.lede', 'What the plant made, against the plan, and what needs you.')}
+            actions={
+              <>
+                <OfflineBadge />
+                <Link href="/backend/production" className="text-sm text-muted-foreground underline-offset-2 hover:underline">{t('cc_production.floor.title', 'Production floor')}</Link>
+                <Input type="date" className="w-40" value={date} onChange={(event) => setDate(event.target.value)} aria-label={t('cc_production.resin.date', 'Date')} />
+              </>
+            }
+          />
           {!data ? (
             <div className="flex justify-center py-16">
               <Spinner />

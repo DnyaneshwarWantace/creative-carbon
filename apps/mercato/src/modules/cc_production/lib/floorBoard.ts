@@ -15,6 +15,7 @@ export type MachineTile = {
   key: string
   label: string
   sub: string | null
+  usage: string | null
   state: MachineState
   detail: string
   href: string | null
@@ -46,6 +47,7 @@ export function pressTiles(presses: FloorPress[], batches: FloorPressBatch[], mo
         key: `press-${press.number}`,
         label: String(press.number),
         sub: press.pressType === 'big' ? 'Big' : 'Small',
+        usage: press.usage,
         state,
         detail: state === 'breakdown' ? 'Out of order' : parts.join(' · ') || 'Free',
         href: first ? `/backend/press/batches/${first.id}` : firstDie ? `/backend/moulding/entries/${firstDie.id}` : `/backend/masters/plant/press/${press.id}`,
@@ -59,7 +61,7 @@ export function dryerTiles(dryers: FloorDryer[], sheets: FloorSheet[]): MachineT
     .map((dryer) => {
       const own = sheets.filter((sheet) => sheet.dryerCode === dryer.code && sheet.status !== 'cancelled')
       const kg = round3(own.reduce((sum, sheet) => sum + sheet.bstageKg, 0))
-      return { kind: 'dryer' as const, key: `dryer-${dryer.id}`, label: dryer.code, sub: null, state: stateOf(own), detail: own.length ? `${kg.toFixed(3)} kg B-stage` : 'Free', href: own[0] ? `/backend/coating/${own[0].id}` : `/backend/masters/plant/dryer/${dryer.id}` }
+      return { kind: 'dryer' as const, key: `dryer-${dryer.id}`, label: dryer.code, sub: null, usage: null, state: stateOf(own), detail: own.length ? `${kg.toFixed(3)} kg B-stage` : 'Free', href: own[0] ? `/backend/coating/${own[0].id}` : `/backend/masters/plant/dryer/${dryer.id}` }
     })
 }
 
@@ -77,6 +79,7 @@ export function reactorTiles(reactors: FloorReactor[], batches: FloorResin[]): M
         key: `reactor-${reactor.id}`,
         label: reactor.code,
         sub: null,
+        usage: null,
         state,
         detail: failed && !open ? `Batch failed · ${own.find((batch) => batch.status === 'failed')?.batchNo ?? ''}` : own.length ? `${own.map((batch) => batch.grade).filter(Boolean).join(', ') || 'Resin'} · ${kg.toFixed(3)} kg` : 'Free',
         href: own[0] ? `/backend/resin/batches/${own[0].id}` : `/backend/masters/plant/reactor/${reactor.id}`,

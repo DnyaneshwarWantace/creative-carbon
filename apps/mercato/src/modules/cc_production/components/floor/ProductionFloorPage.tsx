@@ -56,7 +56,7 @@ function Tile({ tile, big }: { tile: MachineTile; big?: boolean }) {
     <div className={cn('flex h-full flex-col gap-1 rounded-md border p-2.5 transition-colors hover:border-foreground/40', style.frame)}>
       <div className="flex items-center justify-between gap-2">
         <span className={cn('font-mono font-bold tabular-nums', big ? 'text-base' : 'text-lg')}>{tile.label}</span>
-        <span className="flex items-center gap-1 text-[0.6875rem] font-semibold uppercase tracking-wide text-muted-foreground">
+        <span className="flex items-center gap-1 text-overline font-semibold uppercase tracking-wide text-muted-foreground">
           <span className={cn('size-1.5 rounded-full', style.dot, tile.state === 'running' && 'animate-pulse')} aria-hidden="true" />
           {style.label}
         </span>

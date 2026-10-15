@@ -1,12 +1,12 @@
 "use client"
 
 import * as React from 'react'
-import { PlanPage } from '../../../components/owner/OwnerPages'
+import { PlanBoardPage } from '../../../components/plan/PlanBoardPage'
 
 export default function CcPlanPageRoute() {
   return (
     <React.Suspense fallback={null}>
-      <PlanPage />
+      <PlanBoardPage />
     </React.Suspense>
   )
 }

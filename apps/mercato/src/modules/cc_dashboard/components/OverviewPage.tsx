@@ -1,5 +1,6 @@
 "use client"
 
+import { DashHeader, KpiStrip } from '../../cc_ui/components/DashKit'
 import * as React from 'react'
 import { useGranted } from '../../cc_departments/components/useGranted'
 import Link from 'next/link'
@@ -84,11 +85,11 @@ function greeting(): string {
 
 function Panel({ title, hint, action, children, className }: { title: string; hint?: string; action?: React.ReactNode; children: React.ReactNode; className?: string }) {
   return (
-    <section className={cn('flex flex-col overflow-hidden rounded-xl border border-border bg-card shadow-sm', className)}>
-      <header className="flex items-start justify-between gap-3 border-b border-border px-5 py-4">
-        <div>
-          <h2 className="text-sm font-semibold">{title}</h2>
-          {hint ? <p className="text-xs text-muted-foreground">{hint}</p> : null}
+    <section className={cn('flex flex-col overflow-hidden rounded-md border border-border bg-card shadow-sm', className)}>
+      <header className="flex items-start justify-between gap-3 border-b-2 border-foreground/70 px-4 py-2.5">
+        <div className="min-w-0">
+          <h2 className="font-mono text-overline font-semibold uppercase tracking-widest">{title}</h2>
+          {hint ? <p className="mt-0.5 text-xs text-muted-foreground">{hint}</p> : null}
         </div>
         {action}
       </header>
@@ -127,33 +128,29 @@ export function OverviewPage() {
     <Page>
       <PageBody>
         <div className="mx-auto flex max-w-screen-2xl flex-col gap-6 pb-16">
-          <header className="flex flex-wrap items-end justify-between gap-4">
-            <div className="space-y-1">
-              <p className="text-overline font-semibold uppercase tracking-widest text-muted-foreground">
-                {new Date().toLocaleDateString('en-IN', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' })}
-              </p>
-              <h1 className="text-2xl font-bold tracking-tight">{t('cc_dashboard.title', '{greeting}. Here is the factory today.', { greeting: greeting() })}</h1>
-              <p className="text-sm text-muted-foreground">
-                {t('cc_dashboard.lede', 'Where every order is, what is stuck and with whom. A step is stuck after {days} days.', { days: data?.stuckDays ?? 3 })}
-              </p>
-            </div>
-            <div className="flex gap-2">
-              <Link href="/backend/my-work">
-                <Button type="button" variant="outline">
-                  <UserRound className="mr-1.5 h-4 w-4" aria-hidden="true" />
-                  {t('cc_dashboard.myWork', 'My pending work')}
-                </Button>
-              </Link>
-              {granted.has('cc_orders.manage') ? (
-              <Link href="/backend/orders/new">
-                <Button type="button">
-                  <Plus className="mr-1.5 h-4 w-4" aria-hidden="true" />
-                  {t('cc_dashboard.newOrder', 'New order')}
-                </Button>
-              </Link>
-              ) : null}
-            </div>
-          </header>
+          <DashHeader
+            overline={new Date().toLocaleDateString('en-IN', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' })}
+            title={t('cc_dashboard.title', '{greeting}. Here is the factory today.', { greeting: greeting() })}
+            lede={t('cc_dashboard.lede', 'Where every order is, what is stuck and with whom. A step is stuck after {days} days.', { days: data?.stuckDays ?? 3 })}
+            actions={
+              <>
+                <Link href="/backend/my-work">
+                  <Button type="button" variant="outline">
+                    <UserRound className="mr-1.5 h-4 w-4" aria-hidden="true" />
+                    {t('cc_dashboard.myWork', 'My pending work')}
+                  </Button>
+                </Link>
+                {granted.has('cc_orders.manage') ? (
+                  <Link href="/backend/orders/new">
+                    <Button type="button">
+                      <Plus className="mr-1.5 h-4 w-4" aria-hidden="true" />
+                      {t('cc_dashboard.newOrder', 'New order')}
+                    </Button>
+                  </Link>
+                ) : null}
+              </>
+            }
+          />
 
           {!data ? (
             <div className="flex justify-center py-24">
@@ -161,25 +158,15 @@ export function OverviewPage() {
             </div>
           ) : (
             <>
-              <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5">
-                {[
-                  { label: t('cc_dashboard.tile.open', 'Open orders'), value: data.tiles.openOrders, icon: <ClipboardList className="h-4 w-4" />, tone: 'bg-status-info-bg text-status-info-icon', href: '/backend/orders' },
-                  { label: t('cc_dashboard.tile.stuck', 'Orders with a stuck step'), value: data.tiles.stuckOrders, icon: <AlarmClock className="h-4 w-4" />, tone: 'bg-status-warning-bg text-status-warning-icon', href: '#stuck' },
-                  { label: t('cc_dashboard.tile.hold', 'On hold'), value: data.tiles.onHoldOrders, icon: <PauseCircle className="h-4 w-4" />, tone: 'bg-status-error-bg text-status-error-icon', href: '/backend/orders?status=on_hold' },
-                  { label: t('cc_dashboard.tile.due', 'Due in 7 days'), value: data.tiles.dueThisWeek, icon: <CalendarClock className="h-4 w-4" />, tone: 'bg-muted text-muted-foreground', href: '/backend/orders' },
-                  { label: t('cc_dashboard.tile.overdue', 'Past delivery date'), value: data.tiles.overdue, icon: <Truck className="h-4 w-4" />, tone: data.tiles.overdue ? 'bg-status-error-bg text-status-error-icon' : 'bg-muted text-muted-foreground', href: '/backend/orders' },
-                ].map((tile) => (
-                  <Link key={tile.label} href={tile.href} className="group flex items-center gap-3 rounded-lg border border-border bg-card p-4 shadow-xs transition-shadow hover:shadow-md">
-                    <span className={cn('flex h-10 w-10 shrink-0 items-center justify-center rounded-full', tile.tone)} aria-hidden="true">
-                      {tile.icon}
-                    </span>
-                    <span className="min-w-0">
-                      <span className="block text-2xl font-bold leading-none tabular-nums">{tile.value}</span>
-                      <span className="mt-1 block text-xs leading-snug text-muted-foreground">{tile.label}</span>
-                    </span>
-                  </Link>
-                ))}
-              </div>
+              <KpiStrip
+                items={[
+                  { label: t('cc_dashboard.tile.open', 'Open orders'), value: data.tiles.openOrders, href: '/backend/orders' },
+                  { label: t('cc_dashboard.tile.stuck', 'Orders with a stuck step'), value: data.tiles.stuckOrders, tone: data.tiles.stuckOrders ? 'warn' : undefined, href: '#stuck' },
+                  { label: t('cc_dashboard.tile.hold', 'On hold'), value: data.tiles.onHoldOrders, tone: data.tiles.onHoldOrders ? 'bad' : undefined, href: '/backend/orders?status=on_hold' },
+                  { label: t('cc_dashboard.tile.due', 'Due in 7 days'), value: data.tiles.dueThisWeek, href: '/backend/orders' },
+                  { label: t('cc_dashboard.tile.overdue', 'Past delivery date'), value: data.tiles.overdue, tone: data.tiles.overdue ? 'bad' : undefined, href: '/backend/orders' },
+                ]}
+              />
 
               <div className="grid grid-cols-1 gap-6 xl:grid-cols-5">
                 <Panel
@@ -198,7 +185,7 @@ export function OverviewPage() {
                               <span className="block truncate text-sm font-medium">{row.label}</span>
                               <span className="block truncate text-xs text-muted-foreground">{row.department}</span>
                             </span>
-                            <span className="col-span-6 flex h-2.5 overflow-hidden rounded-full bg-input" aria-hidden="true">
+                            <span className="col-span-6 flex h-2 overflow-hidden rounded-sm bg-input" aria-hidden="true">
                               <span className="h-full bg-accent-indigo" style={{ width: `${(row.open / maxStage) * 100}%` }} />
                               <span className="h-full bg-status-error-icon" style={{ width: `${(row.onHold / maxStage) * 100}%` }} />
                             </span>
@@ -230,7 +217,7 @@ export function OverviewPage() {
                               {person.stuck ? <span className="text-status-warning-text"> · {person.stuck} stuck</span> : null}
                             </span>
                           </div>
-                          <div className="mt-2 flex h-1.5 overflow-hidden rounded-full bg-input" aria-hidden="true">
+                          <div className="mt-2 flex h-1.5 overflow-hidden rounded-sm bg-input" aria-hidden="true">
                             <span className="h-full bg-status-warning-icon" style={{ width: `${(person.stuck / maxPerson) * 100}%` }} />
                             <span className="h-full bg-accent-indigo" style={{ width: `${((person.open - person.stuck) / maxPerson) * 100}%` }} />
                           </div>
@@ -332,7 +319,7 @@ export function OverviewPage() {
                                     {t('cc_dashboard.min', 'min {qty}', { qty: qty(row.minimum) })} {row.unit ?? ''}
                                   </span>
                                 </span>
-                                <span className="mt-1 block h-1.5 overflow-hidden rounded-full bg-input" aria-hidden="true">
+                                <span className="mt-1 block h-1.5 overflow-hidden rounded-sm bg-input" aria-hidden="true">
                                   <span className={cn('block h-full rounded-full', row.usable <= 0 ? 'bg-status-error-icon' : 'bg-status-warning-icon')} style={{ width: `${percent}%` }} />
                                 </span>
                               </span>

@@ -1,5 +1,6 @@
 "use client"
 
+import { DashHeader } from '../../cc_ui/components/DashKit'
 import * as React from 'react'
 import Link from 'next/link'
 import { Timer } from 'lucide-react'
@@ -64,21 +65,19 @@ export function TurnaroundPage() {
     <Page>
       <PageBody>
         <div className="mx-auto flex max-w-6xl flex-col gap-6 pb-16">
-          <header className="flex flex-wrap items-end justify-between gap-4">
-            <div className="space-y-1">
-              <p className="text-overline font-semibold uppercase tracking-widest text-muted-foreground">{t('cc_dashboard.eyebrow', 'Overview')}</p>
-              <h1 className="text-2xl font-bold tracking-tight">{t('cc_dashboard.tat.title', 'Turnaround')}</h1>
-              <p className="max-w-2xl text-sm text-muted-foreground">{t('cc_dashboard.tat.lede', 'How many days each stage and each person takes to clear a step, from finished steps.')}</p>
-            </div>
-            <div className="flex flex-wrap items-center gap-2">
+          <DashHeader
+            overline={t('cc_dashboard.eyebrow', 'Overview')}
+            title={t('cc_dashboard.tat.title', 'Turnaround')}
+            lede={t('cc_dashboard.tat.lede', 'How many days each stage and each person takes to clear a step, from finished steps.')}
+            actions={<>
               <SegmentedControl value={days} onValueChange={setDays} aria-label={t('cc_dashboard.tat.period', 'Period')}>
                 <SegmentedControlItem value="30">30 d</SegmentedControlItem>
                 <SegmentedControlItem value="90">90 d</SegmentedControlItem>
                 <SegmentedControlItem value="180">180 d</SegmentedControlItem>
               </SegmentedControl>
               <ExportButton disabled={!data?.completedSteps} onExport={exportTurnaround} />
-            </div>
-          </header>
+            </>}
+          />
 
           {!data ? (
             <div className="flex justify-center py-20">
@@ -104,7 +103,7 @@ export function TurnaroundPage() {
               </div>
 
               <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-                <section className="overflow-hidden rounded-xl border bg-card shadow-sm">
+                <section className="overflow-hidden rounded-md border bg-card shadow-sm">
                   <h2 className="border-b px-5 py-4 text-sm font-semibold">{t('cc_dashboard.tat.byStage', 'By stage')}</h2>
                   <ul className="divide-y">
                     {data.stages.map((row) => (
@@ -127,7 +126,7 @@ export function TurnaroundPage() {
                   </ul>
                 </section>
 
-                <section className="overflow-hidden rounded-xl border bg-card shadow-sm">
+                <section className="overflow-hidden rounded-md border bg-card shadow-sm">
                   <h2 className="border-b px-5 py-4 text-sm font-semibold">{t('cc_dashboard.tat.byPerson', 'By person')}</h2>
                   <ul className="divide-y">
                     {data.people.map((row) => (
@@ -149,7 +148,7 @@ export function TurnaroundPage() {
                 </section>
               </div>
 
-              <section className="overflow-hidden rounded-xl border bg-card shadow-sm">
+              <section className="overflow-hidden rounded-md border bg-card shadow-sm">
                 <h2 className="border-b px-5 py-4 text-sm font-semibold">{t('cc_dashboard.tat.slowest', 'Slowest finished steps')}</h2>
                 <ul className="divide-y">
                   {data.slowest.map((row) => (

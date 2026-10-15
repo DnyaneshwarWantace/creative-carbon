@@ -1,5 +1,6 @@
 "use client"
 
+import { DashHeader } from '../../cc_ui/components/DashKit'
 import * as React from 'react'
 import { useGranted } from '../../cc_departments/components/useGranted'
 import Link from 'next/link'
@@ -97,9 +98,9 @@ function MyFollowUps({ everyone }: { everyone: boolean }) {
   if (!rows?.length) return null
   const due = rows.filter((row) => row.dueOn <= new Date(Date.now() + 5.5 * 3600_000).toISOString().slice(0, 10))
   return (
-    <section className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
-      <header className="flex items-center justify-between border-b border-border px-5 py-3">
-        <h2 className="text-sm font-semibold">{t('cc_dashboard.my.followUps', 'Follow-ups due · {count}', { count: due.length })}</h2>
+    <section className="overflow-hidden rounded-md border border-border bg-card shadow-sm">
+      <header className="flex items-center justify-between border-b-2 border-foreground/70 px-5 py-2.5">
+        <h2 className="font-mono text-overline font-semibold uppercase tracking-widest">{t('cc_dashboard.my.followUps', 'Follow-ups due · {count}', { count: due.length })}</h2>
         <Link href="/backend/crm/follow-ups" className="text-xs text-primary hover:underline">
           {t('cc_dashboard.my.allFollowUps', 'All follow-ups')}
         </Link>
@@ -140,17 +141,11 @@ export function MyWorkPage() {
     <Page>
       <PageBody>
         <div className="mx-auto flex max-w-5xl flex-col gap-6 pb-16">
-          <header className="flex flex-wrap items-end justify-between gap-4">
-            <div className="space-y-1">
-              <p className="text-overline font-semibold uppercase tracking-widest text-muted-foreground">
-                {new Date().toLocaleDateString('en-IN', { weekday: 'long', day: '2-digit', month: 'long' })}
-              </p>
-              <h1 className="text-2xl font-bold tracking-tight">{scope === 'mine' ? t('cc_dashboard.my.title', 'My pending work') : t('cc_dashboard.team.title', "Everyone's pending work")}</h1>
-              <p className="text-sm text-muted-foreground">
-                {t('cc_dashboard.my.lede', 'The order steps you are responsible for. The same list is emailed every morning.')}
-              </p>
-            </div>
-            <div className="flex flex-wrap items-center gap-2">
+          <DashHeader
+            overline={new Date().toLocaleDateString('en-IN', { weekday: 'long', day: '2-digit', month: 'long' })}
+            title={scope === 'mine' ? t('cc_dashboard.my.title', 'My pending work') : t('cc_dashboard.team.title', "Everyone's pending work")}
+            lede={t('cc_dashboard.my.lede', 'The order steps you are responsible for. The same list is emailed every morning.')}
+            actions={<>
               {canSeeEveryone ? (
                 <SegmentedControl value={scope} onValueChange={(value) => setScope(value as typeof scope)} aria-label={t('cc_dashboard.my.scope', 'Whose work')}>
                   <SegmentedControlItem value="mine">{t('cc_dashboard.my.mine', 'Mine')}</SegmentedControlItem>
@@ -176,8 +171,8 @@ export function MyWorkPage() {
                   ], items ?? [])
                 }
               />
-            </div>
-          </header>
+            </>}
+          />
 
           {granted.has('cc_crm.view') ? <MyFollowUps everyone={scope === 'everyone'} /> : null}
 
@@ -195,9 +190,9 @@ export function MyWorkPage() {
           ) : (
             <>
               {urgent.length ? (
-                <section className="overflow-hidden rounded-xl border border-status-warning-border bg-card shadow-sm">
-                  <header className="border-b border-border bg-status-warning-bg px-5 py-3">
-                    <h2 className="text-sm font-semibold text-status-warning-text">
+                <section className="overflow-hidden rounded-md border border-status-warning-border bg-card shadow-sm">
+                  <header className="border-b-2 border-foreground/70 bg-status-warning-bg px-5 py-2.5">
+                    <h2 className="font-mono text-overline font-semibold uppercase tracking-widest text-status-warning-text">
                       {t('cc_dashboard.my.urgent', 'Late, stuck or on hold · {count}', { count: urgent.length })}
                     </h2>
                   </header>
@@ -209,9 +204,9 @@ export function MyWorkPage() {
                 </section>
               ) : null}
               {rest.length ? (
-                <section className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
-                  <header className="border-b border-border px-5 py-3">
-                    <h2 className="text-sm font-semibold">{t('cc_dashboard.my.onTrack', 'On track · {count}', { count: rest.length })}</h2>
+                <section className="overflow-hidden rounded-md border border-border bg-card shadow-sm">
+                  <header className="border-b-2 border-foreground/70 px-5 py-2.5">
+                    <h2 className="font-mono text-overline font-semibold uppercase tracking-widest">{t('cc_dashboard.my.onTrack', 'On track · {count}', { count: rest.length })}</h2>
                   </header>
                   <ul className="divide-y divide-border">
                     {rest.map((item) => (
