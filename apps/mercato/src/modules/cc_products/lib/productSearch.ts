@@ -15,6 +15,7 @@ export type ProductSearchInput = {
   kinds: string[]
   query?: string | null
   limit: number
+  offset?: number
   activeOnly?: boolean
   ids?: string[]
 }
@@ -27,17 +28,17 @@ function escapeLike(value: string): string {
   return value.replace(/[\\%_]/g, (char) => `\\${char}`)
 }
 
-export async function searchProducts(em: EntityManager, input: ProductSearchInput): Promise<ProductSearchRow[]> {
+type Filter = { filter: string; params: unknown[]; term: string; compact: string }
+
+function buildFilter(input: ProductSearchInput): Filter {
   const term = (input.query ?? '').trim()
   const compact = normalizeCode(term)
-  const params: unknown[] = [input.tenantId, input.organizationId, `{${input.kinds.join(',')}}`]
+  const params: unknown[] = []
   let filter = ''
-  let order = 'p.title asc'
   if (input.ids?.length) {
     filter += ' and p.id = any(?::uuid[])'
     params.push(`{${input.ids.join(',')}}`)
   }
-  const orderParams: unknown[] = []
   if (term) {
     const conditions = ['p.title ilike ?']
     params.push(`%${escapeLike(term)}%`)
@@ -47,6 +48,29 @@ export async function searchProducts(em: EntityManager, input: ProductSearchInpu
       params.push(`%${compact}%`, `%${compact}%`)
     }
     filter += ` and (${conditions.join(' or ')})`
+  }
+  return { filter, params, term, compact }
+}
+
+const FROM = `from catalog_products p
+       left join lateral (
+         select v.value_text from custom_field_values v
+          where v.entity_id = 'catalog:catalog_product' and v.record_id = p.id::text and v.field_key = 'item_code'
+            and v.deleted_at is null and coalesce(v.value_text, '') <> ''
+          order by v.created_at desc limit 1
+       ) code on true`
+
+function where(input: ProductSearchInput, filter: string): string {
+  return `where p.tenant_id = ? and p.organization_id = ? and p.deleted_at is null ${input.activeOnly ? 'and p.is_active = true' : ''}
+        and p.custom_fieldset_code = any(?::text[]) ${filter}`
+}
+
+export async function searchProducts(em: EntityManager, input: ProductSearchInput): Promise<ProductSearchRow[]> {
+  const { filter, params: filterParams, term, compact } = buildFilter(input)
+  const params: unknown[] = [input.tenantId, input.organizationId, `{${input.kinds.join(',')}}`, ...filterParams]
+  let order = 'p.title asc'
+  const orderParams: unknown[] = []
+  if (term) {
     order = `case
         when regexp_replace(lower(coalesce(code.value_text, '')), '[^a-z0-9]', '', 'g') = ? then 0
         when regexp_replace(lower(coalesce(code.value_text, '')), '[^a-z0-9]', '', 'g') like ? then 1
@@ -56,17 +80,19 @@ export async function searchProducts(em: EntityManager, input: ProductSearchInpu
   }
   return em.getConnection().execute<ProductSearchRow[]>(
     `select p.id, p.title, code.value_text as code, p.sku, p.custom_fieldset_code as kind, p.default_unit as unit
-       from catalog_products p
-       left join lateral (
-         select v.value_text from custom_field_values v
-          where v.entity_id = 'catalog:catalog_product' and v.record_id = p.id::text and v.field_key = 'item_code'
-            and v.deleted_at is null and coalesce(v.value_text, '') <> ''
-          order by v.created_at desc limit 1
-       ) code on true
-      where p.tenant_id = ? and p.organization_id = ? and p.deleted_at is null ${input.activeOnly ? 'and p.is_active = true' : ''}
-        and p.custom_fieldset_code = any(?::text[]) ${filter}
+       ${FROM}
+      ${where(input, filter)}
       order by ${order}
-      limit ?`,
-    [...params, ...orderParams, input.limit],
+      limit ? offset ?`,
+    [...params, ...orderParams, input.limit, input.offset ?? 0],
   )
+}
+
+export async function countProducts(em: EntityManager, input: ProductSearchInput): Promise<number> {
+  const { filter, params: filterParams } = buildFilter(input)
+  const [row] = await em.getConnection().execute<Array<{ count: string }>>(
+    `select count(*) as count ${FROM} ${where(input, filter)}`,
+    [input.tenantId, input.organizationId, `{${input.kinds.join(',')}}`, ...filterParams],
+  )
+  return Number(row?.count ?? 0)
 }

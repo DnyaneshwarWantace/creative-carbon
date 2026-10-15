@@ -52,7 +52,6 @@ export function ProductsPage() {
   const kind: ProductKind = kindFromSlug(searchParams?.get('tab')) ?? 'chemical'
   const config = KIND_CONFIG[kind]
 
-  const [categoryIds, setCategoryIds] = React.useState<Record<ProductKind, string[]> | null>(null)
   const [rows, setRows] = React.useState<Row[]>([])
   const [stock, setStock] = React.useState<Record<string, Stock>>({})
   const [search, setSearch] = React.useState('')
@@ -64,21 +63,19 @@ export function ProductsPage() {
   const [reloadToken, setReloadToken] = React.useState(0)
   const { runMutation } = useGuardedMutation({ contextId: 'cc-products-inline' })
 
-  React.useEffect(() => {
-    let cancelled = false
-    apiCall<{ items?: CategoryNode[] }>('/api/catalog/categories?view=tree', undefined, { fallback: { items: [] } }).then((call) => {
-      if (cancelled) return
-      const roots = call.result?.items ?? []
-      const map = {} as Record<ProductKind, string[]>
-      for (const entry of PRODUCT_KINDS) {
-        const root = roots.find((node) => node.name === entry.label)
-        map[entry.code] = root ? [root.id, ...(root.descendantIds ?? [])] : []
-      }
-      setCategoryIds(map)
-    })
-    return () => {
-      cancelled = true
-    }
+  const loadKindPage = React.useCallback(async (productKind: ProductKind, term: string, pageNo: number): Promise<{ ok: boolean; items: Row[]; total: number }> => {
+    const query = new URLSearchParams({ kinds: productKind, limit: String(PAGE_SIZE), offset: String((pageNo - 1) * PAGE_SIZE) })
+    if (term) query.set('q', term)
+    const found = await apiCall<{ items?: Array<{ id: string }>; total?: number }>(`/api/cc_products/search?${query.toString()}`, undefined, { fallback: { items: [], total: 0 } })
+    if (!found.ok) return { ok: false, items: [], total: 0 }
+    const orderedIds = (found.result?.items ?? []).map((item) => item.id)
+    const total = found.result?.total ?? orderedIds.length
+    if (!orderedIds.length) return { ok: true, items: [], total }
+    const byIds = new URLSearchParams({ page: '1', pageSize: '100', ids: orderedIds.join(',') })
+    const call = await apiCall<ProductsResponse>(`/api/catalog/products?${byIds.toString()}`, undefined, { fallback: { items: [], total: 0, totalPages: 1 } })
+    if (!call.ok) return { ok: false, items: [], total }
+    const rank = new Map(orderedIds.map((id, index) => [id, index]))
+    return { ok: true, items: [...(call.result?.items ?? [])].sort((left, right) => (rank.get(left.id) ?? 0) - (rank.get(right.id) ?? 0)), total }
   }, [])
 
   React.useEffect(() => {
@@ -87,62 +84,19 @@ export function ProductsPage() {
   }, [kind])
 
   React.useEffect(() => {
-    if (!categoryIds) return
-    const ids = categoryIds[kind]
-    if (!ids.length) {
-      setRows([])
-      setTotal(0)
-      setTotalPages(1)
-      setIsLoading(false)
-      return
-    }
     let cancelled = false
     async function load() {
       setIsLoading(true)
-      const params = new URLSearchParams({
-        page: String(page),
-        pageSize: String(PAGE_SIZE),
-        categoryIds: ids.join(','),
-        sortField: 'title',
-        sortDir: 'asc',
-      })
-      const term = search.trim()
-      const fallback: ProductsResponse = { items: [], total: 0, totalPages: 1 }
-      let items: Row[] = []
-      if (term) {
-        const found = await apiCall<{ items?: Array<{ id: string }> }>(
-          `/api/cc_products/search?kinds=${kind}&q=${encodeURIComponent(term)}&limit=100`,
-          undefined,
-          { fallback: { items: [] } },
-        )
-        if (cancelled) return
-        const orderedIds = (found.result?.items ?? []).map((item) => item.id)
-        if (orderedIds.length) {
-          const byIds = new URLSearchParams({ page: '1', pageSize: '100', categoryIds: ids.join(','), ids: orderedIds.join(',') })
-          const call = await apiCall<ProductsResponse>(`/api/catalog/products?${byIds.toString()}`, undefined, { fallback })
-          if (cancelled) return
-          if (!call.ok) {
-            flash(t('cc_products.list.loadError', 'Failed to load products'), 'error')
-            setIsLoading(false)
-            return
-          }
-          const rank = new Map(orderedIds.map((id, index) => [id, index]))
-          items = [...(call.result?.items ?? [])].sort((left, right) => (rank.get(left.id) ?? 0) - (rank.get(right.id) ?? 0))
-        }
-        setTotal(items.length)
-        setTotalPages(1)
-      } else {
-        const call = await apiCall<ProductsResponse>(`/api/catalog/products?${params.toString()}`, undefined, { fallback })
-        if (cancelled) return
-        if (!call.ok) {
-          flash(t('cc_products.list.loadError', 'Failed to load products'), 'error')
-          setIsLoading(false)
-          return
-        }
-        items = call.result?.items ?? []
-        setTotal(call.result?.total ?? items.length)
-        setTotalPages(call.result?.totalPages ?? 1)
+      const found = await loadKindPage(kind, search.trim(), page)
+      if (cancelled) return
+      if (!found.ok) {
+        flash(t('cc_products.list.loadError', 'Failed to load products'), 'error')
+        setIsLoading(false)
+        return
       }
+      const items = found.items
+      setTotal(found.total)
+      setTotalPages(Math.max(1, Math.ceil(found.total / PAGE_SIZE)))
       setRows(items)
       setIsLoading(false)
       if (items.length) {
@@ -158,7 +112,7 @@ export function ProductsPage() {
     return () => {
       cancelled = true
     }
-  }, [categoryIds, kind, page, search, reloadToken, t])
+  }, [kind, page, search, reloadToken, t])
 
   const [editing, setEditing] = React.useState(false)
   const [drafts, setDrafts] = React.useState<Record<string, { row: Row; key: string; numeric: boolean; value: string }>>({})
@@ -291,12 +245,12 @@ export function ProductsPage() {
   const createHref = `/backend/products/new/${config.slug}`
 
   const exportProducts = async () => {
-    const ids = categoryIds?.[kind] ?? []
-    const items = search.trim()
-      ? rows
-      : ids.length
-        ? await fetchAllPages<Row>(`/api/catalog/products?${new URLSearchParams({ categoryIds: ids.join(','), sortField: 'title', sortDir: 'asc' }).toString()}`)
-        : []
+    const items: Row[] = []
+    for (let exportPage = 1; ; exportPage += 1) {
+      const found = await loadKindPage(kind, search.trim(), exportPage)
+      items.push(...found.items)
+      if (!found.ok || found.items.length < PAGE_SIZE || items.length >= found.total) break
+    }
     const levels: Record<string, Stock> = {}
     for (let start = 0; start < items.length; start += 100) {
       const chunk = items.slice(start, start + 100).map((item) => item.id)

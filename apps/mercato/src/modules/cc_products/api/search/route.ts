@@ -6,7 +6,7 @@ import { createRequestContainer } from '@open-mercato/shared/lib/di/container'
 import { getAuthFromRequest } from '@open-mercato/shared/lib/auth/server'
 import { resolveOrganizationScopeForRequest } from '@open-mercato/core/modules/directory/utils/organizationScope'
 import { PRODUCT_KINDS, type ProductKind } from '../../lib/kinds'
-import { searchProducts } from '../../lib/productSearch'
+import { countProducts, searchProducts } from '../../lib/productSearch'
 
 export const metadata = {
   GET: { requireAuth: true, requireFeatures: ['catalog.products.view'] },
@@ -22,6 +22,7 @@ const querySchema = z.object({
     .pipe(z.array(z.enum(KIND_CODES)).min(1)),
   q: z.string().trim().max(200).optional(),
   limit: z.coerce.number().int().min(1).max(100).default(50),
+  offset: z.coerce.number().int().min(0).max(1_000_000).default(0),
   ids: z
     .string()
     .transform((value) => value.split(',').filter((id) => /^[0-9a-f-]{36}$/i.test(id)))
@@ -48,16 +49,18 @@ async function GET(req: Request) {
   const organizationId = scope?.selectedId ?? auth.orgId ?? null
   if (!organizationId) return NextResponse.json({ error: 'Select an organization first' }, { status: 400 })
   const em = (container.resolve('em') as EntityManager).fork()
-  const items = await searchProducts(em, {
+  const input = {
     tenantId: auth.tenantId,
     organizationId,
     kinds: parsed.data.kinds,
     query: parsed.data.q,
     limit: parsed.data.limit,
+    offset: parsed.data.offset,
     ids: parsed.data.ids,
     activeOnly: !parsed.data.ids?.length && parsed.data.includeInactive !== 'true',
-  })
-  return NextResponse.json({ items })
+  }
+  const [items, total] = await Promise.all([searchProducts(em, input), countProducts(em, input)])
+  return NextResponse.json({ items, total })
 }
 
 export const openApi: OpenApiRouteDoc = {
@@ -68,7 +71,7 @@ export const openApi: OpenApiRouteDoc = {
       summary: 'Search products of the given types by internal ID (spaces and dashes ignored), name or SKU',
       tags: ['Creative Carbon Products'],
       query: querySchema,
-      responses: [{ status: 200, description: 'Matching products, best match first', schema: z.object({ items: z.array(itemSchema) }) }],
+      responses: [{ status: 200, description: 'Matching products, best match first', schema: z.object({ items: z.array(itemSchema), total: z.number() }) }],
     },
   },
 }
