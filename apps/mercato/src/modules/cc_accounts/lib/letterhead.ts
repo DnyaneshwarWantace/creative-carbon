@@ -29,29 +29,25 @@ export type LetterheadTextKey = (typeof LETTERHEAD_TEXT_KEYS)[number]
 
 export type LetterheadView = { [Key in LetterheadTextKey]: string } & { showBadges: boolean }
 
-export const DEFAULT_LOGO_URL = '/ccpl-logo.png'
-export const DEFAULT_BADGES_URL = '/ccpl-iso-badges.png'
-
 export const DEFAULT_LETTERHEAD: LetterheadView = {
-  letterheadAddress: '207-208, GAGANDEEP TOWER, PALDI CHAR RASTA, PALDI, AHMEDABAD - 380 006. (GUJARAT) INDIA.',
-  worksAddress: 'MALARPUR ROAD, KHEDA, Gujarat, 387540',
-  mobile: '+91 - 90990 76658',
-  email2: 'cccpl@creativecarbon.in',
-  cin: 'U25209GJ2020PTC111813',
-  udyam: 'GJ-01-0035034 (Micro)',
-  stateName: 'Gujarat',
-  stateCode: '24',
+  letterheadAddress: '',
+  worksAddress: '',
+  mobile: '',
+  email2: '',
+  cin: '',
+  udyam: '',
+  stateName: '',
+  stateCode: '',
   exciseNo: '',
-  certifications: 'ISO 9001-2015 Certified\nISO 14001-2015 Certified',
+  certifications: '',
   bankLabel: '',
   sisterConcern: '',
-  declaration:
-    '(1) We declare that this invoice shows the actual price of the goods described and that all particulars are true and correct.\n2) Notify us if any discrepancy is observed within 07 days of receipt of invoice otherwise it will be assumed that the invoice has been accepted in all respects.\n3) Please make payment of the bill amount within the credit period of invoice date otherwise interest @ 24% will be charged from the due date.\n4) Subject to Ahmedabad Jurisdiction',
-  jurisdiction: 'Ahmedabad',
+  declaration: 'We declare that this invoice shows the actual price of the goods described and that all particulars are true and correct.',
+  jurisdiction: '',
   directors: '',
   labPeople: '',
-  logoUrl: DEFAULT_LOGO_URL,
-  badgesUrl: DEFAULT_BADGES_URL,
+  logoUrl: '',
+  badgesUrl: '',
   signatureUrl: '',
   stampUrl: '',
   showBadges: true,
@@ -65,8 +61,6 @@ export function letterheadOf(stored: Letterhead | null | undefined): LetterheadV
     if (typeof value === 'string') merged[key] = value
   }
   if (typeof saved.showBadges === 'boolean') merged.showBadges = saved.showBadges
-  if (!merged.logoUrl) merged.logoUrl = DEFAULT_LOGO_URL
-  if (!merged.badgesUrl) merged.badgesUrl = DEFAULT_BADGES_URL
   return merged
 }
 

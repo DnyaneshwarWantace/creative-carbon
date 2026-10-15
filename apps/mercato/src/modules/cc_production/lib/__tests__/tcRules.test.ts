@@ -31,7 +31,7 @@ describe('test certificate rules', () => {
     expect(remarkFor(row('tensile'), 'high', 10)).toBe('Not OK')
   })
 
-  it('reproduces the RCPL P2 10 mm certificate: every row OK', () => {
+  it('reproduces a P2 10 mm sample certificate: every row OK', () => {
     const observed = { appearance: 'Smooth', thickness: '9.7 to 10.4', density: '1.40', water: '130', oil: '10', wear: '500', crossBreaking: '150', tensile: '66.0', compression: '251.48', insulationAir: '>2000', insulationWater: '1000', dielectric: 'Pass at 25 KV (Withstand for 1 minute)', machinability: 'Complied' }
     const result = evaluateRows(P2_ROWS, observed, 10)
     expect(result.every((entry) => entry.remark === 'OK')).toBe(true)

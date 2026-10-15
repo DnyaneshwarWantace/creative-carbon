@@ -5,15 +5,7 @@ const TINY_PNG = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1
 
 type Company = Record<string, unknown> & { updatedAt: string; letterhead: Record<string, string | boolean> }
 
-test.describe.serial('Phase H · company letterhead and number formats from the client papers', () => {
-  test('the logo and ISO badges are served for the prints', async ({ request }) => {
-    for (const path of ['/ccpl-logo.png', '/ccpl-iso-badges.png']) {
-      const response = await request.get(path)
-      expect(response.status(), path).toBe(200)
-      expect(response.headers()['content-type']).toContain('image/png')
-    }
-  })
-
+test.describe.serial('Phase H · company letterhead and number formats', () => {
   test('company details carry the letterhead lines', async ({ request }) => {
     const company = (await (await request.get('/api/cc_accounts/company')).json()) as Company
     expect(company.letterhead).toMatchObject({ logoUrl: expect.any(String), badgesUrl: expect.any(String), showBadges: expect.any(Boolean) })
@@ -22,16 +14,16 @@ test.describe.serial('Phase H · company letterhead and number formats from the 
 
   test('letterhead lines and images save, are logged, and an unsafe image is refused', async ({ request }) => {
     const before = (await (await request.get('/api/cc_accounts/company')).json()) as Company
-    const body = { ...before, letterhead: { ...before.letterhead, stateCode: '24', udyam: 'GJ-01-0035034 (Micro) E2E', signatureUrl: TINY_PNG } }
+    const body = { ...before, letterhead: { ...before.letterhead, stateCode: '24', udyam: 'UDYAM-E2E-0000 (Micro)', signatureUrl: TINY_PNG } }
     const saved = await request.put('/api/cc_accounts/company', { data: body, headers: { [LOCK]: before.updatedAt } })
     expect(saved.ok(), await saved.text()).toBeTruthy()
     const after = (await saved.json()) as Company
-    expect(after.letterhead.udyam).toBe('GJ-01-0035034 (Micro) E2E')
+    expect(after.letterhead.udyam).toBe('UDYAM-E2E-0000 (Micro)')
     expect(after.letterhead.signatureUrl).toBe(TINY_PNG)
     const bad = await request.put('/api/cc_accounts/company', { data: { ...after, letterhead: { ...after.letterhead, logoUrl: 'javascript:alert(1)' } }, headers: { [LOCK]: after.updatedAt } })
     expect(bad.status()).toBe(400)
     const changes = ((await (await request.get('/api/cc_audit/settings-changes?area=company')).json()) as { items: Array<{ id: string; changes: Array<{ field: string; to: unknown }> }> }).items
-    const logged = changes.find((change) => change.changes.some((entry) => entry.field === 'letterhead.udyam' && entry.to === 'GJ-01-0035034 (Micro) E2E'))
+    const logged = changes.find((change) => change.changes.some((entry) => entry.field === 'letterhead.udyam' && entry.to === 'UDYAM-E2E-0000 (Micro)'))
     expect(logged).toBeTruthy()
     const undone = await request.post('/api/cc_audit/settings-changes', { data: { id: logged!.id, reason: 'E2E puts the letterhead back' } })
     expect(undone.ok(), await undone.text()).toBeTruthy()

@@ -355,11 +355,11 @@ export function TcDetailPage({ id }: { id: string }) {
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="tc-tested">{t('cc_production.tc.testedBy', 'Tested by')}</Label>
-            <Input id="tc-tested" className="w-64" disabled={!editable} value={testedBy} placeholder="Vimal (Laboratory Department)" onChange={(event) => setTestedBy(event.target.value)} />
+            <Input id="tc-tested" className="w-64" disabled={!editable} value={testedBy} placeholder="Name (Laboratory Department)" onChange={(event) => setTestedBy(event.target.value)} />
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="tc-verified">{t('cc_production.tc.verifiedBy', 'Verified by')}</Label>
-            <Input id="tc-verified" className="w-64" disabled={!editable} value={verifiedBy} placeholder="Dhairya Shah (Director)" onChange={(event) => setVerifiedBy(event.target.value)} />
+            <Input id="tc-verified" className="w-64" disabled={!editable} value={verifiedBy} placeholder="Name (Director)" onChange={(event) => setVerifiedBy(event.target.value)} />
           </div>
         </div>
       </Panel>

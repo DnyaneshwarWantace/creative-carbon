@@ -12,13 +12,13 @@ async function quote(request: APIRequestContext, id: string): Promise<Quote> {
   return (await request.get(`/api/cc_crm/quotations?id=${id}`)).json()
 }
 
-test.describe.serial('Phase I · quotation printed like the SAIL quotation 111', () => {
+test.describe.serial('Phase I · quotation printed like the client quotation', () => {
   let quoteId: string
 
   test('a quotation from a mailed enquiry gets the To block, kind attention, reference line and terms', async ({ request }) => {
-    const customer = await request.post('/api/customers/companies', { data: { displayName: `Steel Authority E2E ${stamp}`, organizationId: process.env.CC_ORG, tenantId: process.env.CC_TENANT } })
+    const customer = await request.post('/api/customers/companies', { data: { displayName: `Sample Steel E2E ${stamp}`, organizationId: process.env.CC_ORG, tenantId: process.env.CC_TENANT } })
     const customerId = ((await customer.json()) as { id: string }).id
-    const enquiry = await request.post('/api/cc_crm/enquiries', { data: { source: 'Email', receivedAt: '2026-08-29T10:00:00.000Z', customerId, contactName: 'Harish R.', phone: '9480829173', subject: 'Fibre bearings as per drawing' } })
+    const enquiry = await request.post('/api/cc_crm/enquiries', { data: { source: 'Email', receivedAt: '2026-08-21T10:00:00.000Z', customerId, contactName: 'Ravi K.', phone: '9000000002', subject: 'Fibre bearings as per drawing' } })
     expect(enquiry.ok(), await enquiry.text()).toBeTruthy()
     const enquiryId = ((await enquiry.json()) as { id: string }).id
     const products = ((await (await request.get('/api/cc_products/search?kinds=moulded&q=Moulded')).json()) as { items: Array<{ id: string; title: string }> }).items
@@ -30,8 +30,8 @@ test.describe.serial('Phase I · quotation printed like the SAIL quotation 111',
         enquiryId,
         customerId,
         lines: [
-          { productId: products[0].id, quantity: 150, rate: 2735, gstPercent: 18 },
-          { productId: products[1].id, quantity: 50, rate: 930, gstPercent: 18 },
+          { productId: products[0].id, quantity: 120, rate: 2450, gstPercent: 18 },
+          { productId: products[1].id, quantity: 40, rate: 875, gstPercent: 18 },
         ],
       },
     })
@@ -39,9 +39,9 @@ test.describe.serial('Phase I · quotation printed like the SAIL quotation 111',
     quoteId = ((await created.json()) as { id: string }).id
     const made = await quote(request, quoteId)
     expect(made.letter.quoteType).toBe('budgetary')
-    expect(made.letter.toCompany).toBe(`STEEL AUTHORITY E2E ${stamp}`)
-    expect(made.letter.kindAttn).toBe('HARISH R.')
-    expect(made.letter.refLine).toBe('With Ref. To your Mail Dated: 29/08/2026 by Harish R.. MO: 9480829173')
+    expect(made.letter.toCompany).toBe(`SAMPLE STEEL E2E ${stamp}`)
+    expect(made.letter.kindAttn).toBe('RAVI K.')
+    expect(made.letter.refLine).toBe('With Ref. To your Mail Dated: 21/08/2026 by Ravi K.. MO: 9000000002')
     expect(made.letter).toMatchObject({ delivery: 'Within 30 to 40 Days', packing: 'Nill', freight: 'Freight Paid Basis', validity: '30 DAYS' })
     expect(made.letter.taxes).toMatch(/^(I)?GST-18% Extra or as Applicable\.$/)
     expect(made.letter.lines).toEqual([
@@ -52,12 +52,12 @@ test.describe.serial('Phase I · quotation printed like the SAIL quotation 111',
 
   test('the letter is saved, logged, kept when the quotation is edited, and refused when malformed', async ({ request }) => {
     const before = await quote(request, quoteId)
-    const letter = { ...before.letter, toDesignation: 'DY. MANAGER, MECHANICAL, SHOPS, D&D', toAddress: 'BHADRAVATHI, KARNATAKA - 577301', taxes: 'IGST-18% Extra or as Applicable.', payment: '100% Against GRN.', lines: [{ drawing: 'AS PER YOUR DRAWING NO: SW 675124/1', unit: 'NOS', ratePer: 'EACH' }, { drawing: 'AS PER YOUR DRAWING NO. SW 674702/3', unit: 'NOS.', ratePer: 'EACH' }] }
+    const letter = { ...before.letter, toDesignation: 'MANAGER, MAINTENANCE', toAddress: 'SAMPLE TOWN - 000001', taxes: 'IGST-18% Extra or as Applicable.', payment: '100% Against GRN.', lines: [{ drawing: 'AS PER YOUR DRAWING NO: DRG-E2E-001/1', unit: 'NOS', ratePer: 'EACH' }, { drawing: 'AS PER YOUR DRAWING NO. DRG-E2E-002/3', unit: 'NOS.', ratePer: 'EACH' }] }
     const saved = await request.put('/api/cc_crm/quotations/letter', { data: { id: quoteId, letter }, headers: { [LOCK]: before.updatedAt } })
     expect(saved.ok(), await saved.text()).toBeTruthy()
     let after = await quote(request, quoteId)
-    expect(after.letter.toDesignation).toBe('DY. MANAGER, MECHANICAL, SHOPS, D&D')
-    expect(after.letter.lines[1].drawing).toBe('AS PER YOUR DRAWING NO. SW 674702/3')
+    expect(after.letter.toDesignation).toBe('MANAGER, MAINTENANCE')
+    expect(after.letter.lines[1].drawing).toBe('AS PER YOUR DRAWING NO. DRG-E2E-002/3')
     const bad = await request.put('/api/cc_crm/quotations/letter', { data: { id: quoteId, letter: { ...letter, quoteType: 'maybe' } }, headers: { [LOCK]: after.updatedAt } })
     expect(bad.status()).toBe(400)
     const changes = await request.put('/api/cc_crm/quotations/letter', { data: { id: quoteId, letter: { ...letter, delivery: 'Within 20 to 25 Days' } }, headers: { [LOCK]: after.updatedAt } })
@@ -76,7 +76,7 @@ test.describe.serial('Phase I · quotation printed like the SAIL quotation 111',
     const frame = page.frameLocator('iframe').first()
     await expect(frame.locator('body')).toContainText('TERMS & CONDITIONS', { timeout: 30_000 })
     const text = (await frame.locator('body').innerText()).replace(/\s+/g, ' ')
-    for (const part of ['CREATIVE CARBON', 'COMPOSITES PVT. LTD.', 'QUOTATION', 'REF.NO: CCPL/', 'DATE:-', 'TO,', 'DY. MANAGER, MECHANICAL, SHOPS, D&D', 'BHADRAVATHI, KARNATAKA - 577301', 'Dear Sir,', 'KIND ATTN - MR. HARISH R.', 'With Ref. To your Mail Dated: 29/08/2026', 'We submit our BUDGETARY QUOTATION', 'DESCRIPTION', 'AS PER YOUR DRAWING NO: SW 675124/1', '150 NOS', 'EACH', '2735=00', '930=00', 'GSTIN NO : 24AAICC5600P1ZJ', 'DELIVERY', 'Within 20 to 25 Days', 'IGST-18% Extra or as Applicable.', 'Freight Paid Basis', '30 DAYS', '100% Against GRN.', 'Please find above Quotation', 'AHMEDABAD', 'IFSC', 'Director']) expect(text, part).toContain(part)
+    for (const part of ['CREATIVE CARBON', 'COMPOSITES PVT. LTD.', 'QUOTATION', 'REF.NO: CCPL/', 'DATE:-', 'TO,', 'MANAGER, MAINTENANCE', 'SAMPLE TOWN - 000001', 'Dear Sir,', 'KIND ATTN - MR. RAVI K.', 'With Ref. To your Mail Dated: 21/08/2026', 'We submit our BUDGETARY QUOTATION', 'DESCRIPTION', 'AS PER YOUR DRAWING NO: DRG-E2E-001/1', '120 NOS', 'EACH', '2450=00', '875=00', 'GSTIN NO :', 'DELIVERY', 'Within 20 to 25 Days', 'IGST-18% Extra or as Applicable.', 'Freight Paid Basis', '30 DAYS', '100% Against GRN.', 'Please find above Quotation', 'Jurisdiction', 'IFSC', 'Director']) expect(text, part).toContain(part)
     await expect(frame.locator('img.logo')).toBeVisible()
     if (SHOTS) await page.screenshot({ path: `${SHOTS}/quotation.png`, fullPage: true })
   })

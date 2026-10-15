@@ -3,9 +3,9 @@ import type { PoView } from '../shared'
 
 const po: PoView = {
   id: 'p1',
-  code: 'CCCPL/A/025/2026-27',
+  code: 'CCCPL/A/001/2026-27',
   vendorId: 'v1',
-  vendorName: 'KETAN CHEMICAL',
+  vendorName: 'SAMPLE CHEMICALS',
   vendorGstin: '24AAAAA0000A1Z5',
   vendorPhone: null,
   vendorContact: null,
@@ -14,7 +14,7 @@ const po: PoView = {
   status: 'approved',
   notes: null,
   terms: 'Routine',
-  printTerms: { specialInstruction: 'Please provide test certificate along with delivery', deliveryPlace: 'Kanera plant', taxes: 'IGST extra as applicable', guarantee: '12 months from supply' },
+  printTerms: { specialInstruction: 'Please provide test certificate along with delivery', deliveryPlace: 'Main plant', taxes: 'IGST extra as applicable', guarantee: '12 months from supply' },
   orderRefs: [],
   createdByName: null,
   approvedByName: null,
@@ -31,20 +31,20 @@ const po: PoView = {
 
 describe('purchase order print', () => {
   it('prints like the client PO: boxed grid, # instruction, delivery place, basic total, terms and warranty', () => {
-    const html = buildPurchaseOrderHtml({ ...po, vendorAddress: 'Mumbai West' }, { name: 'Creative Carbon Composites Pvt. Ltd.', gstin: '24AAICC5600P1ZJ' })
+    const html = buildPurchaseOrderHtml({ ...po, vendorAddress: 'Sample Town' }, { name: 'Creative Carbon Composites Pvt. Ltd.', gstin: '24BBBBB1111B1Z5' })
     expect(html).toContain('TO-:')
     expect(html).toContain('>PURCHASE ORDER<')
     expect(html).toContain('CCCPL/F/PUR/03')
-    expect(html).toContain('KETAN CHEMICAL')
-    expect(html).toContain('MUMBAI WEST')
-    expect(html).toContain('P.O NO- CCCPL/A/025/2026-27')
+    expect(html).toContain('SAMPLE CHEMICALS')
+    expect(html).toContain('SAMPLE TOWN')
+    expect(html).toContain('P.O NO- CCCPL/A/001/2026-27')
     expect(html).toContain('DATE- 08.10.2026')
-    expect(html).toContain('OUR GST NO: 24AAICC5600P1ZJ')
+    expect(html).toContain('OUR GST NO: 24BBBBB1111B1Z5')
     expect(html).toContain('RATE PER<br>(@)KGS')
     expect(html).toContain('BASIC AMT')
     expect(html).toContain('>#</td>')
     expect(html).toContain('PLEASE PROVIDE TEST CERTIFICATE ALONG WITH DELIVERY')
-    expect(html).toContain('DELIVERY - KANERA PLANT')
+    expect(html).toContain('DELIVERY - MAIN PLANT')
     expect(html).toContain('TOTAL .RS :-</td><td class="c b">90000.00')
     expect(html).toContain('<b>TAXES-;</b> IGST EXTRA AS APPLICABLE')
     expect(html).toContain('<b>PAYMENT-:</b> ROUTINE')

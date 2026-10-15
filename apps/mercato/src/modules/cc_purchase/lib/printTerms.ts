@@ -2,7 +2,7 @@ export const PO_FORM_NO = 'CCCPL/F/PUR/03'
 
 export const PO_PRINT_TERMS = [
   { key: 'specialInstruction', label: 'Special instruction', placeholder: 'Please provide test certificate along with delivery' },
-  { key: 'deliveryPlace', label: 'Delivery at', placeholder: 'Kanera plant' },
+  { key: 'deliveryPlace', label: 'Delivery at', placeholder: 'Plant or store name' },
   { key: 'taxes', label: 'Taxes', placeholder: 'IGST 18% extra as applicable' },
   { key: 'packingForwarding', label: 'P & F', placeholder: 'Nil' },
   { key: 'delivery', label: 'Delivery', placeholder: 'Immediate' },
