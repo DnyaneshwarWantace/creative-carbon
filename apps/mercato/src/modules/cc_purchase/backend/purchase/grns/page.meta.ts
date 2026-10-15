@@ -3,9 +3,9 @@ export const metadata = {
   requireFeatures: ['cc_purchase.view'],
   pageTitle: 'Goods receiving',
   pageTitleKey: 'cc_purchase.nav.grns',
-  pageGroup: 'Purchase',
-  pageGroupKey: 'cc-05-purchase.nav.group',
-  pageOrder: 2,
+  pageGroup: 'Raw material',
+  pageGroupKey: 'cc-06a-raw.nav.group',
+  pageOrder: 5,
   icon: 'package-check',
   breadcrumb: [{ label: 'Goods receiving', labelKey: 'cc_purchase.nav.grns' }],
 }

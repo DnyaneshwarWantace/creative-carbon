@@ -3,9 +3,9 @@ export const metadata = {
   requireFeatures: ['cc_purchase.view'],
   pageTitle: 'Purchase indents',
   pageTitleKey: 'cc_purchase.nav.indents',
-  pageGroup: 'Purchase',
-  pageGroupKey: 'cc-05-purchase.nav.group',
-  pageOrder: 0,
+  pageGroup: 'Raw material',
+  pageGroupKey: 'cc-06a-raw.nav.group',
+  pageOrder: 3,
   icon: 'clipboard-list',
   breadcrumb: [{ label: 'Purchase indents', labelKey: 'cc_purchase.nav.indents' }],
 }

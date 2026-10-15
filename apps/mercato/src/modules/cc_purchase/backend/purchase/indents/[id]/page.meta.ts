@@ -3,8 +3,8 @@ export const metadata = {
   requireFeatures: ['cc_purchase.view'],
   pageTitle: 'Indent',
   pageTitleKey: 'cc_purchase.nav.indent',
-  pageGroup: 'Purchase',
-  pageGroupKey: 'cc-05-purchase.nav.group',
+  pageGroup: 'Raw material',
+  pageGroupKey: 'cc-06a-raw.nav.group',
   icon: 'clipboard-list',
   navHidden: true,
   breadcrumb: [

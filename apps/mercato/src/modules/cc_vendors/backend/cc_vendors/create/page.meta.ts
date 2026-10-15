@@ -3,7 +3,7 @@ export const metadata = {
   requireFeatures: ['cc_vendors.manage'],
   pageTitle: 'New vendor',
   pageTitleKey: 'cc_vendors.create.title',
-  pageGroup: 'Purchase',
-  pageGroupKey: 'cc-05-purchase.nav.group',
+  pageGroup: 'Raw material',
+  pageGroupKey: 'cc-06a-raw.nav.group',
   navHidden: true,
 }
