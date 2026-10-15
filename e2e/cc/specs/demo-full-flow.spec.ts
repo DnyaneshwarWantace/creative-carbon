@@ -3,6 +3,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { expect, test, type APIRequestContext, type APIResponse } from '@playwright/test'
 import { AUTH_FILE } from '../playwright.config'
+import { samplePdf } from '../tools/samplePdf'
 
 const LOCK = 'x-om-ext-optimistic-lock-expected-updated-at'
 const BASE = process.env.CC_BASE_URL ?? 'http://localhost:3010'
@@ -281,7 +282,7 @@ test.describe.serial('Demo · one order from the vendor to the customer, done by
       expect((await stage('accounts', { stageKey: 'invoice', action: 'complete', data: { invoice_number: issued.code, invoice_date: day(-1) } })).ok()).toBeTruthy()
     }
     for (const stepKey of ['loaded', 'dispatched']) await stage('store', { stageKey: 'dispatch', action: 'step', stepKey, done: true })
-    const pdf = (title: string) => Buffer.from(`%PDF-1.4\n% ${title}\n1 0 obj<<>>endobj\ntrailer<<>>\n%%EOF\n`)
+    const pdf = (title: string) => samplePdf(title)
     for (const [docKey, title] of [['lr_copy', `LR-DEMO-${tag}`], ['eway_bill', `EWB-DEMO-${tag}`]]) {
       const uploader = contexts.get('store') ?? admin
       const uploaded = await uploader.post('/api/attachments', { multipart: { entityId: 'cc_orders:order_stage', recordId: `${orderId}:dispatch:${docKey}`, file: { name: `${title}.pdf`, mimeType: 'application/pdf', buffer: pdf(title) } } })

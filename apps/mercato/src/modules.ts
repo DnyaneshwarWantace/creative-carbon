@@ -69,18 +69,23 @@ export const moduleOverrideExamples: ModuleOverrides = {
 }
 
 // Creative Carbon's sidebar order, ranked ahead of the framework's default
-// alphabetical grouping: overview, sales, accounts, purchase, store, plant
-// production, QC & lab, despatch, masters. Each department group opens with its
+// alphabetical grouping, following the work: overview, orders, accounts,
+// purchase and raw material, production, QC & lab, finished goods, stock
+// records, despatch, and masters last. Each department group opens with its
 // work queue, followed by that department's own pages.
 const ccSidebarGroupOrder = [
   'cc-00-overview.nav.group',
+  'cc-01-crm.nav.group',
   'cc-01-sales.nav.group',
   'cc-02-accounts.nav.group',
   'cc-05-purchase.nav.group',
   'cc-06-store.nav.group',
+  'cc-06a-raw.nav.group',
   'cc-04-plant.nav.group',
   'cc-07-production.nav.group',
   'cc-08-qc.nav.group',
+  'cc-06b-fg.nav.group',
+  'cc-06c-records.nav.group',
   'cc-10-dispatch.nav.group',
   'cc-11-masters.nav.group',
 ]

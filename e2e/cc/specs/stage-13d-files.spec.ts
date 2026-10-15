@@ -1,8 +1,9 @@
 import { expect, test, type APIRequestContext } from '@playwright/test'
+import { samplePdf } from '../tools/samplePdf'
 
 const stamp = Date.now()
 const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', 'base64')
-const PDF = Buffer.from('%PDF-1.4\n1 0 obj<<>>endobj\ntrailer<<>>\n%%EOF\n')
+const PDF = samplePdf('Order file')
 
 type FileItem = { id: string; fileName: string; label: string | null; version: number; by: string | null; older: Array<{ id: string; version: number }> }
 

@@ -2,6 +2,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { expect, test, type APIRequestContext, type APIResponse } from '@playwright/test'
 import { AUTH_FILE } from '../playwright.config'
+import { samplePdf } from '../tools/samplePdf'
 
 const LOCK = 'x-om-ext-optimistic-lock-expected-updated-at'
 const BASE = process.env.CC_BASE_URL ?? 'http://localhost:3010'
@@ -292,7 +293,7 @@ test.describe.serial('Demo data · a month of activity across CRM, orders, purch
       if (level === 'invoiced') continue
       for (const [docKey, title] of [['lr_copy', `LR-${issued.code.split('/').pop()}`], ['eway_bill', `EWB-${issued.code.split('/').pop()}`]]) {
         const uploader = contexts.get('store') ?? admin
-        await uploader.post('/api/attachments', { multipart: { entityId: 'cc_orders:order_stage', recordId: `${orderId}:dispatch:${docKey}`, file: { name: `${title}.pdf`, mimeType: 'application/pdf', buffer: Buffer.from(`%PDF-1.4\n% ${title}\n1 0 obj<<>>endobj\ntrailer<<>>\n%%EOF\n`) } } })
+        await uploader.post('/api/attachments', { multipart: { entityId: 'cc_orders:order_stage', recordId: `${orderId}:dispatch:${docKey}`, file: { name: `${title}.pdf`, mimeType: 'application/pdf', buffer: samplePdf(title) } } })
       }
       for (const stepKey of ['loaded', 'dispatched']) await stage('store', { stageKey: 'dispatch', action: 'step', stepKey, done: true })
       const transporters = ['VRL Logistics', 'Gati Ltd', 'TCI Freight', 'Shree Maruti Courier']

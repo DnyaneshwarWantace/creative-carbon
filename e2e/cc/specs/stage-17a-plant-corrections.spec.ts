@@ -1,4 +1,5 @@
 import { expect, test, type APIRequestContext } from '@playwright/test'
+import { samplePdf } from '../tools/samplePdf'
 
 const LOCK = 'x-om-ext-optimistic-lock-expected-updated-at'
 const stamp = Date.now()
@@ -28,7 +29,7 @@ async function product(request: APIRequestContext, kinds: string, title: string)
 }
 
 async function pdf(request: APIRequestContext, recordId: string, name: string) {
-  const uploaded = await request.post('/api/attachments', { multipart: { entityId: 'cc_production:lab_test', recordId, file: { name, mimeType: 'application/pdf', buffer: Buffer.from('%PDF-1.4\n1 0 obj<<>>endobj\ntrailer<<>>\n%%EOF\n') } } })
+  const uploaded = await request.post('/api/attachments', { multipart: { entityId: 'cc_production:lab_test', recordId, file: { name, mimeType: 'application/pdf', buffer: samplePdf(name) } } })
   expect(uploaded.ok(), await uploaded.text()).toBeTruthy()
 }
 

@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test'
+import { samplePdf } from '../tools/samplePdf'
 
 const LOCK = 'x-om-ext-optimistic-lock-expected-updated-at'
 const today = new Date(Date.now() + 5.5 * 3600_000).toISOString().slice(0, 10)
@@ -50,7 +51,7 @@ test.describe.serial('Lab test reports: upload, download, order link, automatic 
   })
 
   test('the actual report file uploads, lists on the test and downloads', async ({ request }) => {
-    const pdf = Buffer.from('%PDF-1.4\n1 0 obj<<>>endobj\ntrailer<<>>\n%%EOF\n')
+    const pdf = samplePdf('Lab test report')
     const uploaded = await request.post('/api/attachments', { multipart: { entityId: 'cc_production:lab_test', recordId: labId, file: { name: `report-${stamp}.pdf`, mimeType: 'application/pdf', buffer: pdf } } })
     expect(uploaded.ok(), await uploaded.text()).toBeTruthy()
     const detail = (await (await request.get(`/api/cc_production/lab?id=${labId}`)).json()) as LabTest
