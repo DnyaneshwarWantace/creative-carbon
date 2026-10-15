@@ -130,7 +130,7 @@ export function ChemicalRegisterPage() {
                       <td className="px-3 py-2 text-right">{row.received ? kg(row.received) : ''}</td>
                       <td className="px-3 py-2 text-right">{kg(row.total)}</td>
                       <td className="px-3 py-2 text-right">{row.use ? kg(row.use) : ''}</td>
-                      <td className="px-3 py-2 text-right font-semibold">{kg(row.balance)}</td>
+                      <td className={cn('px-3 py-2 text-right font-semibold', row.balance < 0 && 'text-status-error-text')}>{kg(row.balance)}</td>
                       {register.phenolColumns ? (
                         <>
                           <td className="px-3 py-2 text-right">{row.water ? kg(row.water) : ''}</td>

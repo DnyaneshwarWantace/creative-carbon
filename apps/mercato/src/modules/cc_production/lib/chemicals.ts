@@ -152,6 +152,7 @@ export async function chemicalRegister(ctx: StoreContext, productId: string, mon
     : []
   let opening = 0
   const byDay = new Map<string, { received: number; use: number; refs: Set<string> }>()
+  const plantNet = new Map<string, number>()
   for (const row of movements) {
     const value = signed(row)
     if (row.day < start) {
@@ -162,9 +163,18 @@ export async function chemicalRegister(ctx: StoreContext, productId: string, mon
     const plantUse = row.source === 'cc_production.resin' || row.source === 'cc_production.chemical_issue'
     if (plantUse || value < 0) entry.use -= value
     else entry.received += value
-    if (row.ref && row.source === 'cc_production.resin') entry.refs.add(row.ref)
+    if (row.ref && row.source === 'cc_production.resin') plantNet.set(`${row.day}|${row.ref}`, (plantNet.get(`${row.day}|${row.ref}`) ?? 0) + value)
     if (row.ref && row.source !== 'cc_production.resin' && row.source !== 'cc_production.chemical_issue' && value > 0) entry.refs.add(row.ref)
     byDay.set(row.day, entry)
+  }
+
+  for (const [key, net] of plantNet) {
+    if (Math.abs(net) < 0.0005) continue
+    const [day, ref] = key.split('|')
+    byDay.get(day)?.refs.add(ref)
+  }
+  for (const [day, entry] of byDay) {
+    if (Math.abs(entry.received) < 0.0005 && Math.abs(entry.use) < 0.0005 && !entry.refs.size) byDay.delete(day)
   }
 
   const isPhenol = product.title.trim().toLowerCase() === 'phenol'

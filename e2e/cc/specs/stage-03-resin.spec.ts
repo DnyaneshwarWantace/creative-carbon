@@ -299,6 +299,8 @@ test.describe.serial('Stage 3 · resin plant and the chemical register', () => {
   test('clean up: reopen the posted batch and take the test opening stock back out', async ({ request }) => {
     const reopened = (await (await act(request, posted, 'reopen')).json()) as Batch
     expect((await act(request, reopened, 'delete')).ok()).toBeTruthy()
+    const after = await register(request, phenol.id)
+    expect(after.rows.flatMap((row) => row.refs)).not.toContain(posted.batchNo)
     const current = await setup(request)
     for (const [title, lotNumber] of [
       ['Phenol', lotNumbers.phenol],
