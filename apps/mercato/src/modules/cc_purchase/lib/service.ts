@@ -288,6 +288,7 @@ export async function poView(ctx: OrderContext, po: PurchaseOrder) {
     vendorName: po.vendorName,
     vendorGstin: po.vendorGstin ?? null,
     vendorPhone: vendor?.contactPhone ?? null,
+    vendorAddress: vendor?.address ?? null,
     vendorContact: vendor?.contactPerson ?? null,
     vendorEmail: vendor?.contactEmail ?? null,
     poDate: po.poDate,

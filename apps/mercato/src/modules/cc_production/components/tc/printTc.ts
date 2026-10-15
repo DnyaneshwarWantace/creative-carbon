@@ -1,4 +1,4 @@
-import { LETTERHEAD_CSS, esc, letterheadHtml, type PrintCompany } from '../../../cc_ui/lib/printKit'
+import { LETTERHEAD_CSS, esc, letterheadHtml, partyLogoHtml, type PrintCompany } from '../../../cc_ui/lib/printKit'
 
 export type PrintableTc = {
   code: string
@@ -15,6 +15,7 @@ export type PrintableTc = {
   lastColumn?: 'remark' | 'criteria'
   legend?: Array<{ code: string; a: string; b: string; c: string; result: string }>
   rows: Array<{ property: string; specified: string; unit: string; observed: string; remark: string; criteria?: string }>
+  partyLogoUrl?: string | null
 }
 
 function dotDate(value: string): string {
@@ -44,7 +45,7 @@ export function buildTcHtml(tc: PrintableTc, company?: PrintCompany | null, forP
 *{box-sizing:border-box} body{font-family:Arial,Helvetica,sans-serif;color:#111;margin:0;padding:28px;font-size:12px}
 ${LETTERHEAD_CSS}
 h1{text-align:center;font-size:15px;text-decoration:underline;margin:14px 0 14px;letter-spacing:.04em}
-.meta td{padding:1px 14px 1px 0} .meta td:first-child{width:90px}
+.metarow{display:flex;justify-content:space-between;align-items:flex-start} .custlogo .plogo{max-height:60px!important;max-width:160px!important} .meta td{padding:1px 14px 1px 0} .meta td:first-child{width:90px}
 table.tbl{width:100%;border-collapse:collapse;margin-top:14px} .tbl th,.tbl td{border:1px solid #111;padding:8px 6px;text-align:center;vertical-align:middle}
 .tbl th{font-weight:700} .tbl td:first-child{white-space:normal}
 .sign{display:flex;justify-content:space-between;margin-top:46px;font-size:12px}
@@ -54,7 +55,7 @@ table.tbl{width:100%;border-collapse:collapse;margin-top:14px} .tbl th,.tbl td{b
 ${draft ? '<div class="wm">DRAFT</div>' : ''}
 ${letterheadHtml(company)}
 <h1>TEST CERTIFICATE</h1>
-<table class="meta">${head.map(([label, value]) => `<tr><td>${esc(label)}</td><td>– ${esc(value)}</td></tr>`).join('')}</table>
+<div class="metarow"><table class="meta">${head.map(([label, value]) => `<tr><td>${esc(label)}</td><td>– ${esc(value)}</td></tr>`).join('')}</table>${tc.partyLogoUrl ? `<div class="custlogo">${partyLogoHtml(tc.partyLogoUrl)}</div>` : ''}</div>
 <table class="tbl"><thead><tr><th>Test Properties</th><th>Specified value as per<br>${esc(tc.standard)}</th><th>Unit</th><th>Observed value</th><th>${byCriteria ? 'Test Criteria' : 'Remark'}</th></tr></thead><tbody>${rows}</tbody></table>
 ${legend}
 <div class="sign"><div>Tested By: &nbsp;${esc(tc.testedBy ?? '')}</div><div>Verified By: ${esc(tc.verifiedBy ?? '')}</div></div>

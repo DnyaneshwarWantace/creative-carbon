@@ -30,16 +30,26 @@ const po: PoView = {
 }
 
 describe('purchase order print', () => {
-  it('prints the form number, special instruction, terms and the warranty line, and leaves empty terms out', () => {
-    const html = buildPurchaseOrderHtml(po, { name: 'Creative Carbon Composites Pvt. Ltd.' })
-    expect(html).toContain('Form No. CCCPL/F/PUR/03')
-    expect(html).toContain('PURCHASE ORDER')
-    expect(html).toContain('Please provide test certificate along with delivery')
-    expect(html).toContain('Kanera plant')
-    expect(html).toContain('IGST extra as applicable')
-    expect(html).toContain('12 months from supply')
-    expect(html).toContain('INR One Lakh Six Thousand Two Hundred Only')
-    expect(html).not.toContain('Through')
+  it('prints like the client PO: boxed grid, # instruction, delivery place, basic total, terms and warranty', () => {
+    const html = buildPurchaseOrderHtml({ ...po, vendorAddress: 'Mumbai West' }, { name: 'Creative Carbon Composites Pvt. Ltd.', gstin: '24AAICC5600P1ZJ' })
+    expect(html).toContain('TO-:')
+    expect(html).toContain('>PURCHASE ORDER<')
+    expect(html).toContain('CCCPL/F/PUR/03')
+    expect(html).toContain('KETAN CHEMICAL')
+    expect(html).toContain('MUMBAI WEST')
+    expect(html).toContain('P.O NO- CCCPL/A/025/2026-27')
+    expect(html).toContain('DATE- 08.10.2026')
+    expect(html).toContain('OUR GST NO: 24AAICC5600P1ZJ')
+    expect(html).toContain('RATE PER<br>(@)KGS')
+    expect(html).toContain('BASIC AMT')
+    expect(html).toContain('>#</td>')
+    expect(html).toContain('PLEASE PROVIDE TEST CERTIFICATE ALONG WITH DELIVERY')
+    expect(html).toContain('DELIVERY - KANERA PLANT')
+    expect(html).toContain('TOTAL .RS :-</td><td class="c b">90000.00')
+    expect(html).toContain('<b>TAXES-;</b> IGST EXTRA AS APPLICABLE')
+    expect(html).toContain('<b>PAYMENT-:</b> ROUTINE')
+    expect(html).toContain('GAURANTY/WARRANTY-: 12 MONTHS FROM SUPPLY')
+    expect(html).not.toContain('THROUGH-:')
   })
 
   it('shows the supplier logo when there is one', () => {

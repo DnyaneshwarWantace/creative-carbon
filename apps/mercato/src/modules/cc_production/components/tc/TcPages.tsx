@@ -22,6 +22,7 @@ import { FieldList, Panel, RecordPage, RecordState } from '../../../cc_ui/compon
 import type { PrintCompany } from '../../../cc_ui/lib/printKit'
 import { remarkFor, specifiedText, type TcLegendEntry, type TcRow } from '../../lib/tcRules'
 import { printTc } from './printTc'
+import { usePartyLogo } from '../../../cc_ui/components/PartyLogo'
 
 type Template = { id: string; name: string; productLabel: string; grade: string; standard: string; rows: TcRow[]; isActive: boolean; updatedAt: string }
 type CertRow = { key: string; property: string; specified: string; unit: string; observed: string; remark: string; check: TcRow['check']; optional: boolean; criteria: string }
@@ -212,6 +213,7 @@ export function TcDetailPage({ id }: { id: string }) {
   const canEnter = granted.has('cc_production.quality.enter')
   const { runMutation } = useGuardedMutation({ contextId: 'cc-tc' })
   const [cert, setCert] = React.useState<Cert | null>(null)
+  const partyLogo = usePartyLogo('customer', cert?.customerId)
   const [error, setError] = React.useState<string | null>(null)
   const [company, setCompany] = React.useState<PrintCompany | null>(null)
   const [observed, setObserved] = React.useState<Record<string, string>>({})
@@ -304,7 +306,7 @@ export function TcDetailPage({ id }: { id: string }) {
 
   const print = () => {
     const ok = printTc(
-      { ...cert, thicknessMm: thicknessNumber ?? cert.thicknessMm, testedBy: testedBy || cert.testedBy, verifiedBy: verifiedBy || cert.verifiedBy, rows: cert.rows.map((row) => ({ ...row, specified: specifiedText(row, thicknessNumber), observed: observed[row.key] ?? '', remark: liveRemark(row) })) },
+      { ...cert, thicknessMm: thicknessNumber ?? cert.thicknessMm, testedBy: testedBy || cert.testedBy, verifiedBy: verifiedBy || cert.verifiedBy, rows: cert.rows.map((row) => ({ ...row, specified: specifiedText(row, thicknessNumber), observed: observed[row.key] ?? '', remark: liveRemark(row) })), partyLogoUrl: partyLogo },
       company,
     )
     if (!ok) flash(t('cc_production.tc.popup', 'Allow pop-ups to print.'), 'error')

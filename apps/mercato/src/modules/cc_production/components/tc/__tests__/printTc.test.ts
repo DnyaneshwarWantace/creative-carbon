@@ -45,3 +45,10 @@ describe('test certificate print', () => {
     expect(html).toContain('&lt;b&gt;X&lt;/b&gt;')
   })
 })
+
+describe('test certificate print with the customer logo', () => {
+  it('shows the customer logo beside the header lines only when there is one', () => {
+    expect(buildTcHtml({ ...tc, partyLogoUrl: 'data:image/png;base64,AAAA' }, null, false)).toContain('<div class="custlogo"><img class="plogo" src="data:image/png;base64,AAAA"')
+    expect(buildTcHtml(tc, null, false)).not.toContain('custlogo"><img')
+  })
+})
