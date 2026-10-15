@@ -249,6 +249,24 @@ test.describe.serial('Stage 4 · coating (dryer sheets) and the B-stage board', 
     }
   })
 
+  test('roll cards: the posted sheet shows one card per roll; a new day starts empty with Add a roll; the paper sheet is one click away', async ({ page }) => {
+    await page.goto(`/backend/coating?date=${PAPER_DATE}&dryer=${dryer('Dryer 2').id}`)
+    await page.getByRole('radio', { name: 'Roll cards' }).click()
+    await expect(page.locator('article').filter({ hasText: 'Roll 1' })).toBeVisible({ timeout: 60_000 })
+    await expect(page.locator('article').filter({ hasText: 'B-stage lot' }).first()).toBeVisible()
+    const blankDay = `${PAST_YEAR}-${MM === '12' ? '11' : '12'}-${DD}`
+    await page.goto(`/backend/coating?date=${blankDay}&dryer=${dryer('Dryer 3').id}`)
+    await expect(page.getByText('Nothing coated on this dryer yet today')).toBeVisible({ timeout: 60_000 })
+    await page.getByRole('button', { name: 'Add a roll' }).click()
+    await page.getByRole('button', { name: 'Add a roll' }).click()
+    await expect(page.locator('article')).toHaveCount(2)
+    await page.getByRole('button', { name: 'Remove roll 1' }).click()
+    await expect(page.locator('article')).toHaveCount(1)
+    await page.getByRole('radio', { name: 'Sheet (as on paper)' }).click()
+    await expect(page.getByRole('columnheader', { name: 'S.N.' })).toBeVisible()
+    await page.getByRole('radio', { name: 'Roll cards' }).click()
+  })
+
   test('clean up: reopen restores cloth, resin and DBP; test stock taken back out', async ({ request }) => {
     const clothBefore = await clothFree(request, '10x10')
     const tankBefore = await tankFree(request)

@@ -3,7 +3,7 @@
 import * as React from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { ExternalLink, LayoutGrid, RotateCcw, Send, Trash2, TriangleAlert } from 'lucide-react'
+import { ExternalLink, LayoutGrid, LayoutList, Plus, RotateCcw, Send, Table2, Trash2, TriangleAlert, X } from 'lucide-react'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { cn } from '@open-mercato/shared/lib/utils'
 import { Page, PageBody } from '@open-mercato/ui/backend/Page'
@@ -26,6 +26,16 @@ import { Dropdown } from '../../../cc_lists/components/Dropdown'
 import { CorrectDialog } from '../../../cc_ui/components/CorrectDialog'
 
 const ROWS = 10
+const VIEW_KEY = 'cc.coating.view'
+type View = 'entry' | 'register'
+
+function readView(): View {
+  try {
+    return window.localStorage.getItem(VIEW_KEY) === 'register' ? 'register' : 'entry'
+  } catch {
+    return 'entry'
+  }
+}
 
 type RowDraft = { clothProductId: string; gsm: string; kushan: string; treatedWeight: string; rawKg: string; balanceRawKg: string; coatedNos: string; resinLotId: string; rcPct: string; vcPct: string }
 type SlotDraft = { time: string; dbpKg: string; oleicKg: string; outputKg: string }
@@ -84,6 +94,15 @@ export function CoatingDayPage() {
   const [draft, setDraft] = React.useState<ReturnType<typeof draftFrom> | null>(null)
   const [busy, setBusy] = React.useState(false)
   const [reopening, setReopening] = React.useState(false)
+  const [view, setViewState] = React.useState<View>('entry')
+  const [added, setAdded] = React.useState<number[]>([])
+  React.useEffect(() => setViewState(readView()), [])
+  const setView = (next: View) => {
+    setViewState(next)
+    try {
+      window.localStorage.setItem(VIEW_KEY, next)
+    } catch {}
+  }
 
   React.useEffect(() => {
     void apiCall<CoatingSetup>('/api/cc_production/coating/setup').then((call) => {
@@ -111,6 +130,7 @@ export function CoatingDayPage() {
     }
     setSheet(view)
     setDraft(draftFrom(view, setup.slots))
+    setAdded([])
     setLoading(false)
   }, [setup, dryerId, date, router])
 
@@ -233,6 +253,32 @@ export function CoatingDayPage() {
   }
 
   const cell = 'h-8 w-full min-w-0 rounded border border-input bg-background px-1.5 text-right text-sm tabular-nums disabled:border-transparent disabled:bg-transparent'
+  const field = 'h-9 w-full min-w-0 rounded-md border border-input bg-background px-2 text-sm tabular-nums disabled:border-transparent disabled:bg-muted/40'
+  const shownRows = (draft?.rows ?? []).map((row, index) => ({ row, index })).filter(({ row, index }) => used(row) || added.includes(index))
+  const addRoll = () => {
+    if (!draft) return
+    const free = draft.rows.findIndex((row, index) => !used(row) && !added.includes(index))
+    if (free >= 0) {
+      setAdded((previous) => [...previous, free])
+      return
+    }
+    setDraft({ ...draft, rows: [...draft.rows, { ...EMPTY_ROW }] })
+    setAdded((previous) => [...previous, draft.rows.length])
+  }
+  const removeRoll = (index: number) => {
+    if (!draft) return
+    const rows = draft.rows.filter((_, position) => position !== index)
+    while (rows.length < ROWS) rows.push({ ...EMPTY_ROW })
+    setDraft({ ...draft, rows })
+    setAdded((previous) => previous.filter((position) => position !== index).map((position) => (position > index ? position - 1 : position)))
+  }
+  const help = (label: string, hint: string, control: React.ReactNode, wide = false) => (
+    <label className={cn('space-y-1', wide && 'col-span-2')}>
+      <span className="block text-xs font-medium">{label}</span>
+      {control}
+      <span className="block text-xs leading-snug text-muted-foreground">{hint}</span>
+    </label>
+  )
 
   return (
     <Page>
@@ -258,7 +304,7 @@ export function CoatingDayPage() {
             </div>
           </header>
 
-          <nav className="flex flex-wrap gap-1 border-b border-border" aria-label={t('cc_production.coating.dryers', 'Dryers')}>
+          <nav className="flex flex-wrap items-center gap-1 border-b border-border" aria-label={t('cc_production.coating.dryers', 'Dryers')}>
             {(setup?.dryers ?? []).map((dryer) => {
               const existing = daySheets.find((item) => item.dryerId === dryer.id)
               const active = dryer.id === dryerId
@@ -275,6 +321,19 @@ export function CoatingDayPage() {
                 </button>
               )
             })}
+            <div className="ml-auto hidden items-center gap-1 pb-1.5 md:flex" role="radiogroup" aria-label={t('cc_production.coating.view', 'How to show the sheet')}>
+              {(
+                [
+                  ['entry', t('cc_production.coating.viewEntry', 'Roll cards'), LayoutList],
+                  ['register', t('cc_production.coating.viewRegister', 'Sheet (as on paper)'), Table2],
+                ] as Array<[View, string, typeof Table2]>
+              ).map(([value, label, Icon]) => (
+                <button key={value} type="button" role="radio" aria-checked={view === value} onClick={() => setView(value)} className={cn('inline-flex h-8 items-center gap-1.5 rounded-md border px-2.5 text-xs font-medium', view === value ? 'border-primary bg-primary text-primary-foreground' : 'border-border text-muted-foreground hover:text-foreground')}>
+                  <Icon className="h-3.5 w-3.5" aria-hidden="true" />
+                  {label}
+                </button>
+              ))}
+            </div>
           </nav>
 
           {loading || !draft || !setup ? (
@@ -314,7 +373,118 @@ export function CoatingDayPage() {
               ) : null}
 
               <div className="grid grid-cols-1 gap-5 xl:grid-cols-4">
-                <section className="overflow-x-auto rounded-xl border border-border bg-card shadow-sm xl:col-span-3">
+                <section className={cn('flex flex-col gap-4 xl:col-span-3', view === 'register' && 'md:hidden')}>
+                  {shownRows.length ? (
+                    shownRows.map(({ row, index }) => {
+                      const sn = index + 1
+                      const figure = figures?.rows.find((entry) => entry.sn === sn)
+                      const posted = sheet?.rows.find((entry) => entry.sn === sn)
+                      const cloth = clothById.get(row.clothProductId)
+                      return (
+                        <article key={sn} className="rounded-xl border border-border bg-card shadow-xs">
+                          <header className="flex flex-wrap items-center gap-3 border-b border-border px-4 py-3">
+                            <span className={cn('flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-lg font-bold tabular-nums', sheet?.status === 'posted' ? 'bg-status-success-bg text-status-success-text' : 'cc-bar-accent text-primary-foreground')}>{sn}</span>
+                            <div className="min-w-0 flex-1">
+                              <p className="text-sm font-semibold">
+                                {t('cc_production.coating.rollNo', 'Roll {sn}', { sn })}
+                                {cloth ? <span className="ml-2 text-muted-foreground">· {cloth.title}</span> : null}
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                {posted?.bstageLotNumber && sheet?.status === 'posted' ? (
+                                  <Link className="font-mono underline-offset-2 hover:underline" href={`/backend/bstage/lots/${posted.bstageLotId}`}>
+                                    {t('cc_production.coating.lotIs', 'B-stage lot {lot}', { lot: posted.bstageLotNumber })}
+                                  </Link>
+                                ) : (
+                                  t('cc_production.coating.rollHint', 'Becomes one B-stage lot when the sheet is posted')
+                                )}
+                              </p>
+                            </div>
+                            <div className="text-right">
+                              <p className="text-xs text-muted-foreground">{t('cc_production.coating.bstageKg', 'B-stage kg')}</p>
+                              <p className="cc-figure text-xl">{figure ? kg(figure.bstageKg) : '—'}</p>
+                            </div>
+                            {!locked ? (
+                              <Button type="button" variant="ghost" size="icon" className="h-8 w-8" aria-label={t('cc_production.coating.removeRoll', 'Remove roll {sn}', { sn })} onClick={() => removeRoll(index)}>
+                                <X className="h-4 w-4" aria-hidden="true" />
+                              </Button>
+                            ) : null}
+                          </header>
+                          <div className="grid grid-cols-2 gap-3 p-4 md:grid-cols-4">
+                            {help(
+                              t('cc_production.coating.cloth', 'Cloth name'),
+                              t('cc_production.coating.help.cloth', 'Cloth or paper coated. Taken out of stock on posting.'),
+                              <Dropdown className={field} disabled={locked} value={row.clothProductId} onChange={(event) => updateRow(index, { clothProductId: event.target.value })} aria-label={`${sn} cloth`}>
+                                <option value="" />
+                                {setup.cloths.map((option) => (
+                                  <option key={option.id} value={option.id}>
+                                    {option.title}
+                                  </option>
+                                ))}
+                              </Dropdown>,
+                              true,
+                            )}
+                            {help('GSM', t('cc_production.coating.help.gsm', 'Fills in from the cloth'), <input className={field} disabled={locked} inputMode="decimal" value={row.gsm} onChange={(event) => updateRow(index, { gsm: event.target.value })} aria-label={`${sn} gsm`} />)}
+                            {help(t('cc_production.coating.nos', 'Nos'), t('cc_production.coating.help.nos', 'Rolls / pieces coated'), <input className={field} disabled={locked} inputMode="decimal" value={row.coatedNos} onChange={(event) => updateRow(index, { coatedNos: event.target.value })} aria-label={`${sn} coatedNos`} />)}
+                            {help(t('cc_production.coating.raw', 'Raw kg'), t('cc_production.coating.help.raw', 'Kg of cloth put on the dryer'), <input className={field} disabled={locked} inputMode="decimal" value={row.rawKg} onChange={(event) => updateRow(index, { rawKg: event.target.value })} aria-label={`${sn} rawKg`} />)}
+                            {help(t('cc_production.coating.balance', 'Balance'), t('cc_production.coating.help.balance', 'Kg of cloth left over. Blank = NIL.'), <input className={field} disabled={locked} inputMode="decimal" placeholder="NIL" value={row.balanceRawKg} onChange={(event) => updateRow(index, { balanceRawKg: event.target.value })} aria-label={`${sn} balanceRawKg`} />)}
+                            {help('Kushan', t('cc_production.coating.kushanHint', 'Sample weight before treating'), <input className={field} disabled={locked} inputMode="decimal" value={row.kushan} onChange={(event) => updateRow(index, { kushan: event.target.value })} aria-label={`${sn} kushan`} />)}
+                            {help(t('cc_production.coating.treated', 'Treated'), t('cc_production.coating.treatedHint', 'Sample weight after coating'), <input className={field} disabled={locked} inputMode="decimal" value={row.treatedWeight} onChange={(event) => updateRow(index, { treatedWeight: event.target.value })} aria-label={`${sn} treatedWeight`} />)}
+                            {help(
+                              t('cc_production.coating.resin', 'Resine type / batch'),
+                              t('cc_production.coating.help.resin', 'Leave on "oldest in tank" unless another batch was used'),
+                              <Dropdown className={field} disabled={locked} value={row.resinLotId} onChange={(event) => updateRow(index, { resinLotId: event.target.value })} aria-label={`${sn} resin`}>
+                                <option value="">{t('cc_production.coating.oldestResin', 'P.F. · oldest in tank')}</option>
+                                {setup.resinLots.map((lot) => (
+                                  <option key={lot.lotId} value={lot.lotId}>
+                                    {lot.grade ?? 'P.F.'} · {lot.lotNumber} · {kg(lot.free)} kg
+                                  </option>
+                                ))}
+                                {posted?.resinLotId && !setup.resinLots.some((lot) => lot.lotId === posted.resinLotId) ? <option value={posted.resinLotId}>{posted.resinBatchNo}</option> : null}
+                              </Dropdown>,
+                              true,
+                            )}
+                            {help('RC %', t('cc_production.coating.help.rc', 'Resin content. Normal {min}–{max}%', { min: setup.bands.rc.min, max: setup.bands.rc.max }), <input className={cn(field, outOfBand(row.rcPct, setup.bands.rc) && 'border-status-warning-border text-status-warning-text')} disabled={locked} inputMode="decimal" value={row.rcPct} onChange={(event) => updateRow(index, { rcPct: event.target.value })} aria-label={`${sn} RC`} />)}
+                            {help('VC %', t('cc_production.coating.help.vc', 'Volatile content. Normal {min}–{max}%', { min: setup.bands.vc.min, max: setup.bands.vc.max }), <input className={cn(field, outOfBand(row.vcPct, setup.bands.vc) && 'border-status-warning-border text-status-warning-text')} disabled={locked} inputMode="decimal" value={row.vcPct} onChange={(event) => updateRow(index, { vcPct: event.target.value })} aria-label={`${sn} VC`} />)}
+                          </div>
+                        </article>
+                      )
+                    })
+                  ) : (
+                    <p className="rounded-xl border border-dashed border-border bg-card px-5 py-8 text-center text-sm text-muted-foreground">
+                      {canEnter ? t('cc_production.coating.emptyEntry', 'Nothing coated on this dryer yet today. Add a roll for each cloth put through.') : t('cc_production.coating.emptyView', 'Nothing entered for this dryer and day.')}
+                    </p>
+                  )}
+                  <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-card px-4 py-3">
+                    {!locked ? (
+                      <Button type="button" variant="outline" onClick={addRoll}>
+                        <Plus className="mr-1.5 h-4 w-4" aria-hidden="true" />
+                        {t('cc_production.coating.addRoll', 'Add a roll')}
+                      </Button>
+                    ) : (
+                      <span />
+                    )}
+                    <dl className="flex flex-wrap gap-6 text-sm tabular-nums">
+                      <div>
+                        <dt className="text-xs text-muted-foreground">{t('cc_production.coating.raw', 'Raw kg')}</dt>
+                        <dd className="font-semibold">{kg(figures?.rawTotal ?? 0)}</dd>
+                      </div>
+                      <div>
+                        <dt className="text-xs text-muted-foreground">{t('cc_production.coating.nos', 'Nos')}</dt>
+                        <dd className="font-semibold">{figures?.nosTotal ?? 0}</dd>
+                      </div>
+                      <div>
+                        <dt className="text-xs text-muted-foreground">{t('cc_production.coating.resinShort', 'Resin kg')}</dt>
+                        <dd className="font-semibold">{kg(figures?.resinTotal ?? 0)}</dd>
+                      </div>
+                      <div>
+                        <dt className="text-xs text-muted-foreground">{t('cc_production.coating.bstageKg', 'B-stage kg')}</dt>
+                        <dd className="font-semibold">{kg(figures?.bstageTotal ?? 0)}</dd>
+                      </div>
+                    </dl>
+                  </div>
+                </section>
+
+                <section className={cn('hidden overflow-x-auto rounded-xl border border-border bg-card shadow-sm xl:col-span-3', view === 'register' && 'md:block')}>
                   <table className="w-full min-w-240 text-sm">
                     <thead>
                       <tr className="border-b border-border bg-muted/50 text-xs uppercase tracking-wide text-muted-foreground">
