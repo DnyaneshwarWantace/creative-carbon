@@ -29,6 +29,27 @@ test.describe('Dashboards · Order tracker and Plant today as masonry boards', (
     }
   })
 
+  test('the CRM home API gives sources, 8 weeks of enquiries, the win rate and salespeople', async ({ request }) => {
+    const response = await request.get('/api/cc_crm/dashboard')
+    expect(response.ok(), await response.text()).toBeTruthy()
+    const body = (await response.json()) as { sources: unknown[]; weeks: unknown[]; winRate: { won: number; lost: number }; owners: unknown[] }
+    expect(Array.isArray(body.sources)).toBeTruthy()
+    expect(body.weeks).toHaveLength(8)
+    expect(typeof body.winRate.won).toBe('number')
+    expect(Array.isArray(body.owners)).toBeTruthy()
+  })
+
+  test('the CRM home renders its cards and the pipeline board fits the screen', async ({ page }) => {
+    await page.goto('/backend/crm')
+    for (const heading of ['Pipeline', 'Win rate, last 90 days', 'Where enquiries come from', 'New enquiries per week', 'Salespeople']) {
+      await expect(page.getByRole('heading', { name: heading, exact: true })).toBeVisible({ timeout: 60_000 })
+    }
+    await page.goto('/backend/crm/pipeline')
+    await expect(page.getByText('Open enquiries').first()).toBeVisible({ timeout: 60_000 })
+    const height = await page.evaluate(() => document.documentElement.scrollHeight)
+    expect(height).toBeLessThan(3000)
+  })
+
   test('home opens Plant today for the owner', async ({ page }) => {
     await page.goto('/backend')
     await expect(page).toHaveURL(/\/backend\/owner/)

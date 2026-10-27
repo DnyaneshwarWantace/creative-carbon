@@ -979,3 +979,5 @@ footer.backdrop-blur.justify-end {
 .cc-ring { --pct: 0; width: 4.5rem; height: 4.5rem; border-radius: 9999px; background: conic-gradient(var(--cc-accent) calc(var(--pct) * 1%), var(--muted) 0); display: grid; place-items: center; }
 .cc-ring > span { width: 3.4rem; height: 3.4rem; border-radius: 9999px; background: var(--card); display: grid; place-items: center; font-weight: 800; font-size: 0.95rem; font-variant-numeric: tabular-nums; }
 .cc-bar-accent { background: var(--cc-accent); }
+.cc-board-col { max-height: calc(100vh - 22rem); }
+@media (max-width: 767px) { .cc-board-col { max-height: 70vh; } }

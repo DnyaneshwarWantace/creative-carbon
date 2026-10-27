@@ -101,9 +101,12 @@ function DraggableCard({ card, disabled, onOpen }: { card: BoardCard; disabled: 
   )
 }
 
+const PAGE = 15
+
 function Column({ stage, cards, canMove, onOpen }: { stage: PipelineStage; cards: BoardCard[]; canMove: boolean; onOpen: (card: BoardCard) => void }) {
   const t = useT()
   const { setNodeRef, isOver } = useDroppable({ id: stage.key })
+  const [shown, setShown] = React.useState(PAGE)
   const value = cards.reduce((sum, card) => sum + (card.quote?.currency === 'INR' ? card.quote.total : 0), 0)
   return (
     <section className="flex w-72 shrink-0 flex-col rounded-xl border bg-muted/40" aria-label={stage.label}>
@@ -120,10 +123,15 @@ function Column({ stage, cards, canMove, onOpen }: { stage: PipelineStage; cards
           {stage.questions.length ? ` · ${t('cc_crm.pipeline.questions', '{count} questions on entry', { count: stage.questions.length })}` : ''}
         </p>
       </header>
-      <div ref={setNodeRef} className={cn('flex min-h-40 flex-1 flex-col gap-2 overflow-y-auto p-2 transition-colors', isOver && 'bg-accent')}>
-        {cards.map((card) => (
+      <div ref={setNodeRef} className={cn('cc-board-col flex min-h-40 flex-1 flex-col gap-2 overflow-y-auto p-2 transition-colors', isOver && 'bg-accent')}>
+        {cards.slice(0, shown).map((card) => (
           <DraggableCard key={card.id} card={card} disabled={!canMove} onOpen={() => onOpen(card)} />
         ))}
+        {cards.length > shown ? (
+          <Button type="button" variant="ghost" size="sm" className="shrink-0" onClick={() => setShown((current) => current + PAGE)}>
+            {t('cc_crm.pipeline.showMore', 'Show {count} more', { count: Math.min(PAGE, cards.length - shown) })}
+          </Button>
+        ) : null}
         {!cards.length ? <p className="rounded-lg border border-dashed px-3 py-6 text-center text-xs text-muted-foreground">{isOver ? t('cc_crm.pipeline.dropHere', 'Drop here') : t('cc_crm.pipeline.empty', 'Nothing here')}</p> : null}
       </div>
     </section>
