@@ -105,6 +105,8 @@ test.describe.serial('Stage 11 · Tally: two-way, logged, never twice, direct or
   let lineId: string
   let first: { id: string; code: string }
   let failedId: string
+  let customerId: string
+  let productId: string
   const party = `E2E11 Tally ${stamp}`
 
   test.beforeAll(async () => {
@@ -120,9 +122,9 @@ test.describe.serial('Stage 11 · Tally: two-way, logged, never twice, direct or
     before = (await (await request.get('/api/cc_accounts/tally/settings')).json()) as Settings
     const customer = await request.post('/api/customers/companies', { data: { displayName: party, organizationId: process.env.CC_ORG, tenantId: process.env.CC_TENANT } })
     expect(customer.ok(), await customer.text()).toBeTruthy()
-    const customerId = ((await customer.json()) as { id: string }).id
+    customerId = ((await customer.json()) as { id: string }).id
     const products = ((await (await request.get('/api/cc_products/search?kinds=laminate&q=Fabric%2010x10')).json()) as { items: Array<{ id: string; title: string }> }).items
-    const productId = products.find((item) => item.title === 'Fabric 10x10 Sheet')!.id
+    productId = products.find((item) => item.title === 'Fabric 10x10 Sheet')!.id
     const created = await request.post('/api/cc_orders/orders', { data: { orderDate: DAY, customerId, lines: [{ productId, quantity: 30, rate: 310, gstPercent: 18, specs: { material: { form: 'Sheet', grade: 'Fabric', weave: '10x10', sheet_size: '8x4', thickness_mm: '10' } } }] } })
     expect(created.status(), await created.text()).toBe(201)
     orderId = ((await created.json()) as { id: string }).id
@@ -231,6 +233,30 @@ test.describe.serial('Stage 11 · Tally: two-way, logged, never twice, direct or
     expect(status(first.code)).toBe('amount_differs')
     expect(status(`MANUAL-${stamp}`)).toBe('only_in_tally')
     expect(check.rows.filter((row) => row.status === 'matched').length).toBeGreaterThanOrEqual(3)
+  })
+
+  test('a number someone already used in Tally is held back and reported, never overwritten', async ({ request }) => {
+    const created = await request.post('/api/cc_orders/orders', { data: { orderDate: DAY, customerId, lines: [{ productId, quantity: 10, rate: 310, gstPercent: 18, specs: { material: { form: 'Sheet', grade: 'Fabric', weave: '10x10', sheet_size: '8x4', thickness_mm: '10' } } }] } })
+    expect(created.status(), await created.text()).toBe(201)
+    const newOrder = ((await created.json()) as { id: string }).id
+    const newLine = ((await (await request.get(`/api/cc_orders/orders?id=${newOrder}`)).json()) as { lines: Array<{ id: string }> }).lines[0].id
+    const taken = await invoice(request, newOrder, newLine, 4)
+    const free = await invoice(request, newOrder, newLine, 4)
+    mock.state.vouchers.set('typed-by-accountant', { remoteId: 'typed-by-accountant', type: 'Sales', number: taken.code, date: DAY, party: 'Someone Else Ltd', amount: 777 })
+    const sent = (await (await push(request)).json()) as Push
+    expect(sent.status).toBe('partial')
+    expect(sent.documents.map((doc) => doc.number)).toEqual([free.code])
+    expect(sent.lastAttempt?.lineErrors[0]).toMatch(new RegExp(`no\\. ${taken.code} is already used in Tally \\(Someone Else Ltd`))
+    expect(mock.state.vouchers.get('typed-by-accountant')?.party).toBe('Someone Else Ltd')
+    const again = await push(request)
+    expect(again.status()).toBe(409)
+    expect(((await again.json()) as { error: string }).error).toMatch(/already used in Tally/)
+    const check = (await (await request.get(`/api/cc_accounts/tally/check?from=${DAY}&to=${DAY}&kinds=sales`)).json()) as { rows: Array<{ number: string; status: string }> }
+    expect(check.rows.find((row) => row.number === taken.code && row.status === 'number_clash')).toBeTruthy()
+    mock.state.vouchers.delete('typed-by-accountant')
+    const after = (await (await push(request)).json()) as Push
+    expect(after.status).toBe('sent')
+    expect(after.documents.map((doc) => doc.number)).toEqual([taken.code])
   })
 
   test('bridge: an unknown key is refused; with a key, requests go through the bridge to Tally', async ({ request }) => {

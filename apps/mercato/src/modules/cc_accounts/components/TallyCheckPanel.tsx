@@ -14,7 +14,7 @@ import { apiCall } from '@open-mercato/ui/backend/utils/apiCall'
 import { flash } from '@open-mercato/ui/backend/FlashMessages'
 import { recordHref } from '../../cc_ui/lib/links'
 
-type Status = 'matched' | 'amount_differs' | 'not_in_tally' | 'only_in_tally' | 'cancelled_in_tally'
+type Status = 'matched' | 'amount_differs' | 'not_in_tally' | 'only_in_tally' | 'cancelled_in_tally' | 'number_clash'
 type Row = { key: string; date: string; type: string; number: string; party: string; erpAmount: number | null; tallyAmount: number | null; status: Status; recordId: string | null; pushCode: string | null }
 type Result = { via: 'direct' | 'bridge'; counts: Partial<Record<Status, number>>; rows: Row[] }
 
@@ -24,6 +24,7 @@ const STATUS: Record<Status, { label: string; variant: StatusBadgeVariant }> = {
   not_in_tally: { label: 'Not in Tally', variant: 'warning' },
   only_in_tally: { label: 'Only in Tally', variant: 'info' },
   cancelled_in_tally: { label: 'Cancelled in Tally', variant: 'neutral' },
+  number_clash: { label: 'Number used by another entry in Tally', variant: 'error' },
 }
 
 function money(value: number | null): string {

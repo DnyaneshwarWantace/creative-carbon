@@ -3,7 +3,7 @@ import type { OrderContext } from '../../cc_orders/lib/server'
 import { CompanyProfile, TallyPush, type TallyPushAttempt, type TallyPushDocument, type TallyPushStatus, type TallySettings } from '../data/entities'
 import { DEFAULT_LEDGERS, remoteIdOf, tallyData, tallyXml, type TallyKind, type TallyLedgers, type TallyVoucher } from './tally'
 import { AccountsError } from './service'
-import { bridgeAlive, callTally, companiesRequest, ledgersRequest, parseCompanies, parseLedgers, parseVouchers, readFromTally, vouchersRequest, type TallyAnswer, type TallyLedger } from './tallyClient'
+import { bridgeAlive, callTally, companiesRequest, ledgersRequest, parseCompanies, parseLedgers, parseVouchers, readFromTally, vouchersRequest, type TallyAnswer, type TallyLedger, type TallyVoucherRow } from './tallyClient'
 
 export function settingsView(profile: CompanyProfile | null): TallySettings & { ledgers: TallyLedgers; mode: 'direct' | 'bridge' } {
   const saved = profile?.tallySettings ?? null
@@ -71,6 +71,22 @@ export function cleanTallyUrl(raw: string | null | undefined): string | null {
 
 function voucherKey(voucher: Pick<TallyVoucher, 'type' | 'number'>): string {
   return `${voucher.type}:${voucher.number}`
+}
+
+export type NumberClash = { key: string; type: string; number: string; ourParty: string; tallyParty: string | null; tallyDate: string; tallyAmount: number }
+
+export function numberClashes(vouchers: TallyVoucher[], tallyRows: TallyVoucherRow[]): NumberClash[] {
+  const clashes: NumberClash[] = []
+  for (const voucher of vouchers) {
+    const ours = remoteIdOf(voucher)
+    const taken = tallyRows.find((row) => !row.cancelled && row.type === voucher.type && same(row.number, voucher.number) && row.remoteId !== ours)
+    if (taken) clashes.push({ key: voucherKey(voucher), type: voucher.type, number: voucher.number, ourParty: voucher.party, tallyParty: taken.party, tallyDate: taken.date, tallyAmount: taken.amount })
+  }
+  return clashes
+}
+
+export function clashMessage(clash: NumberClash): string {
+  return `${clash.type} no. ${clash.number} is already used in Tally (${clash.tallyParty ?? 'no party'}, ${clash.tallyDate}, Rs. ${clash.tallyAmount}). Not sent; change the number in the ERP or in Tally, or mark it as entered by hand.`
 }
 
 function documentOf(voucher: TallyVoucher): TallyPushDocument {
@@ -167,22 +183,38 @@ export async function pushRange(
   }
   const unbalanced = vouchers.filter((voucher) => Math.abs(voucher.entries.reduce((sum, entry) => sum + entry.amount, 0)) > 0.01)
   if (unbalanced.length) throw new AccountsError(`These entries do not balance, fix them before sending: ${unbalanced.map((voucher) => voucher.number).join(', ')}`)
-  const usedParties = new Set(vouchers.map((voucher) => voucher.party))
-  const parties = data.parties.filter((party) => usedParties.has(party.name))
   const companyName = settings.company || data.companyName
-  let requestXml = tallyXml({ companyName, vouchers, parties }, input.masters)
   const inTally = await tallyLedgers(ctx, settings)
   let attempt: TallyPushAttempt
   let responseText: string | null = null
+  let sending = vouchers
+  let requestXml = ''
   if (!inTally.data) {
     attempt = failedAttempt(inTally.error ?? 'Could not read the ledgers from Tally', by)
   } else {
     const missing = missingLedgers(vouchers, inTally.data, !input.masters)
     if (missing.length) throw new AccountsError(`These ledgers are not in Tally${companyName ? ` (${companyName})` : ''}: ${missing.join(', ')}. Create them in Tally, or correct the ledger names in the Tally settings.`)
-    requestXml = pruneExistingLedgers(requestXml, inTally.data)
-    const answer = await callTally(ctx, settings, requestXml, 'push')
-    attempt = attemptFrom(answer, by)
-    responseText = answer.text
+    const existing = await readFromTally(ctx, settings, vouchersRequest(settings.company, input.from, input.to), 'vouchers', parseVouchers)
+    if (!existing.data) {
+      attempt = failedAttempt(existing.error ?? 'Could not read the vouchers already in Tally', by)
+    } else {
+      const clashes = numberClashes(vouchers, existing.data)
+      const clashed = new Set(clashes.map((clash) => clash.key))
+      sending = vouchers.filter((voucher) => !clashed.has(voucherKey(voucher)))
+      if (!sending.length) throw new AccountsError(clashes.map(clashMessage).join(' '), 409)
+      const usedParties = new Set(sending.map((voucher) => voucher.party))
+      requestXml = pruneExistingLedgers(tallyXml({ companyName, vouchers: sending, parties: data.parties.filter((party) => usedParties.has(party.name)) }, input.masters), inTally.data)
+      const answer = await callTally(ctx, settings, requestXml, 'push')
+      attempt = attemptFrom(answer, by)
+      responseText = answer.text
+      if (clashes.length) {
+        attempt = { ...attempt, status: attempt.status === 'sent' ? 'partial' : attempt.status, lineErrors: [...clashes.map(clashMessage), ...attempt.lineErrors].slice(0, 50), errors: attempt.errors + clashes.length, error: attempt.error ?? clashMessage(clashes[0]) }
+      }
+    }
+  }
+  if (!requestXml) {
+    const usedParties = new Set(sending.map((voucher) => voucher.party))
+    requestXml = tallyXml({ companyName, vouchers: sending, parties: data.parties.filter((party) => usedParties.has(party.name)) }, input.masters)
   }
   const push = ctx.em.create(TallyPush, {
     organizationId: ctx.organizationId,
@@ -194,7 +226,7 @@ export async function pushRange(
     withMasters: input.masters,
     tallyUrl: connectionLabel(settings),
     tallyCompany: companyName,
-    documents: vouchers.map(documentOf),
+    documents: sending.map(documentOf),
     partyCount: input.masters ? (requestXml.match(/<LEDGER NAME=/g) ?? []).length : 0,
     requestXml,
     responseText: responseText ? responseText.slice(0, 20000) : null,
@@ -225,6 +257,9 @@ export async function retryPush(ctx: OrderContext, push: TallyPush, by: string |
   if (!inTally.data) {
     attempt = failedAttempt(inTally.error ?? 'Could not read the ledgers from Tally', by)
   } else {
+    const existing = await readFromTally(ctx, settings, vouchersRequest(settings.company, push.rangeFrom, push.rangeTo), 'vouchers', parseVouchers)
+    const taken = (existing.data ?? []).filter((row) => !row.cancelled && push.documents.some((doc) => doc.type === row.type && same(doc.number, row.number) && row.remoteId !== remoteIdOf({ type: doc.type as TallyVoucher["type"], number: doc.number })))
+    if (taken.length) throw new AccountsError(`These numbers have since been used in Tally by other entries: ${taken.map((row) => `${row.type} ${row.number} (${row.party ?? 'no party'})`).join(', ')}. Start a new push after fixing the numbers.`, 409)
     push.requestXml = pruneExistingLedgers(push.requestXml, inTally.data)
     const answer = await callTally(ctx, settings, push.requestXml, 'push')
     attempt = attemptFrom(answer, by)
@@ -332,7 +367,7 @@ async function runConnectionTest(ctx: OrderContext) {
   return { ok: true, via: companies.via, error: null, companies: names, companyFound, ledgers: ledgers.data.map((ledger) => ledger.name).sort((a, b) => a.localeCompare(b)).slice(0, 3000), missing }
 }
 
-export type CheckRow = { key: string; date: string; type: string; number: string; party: string; erpAmount: number | null; tallyAmount: number | null; status: 'matched' | 'amount_differs' | 'not_in_tally' | 'only_in_tally' | 'cancelled_in_tally'; recordId: string | null; pushCode: string | null }
+export type CheckRow = { key: string; date: string; type: string; number: string; party: string; erpAmount: number | null; tallyAmount: number | null; status: 'matched' | 'amount_differs' | 'not_in_tally' | 'only_in_tally' | 'cancelled_in_tally' | 'number_clash'; recordId: string | null; pushCode: string | null; tallyParty?: string | null }
 
 export async function checkAgainstTally(ctx: OrderContext, range: { from: string; to: string }, kinds: TallyKind[]) {
   const settings = await loadSettings(ctx)
@@ -353,11 +388,14 @@ export async function checkAgainstTally(ctx: OrderContext, range: { from: string
   const rows: CheckRow[] = []
   for (const voucher of data.vouchers) {
     const key = voucherKey(voucher)
-    const match = byRemote.get(remoteIdOf(voucher)) ?? byNumber.get(key) ?? null
+    const own = byRemote.get(remoteIdOf(voucher)) ?? null
+    const byNo = byNumber.get(key) ?? null
+    const match = own ?? byNo
     const erpAmount = documentOf(voucher).amount
     if (match) used.add(match)
-    const status: CheckRow['status'] = !match ? 'not_in_tally' : match.cancelled ? 'cancelled_in_tally' : Math.abs(match.amount - erpAmount) > 1 ? 'amount_differs' : 'matched'
-    rows.push({ key, date: voucher.date, type: voucher.type, number: voucher.number, party: voucher.party, erpAmount, tallyAmount: match ? match.amount : null, status, recordId: voucher.recordId ?? null, pushCode: pushed.get(key) ?? null })
+    const foreign = !own && byNo && !byNo.cancelled && byNo.remoteId && !same(byNo.party ?? '', voucher.party)
+    const status: CheckRow['status'] = !match ? 'not_in_tally' : foreign ? 'number_clash' : match.cancelled ? 'cancelled_in_tally' : Math.abs(match.amount - erpAmount) > 1 ? 'amount_differs' : 'matched'
+    rows.push({ key, date: voucher.date, type: voucher.type, number: voucher.number, party: voucher.party, erpAmount, tallyAmount: match ? match.amount : null, status, recordId: voucher.recordId ?? null, pushCode: pushed.get(key) ?? null, tallyParty: match?.party ?? null })
   }
   for (const row of tallyRows) {
     if (used.has(row)) continue
