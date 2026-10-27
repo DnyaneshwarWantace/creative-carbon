@@ -305,11 +305,11 @@ test.describe.serial('Demo data · a month of activity across CRM, orders, purch
   })
 
   test('two direct orders: a moulded-parts order waiting for production and one on hold', async () => {
-    const moulded = Object.keys(product).find((title) => title.startsWith('Moulded 177')) ?? Object.keys(product).find((title) => title.startsWith('Moulded'))!
-    const first = await ok<{ id: string; orderNo: string }>('sales', 'POST', '/api/cc_orders/orders', { orderDate: day(-4), deliveryDate: day(10), customerId: customer['Ruby Rotating Machines'], lines: [{ productId: product[moulded], quantity: 2000, rate: 14.5, gstPercent: 18, specs: { material: { form: 'Moulded part', die_no: '177', pieces: '2000' }, packing: { pack_type: 'PP wrap + LDP stitch (local)', marking: 'Die no. and lot no. on every carton', test_standard: 'Customer spec', remarks: 'Deburr all edges' } } }] })
+    const moulded = Object.keys(product).find((title) => title.startsWith('Moulded bush D-101')) ?? Object.keys(product).find((title) => title.startsWith('Moulded'))!
+    const first = await ok<{ id: string; orderNo: string }>('sales', 'POST', '/api/cc_orders/orders', { orderDate: day(-4), deliveryDate: day(10), customerId: customer['Ruby Rotating Machines'], lines: [{ productId: product[moulded], quantity: 2000, rate: 14.5, gstPercent: 18, specs: { material: { form: 'Moulded part', die_no: 'D-101', pieces: '2000' }, packing: { pack_type: 'PP wrap + LDP stitch (local)', marking: 'Die no. and lot no. on every carton', test_standard: 'Customer spec', remarks: 'Deburr all edges' } } }] })
     const second = await ok<{ id: string; orderNo: string }>('sales', 'POST', '/api/cc_orders/orders', { orderDate: day(-2), deliveryDate: day(15), customerId: customer['Coastal Power Equipments'], lines: [{ productId: product['Fabric 10x10 Sheet'], quantity: 350, rate: 302, gstPercent: 18, specs: sheetSpecs('Fabric 10x10 Sheet', 40, 350) }] })
     await soft('Hold order', 'sales', 'POST', '/api/cc_orders/orders/hold', { id: second.id, action: 'hold', reason: 'Customer revising drawing; confirm thickness before advance' }, `/api/cc_orders/orders?id=${second.id}`)
-    note(`Direct orders ${first.orderNo} (2000 moulded parts, die 177) and ${second.orderNo} (on hold)`)
+    note(`Direct orders ${first.orderNo} (2000 moulded parts, die D-101) and ${second.orderNo} (on hold)`)
   })
 
   test('purchase: indents, POs at each step, a GRN waiting for QC, vendor bills paid and unpaid', async () => {
@@ -392,6 +392,64 @@ test.describe.serial('Demo data · a month of activity across CRM, orders, purch
       } else problems.push(`FG report ${pressed.batchNo}: ${(await report.text()).slice(0, 160)}`)
     }
     note(`Plant: ${resinBatches} resin batches, ${sheets} coating sheets, ${pressBatches} press batches, ${fgReports} FG inspections (newer pressed lots still on the floor)`)
+  })
+
+  test('moulding: three days of both shifts on the moulding presses, posted and signed', async () => {
+    const setup = await ok<{ presses: Array<{ id: string; number: number }>; operators: string[] }>('press', 'GET', '/api/cc_production/moulding/setup')
+    const plan = [
+      { die: 'D-101', weight: 0.12, shots: 60, cavities: 4 },
+      { die: 'D-102', weight: 0.045, shots: 70, cavities: 6 },
+      { die: 'D-103', weight: 0.21, shots: 55, cavities: 2 },
+      { die: 'D-105', weight: 0.09, shots: 50, cavities: 3 },
+    ]
+    let posted = 0
+    for (const offset of [-3, -2, -1]) {
+      for (const shift of [1, 2]) {
+        const entries = plan.map((entry, index) => {
+          const press = setup.presses[(index * 3 + shift) % setup.presses.length]
+          const pieces = (entry.shots - index * 5 + offset) * entry.cavities
+          return { pressId: press.id, dieNo: entry.die, articleWeightKg: String(entry.weight), productionNos: String(pieces), chindiKg: String(Math.round(pieces * entry.weight * 0.7 * 1000) / 1000), operatorName: setup.operators[(index + shift) % setup.operators.length], startTime: shift === 1 ? '08:00' : '20:00', dieHeatTime: shift === 1 ? '07:20' : '19:20' }
+        }).filter((entry, position, list) => list.findIndex((other) => other.pressId === entry.pressId) === position)
+        const saved = await send('press', 'PUT', '/api/cc_production/moulding', { entryDate: day(offset), shift, entries })
+        if (!saved.ok()) {
+          problems.push(`Moulding ${day(offset)} shift ${shift}: ${(await saved.text()).slice(0, 200)}`)
+          continue
+        }
+        const block = (await json<{ shifts: Array<{ shift: number; version: string }> }>(saved)).shifts.find((entry) => entry.shift === shift)
+        const posting = await (contexts.get('press') ?? admin).post('/api/cc_production/moulding/action', { data: { entryDate: day(offset), shift, action: 'post' }, headers: block?.version ? { [LOCK]: block.version } : {} })
+        if (posting.ok()) posted += 1
+        else problems.push(`Moulding post ${day(offset)} shift ${shift}: ${(await posting.text()).slice(0, 200)}`)
+      }
+    }
+    note(`Moulding: ${posted} shifts posted on dies D-101, D-102, D-103 and D-105`)
+  })
+
+  test('test certificates: one issued, one still a draft', async () => {
+    const templates = (await ok<{ items: Array<{ id: string; grade: string; isActive: boolean }> }>('qc', 'GET', '/api/cc_production/tc/templates')).items.filter((entry) => entry.isActive)
+    if (!templates.length) {
+      problems.push('No test certificate template to start from')
+      return
+    }
+    const names = Object.keys(customer)
+    for (const [index, issue] of [[0, true], [1, false]] as const) {
+      const created = await send('qc', 'POST', '/api/cc_production/tc', { templateId: templates[index % templates.length].id, certDate: day(-2 + index), customerId: customer[names[index + 2]], thicknessMm: index ? 6 : 10, traceability: `DEMO/PB/${index + 1}` })
+      if (!created.ok()) {
+        problems.push(`Test certificate: ${(await created.text()).slice(0, 200)}`)
+        continue
+      }
+      const cert = await json<{ id: string; updatedAt: string; rows: Array<{ key: string; check: { kind: string; value?: number; nominal?: string } }> }>(created)
+      const observed: Record<string, string> = {}
+      for (const row of cert.rows) {
+        if (row.check.kind === 'min') observed[row.key] = String(Math.round(((row.check.value ?? 0) * 1.15 + 1) * 100) / 100)
+        else if (row.check.kind === 'max') observed[row.key] = String(Math.round((row.check.value ?? 0) * 0.6 * 100) / 100)
+        else if (row.check.kind === 'range') observed[row.key] = index ? '5.9 to 6.1' : '9.8 to 10.2'
+        else observed[row.key] = 'OK'
+      }
+      const filled = await send('qc', 'PUT', '/api/cc_production/tc', { id: cert.id, observed, testedBy: 'Neha Joshi (Lab)', verifiedBy: 'Kiran Shah (Director)' }, `/api/cc_production/tc?id=${cert.id}`)
+      if (!filled.ok()) problems.push(`Test certificate fill: ${(await filled.text()).slice(0, 200)}`)
+      if (issue && filled.ok()) await soft('Issue test certificate', 'qc', 'POST', '/api/cc_production/tc/issue', { id: cert.id }, `/api/cc_production/tc?id=${cert.id}`)
+    }
+    note('Test certificates: one issued, one draft')
   })
 
   test('plan for today and tomorrow, and a damaged sheet written off', async () => {
