@@ -99,6 +99,19 @@ test.describe.serial('Lab test reports: upload, download, order link, automatic 
     }
   })
 
+  test('a passed lab report makes a test certificate for the same order, and lists it', async ({ page, request }) => {
+    await page.goto(`/backend/quality/lab/${labId}`)
+    await page.getByRole('link', { name: 'Make test certificate' }).click()
+    await expect(page.getByText(/Linked to order/)).toBeVisible({ timeout: 60_000 })
+    await page.getByRole('button', { name: 'Start certificate' }).click()
+    await expect(page).toHaveURL(/\/backend\/quality\/tc\/[0-9a-f-]{36}/, { timeout: 60_000 })
+    const certs = ((await (await request.get(`/api/cc_production/tc?orderId=${orderId}`)).json()) as { items: Array<{ id: string; orderId: string; customerId: string | null }> }).items
+    expect(certs).toHaveLength(1)
+    expect(certs[0]).toEqual(expect.objectContaining({ orderId, customerId }))
+    await page.goto(`/backend/quality/lab/${labId}`)
+    await expect(page.getByRole('heading', { name: /Test certificates for this order/ })).toBeVisible({ timeout: 60_000 })
+  })
+
   test('cleanup: cancel the order', async ({ request }) => {
     const cancelled = await request.post('/api/cc_orders/orders/cancel', { data: { id: orderId, reason: 'E2E cleanup' } })
     expect(cancelled.ok() || cancelled.status() === 409).toBeTruthy()

@@ -55,7 +55,7 @@ describe('test certificate print with the customer logo', () => {
 
 describe('test certificate print with production traceability', () => {
   it("prints Production Traceability right under the TC No. like the client's P3 certificate", () => {
-    const html = buildTcHtml({ ...tc, traceability: 'F/110/7/2026-27/' }, null, false)
+    const html = buildTcHtml({ ...tc, traceability: 'F/999/9/2026-27/' }, null, false)
     expect(html.indexOf('Production Traceability')).toBeGreaterThan(html.indexOf('TC No.'))
     expect(html.indexOf('Production Traceability')).toBeLessThan(html.indexOf('>Date<'))
   })

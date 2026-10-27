@@ -3,7 +3,7 @@
 import * as React from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { CheckCircle2, CircleDashed, Download, ExternalLink, FilePen, FileText, FlaskConical, History, Pencil, Printer, Send, XCircle } from 'lucide-react'
+import { CheckCircle2, CircleDashed, Download, ExternalLink, FileCheck2, FilePen, FileText, FlaskConical, History, Pencil, Printer, Send, XCircle } from 'lucide-react'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { cn } from '@open-mercato/shared/lib/utils'
 import { AttachmentsSection } from '@open-mercato/ui/backend/detail/AttachmentsSection'
@@ -88,6 +88,7 @@ export function LabDetailPage({ testId }: { testId: string }) {
   const [previewId, setPreviewId] = React.useState<string | null>(null)
   const [amending, setAmending] = React.useState(false)
   const [issuing, setIssuing] = React.useState(false)
+  const [certs, setCerts] = React.useState<Array<{ id: string; code: string; status: string; grade: string; certDate: string }>>([])
   const send = useSend(`cc-lab-${testId}`)
 
   const load = React.useCallback(async () => {
@@ -97,6 +98,11 @@ export function LabDetailPage({ testId }: { testId: string }) {
       setPreviewId((current) => current ?? call.result?.reports?.find((file) => file.mimeType === 'application/pdf' || file.mimeType.startsWith('image/'))?.id ?? null)
     } else setError(t('cc_production.lab.loadError', 'Could not load the lab test.'))
   }, [testId, t])
+
+  React.useEffect(() => {
+    if (!test?.orderId) return
+    void apiCall<{ items: Array<{ id: string; code: string; status: string; grade: string; certDate: string }> }>(`/api/cc_production/tc?orderId=${encodeURIComponent(test.orderId)}`, undefined, { fallback: { items: [] } }).then((call) => setCerts(call.result?.items ?? []))
+  }, [test?.orderId])
 
   React.useEffect(() => {
     void load()
@@ -111,6 +117,15 @@ export function LabDetailPage({ testId }: { testId: string }) {
   const superseded = test.supersededReports ?? []
   const issued = Boolean(test.issuedAt)
   const revision = test.revision ?? 0
+  const certHref = `/backend/quality/tc?${new URLSearchParams({
+    new: '1',
+    ...(test.customerId ? { customerId: test.customerId } : {}),
+    ...(test.customerName ? { customerName: test.customerName } : {}),
+    ...(test.orderId ? { orderId: test.orderId } : {}),
+    ...(test.orderNo ? { orderNo: test.orderNo } : {}),
+    ...(test.lotRefs ? { traceability: test.lotRefs } : {}),
+    labReport: test.reportNo ?? test.testType,
+  }).toString()}`
   const act = async (body: Record<string, unknown>, done: string) => {
     const result = await send<LabTest>('/api/cc_production/lab/action', 'POST', { id: test.id, ...body }, test.updatedAt)
     if (!result) return false
@@ -225,6 +240,14 @@ export function LabDetailPage({ testId }: { testId: string }) {
               {t('cc_production.lab.issue', 'Mark issued to customer')}
             </Button>
           ) : null}
+          {canEnter && test.result === 'pass' ? (
+            <Button asChild variant="outline" size="sm">
+              <Link href={certHref}>
+                <FileCheck2 className="mr-1.5 h-4 w-4" aria-hidden="true" />
+                {t('cc_production.lab.makeTc', 'Make test certificate')}
+              </Link>
+            </Button>
+          ) : null}
           {canEnter && issued ? (
             <Button type="button" variant="outline" size="sm" onClick={() => setAmending(true)}>
               <FilePen className="mr-1.5 h-4 w-4" aria-hidden="true" />
@@ -328,6 +351,7 @@ export function LabDetailPage({ testId }: { testId: string }) {
           </>
         }
         side={
+          <>
           <Panel title={t('cc_production.lab.details', 'Details')} icon={FlaskConical}>
             <FieldList columns={1} fields={details} />
             {test.notes ? (
@@ -337,6 +361,27 @@ export function LabDetailPage({ testId }: { testId: string }) {
               </div>
             ) : null}
           </Panel>
+          {test.orderId ? (
+            <Panel title={t('cc_production.lab.certs', 'Test certificates for this order')} icon={FileCheck2} count={certs.length}>
+              {certs.length ? (
+                <ul className="space-y-1.5 text-sm">
+                  {certs.map((cert) => (
+                    <li key={cert.id} className="flex items-center justify-between gap-2">
+                      <Link className="font-mono underline-offset-2 hover:underline" href={`/backend/quality/tc/${cert.id}`}>
+                        {cert.code}
+                      </Link>
+                      <span className="text-xs text-muted-foreground">
+                        {cert.grade} · {day(cert.certDate)} · {cert.status === 'issued' ? t('cc_production.tc.issued', 'Issued') : t('cc_production.tc.draft', 'Draft')}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="text-sm text-muted-foreground">{test.result === 'pass' ? t('cc_production.lab.noCertPass', 'None yet. Use Make test certificate above.') : t('cc_production.lab.noCert', 'None yet. A certificate can be made once the test passes.')}</p>
+              )}
+            </Panel>
+          ) : null}
+          </>
         }
       />
       <Comments type="lab_test" id={test.id} />

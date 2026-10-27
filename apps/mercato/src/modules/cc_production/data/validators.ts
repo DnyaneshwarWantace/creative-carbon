@@ -515,7 +515,7 @@ export const tcUpdateSchema = z.object({
 })
 
 export const tcIdSchema = z.object({ id: z.string().uuid() })
-export const tcListQuerySchema = z.object({ id: z.string().uuid().optional(), search: z.string().trim().max(120).optional() })
+export const tcListQuerySchema = z.object({ id: z.string().uuid().optional(), search: z.string().trim().max(120).optional(), orderId: z.string().uuid().optional() })
 
 export type TcCreateInput = z.infer<typeof tcCreateSchema>
 export type TcUpdateInput = z.infer<typeof tcUpdateSchema>

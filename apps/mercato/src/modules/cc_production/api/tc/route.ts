@@ -20,7 +20,7 @@ async function GET(req: Request) {
   if (!parsed.success) return NextResponse.json({ error: 'Check the search' }, { status: 400 })
   try {
     if (parsed.data.id) return NextResponse.json(await certificateView(ctx, await findCertificate(ctx, parsed.data.id)))
-    return NextResponse.json({ items: await listCertificates(ctx, parsed.data.search) })
+    return NextResponse.json({ items: await listCertificates(ctx, parsed.data.search, parsed.data.orderId) })
   } catch (error) {
     return plantErrorResponse(error)
   }

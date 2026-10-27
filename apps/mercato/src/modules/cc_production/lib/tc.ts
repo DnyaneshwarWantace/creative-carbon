@@ -91,8 +91,8 @@ export async function certificateView(ctx: Scope, row: TestCertificate, names?: 
   }
 }
 
-export async function listCertificates(ctx: Scope, search?: string) {
-  const rows = await ctx.em.find(TestCertificate, where(ctx), { orderBy: { code: 'desc' }, limit: 500 })
+export async function listCertificates(ctx: Scope, search?: string, orderId?: string) {
+  const rows = await ctx.em.find(TestCertificate, { ...where(ctx), ...(orderId ? { orderId } : {}) }, { orderBy: { code: 'desc' }, limit: 500 })
   const customers = await loadCustomers(ctx, rows.map((row) => row.customerId).filter((id): id is string => Boolean(id)))
   const names = new Map(Array.from(customers.values()).map((customer) => [customer.id, customer.name]))
   const views = await Promise.all(rows.map((row) => certificateView(ctx, row, names)))

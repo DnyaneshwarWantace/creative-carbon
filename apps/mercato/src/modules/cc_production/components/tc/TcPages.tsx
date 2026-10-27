@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { FileCheck2, Plus, Printer } from 'lucide-react'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { Page, PageBody } from '@open-mercato/ui/backend/Page'
@@ -75,7 +75,21 @@ export function TcListPage() {
   const [customerLabel, setCustomerLabel] = React.useState('')
   const [thickness, setThickness] = React.useState('')
   const [traceability, setTraceability] = React.useState('')
+  const [orderId, setOrderId] = React.useState<string | null>(null)
   const [busy, setBusy] = React.useState(false)
+  const params = useSearchParams()
+  const prefill = params?.get('new') === '1'
+
+  React.useEffect(() => {
+    if (!prefill || !canEnter) return
+    const customerId = params?.get('customerId')
+    const customerName = params?.get('customerName') ?? ''
+    if (customerId) setCustomer({ id: customerId, name: customerName })
+    else setCustomerLabel(customerName)
+    setTraceability(params?.get('traceability') ?? '')
+    setOrderId(params?.get('orderId') || null)
+    setCreating(true)
+  }, [prefill, canEnter, params])
 
   React.useEffect(() => {
     const handle = window.setTimeout(async () => {
@@ -96,7 +110,7 @@ export function TcListPage() {
   const create = async () => {
     setBusy(true)
     try {
-      const body = { templateId, certDate, customerId: customer?.id ?? null, customerLabel: customer ? null : customerLabel.trim() || null, thicknessMm: thickness ? Number(thickness) : null, traceability: traceability.trim() || null }
+      const body = { templateId, certDate, customerId: customer?.id ?? null, customerLabel: customer ? null : customerLabel.trim() || null, thicknessMm: thickness ? Number(thickness) : null, traceability: traceability.trim() || null, orderId }
       const call = await runMutation({
         context: { resourceKind: 'cc_production.tc', resourceId: 'new' },
         mutationPayload: body,
@@ -162,8 +176,13 @@ export function TcListPage() {
               </div>
               <div className="space-y-1.5">
                 <Label>{t('cc_production.tc.traceability', 'Production traceability (press batch)')}</Label>
-                <Input value={traceability} placeholder="F/110/7/2026-27" onChange={(event) => setTraceability(event.target.value)} />
+                <Input value={traceability} placeholder={t('cc_production.tc.traceabilityHint', 'Press batch or lot no.')} onChange={(event) => setTraceability(event.target.value)} />
               </div>
+              {orderId ? (
+                <p className="text-xs text-muted-foreground sm:col-span-3">
+                  {t('cc_production.tc.fromLab', 'Linked to order {order} from lab report {report}. Pick the grade template and enter the thickness.', { order: params?.get('orderNo') ?? '—', report: params?.get('labReport') ?? '—' })}
+                </p>
+              ) : null}
               <div className="flex items-end gap-2 sm:col-span-3">
                 <Button type="button" disabled={busy || !templateId} onClick={() => void create()}>{t('cc_production.tc.start', 'Start certificate')}</Button>
                 <Button type="button" variant="ghost" onClick={() => setCreating(false)}>{t('cc_production.tc.cancel', 'Cancel')}</Button>
