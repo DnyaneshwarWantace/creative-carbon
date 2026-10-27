@@ -50,6 +50,11 @@ test.describe('Dashboards · Order tracker and Plant today as masonry boards', (
     expect(height).toBeLessThan(3000)
   })
 
+  test('the stock page has the rod stock search by OD and length', async ({ page }) => {
+    await page.goto('/backend/stock')
+    await expect(page.getByRole('heading', { name: 'Rod stock' })).toBeVisible({ timeout: 60_000 })
+  })
+
   test('home opens Plant today for the owner', async ({ page }) => {
     await page.goto('/backend')
     await expect(page).toHaveURL(/\/backend\/owner/)

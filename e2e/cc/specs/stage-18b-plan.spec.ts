@@ -2,7 +2,7 @@ import { expect, test, type APIRequestContext } from '@playwright/test'
 
 const LOCK = 'x-om-ext-optimistic-lock-expected-updated-at'
 const stamp = Date.now()
-const AHEAD = `${2900 + (stamp % 90)}-06-${String(10 + (stamp % 18)).padStart(2, '0')}`
+const AHEAD = `${3000 + (Math.floor(stamp / 1000) % 5000)}-${String(1 + (stamp % 12)).padStart(2, '0')}-${String(1 + (Math.floor(stamp / 12) % 28)).padStart(2, '0')}`
 const today = new Date(Date.now() + 5.5 * 3600_000).toISOString().slice(0, 10)
 
 type Line = { area: string; resource: string; item?: string | null; plannedQty: number; unit: string }

@@ -23,6 +23,7 @@ import { PlantTable } from '../PlantTable'
 import { Dropdown } from '../../../cc_lists/components/Dropdown'
 import { CorrectDialog } from '../../../cc_ui/components/CorrectDialog'
 import { CorrectionsPanel } from '../../../cc_ui/components/CorrectionsPanel'
+import { RodStockFinder } from '../RodStockFinder'
 
 type PlanRow = { area: string; resource: string; item: string | null; plannedQty: number; unit: string; actual: number; pct: number | null }
 type Overview = {
@@ -531,6 +532,7 @@ export function StockGridPage() {
               ]}
             />
           )}
+          <RodStockFinder />
         </div>
       </PageBody>
     </Page>
