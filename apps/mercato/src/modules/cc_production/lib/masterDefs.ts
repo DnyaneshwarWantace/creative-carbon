@@ -127,6 +127,7 @@ export const MASTER_DEFS: Record<MasterType, MasterDef> = {
       { key: 'customerMouldNo', label: "Customer's mould No.", kind: 'text', importHeaders: ['customer mould no', 'customer die no', 'customer no'] },
       { key: 'storeLocation', label: 'Kept at', kind: 'text', importHeaders: ['location', 'kept at', 'rack'] },
       { key: 'heatUpMinutes', label: 'Heat-up (min)', kind: 'int', importHeaders: ['heat time', 'die heat time', 'heat up'] },
+      { key: 'cavities', label: 'Cavities (pieces per shot)', kind: 'int', importHeaders: ['cavity', 'cavities', 'no of cavity', 'pieces per shot'] },
       { key: 'isActive', label: 'In use', kind: 'bool' },
     ],
     uniqueKeys: ['dieNo'],

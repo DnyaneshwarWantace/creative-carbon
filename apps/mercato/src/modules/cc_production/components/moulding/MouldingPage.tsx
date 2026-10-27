@@ -51,7 +51,7 @@ type EntryView = {
 }
 type ShiftView = { shift: number; version: string; entries: EntryView[]; grandTotal: number; weightTotal: number; signoff: { shiftIncharge: string | null; storeIncharge: string | null; authorised: string | null } }
 type Day = { date: string; shifts: ShiftView[]; grandTotal: number; weightTotal: number; errors?: string[] }
-type DieInfo = { dieNo: string; found: boolean; customerName: string | null; articleWeightKg: number | null; thicknessMm: number | null; description: string | null; openOrders?: Array<{ orderNo: string; qty: number }> }
+type DieInfo = { dieNo: string; found: boolean; customerName: string | null; articleWeightKg: number | null; thicknessMm: number | null; description: string | null; cavities?: number | null; openOrders?: Array<{ orderNo: string; qty: number }> }
 
 const FIELDS = ['dieNo', 'dieHeatTime', 'orderQty', 'orderRef', 'articleWeightKg', 'chindiKg', 'clothKg', 'clothNote', 'clothProductId', 'bstageGrade', 'bstageKg', 'productionNos', 'priorMade', 'startTime', 'operatorName', 'topTemp', 'bottomTemp', 'curingTime'] as const
 type Field = (typeof FIELDS)[number]
@@ -119,6 +119,7 @@ export function MouldingPage() {
   const [view, setViewState] = React.useState<View>('entry')
   const [added, setAdded] = React.useState<string[]>([])
   const [expanded, setExpanded] = React.useState<string[]>([])
+  const [shots, setShots] = React.useState<Record<string, string>>({})
   React.useEffect(() => setViewState(readView()), [])
   const setView = (next: View) => {
     setViewState(next)
@@ -140,8 +141,17 @@ export function MouldingPage() {
   const applyDay = React.useCallback(
     (next: Day) => {
       setDay(next)
+      setShots({})
       const block = next.shifts.find((entry) => entry.shift === shift)
-      setCells(Object.fromEntries((block?.entries ?? []).map((entry) => [entry.pressId, toCell(entry)])))
+      const entries = block?.entries ?? []
+      setCells(Object.fromEntries(entries.map((entry) => [entry.pressId, toCell(entry)])))
+      const dieNos = [...new Set(entries.map((entry) => entry.dieNo).filter(Boolean))]
+      if (dieNos.length) {
+        void apiCall<{ items: DieInfo[] }>(`/api/cc_production/moulding/dies?lookup=${encodeURIComponent(dieNos.join(','))}`).then((call) => {
+          const found = new Map((call.result?.items ?? []).map((info) => [info.dieNo.toUpperCase(), info]))
+          setDies(Object.fromEntries(entries.map((entry) => [entry.pressId, found.get(entry.dieNo.toUpperCase())]).filter((pair): pair is [string, DieInfo] => Boolean(pair[1]))))
+        })
+      }
     },
     [shift],
   )
@@ -423,6 +433,7 @@ export function MouldingPage() {
                             {renderInput(press.id, row, !canEnter || entryFor(press.id)?.status === 'posted')}
                             {row.field === 'dieNo' && (dies[press.id]?.customerName || entryFor(press.id)?.customerName) ? <span className="block truncate px-1 text-muted-foreground">{dies[press.id]?.customerName ?? entryFor(press.id)?.customerName}</span> : null}
                             {row.field === 'dieHeatTime' && dies[press.id]?.thicknessMm ? <span className="block px-1 text-muted-foreground">({dies[press.id]?.thicknessMm} mm)</span> : null}
+                            {row.field === 'productionNos' && (dies[press.id]?.cavities ?? 0) > 1 ? <span className="block px-1 text-muted-foreground">{t('cc_production.moulding.cavitiesShort', '× {count} per shot', { count: dies[press.id]?.cavities ?? 0 })}</span> : null}
                             {row.field === 'orderQty' && cellFor(press.id).orderRef ? <span className="block truncate px-1 font-mono text-muted-foreground">{cellFor(press.id).orderRef}</span> : null}
                           </td>
                         ))}
@@ -570,6 +581,30 @@ export function MouldingPage() {
                                       <span className={cn('block text-xs font-medium', row.field === 'productionNos' && 'text-sm')}>{label}</span>
                                       {renderInput(press.id, row, locked, row.field === 'productionNos' ? cn(cardInput, 'h-11 text-lg font-semibold') : cardInput)}
                                       {row.help ? <span className="block text-xs leading-snug text-muted-foreground">{t(`cc_production.moulding.help.${row.field}`, row.help)}</span> : null}
+                                      {row.field === 'productionNos' && (info?.cavities ?? 0) > 1 ? (
+                                        <span className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                                          <span>{t('cc_production.moulding.cavitiesHint', '{count} cavities: one shot makes {count} pieces.', { count: info?.cavities ?? 0 })}</span>
+                                          {!locked ? (
+                                            <span className="inline-flex items-center gap-1">
+                                              <input
+                                                className="h-7 w-16 rounded-md border border-input bg-background px-2 text-sm tabular-nums"
+                                                inputMode="numeric"
+                                                aria-label={t('cc_production.moulding.shots', 'Shots')}
+                                                value={shots[press.id] ?? ''}
+                                                onChange={(event) => {
+                                                  const value = event.target.value.replace(/[^0-9]/g, '')
+                                                  setShots((previous) => ({ ...previous, [press.id]: value }))
+                                                  if (value) update(press.id, 'productionNos', String(Number(value) * (info?.cavities ?? 1)))
+                                                }}
+                                              />
+                                              {t('cc_production.moulding.shotsLabel', 'shots')}
+                                            </span>
+                                          ) : null}
+                                        </span>
+                                      ) : null}
+                                      {row.field === 'productionNos' && (info?.cavities ?? 0) > 1 && Number(cellFor(press.id).productionNos || 0) % (info?.cavities ?? 1) !== 0 ? (
+                                        <span className="block text-xs text-status-warning-text">{t('cc_production.moulding.notMultiple', 'Not a whole number of shots of {count}. Check the count (broken or rejected pieces?).', { count: info?.cavities ?? 0 })}</span>
+                                      ) : null}
                                     </label>
                                   )
                                 })}

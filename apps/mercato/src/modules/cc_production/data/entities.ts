@@ -163,7 +163,7 @@ export class Mould {
   @Property({ name: 'deleted_at', type: Date, nullable: true })
   deletedAt?: Date | null
 
-  [OptionalProps]?: Common | 'description' | 'size' | 'finish' | 'thicknessMm' | 'customerId' | 'customerMouldNo' | 'storeLocation' | 'heatUpMinutes'
+  [OptionalProps]?: Common | 'description' | 'size' | 'finish' | 'thicknessMm' | 'customerId' | 'customerMouldNo' | 'storeLocation' | 'heatUpMinutes' | 'cavities'
 
   @Property({ name: 'die_no', type: 'text' })
   dieNo!: string
@@ -194,6 +194,9 @@ export class Mould {
 
   @Property({ name: 'heat_up_minutes', type: 'int', nullable: true })
   heatUpMinutes?: number | null
+
+  @Property({ name: 'cavities', type: 'int', nullable: true })
+  cavities?: number | null
 }
 
 @Entity({ tableName: 'cc_loading_tolerances' })

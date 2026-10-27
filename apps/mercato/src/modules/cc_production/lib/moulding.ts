@@ -107,6 +107,7 @@ export async function dieLookup(ctx: StoreContext, dieNos: string[]) {
       description: mould?.description ?? null,
       thicknessMm: mould?.thicknessMm ? Number(mould.thicknessMm) : null,
       heatUpMinutes: mould?.heatUpMinutes ?? null,
+      cavities: mould?.cavities ?? null,
       customerName: mould?.customerId ? customers.get(mould.customerId)?.name ?? null : null,
       articleWeightKg: product?.articleWeightKg ?? null,
       productTitle: product?.title ?? null,

@@ -4702,6 +4702,23 @@
       "name": "cc_moulds",
       "schema": "public",
       "columns": {
+        "cavities": {
+          "name": "cavities",
+          "type": "int",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": true,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "integer"
+        },
         "created_at": {
           "name": "created_at",
           "type": "timestamptz(6)",
@@ -6811,6 +6828,16 @@
       "indexes": [
         {
           "columnNames": [
+            "id"
+          ],
+          "composite": false,
+          "constraint": true,
+          "keyName": "cc_recipes_pkey",
+          "primary": true,
+          "unique": true
+        },
+        {
+          "columnNames": [
             "organization_id",
             "tenant_id",
             "level"
@@ -6820,16 +6847,6 @@
           "keyName": "cc_recipes_scope_idx",
           "primary": false,
           "unique": false
-        },
-        {
-          "columnNames": [
-            "id"
-          ],
-          "composite": false,
-          "constraint": true,
-          "keyName": "cc_recipes_pkey",
-          "primary": true,
-          "unique": true
         }
       ],
       "checks": [],
@@ -7653,6 +7670,16 @@
       "indexes": [
         {
           "columnNames": [
+            "id"
+          ],
+          "composite": false,
+          "constraint": true,
+          "keyName": "cc_rod_stocks_pkey",
+          "primary": true,
+          "unique": true
+        },
+        {
+          "columnNames": [
             "organization_id",
             "tenant_id"
           ],
@@ -7661,16 +7688,6 @@
           "keyName": "cc_rod_stocks_scope_idx",
           "primary": false,
           "unique": false
-        },
-        {
-          "columnNames": [
-            "id"
-          ],
-          "composite": false,
-          "constraint": true,
-          "keyName": "cc_rod_stocks_pkey",
-          "primary": true,
-          "unique": true
         }
       ],
       "checks": [],
@@ -8332,6 +8349,16 @@
       "indexes": [
         {
           "columnNames": [
+            "id"
+          ],
+          "composite": false,
+          "constraint": true,
+          "keyName": "cc_tc_templates_pkey",
+          "primary": true,
+          "unique": true
+        },
+        {
+          "columnNames": [
             "organization_id",
             "tenant_id"
           ],
@@ -8340,16 +8367,6 @@
           "keyName": "cc_tc_templates_scope_idx",
           "primary": false,
           "unique": false
-        },
-        {
-          "columnNames": [
-            "id"
-          ],
-          "composite": false,
-          "constraint": true,
-          "keyName": "cc_tc_templates_pkey",
-          "primary": true,
-          "unique": true
         }
       ],
       "checks": [],
@@ -8657,7 +8674,7 @@
           "autoincrement": false,
           "primary": false,
           "nullable": false,
-          "unique": false,
+          "unique": true,
           "length": null,
           "precision": null,
           "scale": null,
@@ -8876,17 +8893,6 @@
         {
           "columnNames": [
             "organization_id",
-            "tenant_id"
-          ],
-          "composite": true,
-          "constraint": false,
-          "keyName": "cc_test_certificates_scope_idx",
-          "primary": false,
-          "unique": false
-        },
-        {
-          "columnNames": [
-            "organization_id",
             "tenant_id",
             "code"
           ],
@@ -8905,6 +8911,17 @@
           "keyName": "cc_test_certificates_pkey",
           "primary": true,
           "unique": true
+        },
+        {
+          "columnNames": [
+            "organization_id",
+            "tenant_id"
+          ],
+          "composite": true,
+          "constraint": false,
+          "keyName": "cc_test_certificates_scope_idx",
+          "primary": false,
+          "unique": false
         }
       ],
       "checks": [],
