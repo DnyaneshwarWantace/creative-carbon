@@ -130,11 +130,11 @@ test.describe.serial('Demo · one order from the vendor to the customer, done by
   })
 
   test('masters: a customer and a vendor', async () => {
-    const customer = await ok<{ id: string }>('sales', 'POST', '/api/customers/companies', { displayName: `Shree Ganesh Switchgear (Demo ${tag})`, organizationId: process.env.CC_ORG, tenantId: process.env.CC_TENANT })
+    const customer = await ok<{ id: string }>('sales', 'POST', '/api/customers/companies', { displayName: 'Shree Ganesh Switchgear', organizationId: process.env.CC_ORG, tenantId: process.env.CC_TENANT })
     customerId = customer.id
-    const vendor = await ok<{ id: string }>('purchase', 'POST', '/api/cc_vendors/vendors', { name: `Navkar Resins & Fabrics (Demo ${tag})`, contactPhone: '9825012345', organizationId: process.env.CC_ORG, tenantId: process.env.CC_TENANT })
+    const vendor = await ok<{ id: string }>('purchase', 'POST', '/api/cc_vendors/vendors', { name: 'Navkar Resins & Fabrics', contactPhone: '9825012345', organizationId: process.env.CC_ORG, tenantId: process.env.CC_TENANT })
     vendorId = vendor.id
-    note(`Customer Shree Ganesh Switchgear (Demo ${tag}) and vendor Navkar Resins & Fabrics (Demo ${tag})`)
+    note('Customer Shree Ganesh Switchgear and vendor Navkar Resins & Fabrics')
   })
 
   test('sell, part 1: enquiry → follow-up → quotation sent and accepted → order', async () => {
@@ -161,11 +161,11 @@ test.describe.serial('Demo · one order from the vendor to the customer, done by
     await ok('accounts', 'POST', '/api/cc_accounts/proformas/action', { id: piId, action: 'send', sentTo: 'Mr Jignesh Patel', channel: 'email' }, `/api/cc_accounts/proformas?id=${piId}`)
     const total = 200 * 310 * 1.18
     const advance = Math.round(total * 0.3)
-    await ok('accounts', 'POST', '/api/cc_accounts/payments', { orderId, kind: 'advance', amount: advance, paidOn: day(-10), mode: 'NEFT', reference: `UTR-DEMO-${tag}-A` })
+    await ok('accounts', 'POST', '/api/cc_accounts/payments', { orderId, kind: 'advance', amount: advance, paidOn: day(-10), mode: 'NEFT', reference: `UTR-${tag}-A` })
     const order = await ok<{ stages: Array<{ key: string; status: string }> }>('accounts', 'GET', `/api/cc_orders/orders?id=${orderId}`)
     if (order.stages.find((stage) => stage.key === 'advance')?.status !== 'done') {
       for (const stepKey of ['pi_sent', 'advance_received']) await send('accounts', 'POST', '/api/cc_orders/orders/stage', { orderId, stageKey: 'advance', action: 'step', stepKey, done: true }, `/api/cc_orders/orders?id=${orderId}`)
-      await ok('accounts', 'POST', '/api/cc_orders/orders/stage', { orderId, stageKey: 'advance', action: 'complete', data: { pi_number: pi.code, advance_percent: 30, advance_amount: advance, received_on: day(-10), payment_ref: `UTR-DEMO-${tag}-A` } }, `/api/cc_orders/orders?id=${orderId}`)
+      await ok('accounts', 'POST', '/api/cc_orders/orders/stage', { orderId, stageKey: 'advance', action: 'complete', data: { pi_number: pi.code, advance_percent: 30, advance_amount: advance, received_on: day(-10), payment_ref: `UTR-${tag}-A` } }, `/api/cc_orders/orders?id=${orderId}`)
     }
     note(`Proforma ${pi.code} sent; advance ₹${advance.toLocaleString('en-IN')} received`)
   })
@@ -188,7 +188,7 @@ test.describe.serial('Demo · one order from the vendor to the customer, done by
     poId = po.id
     await ok('owner', 'POST', '/api/cc_purchase/orders/approve', { id: poId }, `/api/cc_purchase/orders?id=${poId}`)
     const poLines = (await ok<{ lines: Array<{ id: string; productId: string }> }>('store', 'GET', `/api/cc_purchase/orders?id=${poId}`)).lines
-    const lotNo = (name: string) => `DEMO-${name}-${tag}`
+    const lotNo = (name: string) => `R-${name}-${tag}`
     const grn = await ok<{ id: string; code: string }>('store', 'POST', '/api/cc_purchase/grns', {
       poId,
       grnDate: day(-8),
@@ -205,7 +205,7 @@ test.describe.serial('Demo · one order from the vendor to the customer, done by
     }
     const taxable = wanted.reduce((sum, line) => sum + line.quantity * line.rate, 0)
     const bill = await ok<{ id: string; code?: string }>('accounts', 'POST', '/api/cc_accounts/vendor-bills', { vendorId, billNo: `NRF/${tag}`, billDate: day(-8), dueDate: day(22), grnIds: [grnId], taxable, gst: Math.round(taxable * 0.18) })
-    await ok('accounts', 'POST', '/api/cc_accounts/vendor-bills/action', { id: bill.id, action: 'pay', amount: Math.round(taxable * 1.18), paidOn: day(-2), reference: `UTR-DEMO-${tag}-V` }, `/api/cc_accounts/vendor-bills?id=${bill.id}`)
+    await ok('accounts', 'POST', '/api/cc_accounts/vendor-bills/action', { id: bill.id, action: 'pay', amount: Math.round(taxable * 1.18), paidOn: day(-2), reference: `UTR-${tag}-V` }, `/api/cc_accounts/vendor-bills?id=${bill.id}`)
     note(`Indent → PO ${po.code} (approved) → GRN ${grn.code} (200 kg phenol, 200 kg formaldehyde, 250 kg 10x10 cloth; QC passed) → vendor bill paid ₹${Math.round(taxable * 1.18).toLocaleString('en-IN')}`)
   })
 
@@ -245,16 +245,16 @@ test.describe.serial('Demo · one order from the vendor to the customer, done by
     const cut = await ok<{ id: string; outputLotNumber: string }>('press', 'POST', '/api/cc_production/cutting', { entryDate: day(-4), lotId: pressed.lotId, cutSize: '8x4', sheets: [{ no: 1, weightKg: 51 }, { no: 2, weightKg: 51.2 }, { no: 3, weightKg: 50.8 }, { no: 4, weightKg: 51 }] })
     const trimmed = (await ok<{ floorLots: Array<{ lotId: string; lotNumber: string }> }>('qc', 'GET', '/api/cc_production/finishing/setup')).floorLots.find((lot) => lot.lotNumber === cut.outputLotNumber)!
     await ok('qc', 'POST', '/api/cc_production/thickness', { inspectDate: day(-4), lotId: trimmed.lotId, minusMm: 0.3, plusMm: 0.8, readings: [12.1, 12.2, 12.3, 12.1, 12.4, 12.2, 12.1, 12.3, 12.2, 12.2, 12.1, 12.3] })
-    const report = await ok<{ id: string; rows: Array<{ outputLotId: string | null; outputLotNumber: string | null }> }>('qc', 'POST', '/api/cc_production/fg-inspection', { reportDate: day(-3), inspector: 'Neha Joshi', rows: [{ sourceLotId: trimmed.lotId, sheetSize: '8x4', qtyNos: 4, disposition: 'allocation', customerId, customerName: `Shree Ganesh Switchgear (Demo ${tag})` }] })
+    const report = await ok<{ id: string; rows: Array<{ outputLotId: string | null; outputLotNumber: string | null }> }>('qc', 'POST', '/api/cc_production/fg-inspection', { reportDate: day(-3), inspector: 'Neha Joshi', rows: [{ sourceLotId: trimmed.lotId, sheetSize: '8x4', qtyNos: 4, disposition: 'allocation', customerId, customerName: 'Shree Ganesh Switchgear' }] })
     const posted = await ok<{ rows: Array<{ outputLotId: string | null; outputLotNumber: string | null; passKg: number | null }> }>('qc', 'POST', '/api/cc_production/fg-inspection/action', { id: report.id, action: 'post' }, `/api/cc_production/fg-inspection?id=${report.id}`)
     fgLotId = posted.rows[0].outputLotId!
     note(`Press batch ${batch.batchNo} (4 × 12 mm) → cut to 8x4 → thickness passed → FG lot ${posted.rows[0].outputLotNumber} (${posted.rows[0].passKg} kg) set aside for the customer`)
   })
 
   test('quality: the lab test for the order passes', async () => {
-    const lab = await ok<{ id: string }>('qc', 'POST', '/api/cc_production/lab', { testDate: day(-3), orderId, itemTitle: 'Fabric 10x10 Sheet', lotRefs: 'FG lot of the demo order', testType: 'Electrical', standard: 'IS 2036', result: 'pass', reportNo: `LR-DEMO-${tag}`, testedBy: 'Neha Joshi', notes: 'Electric strength 12.5 kV/mm' })
+    const lab = await ok<{ id: string }>('qc', 'POST', '/api/cc_production/lab', { testDate: day(-3), orderId, itemTitle: 'Fabric 10x10 Sheet', lotRefs: 'FG lot of the order', testType: 'Electrical', standard: 'IS 2036', result: 'pass', reportNo: `LR-${tag}`, testedBy: 'Neha Joshi', notes: 'Electric strength 12.5 kV/mm' })
     ids.lab = lab.id
-    note(`Lab test LR-DEMO-${tag} (IS 2036, electrical) passed for order ${orderNo}`)
+    note(`Lab test LR-${tag} (IS 2036, electrical) passed for order ${orderNo}`)
   })
 
   test('sell, part 3: stock allocated, QC, packed, invoiced, despatched, paid in full', async () => {
@@ -283,7 +283,7 @@ test.describe.serial('Demo · one order from the vendor to the customer, done by
     }
     for (const stepKey of ['loaded', 'dispatched']) await stage('store', { stageKey: 'dispatch', action: 'step', stepKey, done: true })
     const pdf = (title: string) => samplePdf(title)
-    for (const [docKey, title] of [['lr_copy', `LR-DEMO-${tag}`], ['eway_bill', `EWB-DEMO-${tag}`]]) {
+    for (const [docKey, title] of [['lr_copy', `LR-${tag}`], ['eway_bill', `EWB-${tag}`]]) {
       const uploader = contexts.get('store') ?? admin
       const uploaded = await uploader.post('/api/attachments', { multipart: { entityId: 'cc_orders:order_stage', recordId: `${orderId}:dispatch:${docKey}`, file: { name: `${title}.pdf`, mimeType: 'application/pdf', buffer: pdf(title) } } })
       if (!uploaded.ok()) {
@@ -291,12 +291,12 @@ test.describe.serial('Demo · one order from the vendor to the customer, done by
         await admin.post('/api/attachments', { multipart: { entityId: 'cc_orders:order_stage', recordId: `${orderId}:dispatch:${docKey}`, file: { name: `${title}.pdf`, mimeType: 'application/pdf', buffer: pdf(title) } } })
       }
     }
-    const sent = await stage('store', { stageKey: 'dispatch', action: 'complete', data: { dispatch_date: day(-1), transporter: 'VRL Logistics', vehicle_no: 'GJ 07 AB 2266', lr_number: `LR-DEMO-${tag}`, eway_bill_no: `EWB${tag}0001`, dispatch_override: 'Balance on delivery (demo)' } })
+    const sent = await stage('store', { stageKey: 'dispatch', action: 'complete', data: { dispatch_date: day(-1), transporter: 'VRL Logistics', vehicle_no: 'GJ 07 AB 2266', lr_number: `LR-${tag}`, eway_bill_no: `EWB${tag}0001`, dispatch_override: 'Balance on delivery (demo)' } })
     expect(sent.ok(), await sent.text()).toBeTruthy()
     const total = 200 * 310 * 1.18
     const advance = Math.round(total * 0.3)
-    await ok('accounts', 'POST', '/api/cc_accounts/payments', { orderId, kind: 'balance', amount: Math.round(total) - advance, paidOn: day(0), mode: 'RTGS', reference: `UTR-DEMO-${tag}-B`, invoiceId })
-    note(`Allocated 200 kg, QC done, packed 4 sheets, invoice ${issued.code}, despatched by VRL Logistics (LR-DEMO-${tag}), balance ₹${(Math.round(total) - advance).toLocaleString('en-IN')} received`)
+    await ok('accounts', 'POST', '/api/cc_accounts/payments', { orderId, kind: 'balance', amount: Math.round(total) - advance, paidOn: day(0), mode: 'RTGS', reference: `UTR-${tag}-B`, invoiceId })
+    note(`Allocated 200 kg, QC done, packed 4 sheets, invoice ${issued.code}, despatched by VRL Logistics (LR-${tag}), balance ₹${(Math.round(total) - advance).toLocaleString('en-IN')} received`)
     note(`Open the order: /backend/orders/${orderId}`)
   })
 })

@@ -432,7 +432,7 @@ test.describe.serial('Demo data · a month of activity across CRM, orders, purch
     }
     const names = Object.keys(customer)
     for (const [index, issue] of [[0, true], [1, false]] as const) {
-      const created = await send('qc', 'POST', '/api/cc_production/tc', { templateId: templates[index % templates.length].id, certDate: day(-2 + index), customerId: customer[names[index + 2]], thicknessMm: index ? 6 : 10, traceability: `DEMO/PB/${index + 1}` })
+      const created = await send('qc', 'POST', '/api/cc_production/tc', { templateId: templates[index % templates.length].id, certDate: day(-2 + index), customerId: customer[names[index + 2]], thicknessMm: index ? 6 : 10, traceability: `PB/${index + 1}` })
       if (!created.ok()) {
         problems.push(`Test certificate: ${(await created.text()).slice(0, 200)}`)
         continue
@@ -440,7 +440,7 @@ test.describe.serial('Demo data · a month of activity across CRM, orders, purch
       const cert = await json<{ id: string; updatedAt: string; rows: Array<{ key: string; check: { kind: string; value?: number; nominal?: string } }> }>(created)
       const observed: Record<string, string> = {}
       for (const row of cert.rows) {
-        if (row.check.kind === 'min') observed[row.key] = String(Math.round(((row.check.value ?? 0) * 1.15 + 1) * 100) / 100)
+        if (row.check.kind === 'min') observed[row.key] = String(Math.round((row.check.value ?? 0) * ((row.check.value ?? 0) < 5 ? 1.05 : 1.15) * 100) / 100)
         else if (row.check.kind === 'max') observed[row.key] = String(Math.round((row.check.value ?? 0) * 0.6 * 100) / 100)
         else if (row.check.kind === 'range') observed[row.key] = index ? '5.9 to 6.1' : '9.8 to 10.2'
         else observed[row.key] = 'OK'

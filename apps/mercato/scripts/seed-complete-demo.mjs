@@ -29,26 +29,7 @@ function makeCompanyLogoUri() {
     <polygon points="45,18 68,32 68,58 45,72 22,58 22,32" fill="none" stroke="url(#acc)" stroke-width="4"/>
     <circle cx="45" cy="45" r="10" fill="url(#acc)"/>
     <text x="82" y="42" font-family="system-ui, sans-serif" font-size="17" font-weight="800" fill="#f8fafc" letter-spacing="0.5">CREATIVE CARBON</text>
-    <text x="82" y="62" font-family="system-ui, sans-serif" font-size="11" font-weight="600" fill="#94a3b8" letter-spacing="1.5">COMPOSITES (DEMO)</text>
-  </svg>`.trim()
-  return `data:image/svg+xml;base64,${Buffer.from(svg).toString('base64')}`
-}
-
-function makeSignatureUri() {
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="180" height="60" viewBox="0 0 180 60">
-    <path d="M 20 40 Q 40 10, 60 35 T 100 25 T 140 40 T 170 30" fill="none" stroke="#2563eb" stroke-width="2.5" stroke-linecap="round"/>
-    <text x="30" y="55" font-family="sans-serif" font-size="9" fill="#64748b">Demo Signatory</text>
-  </svg>`.trim()
-  return `data:image/svg+xml;base64,${Buffer.from(svg).toString('base64')}`
-}
-
-function makeStampUri() {
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100">
-    <circle cx="50" cy="50" r="46" fill="none" stroke="#2563eb" stroke-width="2" stroke-dasharray="4,2"/>
-    <circle cx="50" cy="50" r="38" fill="none" stroke="#2563eb" stroke-width="1.5"/>
-    <text x="50" y="32" font-family="sans-serif" font-size="6.5" font-weight="bold" fill="#2563eb" text-anchor="middle">CREATIVE CARBON</text>
-    <text x="50" y="52" font-family="sans-serif" font-size="8" font-weight="bold" fill="#2563eb" text-anchor="middle">DEMO VERIFIED</text>
-    <text x="50" y="70" font-family="sans-serif" font-size="6" fill="#2563eb" text-anchor="middle">SAMPLE STAMP</text>
+    <text x="82" y="62" font-family="system-ui, sans-serif" font-size="11" font-weight="600" fill="#94a3b8" letter-spacing="1.5">COMPOSITES PVT. LTD.</text>
   </svg>`.trim()
   return `data:image/svg+xml;base64,${Buffer.from(svg).toString('base64')}`
 }
@@ -69,43 +50,39 @@ async function run() {
   // 1. UPDATE COMPANY PROFILE (100% DEMO / FICTIONAL DATA)
   console.log('\n[1/6] Updating Company Profile with Demo / Fictional values …')
   const companyLogo = makeCompanyLogoUri()
-  const sigUri = makeSignatureUri()
-  const stampUri = makeStampUri()
 
   await client.query(`
     UPDATE cc_company_profiles
     SET
-      name = 'Creative Carbon Composites Pvt. Ltd. (Demo)',
+      name = 'Creative Carbon Composites Pvt. Ltd.',
       legal_name = 'Creative Carbon Composites Private Limited',
-      gstin = '24DEMO0000001Z9',
-      pan = 'DEMOP0000D',
-      address = 'Plot 99, Demo Industrial Park, Phase-1, GIDC, Kheda - 387540, Gujarat',
+      gstin = '24AAACC0000A1Z5',
+      pan = 'AAACC0000A',
+      address = 'Plot 99, GIDC Industrial Estate, Phase 1, Kheda 387540, Gujarat',
       phone = '+91 99999 00001',
-      email = 'demo-accounts@example.com',
-      website = 'www.creativecarbon.demo',
-      bank_name = 'Demo Commercial Bank',
-      bank_branch = 'Demo Branch',
+      email = 'accounts@creativecarbon.example',
+      website = 'www.creativecarbon.example',
+      bank_name = 'State Bank (sample account)',
+      bank_branch = 'Kheda',
       bank_account = '00001234567890',
-      bank_ifsc = 'DEMO0001234',
-      signatory = 'Demo Authorised Signatory',
+      bank_ifsc = 'SMPL0001234',
+      signatory = 'Authorised Signatory',
       pi_validity_days = 30,
-      pi_terms = '1. 30% advance with Purchase Order; balance against proforma invoice before dispatch.\n2. Prices are ex-works demo plant.\n3. Demo terms for client presentation only.',
+      pi_terms = '1. 30% advance with Purchase Order; balance against proforma invoice before dispatch.\n2. Prices are ex-works, Kheda.\n3. Delivery as agreed on the order.',
       invoice_terms = '1. Payment due within 30 days.\n2. Standard warranty as per test certificate.\n3. Subject to local jurisdiction.',
-      letterhead = jsonb_build_object(
+      letterhead = (coalesce(letterhead, '{}'::jsonb) - 'signatureUrl' - 'stampUrl') || jsonb_build_object(
         'stateCode', '24',
         'stateName', 'Gujarat',
         'declaration', 'We declare that this invoice shows the actual price of the goods described and that all particulars are true and correct.',
         'jurisdiction', 'Ahmedabad / Kheda',
-        'logoUrl', $1::text,
-        'signatureUrl', $2::text,
-        'stampUrl', $3::text,
-        'worksAddress', 'Survey 99/A, Demo Highway, Kanera, Dist. Kheda - 387540',
+        'logoUrl', coalesce(nullif(letterhead->>'logoUrl', ''), $1::text),
+        'worksAddress', 'Survey 99/A, Highway Road, Kheda 387540, Gujarat',
         'cin', 'U00000GJ2026PTC000000',
         'udyam', 'UDYAM-GJ-00-0000000'
       ),
       updated_at = NOW()
-    WHERE organization_id = $4::uuid AND tenant_id = $5::uuid;
-  `, [companyLogo, sigUri, stampUri, organizationId, tenantId])
+    WHERE organization_id = $2::uuid AND tenant_id = $3::uuid;
+  `, [companyLogo, organizationId, tenantId])
   console.log('  ✓ Company profile set with clean fictional/demo data.')
 
   // 2. SEED PARTY LOGOS (CUSTOMERS & VENDORS)
@@ -153,12 +130,12 @@ async function run() {
   // 3. ENRICH TAX INVOICES WITH DEMO TRANSPORTER & LOGISTICS (FICTIONAL)
   console.log('\n[3/6] Setting Demo Transporters & Invoices …')
   const logistics = [
-    { trans: 'Demo Freight Carriers', veh: 'GJ-07-XX-1111', lr: 'LR-DEMO-001', eway: '240000000001', pos: '24-Gujarat', state: false },
-    { trans: 'FastTrack Cargo (Demo)', veh: 'UP-78-XX-2222', lr: 'LR-DEMO-002', eway: '240000000002', pos: '09-Uttar Pradesh', state: true },
-    { trans: 'Express Roadlines (Demo)', veh: 'MH-04-XX-3333', lr: 'LR-DEMO-003', eway: '240000000003', pos: '27-Maharashtra', state: true },
-    { trans: 'National Transport (Demo)', veh: 'GJ-01-XX-4444', lr: 'LR-DEMO-004', eway: '240000000004', pos: '24-Gujarat', state: false },
-    { trans: 'Western Logistics (Demo)', veh: 'MP-09-XX-5555', lr: 'LR-DEMO-005', eway: '240000000005', pos: '23-Madhya Pradesh', state: true },
-    { trans: 'Swift Transit (Demo)', veh: 'GJ-06-XX-6666', lr: 'LR-DEMO-006', eway: '240000000006', pos: '24-Gujarat', state: false },
+    { trans: 'Rapid Freight Carriers', veh: 'GJ-07-XX-1111', lr: 'LR-001', eway: '240000000001', pos: '24-Gujarat', state: false },
+    { trans: 'FastTrack Cargo', veh: 'UP-78-XX-2222', lr: 'LR-002', eway: '240000000002', pos: '09-Uttar Pradesh', state: true },
+    { trans: 'Express Roadlines', veh: 'MH-04-XX-3333', lr: 'LR-003', eway: '240000000003', pos: '27-Maharashtra', state: true },
+    { trans: 'National Transport', veh: 'GJ-01-XX-4444', lr: 'LR-004', eway: '240000000004', pos: '24-Gujarat', state: false },
+    { trans: 'Western Logistics', veh: 'MP-09-XX-5555', lr: 'LR-005', eway: '240000000005', pos: '23-Madhya Pradesh', state: true },
+    { trans: 'Swift Transit', veh: 'GJ-06-XX-6666', lr: 'LR-006', eway: '240000000006', pos: '24-Gujarat', state: false },
   ]
 
   const invs = await client.query('SELECT id FROM cc_tax_invoices WHERE organization_id = $1 ORDER BY code;', [organizationId])
@@ -174,9 +151,9 @@ async function run() {
         eway_bill_no = $4,
         place_of_supply = $5,
         inter_state = $6,
-        bank_details = 'Demo Bank | A/C: 00001234567890 | IFSC: DEMO0001234',
-        terms = 'Payment due within 30 days. Fictional demo invoice.',
-        notes = 'Demo Invoice. All values for sample presentation.',
+        bank_details = 'State Bank (sample account) | A/C: 00001234567890 | IFSC: SMPL0001234',
+        terms = 'Payment due within 30 days.',
+        notes = null,
         updated_at = NOW()
       WHERE id = $7;
     `, [log.trans, log.veh, log.lr, log.eway, log.pos, log.state, inv.id])
@@ -245,7 +222,7 @@ async function run() {
     { type: 'order', action: 'advance_received', kind: 'finance', summary: 'Received ₹45,000 demo advance for order CCCPL/SO/2627/0008', actor: 'Accounts' },
     { type: 'order', action: 'qc_passed', kind: 'quality', summary: 'Dielectric breakdown & thickness test passed for CCCPL/SO/2627/0006', actor: 'Lab QC' },
     { type: 'invoice', action: 'invoice_issued', kind: 'accounts', summary: 'Demo Tax Invoice #006 issued to Deccan Motor Works', actor: 'Finance Desk' },
-    { type: 'dispatch', action: 'dispatched', kind: 'logistics', summary: 'Dispatched 620 kg composite sheets via Demo Freight (LR #LR-DEMO-001)', actor: 'Despatch In-charge' },
+    { type: 'dispatch', action: 'dispatched', kind: 'logistics', summary: 'Dispatched 620 kg composite sheets via Rapid Freight Carriers (LR #LR-001)', actor: 'Despatch In-charge' },
     { type: 'production', action: 'batch_posted', kind: 'production', summary: 'Resin batch CCCPL/300926/01 completed in VES-2 (1,850 kg yield)', actor: 'Plant Supervisor' },
     { type: 'crm', action: 'quotation_sent', kind: 'sales', summary: 'Demo Quotation Q-2627-018 sent to client partner', actor: 'Sales Manager' },
     { type: 'crm', action: 'enquiry_received', kind: 'sales', summary: 'New enquiry received for High Temperature F-Class Rods (1000 pcs)', actor: 'Inbound Web' },
