@@ -141,7 +141,7 @@ services:
           echo "ERROR: init-or-migrate.sh not found. Please rebuild the container: docker compose build --no-cache app"
           exit 1
         fi
-        INIT_COMMAND='yarn mercato init' sh /app/docker/scripts/init-or-migrate.sh
+        INIT_COMMAND='yarn mercato init --no-examples' sh /app/docker/scripts/init-or-migrate.sh
         yarn start
     volumes:
       - init_marker:/tmp/init-marker

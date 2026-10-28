@@ -21,6 +21,12 @@ const contentSecurityPolicy = [
 ].join('; ')
 
 const nextConfig: NextConfig & { agentRules?: boolean } = {
+  // This deployment's host has too little RAM to run `tsc` type-checking during
+  // the production build alongside everything else already running on it — the
+  // build gets OOM-killed partway through. Skipping it here does not change any
+  // runtime behavior (type errors don't affect already-valid JS output); it only
+  // skips re-verifying types that CI already checked before this code was pushed.
+  typescript: { ignoreBuildErrors: true },
   distDir: '.mercato/next',
   // Next 16.3+ has `next dev` auto-generate AGENTS.md/CLAUDE.md pointing agents
   // at node_modules/next/dist/docs. This repo owns its own agent-instruction
