@@ -5,7 +5,7 @@ const stamp = Date.now()
 const CHARS = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ'
 
 function gstin(stateCode: string): string {
-  const letters = Array.from({ length: 5 }, (_, index) => CHARS[10 + ((stamp >> (index * 3)) % 26)]).join('')
+  const letters = Array.from({ length: 5 }, (_, index) => CHARS[10 + (Math.floor(stamp / 8 ** index) % 26)]).join('')
   const digits = String(stamp % 10000).padStart(4, '0')
   const body = `${stateCode}${letters}${digits}F1Z`
   let sum = 0
