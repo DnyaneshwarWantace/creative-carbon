@@ -211,12 +211,12 @@ export function FieldList({ fields, columns = 2 }: { fields: Array<[string, Reac
   )
 }
 
-export function DocLink({ doc }: { doc: DocumentLink | null }) {
+export function DocLink({ doc, plain = false }: { doc: DocumentLink | null; plain?: boolean }) {
   const t = useT()
   if (!doc) return <span className="text-muted-foreground">—</span>
   const kind = t(`cc_ui.document.${doc.kind}`, DOCUMENT_KIND_LABEL[doc.kind])
   const text = doc.label ? `${kind} ${doc.label}` : kind
-  return doc.href ? (
+  return doc.href && !plain ? (
     <Link href={doc.href} className="font-medium underline-offset-2 hover:underline">
       {text}
     </Link>

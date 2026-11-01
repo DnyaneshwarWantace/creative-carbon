@@ -70,8 +70,8 @@ function TracePanel({ title, trace, empty }: { title: string; trace: LotTrace | 
   const rows: LinkRow[] = trace
     ? [
         { key: 'lot', href: recordHref.lot(trace.lotId), primary: <span className="font-mono">{trace.lotNumber ?? '—'}</span>, secondary: trace.title ?? undefined },
-        ...(trace.madeBy ? [{ key: 'made', href: trace.madeBy.href, primary: <DocLink doc={trace.madeBy} />, secondary: t('cc_production.trace.madeBy', 'made this lot') }] : []),
-        ...trace.usedBy.map((entry, index) => ({ key: `used-${index}`, href: entry.document.href, primary: <DocLink doc={entry.document} />, secondary: day(entry.at), value: `${kg(entry.kg)}` })),
+        ...(trace.madeBy ? [{ key: 'made', href: trace.madeBy.href, primary: <DocLink doc={trace.madeBy} plain />, secondary: t('cc_production.trace.madeBy', 'made this lot') }] : []),
+        ...trace.usedBy.map((entry, index) => ({ key: `used-${index}`, href: entry.document.href, primary: <DocLink doc={entry.document} plain />, secondary: day(entry.at), value: `${kg(entry.kg)}` })),
       ]
     : []
   return (
@@ -531,7 +531,7 @@ export function FgReportDetailPage({ recordId }: { recordId: string }) {
             (row.output?.usedBy ?? []).map((entry, index) => ({
               key: `${row.sr}-${index}`,
               href: entry.document.href,
-              primary: <DocLink doc={entry.document} />,
+              primary: <DocLink doc={entry.document} plain />,
               secondary: `${row.outputLotNumber ?? ''} · ${day(entry.at)}`,
               value: kg(entry.kg),
             })),

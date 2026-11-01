@@ -304,7 +304,7 @@ export function GrnPage({ grnId }: { grnId: string }) {
               <Panel title={t('cc_purchase.grnDetail.wentTo', 'Where these lots went')} icon={Waypoints} count={traces ? used.length : null} flush>
                 <LinkRows
                   empty={traces ? t('cc_purchase.grnDetail.notUsed', 'Nothing taken from these lots yet.') : t('cc_purchase.grnDetail.loadingTrace', 'Loading…')}
-                  rows={used.map((entry) => ({ key: entry.key, href: entry.document.href, primary: <DocLink doc={entry.document} />, secondary: `${entry.lotNumber ?? ''} · ${day(entry.at)}`, value: qty(entry.kg, '') }))}
+                  rows={used.map((entry) => ({ key: entry.key, href: entry.document.href, primary: <DocLink doc={entry.document} plain />, secondary: `${entry.lotNumber ?? ''} · ${day(entry.at)}`, value: qty(entry.kg, '') }))}
                 />
               </Panel>
             </>

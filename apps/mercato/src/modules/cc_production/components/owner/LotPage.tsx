@@ -228,7 +228,7 @@ export function StockLotPage({ lotId }: { lotId: string }) {
                   key: lot.lotId,
                   href: recordHref.lot(lot.lotId),
                   primary: <span className="font-mono">{'↑'.repeat(index + 1)} {lot.lotNumber}</span>,
-                  secondary: lot.madeBy ? <DocLink doc={lot.madeBy} /> : lot.title ?? undefined,
+                  secondary: lot.madeBy ? <DocLink doc={lot.madeBy} plain /> : lot.title ?? undefined,
                 }))}
               />
             </Panel>
@@ -239,7 +239,7 @@ export function StockLotPage({ lotId }: { lotId: string }) {
                   key: lot.lotId,
                   href: recordHref.lot(lot.lotId),
                   primary: <span className="font-mono">{lot.depth === 2 ? '↳↳' : '↳'} {lot.lotNumber}</span>,
-                  secondary: lot.madeBy ? <DocLink doc={lot.madeBy} /> : lot.title ?? undefined,
+                  secondary: lot.madeBy ? <DocLink doc={lot.madeBy} plain /> : lot.title ?? undefined,
                 }))}
               />
             </Panel>
