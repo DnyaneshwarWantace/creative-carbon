@@ -9,7 +9,6 @@ import { cn } from '@open-mercato/shared/lib/utils'
 import { Page, PageBody } from '@open-mercato/ui/backend/Page'
 import { Button } from '@open-mercato/ui/primitives/button'
 import { Input } from '@open-mercato/ui/primitives/input'
-import { Label } from '@open-mercato/ui/primitives/label'
 import { Textarea } from '@open-mercato/ui/primitives/textarea'
 import { StatusBadge } from '@open-mercato/ui/primitives/status-badge'
 import { ErrorMessage } from '@open-mercato/ui/backend/detail'
@@ -70,13 +69,13 @@ function draftOf(enquiry: Enquiry | null): Draft {
 
 function Field({ label, required, children, className }: { label: string; required?: boolean; children: React.ReactNode; className?: string }) {
   return (
-    <div className={cn('space-y-1.5', className)}>
-      <Label className="text-xs text-muted-foreground">
+    <label className={cn('block space-y-1.5', className)}>
+      <span className="block text-xs font-medium text-muted-foreground">
         {label}
         {required ? ' *' : ''}
-      </Label>
+      </span>
       {children}
-    </div>
+    </label>
   )
 }
 

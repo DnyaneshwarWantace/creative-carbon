@@ -127,10 +127,10 @@ export function AccessChangeLog({ subjectType, subjectId, refreshKey, onUndone }
           {items.map((row) => (
             <li key={row.id} className="flex flex-col gap-1 py-2 sm:flex-row sm:items-start sm:justify-between">
               <div className="min-w-0 space-y-0.5">
-                <p className="text-sm">
+                <div className="text-sm">
                   <span className="font-medium">{row.subjectLabel}</span> · {t(`cc_departments.log.action.${row.action}`, ACTION_LABEL[row.action] ?? row.action)}
                   {row.undoneAt ? <StatusBadge variant="neutral" className="ml-2">{t('cc_departments.log.undoneBadge', 'Undone')}</StatusBadge> : null}
-                </p>
+                </div>
                 <p className="text-xs text-muted-foreground">
                   {new Date(row.at).toLocaleString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })} · {row.outside ? t('cc_departments.log.outside', 'found on the next visit') : row.by ?? '—'}
                   {row.reason ? ` · ${row.reason}` : ''}
