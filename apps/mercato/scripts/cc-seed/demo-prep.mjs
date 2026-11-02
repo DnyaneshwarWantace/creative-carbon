@@ -23,30 +23,38 @@ async function call(path, method = 'GET', body, updatedAt) {
 
 const step = (label) => console.log(`\n▸ ${label}`)
 
-step('Company details: a made-up letterhead')
-await call('/api/cc_accounts/company', 'PUT', {
-  name: 'Sample Composites Pvt. Ltd.',
-  legalName: 'Sample Composites Private Limited',
-  gstin: '24AAAAA0000A1Z5',
-  pan: 'AAAAA0000A',
-  address: 'Plot 12, Demo Industrial Estate, Sample Road, Ahmedabad 380000, Gujarat',
-  phone: '+91 90000 00001',
-  email: 'office@sample-composites.example',
-  website: 'www.sample-composites.example',
-  bankName: 'Sample Bank',
-  bankBranch: 'Demo Branch',
-  bankAccount: '000000000000',
-  bankIfsc: 'SMPL0000001',
-  signatory: 'Authorised Signatory',
-  piValidityDays: 15,
-  grnOverPercent: 2,
-  letterhead: { stateName: 'Gujarat', stateCode: '24', jurisdiction: 'Ahmedabad', declaration: 'We declare that this invoice shows the actual price of the goods described and that all particulars are true and correct.' },
-})
-console.log('  saved')
+const skip = new Set((process.env.CC_DEMO_SKIP ?? '').split(',').map((entry) => entry.trim()).filter(Boolean))
 
-step('Operators: made-up names')
-await call('/api/cc_lists/lists', 'PUT', { key: 'operators', options: ['Ramesh K.', 'Sunil P.', 'Imran S.', 'Deepak V.', 'Arjun M.', 'Kishore T.'].map((value) => ({ value, active: true })) })
-console.log('  6 operators')
+if (skip.has('company')) console.log('\n▸ company: skipped (CC_DEMO_SKIP)')
+else {
+  step('Company details: a made-up letterhead')
+  await call('/api/cc_accounts/company', 'PUT', {
+    name: 'Sample Composites Pvt. Ltd.',
+    legalName: 'Sample Composites Private Limited',
+    gstin: '24AAAAA0000A1Z5',
+    pan: 'AAAAA0000A',
+    address: 'Plot 12, Demo Industrial Estate, Sample Road, Ahmedabad 380000, Gujarat',
+    phone: '+91 90000 00001',
+    email: 'office@sample-composites.example',
+    website: 'www.sample-composites.example',
+    bankName: 'Sample Bank',
+    bankBranch: 'Demo Branch',
+    bankAccount: '000000000000',
+    bankIfsc: 'SMPL0000001',
+    signatory: 'Authorised Signatory',
+    piValidityDays: 15,
+    grnOverPercent: 2,
+    letterhead: { stateName: 'Gujarat', stateCode: '24', jurisdiction: 'Ahmedabad', declaration: 'We declare that this invoice shows the actual price of the goods described and that all particulars are true and correct.' },
+  })
+  console.log('  saved')
+}
+
+if (skip.has('operators')) console.log('\n▸ operators: skipped (CC_DEMO_SKIP)')
+else {
+  step('Operators: made-up names')
+  await call('/api/cc_lists/lists', 'PUT', { key: 'operators', options: ['Ramesh K.', 'Sunil P.', 'Imran S.', 'Deepak V.', 'Arjun M.', 'Kishore T.'].map((value) => ({ value, active: true })) })
+  console.log('  6 operators')
+}
 
 step('Moulds: made-up dies with cavities')
 const dies = [
@@ -83,15 +91,18 @@ if (missing.length) {
   console.log(`  ${(imported.results ?? []).filter((row) => row.status === 'created').length} created`)
 } else console.log('  already there')
 
-step('Default framework logins removed')
-const users = await call('/api/auth/users?pageSize=100')
-for (const user of users.items ?? []) {
-  if (String(user.email ?? '').endsWith('@acme.com')) {
-    try {
-      await call(`/api/auth/users?id=${user.id}`, 'DELETE')
-      console.log(`  removed ${user.email}`)
-    } catch (error) {
-      console.log(`  kept ${user.email}: ${error.message.replace(/^.*→ \d+ /, '')}`)
+if (skip.has('logins')) console.log('\n▸ logins: skipped (CC_DEMO_SKIP)')
+else {
+  step('Default framework logins removed')
+  const users = await call('/api/auth/users?pageSize=100')
+  for (const user of users.items ?? []) {
+    if (String(user.email ?? '').endsWith('@acme.com')) {
+      try {
+        await call(`/api/auth/users?id=${user.id}`, 'DELETE')
+        console.log(`  removed ${user.email}`)
+      } catch (error) {
+        console.log(`  kept ${user.email}: ${error.message.replace(/^.*→ \d+ /, '')}`)
+      }
     }
   }
 }

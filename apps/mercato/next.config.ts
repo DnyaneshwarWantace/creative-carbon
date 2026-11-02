@@ -62,6 +62,10 @@ const nextConfig: NextConfig & { agentRules?: boolean } = {
     'esbuild',
     '@esbuild/darwin-arm64',
     '@open-mercato/cli',
+    // The Upload Centre reads Excel with exceljs; bundling it makes Turbopack
+    // externalize its rimraf dependency under a hashed name the production
+    // image does not carry, so load it as a plain Node module.
+    'exceljs',
     // Telemetry: the OTEL SDK + instrumentations must run as real Node modules,
     // not be bundled — the auto-instrumentations (pg/undici) monkey-patch the
     // underlying drivers at runtime. The full list is owned by
