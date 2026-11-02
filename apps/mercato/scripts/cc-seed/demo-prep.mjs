@@ -91,6 +91,41 @@ if (missing.length) {
   console.log(`  ${(imported.results ?? []).filter((row) => row.status === 'created').length} created`)
 } else console.log('  already there')
 
+step('Recipes: standard material per batch, B-stage, sheet and moulded part (made-up figures)')
+const kinds = ['chemical', 'reinforcement', 'chindi', 'resin', 'bstage', 'laminate', 'moulded']
+const byTitle = new Map()
+for (const kind of kinds) {
+  const found = await call(`/api/cc_products/search?kinds=${kind}&limit=100`)
+  for (const item of found.items ?? []) byTitle.set(String(item.title).toLowerCase(), item.id)
+}
+const id = (title) => byTitle.get(title.toLowerCase()) ?? (title.startsWith('B-stage') ? [...byTitle.entries()].find(([name]) => name.startsWith(title.toLowerCase().replace('b-stage for ', 'b-stage ')))?.[1] : undefined)
+const recipes = [
+  { level: 'resin', name: 'P.F. Resin PFC', output: 'P.F. Resin PFC', outputQty: 100, lines: [['Phenol', 60], ['Formaldehyde', 70], ['Caustic Soda Flakes', 1.5], ['Methanol', 8]] },
+  { level: 'coating', name: '10x10', output: 'B-stage for 10x10', outputQty: 100, lines: [['10x10', 55], ['P.F. Resin PFC', 45]] },
+  { level: 'coating', name: '6x6', output: 'B-stage for 6x6', outputQty: 100, lines: [['6x6', 52], ['P.F. Resin PFC', 48]] },
+  { level: 'laminate', name: 'Fabric 10x10 Sheet', output: 'Fabric 10x10 Sheet', outputQty: 1, lines: [['B-stage for 10x10', 56]] },
+  { level: 'laminate', name: 'F2F3 10x10 Sheet', output: 'F2F3 10x10 Sheet', outputQty: 1, lines: [['B-stage for 10x10', 50]] },
+  { level: 'moulded', name: 'Moulded bush D-101', dieNo: 'D-101', output: 'Moulded bush D-101', outputQty: 100, lines: [['Cotton chindi', 9], ['B-stage for 10x10', 3]] },
+]
+const existingRecipes = new Set(((await call('/api/cc_production/recipes')).items ?? []).map((recipe) => `${recipe.level}:${String(recipe.name).toLowerCase()}`))
+for (const recipe of recipes) {
+  if (existingRecipes.has(`${recipe.level}:${recipe.name.toLowerCase()}`)) {
+    console.log(`  ${recipe.name}: already there`)
+    continue
+  }
+  const lines = recipe.lines.filter(([title]) => id(title)).map(([title, kg]) => ({ productId: id(title), kg, tolerancePct: 3 }))
+  if (!lines.length) {
+    console.log(`  ${recipe.name}: items missing, skipped`)
+    continue
+  }
+  try {
+    await call('/api/cc_production/recipes', 'POST', { level: recipe.level, name: recipe.name, outputProductId: id(recipe.output) ?? null, dieNo: recipe.dieNo ?? null, outputQty: recipe.outputQty, lines, notes: 'Demo standard; replace with the plant figures.' })
+    console.log(`  ${recipe.name} · ${lines.length} materials per ${recipe.outputQty}`)
+  } catch (error) {
+    console.log(`  ${recipe.name}: ${error.message}`)
+  }
+}
+
 if (skip.has('logins')) console.log('\n▸ logins: skipped (CC_DEMO_SKIP)')
 else {
   step('Default framework logins removed')
